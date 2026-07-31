@@ -477,8 +477,8 @@ export async function pickAssigneeForFunction(
 /**
  * Quem fica com o card enquanto ele espera o cliente.
  * Regra: prioriza colaborador com a função `aguardando_cliente` atribuída
- * (sticky se o responsável anterior já a tiver); se nenhum colaborador tiver
- * a função habilitada, mantém o responsável anterior (fallback seguro).
+ * (sticky se o responsável anterior já a tiver). Sem alguém habilitado, a
+ * transição deve ser bloqueada — nunca deixa o card com um dono incompatível.
  */
 async function resolveClientWaitOwner(
   tenantId: string,
@@ -492,7 +492,7 @@ async function resolveClientWaitOwner(
   } catch (e) {
     console.warn("[proceedDemand] resolveClientWaitOwner error:", e);
   }
-  return previousAssignee;
+  return null;
 }
 
 
@@ -663,8 +663,12 @@ export async function jumpToFunction({
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const previous = (cur as any)?.assigned_to || null;
     const keep = await resolveClientWaitOwner(tenantId, previous);
-    const updateWait: any = { current_function_key: target.function_key, client_wait_started_at: new Date().toISOString() };
-    if (keep !== previous) updateWait.assigned_to = keep;
+    if (!keep) return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
+    const updateWait: any = {
+      assigned_to: keep,
+      current_function_key: target.function_key,
+      client_wait_started_at: new Date().toISOString(),
+    };
     const { error } = await supabase.from("demands").update(updateWait).eq("id", demandId);
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: previous, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
@@ -790,15 +794,17 @@ export async function proceedDemand({
   const skipMeta = skipped.length > 0 ? { skipped } : undefined;
   const skipNote = skipped.length > 0 ? " (revisão dispensada: mesma pessoa executou)" : "";
 
-  // Entrada em "Aguardando clientes": dono da espera vem da função atribuída
-  // (fallback: mantém o responsável anterior).
+  // Entrada em "Aguardando clientes": dono da espera sempre vem da função atribuída.
   if (nextFn.function_key === "aguardando_cliente") {
     const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee);
+    if (!keepAssignee) {
+      return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
+    }
     const waitPayload: any = {
+      assigned_to: keepAssignee,
       current_function_key: nextFn.function_key,
       client_wait_started_at: new Date().toISOString(),
     };
-    if (keepAssignee !== previousAssignee) waitPayload.assigned_to = keepAssignee;
     const { error: upErr } = await supabase
       .from("demands")
       .update(waitPayload)
