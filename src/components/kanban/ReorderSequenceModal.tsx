@@ -186,7 +186,23 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   }, [open, tenantId, assigneeId]);
 
 
+  // Configuração de prioridade/risco por área (definida em Configurações de fluxo).
+  const dominantArea: "midia" | "sistemas" = useMemo(() => {
+    const sist = cards.filter((c) => c.work_area === "sistemas").length;
+    return sist > cards.length - sist ? "sistemas" : "midia";
+  }, [cards]);
+  const [priority, setPriority] = useState<ReorderPriorityConfig>(DEFAULT_REORDER_PRIORITY);
+  useEffect(() => {
+    if (!open || !tenantId) return;
+    let cancelled = false;
+    loadReorderPriority(tenantId).then((cfg) => {
+      if (!cancelled) setPriority(cfg[dominantArea]);
+    });
+    return () => { cancelled = true; };
+  }, [open, tenantId, dominantArea]);
+
   const showPublishToggle = hasPublishDateCandidates(cards);
+
   const storageKey = `reorder-priority-mode:${tenantId || "default"}`;
   const [prioritizeByPublish, setPrioritizeByPublish] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
