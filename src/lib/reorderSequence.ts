@@ -536,22 +536,39 @@ function stagePlannedMinutes(card: ReorderCardInput, ctx: WorkCtx, tz: string): 
 
 
 
-export type StageDurationOverrides = Record<string, Partial<Record<DurationTypeGroup, number>>>;
+/**
+ * Overrides de duração por etapa.
+ * - chaves de grupo (`estatico`, `video_curto`, ...) = formato legado, compartilhado
+ *   entre tipos do mesmo grupo;
+ * - `byType` = override por TIPO de demanda (`video_gerado` ≠ `video_captado`),
+ *   que tem prioridade sobre o grupo.
+ */
+export type StageDurationRow = Partial<Record<DurationTypeGroup, number>> & {
+  byType?: Record<string, number>;
+};
+export type StageDurationOverrides = Record<string, StageDurationRow>;
 
 function pickFromOverrides(
   overrides: StageDurationOverrides | undefined,
   stage: string,
   group: DurationTypeGroup,
   area?: string | null,
+  demandTypeKey?: string | null,
 ): number | null {
   // Chaves são prefixadas por área (`sistemas:revisar`) para evitar colisão
   // entre etapas homônimas de Mídia e Sistemas. Fallback: chave sem prefixo.
   const areaKey = `${area === "sistemas" ? "sistemas" : "midia"}:${stage}`;
   const row = overrides?.[areaKey] ?? overrides?.[stage];
   if (!row) return null;
+  const typeKey = (demandTypeKey || "").toLowerCase();
+  if (typeKey) {
+    const byType = row.byType?.[typeKey];
+    if (typeof byType === "number" && byType > 0) return byType;
+  }
   const v = row[group] ?? row.default;
   return typeof v === "number" && v > 0 ? v : null;
 }
+
 
 function estimateDurationBase(
   card: ReorderCardInput,
