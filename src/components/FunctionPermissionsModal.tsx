@@ -13,6 +13,24 @@ import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
 import { AreaAllocationTab } from "@/components/config/AreaAllocationTab";
 import { loadReorderPriority, saveReorderPriority, DEFAULT_REORDER_PRIORITY, type ReorderPriorityConfig } from "@/lib/reorderPriority";
 
+/** Presets em linguagem operacional para a janela de risco (multiplicador da etapa). */
+const RISK_PRESETS = [
+  { label: "Só no limite", factor: 1.5, hint: "fura a fila quase em cima do prazo" },
+  { label: "Equilibrado", factor: 3, hint: "recomendado" },
+  { label: "Antecipar bastante", factor: 6, hint: "reage bem antes do prazo" },
+];
+
+/** "180" -> "3 h"; "90" -> "1 h 30 min". */
+function formatHoursLabel(min: number): string {
+  const total = Math.max(0, Math.round(min));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h && m) return `${h} h ${m} min`;
+  if (h) return `${h} h`;
+  return `${m} min`;
+}
+
+
 
 interface Props {
   open: boolean;
@@ -222,6 +240,8 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   const [savingAwaiting, setSavingAwaiting] = useState(false);
   const [priorityCfg, setPriorityCfg] = useState<ReorderPriorityConfig>({ ...DEFAULT_REORDER_PRIORITY });
   const [savingPriority, setSavingPriority] = useState(false);
+  const [customRisk, setCustomRisk] = useState(false);
+
 
   useEffect(() => {
     if (!open || !agencyId) return;
