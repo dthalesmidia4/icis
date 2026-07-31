@@ -469,7 +469,10 @@ export async function pickAssigneeForFunction(
   if (aErr) return { success: false, message: "Erro ao buscar colaboradores." };
 
 
-  const candidateIds = Array.from(new Set((assigns || []).map((a: any) => a.user_id))).filter(Boolean);
+  const candidateIds = Array.from(
+    new Set(((assigns || []) as any[]).map((a: any) => String(a.user_id))),
+  ).filter(Boolean) as string[];
+
   if (candidateIds.length === 0) {
     return { success: false, message: `Nenhum colaborador tem a função "${label}" atribuída.` };
   }
