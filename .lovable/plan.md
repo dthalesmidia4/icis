@@ -1,51 +1,55 @@
-## O que eu verifiquei no código atual
+## Diagnóstico (verificado no código e no banco)
 
-1. **Arrastar card entre colunas** (`KanbanCentralPage.tsx`, handler de drag ~linha 1160-1255): valida **apenas** função de etapa de cliente (`isClientStageKey` + `userHasFunction`) e reresolve a etapa via `resolveFunctionForAssignee`. Depois grava `assigned_to` direto em `demands`. **Nenhuma checagem de horário/ocupação.**
-2. **Select "Responsável" dentro do card** (`TaskCard.tsx` ~linha 1806-1860): mesma coisa — valida função, resolve etapa, salva. **Nenhuma checagem de horário.**
-3. **A única checagem de conflito que existe** (`warnAreaConflict` em `TaskCard.tsx`, linha ~1136) só roda quando **a data/hora muda**, nunca quando o **responsável** muda. E ela usa `findAreaConflicts`, que tem `if (d.work_area === area) continue` — ou seja **ignora conflito dentro da mesma área**. Só cruzamento Mídia × Sistemas é detectado.
-4. **`findScheduleAreaConflict`** valida só a janela de `user_area_schedules` (Mídia vs Sistemas por dia da semana), não ocupação por outro card.
-5. **`proceedDemand.ts`** escolhe o próximo responsável (`picked.userId`) por função/permissão e mantém as datas do card; não consulta a agenda do escolhido. `buildReturnFromClientDates` cria janela "agora + duração" sem verificar se o slot está livre.
-6. **Trigger no banco** (`validate_demand_stage_assignment`) valida somente compatibilidade função × responsável. Não existe nenhuma restrição de sobreposição de horário no banco — logo qualquer caminho (UI, automação, edge function) pode criar conflito.
-7. **O motor de agenda já existe e é bom**, mas só é usado no reorganizador manual: `reorderSequence.ts` (`DURATION_MATRIX`, `estimateDurationMinutes`, horários de trabalho, cortes por área), `flowDurations.ts` (overrides por etapa), `useWorkHoursConfig`, `user_area_schedules`.
+**1. Conflito Mídia × Sistemas — causa confirmada**
 
-**Conclusão da causa raiz:** não existe nenhuma noção de *ocupação de agenda por responsável* no momento da transferência. Conflito de mesma área nunca foi implementado, e a validação existente é só um aviso pós-mudança de data.
+`flow_functions` tem chaves duplicadas entre áreas: `revisar` e `aguardando_cliente` existem tanto em `midia` (pos. 9 / 11) quanto em `sistemas` (pos. 7 / 9).
 
-## Plano de correção
+Já `collaborator_function_assignments` **não tem coluna `work_area`** e o upsert usa `onConflict: tenant_id,user_id,function_key` (`CollaboratorFunctionAssignmentsModal.tsx`). Ou seja: marcar "Revisar" na aba Sistemas grava a mesma linha que a aba Mídia. Hoje no banco só **Henrique** tem `revisar = true` — e ele é o dev de Sistemas. Por isso todo card de Mídia que chega em "Revisar" cai no Henrique.
 
-### 1. Motor único de ocupação (`src/lib/scheduleOccupancy.ts`)
-Nova camada que reaproveita `estimateDurationMinutes`, os overrides de `flow_functions.config.durations`, `useWorkHoursConfig` e `user_area_schedules`:
-- `getBusyIntervals({ tenantId, userId, dateRange })` → lista de janelas ocupadas do responsável, derivadas de `due_date/due_time` → `delivery_date/delivery_time` (quando ausentes, deriva o fim pela duração da etapa/tipo).
-- `checkAssignmentConflicts({ tenantId, userId, card, targetStage, area })` → retorna `{ hard[], soft[], scheduleWindow }`:
-  - **hard**: sobreposição real de janelas (qualquer área — corrige o furo de mesma área), card sem horário ocupando o dia inteiro, ou janela dentro do bloco de outra área em `user_area_schedules`.
-  - **soft**: encosta no limite, cruza fronteira de área, fora de janela configurada, ou dia com carga acima do disponível.
-- Etapas que não consomem tempo (`aguardando_cliente`, `enviar_cliente` e demais de `isClientFacingFunction`/`UNTIMED_STAGE_KEYS`) e cards com dispatch ativo ficam fora da ocupação.
-- `suggestFreeSlot(...)` → primeiro slot livre do novo responsável (respeitando janela da área, almoço e corte de fim de dia), usado para oferecer reagendamento.
+Onde isso vaza:
+- `pickAssigneeForFunction` (`proceedDemand.ts`) filtra só por `function_key` — sem área.
+- DB `resolve_function_for_assignee` monta a sequência a partir de `flow_functions` filtrando apenas `tenant_id AND active` — **ignora `work_area`** e ainda mistura as posições das duas áreas.
+- Trigger `validate_demand_stage_assignment` valida a atribuição sem considerar área.
+- `clientStageAssignments.ts` (aguardando/enviar cliente) também é cego a área.
+- `getPipelineSequence` é o único ponto que já filtra `work_area` corretamente.
 
-### 2. Ponto único de transferência (`src/lib/reassignDemand.ts`)
-Todos os caminhos passam a chamar uma única função que executa, em ordem: validação de função → resolução de etapa → `checkAssignmentConflicts` → decisão → update → `recordFlowHistory` (com o motivo/decisão no `metadata`).
-Consumidores a migrar: drag do Kanban, select de responsável no `TaskCard`, `AwaitingClientActions`, `proceedDemand` (escolha do próximo responsável e retorno do cliente), `CollaboratorDemands`.
+**2. Reordenação trocando a ordem / mexendo no primeiro card — causa confirmada**
 
-### 3. Comportamento na UI
-- **Conflito hard → bloqueia** a transferência (nada é gravado; no drag o card volta à coluna de origem) e abre um modal "Conflito de agenda" listando os cards em choque, com três saídas: *Cancelar*, *Reagendar para o primeiro slot livre* (usa `suggestFreeSlot`), *Escolher outro horário*.
-- **Conflito soft → permite** com aviso explícito (toast) e registro no histórico.
-- Nada de "salvar e avisar depois": a checagem roda **antes** do update, inclusive no drag (o update otimista só é aplicado após aprovação).
-- `warnAreaConflict` do `TaskCard` passa a delegar ao novo motor, ganhando também conflito de mesma área ao mudar data/hora.
+`sortForReorder` particiona em *tiers* (Produção 0 → Revisão 1 → Avaliar 2) **antes** de identificar o card em execução, e depois `computeReorder` aplica `isFirstActive` (preservar início / extensão de atraso) apenas ao primeiro item da lista já particionada.
 
-### 4. Garantia no banco (não burlável)
-Nova migração:
-- Função `public.demand_schedule_conflicts(...)` (security definer) que calcula sobreposição de janelas do mesmo `assigned_to` no mesmo tenant, ignorando etapas sem prazo e cards arquivados/rascunho.
-- Trigger `BEFORE INSERT OR UPDATE` em `demands` que **bloqueia** com mensagem clara quando `assigned_to`/datas/horários/etapa mudarem e resultarem em sobreposição — cobrindo automações e edge functions.
-- Uma flag de contexto (`set_config`) permite ao reorganizador em lote aplicar sua sequência já validada sem falso positivo durante os updates intermediários.
-- Antes de ativar: query de auditoria para listar conflitos legados existentes e relatório ao usuário (correção dos legados feita em passo separado, com histórico registrado).
+No print: "Templates personalizados de anamnese" está em **Revisar** desde 28/07 13:45 (em execução, tier 1) e "Correção de Bug" está em Produção (tier 0). O tier joga o card realmente em execução para a 3ª posição e trata o card de produção como "em andamento". Daí o primeiro card ter início alterado e a ordem embaralhar.
 
-### 5. Coerência com o reorganizador e áreas
-- `reorderSequence.ts` passa a consumir `getBusyIntervals` para considerar também cards de **outra área** do mesmo responsável como blocos ocupados, em vez de reorganizar apenas a coluna atual.
-- Cards `captar` com múltiplos responsáveis: ocupação avaliada para cada responsável (principal + `additional_assignees`).
+Além disso, `prioritizePublishDate` reordena por `publish_date` sem olhar distância: o card do Hospital Veterinário Leal, com publicação em 18/08 (18 dias à frente), passou na frente por estar simplesmente ordenado por data de publicação.
 
-### 6. Validação
-- Testar: arrastar card para coluna de colaborador já ocupado no mesmo horário (mesma área) → bloqueio; trocar responsável pelo select → bloqueio; conflito Mídia × Sistemas → bloqueio; "Reagendar para slot livre"; avanço automático de etapa por `proceedDemand`; tentativa de update direto no banco → erro do trigger.
+---
 
-## Detalhes técnicos
-- Arquivos novos: `src/lib/scheduleOccupancy.ts`, `src/lib/reassignDemand.ts`, `src/components/kanban/ScheduleConflictModal.tsx`.
-- Alterados: `KanbanCentralPage.tsx`, `TaskCard.tsx`, `AwaitingClientActions.tsx`, `proceedDemand.ts`, `areaConflicts.ts` (passa a ser fachada do novo motor), `reorderSequence.ts`.
-- Banco: 1 migração (função + trigger). Sem mudança de schema de colunas.
+## Plano
+
+### Parte A — Isolamento de área nas funções operacionais
+
+1. **Migração**: adicionar `work_area work_area NOT NULL DEFAULT 'midia'` em `collaborator_function_assignments`; trocar a unique para `(tenant_id, user_id, function_key, work_area)`. Backfill: as linhas atuais viram `midia`, exceto as chaves exclusivas de Sistemas (`especificar`, `desenvolver`, `corrigir_bug_n*`, `testar`, `ajustar`, `entregar_cliente`, `feedback_cliente`), que passam a `sistemas`. As chaves ambíguas (`revisar`, `aguardando_cliente`) ficam em `midia` e serão duplicadas para `sistemas` conforme a intenção real (Henrique = Sistemas; será preciso confirmar com você quem revisa Mídia).
+2. **Migração**: reescrever `resolve_function_for_assignee` para receber/derivar a área do card e filtrar `flow_functions` + `demand_type_flow_rules` + `collaborator_function_assignments` por `work_area`; atualizar `validate_demand_stage_assignment` para validar por `(function_key, work_area)`.
+3. **Frontend**: `pickAssigneeForFunction`, `resolveNextStage`, `collectStageExecutors` e `clientStageAssignments.ts` passam a receber `workArea` obrigatório e a filtrar por ele. `CollaboratorFunctionAssignmentsModal` grava/lê por área (aba já existe; só falta a coluna no conflito).
+4. **Auditoria de correção**: identificar cards já parados numa etapa da área errada (ex.: card de Mídia em `revisar` com responsável só de Sistemas) e realocar ao responsável correto, registrando em `demand_flow_history`.
+
+### Parte B — Nova política de ordenação da reorganização
+
+5. **Corrigir a detecção do card em execução**: identificar o card em andamento (`due_date/due_time` no passado e etapa iniciada) **antes** do particionamento por tier e travá-lo na posição 1 sempre. Só ele recebe `keepStart`; e o acréscimo de 30% passa a ser aplicado **apenas quando há atraso real** (término previsto já vencido) — sem atraso, nada de acréscimo e o início permanece intacto.
+6. **Classificação de entrada na fila** (usando `demand_flow_history` → entrada na etapa atual, já carregado no modal):
+   - **em execução** → posição 1, início preservado;
+   - **já estava na sequência** (entrou na etapa antes da abertura da fila / tem janela válida no futuro) → mantém a posição relativa por `due_date`;
+   - **acabou de entrar na coluna** e sem risco de atraso → vai para o **fim** da fila (resolve o cenário do usuário que solta um card e clica em reorganizar sem analisar).
+7. **Janela de risco por ciclo restante** (substitui o "priorizar por data de publicação" cru): para cada card com prazo (publicação ou entrega), calcular o **tempo de ciclo restante** somando as durações das etapas seguintes obrigatórias do fluxo (`flow_functions.config.durations` + `demand_type_flow_rules`, por área), em **minutos úteis** (expediente, almoço, fim de semana, feriados e `user_area_schedules` da área). O card só é promovido à frente se `prazo − agora ≤ fator × ciclo_restante`. No exemplo: "Vídeo captado" em `editar_video` com ~50min restantes e publicação em 18 dias → fator 3 ⇒ janela de ~2,5h úteis ⇒ **não** promove.
+8. **Nova aba "Prioridade e risco"** em Configurar funções de fluxo (`FunctionPermissionsModal`), por área, persistida em `flow_functions.config` (ou config do tenant), com: fator de segurança (default 3×), folga de atraso (default 30%), e opção de considerar publicação apenas dentro da janela. Nada hardcoded.
+9. **Modal de reorganização**: o toggle atual passa a "Priorizar por risco de prazo" e cada card ganha um selo explicando a decisão — `em execução`, `na sequência`, `entrou agora → fim da fila`, `em risco (prazo em Xh vs ciclo restante Yh)`. Ajustes manuais em cascata continuam funcionando como hoje.
+
+### Detalhes técnicos
+
+- Arquivos principais: `src/lib/reorderSequence.ts` (ordenação, janela de risco, atraso), `src/lib/flowDurations.ts` (ciclo restante por área), `src/components/kanban/ReorderSequenceModal.tsx`, `src/components/FunctionPermissionsModal.tsx`, `src/components/CollaboratorFunctionAssignmentsModal.tsx`, `src/lib/proceedDemand.ts`, `src/lib/clientStageAssignments.ts`, `src/lib/initialFlowFunction.ts`.
+- Migrações: coluna + unique em `collaborator_function_assignments`; reescrita de `resolve_function_for_assignee` e `validate_demand_stage_assignment` com filtro de área.
+- O motor de expediente (`dayBlocks`, `businessMinutesBetween`, `allocateAcrossDays`) é reutilizado como está para todos os cálculos de minutos úteis — nenhuma duplicação de lógica de calendário.
+- `scheduleOccupancy` / `block_conflicting_assignment` permanecem intactos; ganham só a área na validação de compatibilidade de função.
+
+### Confirmação necessária antes de aplicar
+
+Quem deve ficar com **"Revisar" da área Mídia**? Hoje só Henrique (Sistemas) tem a função, e sem essa definição os cards de Mídia continuarão sem revisor após o isolamento por área.
