@@ -647,6 +647,20 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                                 <td key={fn.key} className="p-2 text-center text-muted-foreground/40">—</td>
                               );
                             }
+                            if (UNTIMED_STAGE_KEYS.has(fn.key)) {
+                              return (
+                                <td key={fn.key} className="p-2 text-center align-middle">
+                                  <span
+                                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] text-muted-foreground"
+                                    title='Estado de espera pelo cliente — sem prazo de produção. Configure na aba "Retorno do cliente".'
+                                  >
+                                    <PauseCircle className="h-3 w-3" />
+                                    sem prazo
+                                  </span>
+                                </td>
+                              );
+                            }
+
                             const value = cellMinutes(fn.key, dt.group);
                             const cellKey = `${fn.key}:${dt.group}`;
                             const isSaving = savingDuration === cellKey;
