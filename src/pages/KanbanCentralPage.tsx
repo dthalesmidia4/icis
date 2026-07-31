@@ -1112,13 +1112,22 @@ const KanbanCentralPage = () => {
 
   useEffect(() => { fetchFlowFunctionNames(); }, [fetchFlowFunctionNames]);
 
-  // Colaboradores com a função "Aguardando cliente" habilitada (para sinalizar inconsistências).
+  // Colaboradores com a função "Aguardando cliente" habilitada, POR ÁREA
+  // (a chave existe em Mídia e em Sistemas): chaves `area:userId`.
   const [awaitingAllowedUsers, setAwaitingAllowedUsers] = useState<Set<string>>(new Set());
   const fetchAwaitingAllowedUsers = useCallback(async () => {
     if (!tenantId) return;
-    setAwaitingAllowedUsers(await fetchAllowedUsersForFunction(tenantId, "aguardando_cliente"));
+    const [midia, sistemas] = await Promise.all([
+      fetchAllowedUsersForFunction(tenantId, "aguardando_cliente", "midia"),
+      fetchAllowedUsersForFunction(tenantId, "aguardando_cliente", "sistemas"),
+    ]);
+    const keys = new Set<string>();
+    midia.forEach((u) => keys.add(`midia:${u}`));
+    sistemas.forEach((u) => keys.add(`sistemas:${u}`));
+    setAwaitingAllowedUsers(keys);
   }, [tenantId]);
   useEffect(() => { fetchAwaitingAllowedUsers(); }, [fetchAwaitingAllowedUsers]);
+
 
   const FALLBACK_FN_NAMES: Record<string, string> = {
     planejar: "Planejar",
