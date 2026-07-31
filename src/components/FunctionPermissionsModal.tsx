@@ -69,6 +69,41 @@ const SISTEMAS_DEMAND_TYPES: { key: string; name: string; group: DurationTypeGro
   { key: "suporte", name: "Suporte", group: "default" },
 ];
 
+type StageKind = "producao" | "revisao" | "espera";
+
+/** Classificação das etapas: só "producao" conta no total de produção. */
+const STAGE_KIND: Record<WorkAreaKey, Record<string, StageKind>> = {
+  midia: {
+    planejar: "producao",
+    criar_roteiro: "producao",
+    criar_arte: "producao",
+    captar: "producao",
+    descarregar_captacao: "producao",
+    gerar_video: "producao",
+    editar_video: "producao",
+    revisar_roteiro: "revisao",
+    revisar_captacao: "revisao",
+    revisar: "revisao",
+    revisar_publicacao: "revisao",
+    enviar_cliente: "espera",
+    aguardando_cliente: "espera",
+    publicar: "espera",
+  },
+  sistemas: {
+    especificar: "producao",
+    desenvolver: "producao",
+    corrigir_bug_n1: "producao",
+    corrigir_bug_n2: "producao",
+    corrigir_bug_n3: "producao",
+    ajustar: "producao",
+    testar: "revisao",
+    revisar: "revisao",
+    entregar_cliente: "espera",
+    aguardando_cliente: "espera",
+    feedback_cliente: "espera",
+  },
+};
+
 
 const MIDIA_DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
@@ -393,10 +428,12 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     toast.success(`Durações de "${dt.name}" restauradas.`);
   };
 
-  /** Subtotal por linha (soma das etapas required). */
-  const rowSubtotal = (demandKey: string, group: DurationTypeGroup): number => {
+  /** Subtotal por linha (soma das etapas required), podendo filtrar categorias de etapa. */
+  const rowSubtotal = (demandKey: string, group: DurationTypeGroup, onlyKinds?: StageKind[]): number => {
     let total = 0;
+    const kindMap = STAGE_KIND[area] || {};
     for (const fn of FUNCTIONS) {
+      if (onlyKinds && !onlyKinds.includes(kindMap[fn.key] ?? "producao")) continue;
       if (rules[demandKey]?.[fn.key] === "required") {
         total += cellMinutes(fn.key, group);
       }
@@ -440,7 +477,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] xl:max-w-[1400px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[98vw] max-w-[98vw] max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Configurar funções do fluxo</DialogTitle>
           <DialogDescription>
@@ -547,6 +584,15 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
               Tempo estimado, em minutos, para cada etapa por tipo de demanda. Usado ao reorganizar sequência automaticamente. Só é possível editar etapas marcadas como "Sim" na aba anterior.
             </p>
 
+            <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground mb-2">
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-primary/15 border border-primary/30" />
+                Etapas de produção (mão na massa)
+              </span>
+              <span><strong className="text-foreground">Total produção</strong> = só produção.</span>
+              <span><strong className="text-foreground">Total do ciclo</strong> = inclui revisões, envio/retorno de cliente e publicação.</span>
+            </div>
+
             <div className="border rounded-lg overflow-auto max-h-[65vh]">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 sticky top-0 z-10">
@@ -555,23 +601,35 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                       Tipo de demanda
                     </th>
                     {FUNCTIONS.map((f) => (
-                      <th key={f.key} className="text-center p-3 font-semibold uppercase text-[10px] whitespace-nowrap">
+                      <th
+                        key={f.key}
+                        className={cn(
+                          "text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap",
+                          (STAGE_KIND[area]?.[f.key] ?? "producao") === "producao" && "bg-primary/10"
+                        )}
+                      >
                         {f.name}
                       </th>
                     ))}
-                    <th className="text-center p-3 font-semibold uppercase text-[10px] whitespace-nowrap">Total</th>
+                    <th className="text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap bg-primary/10 border-l">
+                      Total produção
+                    </th>
+                    <th className="text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap text-muted-foreground">
+                      Total do ciclo
+                    </th>
                     <th className="p-2"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={2 + FUNCTIONS.length + 1} className="p-8 text-center">
+                      <td colSpan={2 + FUNCTIONS.length + 2} className="p-8 text-center">
                         <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                       </td>
                     </tr>
                   ) : (
                     DEMAND_TYPES.map((dt) => {
+                      const productionTotal = rowSubtotal(dt.key, dt.group, ["producao"]);
                       const subtotal = rowSubtotal(dt.key, dt.group);
                       return (
                         <tr key={dt.key} className="border-t">
@@ -608,7 +666,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                                     }}
-                                    className="w-16 h-8 text-center text-xs px-1"
+                                    className="w-14 h-8 text-center text-xs px-1"
                                   />
                                   {isSaving && (
                                     <Loader2 className="h-3 w-3 animate-spin absolute -right-4 top-2.5 text-muted-foreground" />
@@ -617,7 +675,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                               </td>
                             );
                           })}
-                          <td className="p-3 text-center text-xs font-semibold whitespace-nowrap">
+                          <td className="p-2 text-center text-xs font-bold whitespace-nowrap bg-primary/5 border-l">
+                            {fmtMinutes(productionTotal)}
+                          </td>
+                          <td
+                            className="p-2 text-center text-xs font-medium whitespace-nowrap text-muted-foreground"
+                            title="Inclui revisões, envio/retorno de cliente e publicação"
+                          >
                             {fmtMinutes(subtotal)}
                           </td>
                           <td className="p-2">
