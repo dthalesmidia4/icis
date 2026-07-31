@@ -30,6 +30,9 @@ import { SchedulePublicationModal } from "@/components/SchedulePublicationModal"
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
 import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
+import { evaluateReassign, applyReassign } from "@/lib/reassignDemand";
+import { checkAssignmentConflicts, type AssignmentConflict, type FreeSlotSuggestion } from "@/lib/scheduleOccupancy";
+import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
