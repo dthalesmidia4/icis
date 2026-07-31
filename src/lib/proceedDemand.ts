@@ -53,6 +53,51 @@ async function applyReturnFromClientSchedule(
 }
 
 /**
+ * Avanço automático de etapa NUNCA pode deixar o novo responsável com dois
+ * cards no mesmo horário. Se a janela resultante choca com a agenda dele,
+ * o card é deslocado para o primeiro slot livre.
+ */
+async function avoidScheduleConflict(
+  payload: any,
+  tenantId: string,
+  demandId: string,
+  assignedTo: string | null,
+  targetStage: string | null,
+): Promise<void> {
+  if (!tenantId || !assignedTo || !targetStage) return;
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select(
+        "id, title, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
+      )
+      .eq("id", demandId)
+      .maybeSingle();
+    if (!data) return;
+    const probe: any = { ...(data as any), ...payload, current_function_key: targetStage };
+    const res = await checkAssignmentConflicts({
+      tenantId,
+      userId: assignedTo,
+      card: probe,
+      targetStage,
+    });
+    if (res.hard.length === 0) return;
+    const slot = await suggestFreeSlot({
+      tenantId,
+      userId: assignedTo,
+      card: probe,
+      targetStage,
+    });
+    if (!slot) return;
+    payload.due_date = slot.date;
+    payload.due_time = slot.startTime;
+    payload.delivery_date = slot.date;
+    payload.delivery_time = slot.endTime;
+  } catch {
+    /* silencioso: nunca bloquear o fluxo por causa da checagem */
+  }
+
+/**
  * Fonte da verdade da etapa atual: o banco. O valor vindo da tela pode estar
  * desatualizado (o card muda por realtime, por outro usuário ou por trigger),
  * e usar valor velho já causou registros de histórico em etapas erradas.
