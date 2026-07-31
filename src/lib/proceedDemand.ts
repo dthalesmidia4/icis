@@ -1009,7 +1009,10 @@ export async function regressDemand({
   if (!currentFunctionKey) {
     return { success: false, message: "Esta demanda ainda não iniciou o fluxo." };
   }
-  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId });
+  const backMeta = await getDemandFlowMeta(demandId);
+  const backArea = backMeta.workArea;
+  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId, workArea: backArea, origin: backMeta.origin });
+
 
   const idx = sequence.findIndex((f: any) => f.function_key === currentFunctionKey);
   if (idx <= 0) {
