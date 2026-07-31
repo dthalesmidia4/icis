@@ -393,8 +393,8 @@ export interface CadenceSeriesPoint {
   t: number;
   /** rótulo curto dd/mm */
   label: string;
-  /** dias sem contato por cliente (clientId → dias) */
-  [clientId: string]: number | string;
+  /** dias sem contato por cliente (clientId → dias, null quando desconhecido) */
+  [clientId: string]: number | string | null;
 }
 
 export interface CadenceSeries {
