@@ -84,8 +84,9 @@ export interface ReorderProposal {
   riskStatus?: "risk" | "normal" | "recent";
   /** Folga até o prazo, em minutos. */
   slackMin?: number | null;
-  /** Ciclo restante estimado, em minutos. */
+  /** Duração estimada da etapa atual, em minutos. */
   remainingCycleMin?: number | null;
+
   /** Minutos desde a entrada na etapa atual. */
   inStageMin?: number | null;
 
@@ -641,9 +642,10 @@ export interface ReorderRiskInfo {
   status: ReorderRiskStatus;
   /** Folga até o prazo, em minutos (null quando o card não tem prazo). */
   slackMin: number | null;
-  /** Ciclo restante estimado (etapa atual + etapas seguintes) em minutos. */
+  /** Duração estimada da etapa atual, em minutos. */
   remainingMin: number;
-  /** Limite da janela de risco (fator × ciclo restante), em minutos. */
+  /** Limite da janela de risco (fator × duração da etapa atual), em minutos. */
+
   riskWindowMin: number;
   /** Minutos desde a entrada na etapa atual (null se desconhecido). */
   inStageMin: number | null;
@@ -658,6 +660,23 @@ export interface ReorderPriorityOptions {
 
 const DEFAULT_RISK_FACTOR = 3;
 const DEFAULT_ENTRY_GRACE_MIN = 60;
+
+/**
+ * Resolve a configuração de prioridade para um card específico. Aceita tanto
+ * uma config única quanto um mapa por área ({ midia, sistemas }).
+ */
+export function priorityForCard(
+  card: ReorderCardInput,
+  priority: any,
+): { riskFactor?: number; entryGraceMin?: number } {
+  if (!priority) return {};
+  if (priority.midia || priority.sistemas) {
+    const area = card.work_area === "sistemas" ? "sistemas" : "midia";
+    return priority[area] || {};
+  }
+  return priority;
+}
+
 
 export function computeRiskInfo(
   card: ReorderCardInput,
@@ -700,11 +719,25 @@ export function reorderTier(c: ReorderCardInput): 0 | 1 | 2 {
 
 export function sortForReorder(
   cards: ReorderCardInput[],
-  opts?: { prioritizePublishDate?: boolean; priority?: ReorderPriorityOptions },
+  opts?: {
+    prioritizePublishDate?: boolean;
+    /** Config única ou mapa por área ({ midia, sistemas }), mais o "agora" virtual. */
+    priority?: ReorderPriorityOptions & Record<string, any>;
+
+    /** Base de duração da etapa atual (mesma usada pela alocação). */
+    estimateMin?: (c: ReorderCardInput) => number;
+  },
 ): ReorderCardInput[] {
   if (cards.length === 0) return [];
 
-  const riskOf = (c: ReorderCardInput) => computeRiskInfo(c, opts?.priority);
+  const riskOf = (c: ReorderCardInput) =>
+    computeRiskInfo(c, {
+      ...priorityForCard(c, opts?.priority),
+      now: opts?.priority?.now,
+      remainingMin: opts?.estimateMin?.(c),
+    });
+
+
 
   const sortTier = (tierCards: { c: ReorderCardInput; i: number }[]) => {
     if (tierCards.length === 0) return [];
@@ -776,8 +809,14 @@ export async function computeReorder(
     areaSchedule?: AreaScheduleMap;
     scheduledPublishIds?: Set<string>;
     manualOverrides?: Record<string, ReorderManualOverride>;
-    /** Janela de risco / carência de entrada (configurável por área). */
-    priority?: { riskFactor?: number; entryGraceMin?: number };
+    /**
+     * Janela de risco / carência de entrada. Pode vir por área
+     * ({ midia, sistemas }) — cada card é avaliado com a config da sua área.
+     */
+    priority?:
+      | { riskFactor?: number; entryGraceMin?: number }
+      | { midia?: { riskFactor?: number; entryGraceMin?: number }; sistemas?: { riskFactor?: number; entryGraceMin?: number } };
+
 
   },
 
@@ -825,10 +864,15 @@ export async function computeReorder(
     return true;
   });
 
+  // A ordenação usa exatamente a mesma base de duração da alocação (com os
+  // ajustes de duração configurados), para que o badge de risco no modal
+  // sempre explique a posição real na fila.
   const ordered = sortForReorder(active, {
     prioritizePublishDate: opts?.prioritizePublishDate,
-    priority: { ...(opts?.priority || {}), now },
+    priority: { ...((opts?.priority as any) || {}), now },
+    estimateMin: (c) => estimateDurationBase(c, ctx, opts?.durations),
   });
+
 
 
   // Intervalos ocupados por cards fixos (captar, daily).
@@ -1142,10 +1186,11 @@ export async function computeReorder(
     const card = byId.get(p.id);
     if (!card) return p;
     const info = computeRiskInfo(card, {
-      ...(opts?.priority || {}),
+      ...priorityForCard(card, opts?.priority),
       now,
       remainingMin: estimateDurationBase(card, ctx, opts?.durations),
     });
+
     return { ...p, riskStatus: info.status, slackMin: info.slackMin, remainingCycleMin: info.remainingMin, inStageMin: info.inStageMin };
   });
 }

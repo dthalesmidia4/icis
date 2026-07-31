@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { computeReorder, fmtMinutes, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type ReorderManualOverride, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
-import { loadReorderPriority, DEFAULT_REORDER_PRIORITY, type ReorderPriorityConfig } from "@/lib/reorderPriority";
+import { loadReorderPriority, DEFAULT_REORDER_PRIORITY_BY_AREA, type ReorderPriorityByArea } from "@/lib/reorderPriority";
 
 import { loadDurationsByArea } from "@/lib/flowDurations";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
@@ -187,19 +187,18 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
 
 
   // Configuração de prioridade/risco por área (definida em Configurações de fluxo).
-  const dominantArea: "midia" | "sistemas" = useMemo(() => {
-    const sist = cards.filter((c) => c.work_area === "sistemas").length;
-    return sist > cards.length - sist ? "sistemas" : "midia";
-  }, [cards]);
-  const [priority, setPriority] = useState<ReorderPriorityConfig>(DEFAULT_REORDER_PRIORITY);
+  // Cada card é avaliado com a config da sua própria área, pois a coluna pode
+  // misturar demandas de Mídia e Sistemas.
+  const [priority, setPriority] = useState<ReorderPriorityByArea>(DEFAULT_REORDER_PRIORITY_BY_AREA);
   useEffect(() => {
     if (!open || !tenantId) return;
     let cancelled = false;
     loadReorderPriority(tenantId).then((cfg) => {
-      if (!cancelled) setPriority(cfg[dominantArea]);
+      if (!cancelled) setPriority(cfg);
     });
     return () => { cancelled = true; };
-  }, [open, tenantId, dominantArea]);
+  }, [open, tenantId]);
+
 
   const showPublishToggle = hasPublishDateCandidates(cards);
 
@@ -806,7 +805,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             <Badge
                               variant="outline"
                               className="text-[10px] border-red-500/60 text-red-600 dark:text-red-400"
-                              title={`Prazo em ${fmtMinutes(Math.max(p.slackMin ?? 0, 0))} · ciclo restante ${fmtMinutes(p.remainingCycleMin || 0)}`}
+                              title={`Faltam ${fmtMinutes(Math.max(p.slackMin ?? 0, 0))} para o prazo e a etapa atual leva ~${fmtMinutes(p.remainingCycleMin || 0)} — por isso este card foi priorizado.`}
                             >
                               ⚠ risco de atraso
                             </Badge>
@@ -815,17 +814,18 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             <Badge
                               variant="outline"
                               className="text-[10px] border-slate-400/60 text-muted-foreground"
-                              title="Entrou na coluna há pouco tempo e sem risco de atraso — alocado por último."
+                              title="Chegou na coluna há pouco tempo e não está em risco — entrou no fim da fila."
                             >
                               recém-chegado
                             </Badge>
                           )}
                           {p.remainingCycleMin ? (
                             <span className="text-muted-foreground">
-                              ciclo rest. {fmtMinutes(p.remainingCycleMin)}
-                              {p.slackMin != null ? ` · folga ${fmtMinutes(p.slackMin)}` : ""}
+                              etapa ~{fmtMinutes(p.remainingCycleMin)}
+                              {p.slackMin != null ? ` · faltam ${fmtMinutes(p.slackMin)}` : ""}
                             </span>
                           ) : null}
+
 
                           {p.spansDays && p.spansDays > 1 && (
                             <Badge variant="outline" className="text-[10px] border-blue-500/60 text-blue-600 dark:text-blue-400">

@@ -56,6 +56,15 @@ export async function saveReorderPriority(
     ...settings,
     reorder_priority: { ...current, [area]: sanitize(config) },
   };
-  const { error } = await supabase.from("tenants").update({ settings: next } as any).eq("id", tenantId);
+  const { data: updated, error } = await supabase
+
+    .from("tenants")
+    .update({ settings: next } as any)
+    .eq("id", tenantId)
+    .select("id");
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error("Sem permissão para salvar as configurações desta agência.");
+  }
 }
+
