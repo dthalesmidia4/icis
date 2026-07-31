@@ -623,12 +623,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={2 + FUNCTIONS.length + 1} className="p-8 text-center">
+                      <td colSpan={2 + FUNCTIONS.length + 2} className="p-8 text-center">
                         <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                       </td>
                     </tr>
                   ) : (
                     DEMAND_TYPES.map((dt) => {
+                      const productionTotal = rowSubtotal(dt.key, dt.group, ["producao"]);
                       const subtotal = rowSubtotal(dt.key, dt.group);
                       return (
                         <tr key={dt.key} className="border-t">
