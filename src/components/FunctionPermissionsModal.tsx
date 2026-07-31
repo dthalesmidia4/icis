@@ -902,42 +902,111 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
 
           <TabsContent value="prioridade" className="mt-4">
-            <div className="max-w-3xl space-y-4">
+            <div className="max-w-3xl space-y-5">
               <p className="text-xs text-muted-foreground">
-                Define como o reorganizador automático prioriza os cards da coluna na área <strong>{area === "sistemas" ? "Sistemas" : "Mídia"}</strong>.
-                O primeiro card (em andamento) nunca muda de posição.
+                Regras que o botão "Reorganizar sequência" usa para decidir a ordem da fila de cada
+                colaborador na área <strong>{area === "sistemas" ? "Sistemas" : "Mídia"}</strong>.
+                O card que já está em andamento nunca sai da primeira posição.
               </p>
 
-              <div className="rounded-lg border p-4 space-y-1">
-                <label className="text-sm font-medium">Fator da janela de risco</label>
-                <p className="text-[11px] text-muted-foreground">
-                  Um card é priorizado quando <em>prazo − agora ≤ fator × ciclo restante</em>. Padrão: 3.
+              <div className="rounded-lg border p-4 space-y-3">
+                <div>
+                  <label className="text-sm font-medium">Quando um card fura a fila</label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Quanto mais cedo você quer que um card com prazo apertado passe à frente dos outros.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {RISK_PRESETS.map((preset) => {
+                    const activePreset = priorityCfg.riskFactor === preset.factor;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setPriorityCfg((p) => ({ ...p, riskFactor: preset.factor }))}
+                        className={cn(
+                          "rounded-md border px-3 py-2 text-left text-xs transition-colors",
+                          activePreset ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted",
+                        )}
+                      >
+                        <span className="block font-medium">{preset.label}</span>
+                        <span className="block text-[10px] text-muted-foreground">{preset.hint}</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setCustomRisk((v) => !v)}
+                    className={cn(
+                      "rounded-md border px-3 py-2 text-left text-xs transition-colors",
+                      customRisk || !RISK_PRESETS.some((p) => p.factor === priorityCfg.riskFactor)
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "hover:bg-muted",
+                    )}
+                  >
+                    <span className="block font-medium">Personalizado</span>
+                    <span className="block text-[10px] text-muted-foreground">definir manualmente</span>
+                  </button>
+                </div>
+
+                {(customRisk || !RISK_PRESETS.some((p) => p.factor === priorityCfg.riskFactor)) && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      step={0.5}
+                      className="h-9 w-24"
+                      value={priorityCfg.riskFactor}
+                      onChange={(e) => setPriorityCfg((p) => ({ ...p, riskFactor: Number(e.target.value) }))}
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      vezes a duração da etapa
+                    </span>
+                  </div>
+                )}
+
+                <p className="text-xs rounded-md bg-muted/60 px-3 py-2">
+                  Na prática: um card cuja etapa leva cerca de 1 h passa à frente quando faltam menos de{" "}
+                  <strong>{formatHoursLabel(priorityCfg.riskFactor * 60)}</strong> para o prazo de entrega.
                 </p>
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  step={0.5}
-                  className="mt-2 h-9 w-28 rounded-md border bg-background px-2 text-sm"
-                  value={priorityCfg.riskFactor}
-                  onChange={(e) => setPriorityCfg((p) => ({ ...p, riskFactor: Number(e.target.value) }))}
-                />
+                <p
+                  className="text-[10px] text-muted-foreground"
+                  title="O sistema compara o tempo que falta até o prazo com a duração estimada da etapa atual multiplicada por este número."
+                >
+                  Como isso é calculado?
+                </p>
               </div>
 
-              <div className="rounded-lg border p-4 space-y-1">
-                <label className="text-sm font-medium">Carência de entrada (minutos)</label>
-                <p className="text-[11px] text-muted-foreground">
-                  Cards que acabaram de chegar na coluna e não estão em risco entram por último. Padrão: 60.
+              <div className="rounded-lg border p-4 space-y-3">
+                <div>
+                  <label className="text-sm font-medium">Tempo de acomodação de cards novos</label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Evita que um card recém-chegado atropele o que a pessoa já tinha na fila.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[0, 30, 60, 120].map((min) => (
+                    <button
+                      key={min}
+                      type="button"
+                      onClick={() => setPriorityCfg((p) => ({ ...p, entryGraceMin: min }))}
+                      className={cn(
+                        "rounded-md border px-3 py-2 text-xs transition-colors",
+                        priorityCfg.entryGraceMin === min
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "hover:bg-muted",
+                      )}
+                    >
+                      {min === 0 ? "Sem espera" : `${min} min`}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs rounded-md bg-muted/60 px-3 py-2">
+                  {priorityCfg.entryGraceMin === 0
+                    ? "Cards novos entram na fila pela mesma regra dos demais."
+                    : `Cards que entraram na coluna nos últimos ${priorityCfg.entryGraceMin} min e não estão com prazo apertado entram no fim da fila.`}
                 </p>
-                <input
-                  type="number"
-                  min={0}
-                  max={1440}
-                  step={15}
-                  className="mt-2 h-9 w-28 rounded-md border bg-background px-2 text-sm"
-                  value={priorityCfg.entryGraceMin}
-                  onChange={(e) => setPriorityCfg((p) => ({ ...p, entryGraceMin: Number(e.target.value) }))}
-                />
               </div>
 
               <div className="flex items-center gap-2">
@@ -949,13 +1018,17 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                   size="sm"
                   variant="outline"
                   disabled={savingPriority}
-                  onClick={() => setPriorityCfg({ ...DEFAULT_REORDER_PRIORITY })}
+                  onClick={() => {
+                    setPriorityCfg({ ...DEFAULT_REORDER_PRIORITY });
+                    setCustomRisk(false);
+                  }}
                 >
                   Restaurar padrão
                 </Button>
               </div>
             </div>
           </TabsContent>
+
         </Tabs>
       </DialogContent>
 
