@@ -59,12 +59,14 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Load all tenants' aguardando_cliente flow_functions config
+    // Load all tenants' aguardando_cliente flow_functions config, POR ÁREA
+    // (a chave existe em Mídia e em Sistemas, com configs de retorno distintas).
     const { data: fns, error: fnErr } = await supabase
       .from("flow_functions")
-      .select("tenant_id, config")
+      .select("tenant_id, config, work_area")
       .eq("function_key", "aguardando_cliente")
       .eq("active", true);
+
 
     if (fnErr) throw fnErr;
 
