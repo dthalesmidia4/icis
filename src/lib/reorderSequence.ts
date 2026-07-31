@@ -80,6 +80,15 @@ export interface ReorderProposal {
   stageStartTime?: string | null;
   stagePlannedMin?: number | null;
   extensionMin?: number | null;
+  /** Diagnóstico de prioridade: risco (prazo apertado), normal ou recém-chegado. */
+  riskStatus?: "risk" | "normal" | "recent";
+  /** Folga até o prazo, em minutos. */
+  slackMin?: number | null;
+  /** Ciclo restante estimado, em minutos. */
+  remainingCycleMin?: number | null;
+  /** Minutos desde a entrada na etapa atual. */
+  inStageMin?: number | null;
+
   pausedByCaptar?: {
     atISO: string;
     atTime: string;
@@ -816,7 +825,11 @@ export async function computeReorder(
     return true;
   });
 
-  const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
+  const ordered = sortForReorder(active, {
+    prioritizePublishDate: opts?.prioritizePublishDate,
+    priority: { ...(opts?.priority || {}), now },
+  });
+
 
   // Intervalos ocupados por cards fixos (captar, daily).
   // O alocador contornará esses intervalos em vez de agendar por cima.
