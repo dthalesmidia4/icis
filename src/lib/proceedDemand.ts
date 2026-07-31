@@ -826,7 +826,10 @@ export async function proceedDemand({
   }
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
 
-  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId });
+  const flowMeta = await getDemandFlowMeta(demandId);
+  const flowArea = flowMeta.workArea;
+  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId, workArea: flowArea, origin: flowMeta.origin });
+
   if (sequence.length === 0) return { success: false, message: "Este tipo de demanda não tem funções configuradas." };
 
 
