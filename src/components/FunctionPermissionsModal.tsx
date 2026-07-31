@@ -522,12 +522,14 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
         <Tabs key={`fpm-tabs-v3-${area}`} defaultValue="participacao" className="w-full">
 
-          <TabsList className="grid w-full max-w-3xl grid-cols-4">
+          <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
             <TabsTrigger value="alocacao">Alocação por área</TabsTrigger>
             <TabsTrigger value="retorno">Retorno do cliente</TabsTrigger>
+            <TabsTrigger value="prioridade">Prioridade e risco</TabsTrigger>
           </TabsList>
+
 
           <TabsContent value="participacao" className="mt-4">
             <div className="flex items-center gap-4 text-xs mb-2">
