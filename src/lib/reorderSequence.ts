@@ -1120,6 +1120,18 @@ export async function computeReorder(
     });
   }
 
-  return proposals;
+  // Anexa o diagnóstico de risco (janela de risco / recém-chegado) a cada proposta.
+  const byId = new Map(cards.map((c) => [c.id, c] as const));
+  return proposals.map((p) => {
+    const card = byId.get(p.id);
+    if (!card) return p;
+    const info = computeRiskInfo(card, {
+      ...(opts?.priority || {}),
+      now,
+      remainingMin: estimateDurationBase(card, ctx, opts?.durations),
+    });
+    return { ...p, riskStatus: info.status, slackMin: info.slackMin, remainingCycleMin: info.remainingMin, inStageMin: info.inStageMin };
+  });
 }
+
 
