@@ -440,7 +440,9 @@ export interface PickAssigneeResult {
 /**
  * Escolhe o colaborador de menor carga para uma função de fluxo.
  * Regras:
- *  - `collaborator_function_assignments.allowed = true` e `function_key = <fn>`.
+ *  - `collaborator_function_assignments.allowed = true`, `function_key = <fn>`
+ *    e `work_area` = área da demanda (chaves homônimas como `revisar` e
+ *    `aguardando_cliente` existem nas duas áreas e não podem se misturar).
  *  - Somente usuários internos (agency_admin / manager / user).
  *  - Menor contagem de `demands.assigned_to` não arquivadas; desempate alfabético.
  */
@@ -448,19 +450,29 @@ export async function pickAssigneeForFunction(
   tenantId: string,
   functionKey: string,
   functionName?: string,
-  opts?: { excludeUserIds?: Array<string | null | undefined>; preferUserIds?: Array<string | null | undefined> },
+  opts?: {
+    excludeUserIds?: Array<string | null | undefined>;
+    preferUserIds?: Array<string | null | undefined>;
+    workArea?: "midia" | "sistemas" | null;
+  },
 ): Promise<PickAssigneeResult> {
   const label = functionName || functionKey;
+  const area: "midia" | "sistemas" = opts?.workArea === "sistemas" ? "sistemas" : "midia";
 
-  const { data: assigns, error: aErr } = await supabase
-    .from("collaborator_function_assignments")
+  const { data: assigns, error: aErr } = await (supabase
+    .from("collaborator_function_assignments") as any)
     .select("user_id")
     .eq("tenant_id", tenantId)
     .eq("function_key", functionKey)
+    .eq("work_area", area)
     .eq("allowed", true);
   if (aErr) return { success: false, message: "Erro ao buscar colaboradores." };
 
-  const candidateIds = Array.from(new Set((assigns || []).map((a: any) => a.user_id))).filter(Boolean);
+
+  const candidateIds = Array.from(
+    new Set(((assigns || []) as any[]).map((a: any) => String(a.user_id))),
+  ).filter(Boolean) as string[];
+
   if (candidateIds.length === 0) {
     return { success: false, message: `Nenhum colaborador tem a função "${label}" atribuída.` };
   }
@@ -532,10 +544,12 @@ export async function pickAssigneeForFunction(
 async function resolveClientWaitOwner(
   tenantId: string,
   previousAssignee: string | null,
+  workArea?: "midia" | "sistemas" | null,
 ): Promise<string | null> {
   try {
     const picked = await pickAssigneeForFunction(tenantId, "aguardando_cliente", "Aguardando cliente", {
       preferUserIds: previousAssignee ? [previousAssignee] : [],
+      workArea: workArea ?? "midia",
     });
     if (picked.success && picked.userId) return picked.userId;
   } catch (e) {
@@ -543,6 +557,7 @@ async function resolveClientWaitOwner(
   }
   return null;
 }
+
 
 
 
@@ -606,7 +621,9 @@ async function resolveNextStage(
   sequence: { function_key: string; name: string }[],
   startIndex: number,
   executors: string[],
+  workArea?: "midia" | "sistemas" | null,
 ): Promise<ResolvedNextStage | null> {
+  const area = workArea ?? "midia";
   const skipped: string[] = [];
   for (let i = startIndex; i < sequence.length; i++) {
     const fn = sequence[i];
@@ -616,6 +633,7 @@ async function resolveNextStage(
     if (isReviewFunction(fn.function_key)) {
       const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
         excludeUserIds: executors,
+        workArea: area,
       });
       if (picked.success && picked.userId) return { fn, picked, skipped };
       skipped.push(fn.function_key);
@@ -623,11 +641,13 @@ async function resolveNextStage(
     }
     const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
       preferUserIds: STICKY_STAGES.has(fn.function_key) ? executors : [],
+      workArea: area,
     });
     return { fn, picked, skipped };
   }
   return null;
 }
+
 
 
 export interface SequenceOptions {
@@ -702,7 +722,9 @@ export async function jumpToFunction({
   currentFunctionKey?: string | null;
 }): Promise<ProceedResult> {
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
-  const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId });
+  const jumpMeta = await getDemandFlowMeta(demandId);
+  const jumpArea = jumpMeta.workArea;
+  const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId, workArea: jumpArea, origin: jumpMeta.origin });
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
@@ -711,7 +733,8 @@ export async function jumpToFunction({
   if (target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const previous = (cur as any)?.assigned_to || null;
-    const keep = await resolveClientWaitOwner(tenantId, previous);
+    const keep = await resolveClientWaitOwner(tenantId, previous, jumpArea);
+
     if (!keep) return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
     const updateWait: any = {
       assigned_to: keep,
@@ -744,11 +767,13 @@ export async function jumpToFunction({
   let picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
     preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
     excludeUserIds: isReviewTarget ? jumpExecutors : [],
+    workArea: jumpArea,
   });
   if (isReviewTarget && (!picked.success || !picked.userId)) {
     // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
-    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
+    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea });
   }
+
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
 
 
@@ -801,7 +826,10 @@ export async function proceedDemand({
   }
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
 
-  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId });
+  const flowMeta = await getDemandFlowMeta(demandId);
+  const flowArea = flowMeta.workArea;
+  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId, workArea: flowArea, origin: flowMeta.origin });
+
   if (sequence.length === 0) return { success: false, message: "Este tipo de demanda não tem funções configuradas." };
 
 
@@ -835,6 +863,7 @@ export async function proceedDemand({
     sequence as any,
     nextIndex,
     executors,
+    flowArea,
   );
   if (!resolved) {
     return { success: false, end: true, message: "Essa demanda já chegou ao final do fluxo." };
@@ -846,7 +875,8 @@ export async function proceedDemand({
 
   // Entrada em "Aguardando clientes": dono da espera sempre vem da função atribuída.
   if (nextFn.function_key === "aguardando_cliente") {
-    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee);
+    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee, flowArea);
+
     if (!keepAssignee) {
       return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
     }
@@ -979,7 +1009,10 @@ export async function regressDemand({
   if (!currentFunctionKey) {
     return { success: false, message: "Esta demanda ainda não iniciou o fluxo." };
   }
-  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId });
+  const backMeta = await getDemandFlowMeta(demandId);
+  const backArea = backMeta.workArea;
+  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId, workArea: backArea, origin: backMeta.origin });
+
 
   const idx = sequence.findIndex((f: any) => f.function_key === currentFunctionKey);
   if (idx <= 0) {
@@ -1007,7 +1040,9 @@ export async function regressDemand({
     const waitAssignee = (current as any)?.assigned_to || null;
     const picked = await pickAssigneeForFunction(tenantId, "enviar_cliente", prevFn.name, {
       preferUserIds: waitAssignee ? [waitAssignee] : [],
+      workArea: backArea,
     });
+
     if (!picked.success || !picked.userId) {
       return { success: false, message: picked.message || 'Nenhum colaborador possui a função "Enviar cliente" habilitada.' };
     }
@@ -1062,7 +1097,7 @@ export async function regressDemand({
         .maybeSingle();
       return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
     }
-    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
+    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name, { workArea: backArea });
   })();
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };

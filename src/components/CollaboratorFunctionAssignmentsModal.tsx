@@ -50,8 +50,10 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
         .order("position"),
       supabase
         .from("collaborator_function_assignments")
-        .select("user_id, function_key, allowed")
-        .eq("tenant_id", tenantId),
+        .select("user_id, function_key, allowed, work_area")
+        .eq("tenant_id", tenantId)
+        .eq("work_area", workArea),
+
     ]);
     setFunctions((fns as FlowFunction[]) || []);
     const map: Record<string, Record<string, boolean>> = {};
@@ -97,9 +99,11 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
           user_id: userId,
           function_key: functionKey,
           allowed: next,
-        },
-        { onConflict: "tenant_id,user_id,function_key" }
+          work_area: area,
+        } as any,
+        { onConflict: "tenant_id,user_id,function_key,work_area" }
       );
+
     if (error) {
       toast.error("Erro ao salvar");
       console.error(error);
