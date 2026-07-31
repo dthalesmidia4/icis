@@ -61,7 +61,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
   const colorOf = (clientId: string) =>
     LINE_COLORS[rows.findIndex((r) => r.clientId === clientId) % LINE_COLORS.length];
 
-  const tickInterval = Math.max(1, Math.floor(points.length / 8));
+  const tickInterval = points.length <= 14 ? 0 : Math.max(1, Math.floor(points.length / 8));
 
   return (
     <div className="border rounded-lg bg-card">
@@ -79,6 +79,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
           <span className="flex items-center gap-1">
             <span className="h-2 w-4 rounded bg-red-500/20" /> risco
           </span>
+          <span className="normal-case">quanto mais alto, mais recente o contato</span>
         </div>
       </div>
 
@@ -95,7 +96,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
               strokeDasharray="4 4"
               label={{
                 value: `meta ${cadence}d`,
-                position: "insideTopRight",
+                position: "insideBottomRight",
                 fill: "hsl(var(--muted-foreground))",
                 fontSize: 10,
               }}
@@ -107,6 +108,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
               stroke="hsl(var(--border))"
             />
             <YAxis
+              reversed
               domain={[0, yMax]}
               tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
               stroke="hsl(var(--border))"
@@ -177,6 +179,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
                     );
                   }}
                   activeDot={{ r: 4 }}
+                  connectNulls={false}
                   isAnimationActive={false}
                 />
               ))}

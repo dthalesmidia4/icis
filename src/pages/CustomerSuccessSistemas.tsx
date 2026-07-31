@@ -80,7 +80,7 @@ export default function CustomerSuccessSistemas() {
   const [history, setHistory] = useState<TouchpointRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [timeline, setTimeline] = useState<Record<string, TimelineTouchpoint[]>>({});
-  const [timelineDays, setTimelineDays] = useState(90);
+  const [timelineDays, setTimelineDays] = useState(7);
   const [showTable, setShowTable] = useState(false);
 
   const load = useCallback(async () => {
@@ -229,7 +229,7 @@ export default function CustomerSuccessSistemas() {
 
         <div className="space-y-2">
           <div className="flex items-center justify-end gap-1">
-            {[30, 90, 180].map((d) => (
+            {[7, 30, 90, 180].map((d) => (
               <Button
                 key={d}
                 size="sm"
