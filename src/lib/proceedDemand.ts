@@ -863,6 +863,7 @@ export async function proceedDemand({
     sequence as any,
     nextIndex,
     executors,
+    flowArea,
   );
   if (!resolved) {
     return { success: false, end: true, message: "Essa demanda já chegou ao final do fluxo." };
@@ -874,7 +875,8 @@ export async function proceedDemand({
 
   // Entrada em "Aguardando clientes": dono da espera sempre vem da função atribuída.
   if (nextFn.function_key === "aguardando_cliente") {
-    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee);
+    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee, flowArea);
+
     if (!keepAssignee) {
       return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
     }
