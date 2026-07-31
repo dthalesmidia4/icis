@@ -96,7 +96,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
               strokeDasharray="4 4"
               label={{
                 value: `meta ${cadence}d`,
-                position: "insideTopRight",
+                position: "insideBottomRight",
                 fill: "hsl(var(--muted-foreground))",
                 fontSize: 10,
               }}
@@ -108,6 +108,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
               stroke="hsl(var(--border))"
             />
             <YAxis
+              reversed
               domain={[0, yMax]}
               tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
               stroke="hsl(var(--border))"
