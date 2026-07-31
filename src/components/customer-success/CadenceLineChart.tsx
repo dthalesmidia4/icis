@@ -79,6 +79,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
           <span className="flex items-center gap-1">
             <span className="h-2 w-4 rounded bg-red-500/20" /> risco
           </span>
+          <span className="normal-case">quanto mais alto, mais recente o contato</span>
         </div>
       </div>
 
