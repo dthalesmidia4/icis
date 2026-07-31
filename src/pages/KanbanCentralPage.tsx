@@ -1158,6 +1158,16 @@ const KanbanCentralPage = () => {
     onChange: () => { fetchColumns(); fetchFlowFunctionNames(); fetchAwaitingAllowedUsers(); },
   });
 
+  const [scheduleConflict, setScheduleConflict] = useState<{
+    card: CentralKanbanCard;
+    newAssignedTo: string | null;
+    targetName: string;
+    conflicts: AssignmentConflict[];
+    suggestion: FreeSlotSuggestion | null;
+    nextFunctionKey: string | null;
+  } | null>(null);
+  const [reschedulingConflict, setReschedulingConflict] = useState(false);
+
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;
 
