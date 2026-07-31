@@ -57,12 +57,15 @@ export function usePendingEvaluationCards(tenantId: string | null) {
           .select("id, period_title, company_id, tenant_id, default_plan, ultra_plan")
           .eq("tenant_id", tenantId)
           .eq("operational_status", "em_andamento"),
+        // "Avaliar" existe apenas na área de Mídia (planejamento de período).
         supabase
           .from("collaborator_function_assignments")
           .select("user_id")
           .eq("tenant_id", tenantId)
           .eq("function_key", EVALUATION_FUNCTION_KEY)
+          .eq("work_area", "midia")
           .eq("allowed", true),
+
         supabase
           .from("demands")
           .select("period_plan_id, title")

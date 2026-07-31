@@ -300,7 +300,9 @@ const ApproveCards = () => {
       if (insertedData?.id) {
         await assignInitialResponsible(insertedData.id, tenantId, demandTypeKey, {
           metadataSource: card._source === 'ultra' ? 'ultra_card' : 'card',
+          workArea: 'midia',
         });
+
         triggerAutoGenerate(title, tipo, insertedData.id);
       }
     } catch (error) {

@@ -693,7 +693,9 @@ export async function getPipelineSequence(
       .from("demand_type_flow_rules")
       .select("function_key, requirement")
       .eq("tenant_id", tenantId)
+      .eq("work_area", area)
       .eq("demand_type_key", typeKey),
+
   ]);
   if (!fns) return [];
   const req = new Map<string, string>();
