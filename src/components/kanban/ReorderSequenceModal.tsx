@@ -449,7 +449,56 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     onOpenChange(false);
   }
 
+  const orderedRows = proposals.map((p, i) => ({ p, i }));
+  const activeRows = orderedRows.filter((r) => !r.p.skipped);
+  const fixedRows = orderedRows.filter((r) => r.p.skipped);
+
+  const renderRow = (p: ReorderProposal, i: number) => (
+    <ReorderProposalRow
+      key={p.id}
+      index={i}
+      proposal={p}
+      orig={cardById.get(p.id)}
+      isEditing={editingId === p.id}
+      disabled={applying || loading}
+      draft={draft}
+      setDraft={setDraft}
+      baseDate={startFrom ?? new Date()}
+      hasOverride={!!manualOverrides[p.id]}
+      onToggleEdit={() => {
+        if (editingId === p.id) {
+          setEditingId(null);
+          return;
+        }
+        setEditingId(p.id);
+        setDraft({
+          date: p.startISO,
+          time: p.startTime,
+          duration: String(p.durationMin),
+          endDate: p.endISO,
+          endTime: p.endTime,
+          durMode: "auto",
+          endEdited: false,
+        });
+      }}
+      onCloseEdit={() => setEditingId(null)}
+      onSaveOverride={(o) => {
+        setManualOverrides((prev) => ({ ...prev, [p.id]: o }));
+        setEditingId(null);
+      }}
+      onRemoveOverride={() => {
+        setManualOverrides((prev) => {
+          const next = { ...prev };
+          delete next[p.id];
+          return next;
+        });
+        setEditingId(null);
+      }}
+    />
+  );
+
   return (
+
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
