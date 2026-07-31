@@ -69,6 +69,41 @@ const SISTEMAS_DEMAND_TYPES: { key: string; name: string; group: DurationTypeGro
   { key: "suporte", name: "Suporte", group: "default" },
 ];
 
+type StageKind = "producao" | "revisao" | "espera";
+
+/** Classificação das etapas: só "producao" conta no total de produção. */
+const STAGE_KIND: Record<WorkAreaKey, Record<string, StageKind>> = {
+  midia: {
+    planejar: "producao",
+    criar_roteiro: "producao",
+    criar_arte: "producao",
+    captar: "producao",
+    descarregar_captacao: "producao",
+    gerar_video: "producao",
+    editar_video: "producao",
+    revisar_roteiro: "revisao",
+    revisar_captacao: "revisao",
+    revisar: "revisao",
+    revisar_publicacao: "revisao",
+    enviar_cliente: "espera",
+    aguardando_cliente: "espera",
+    publicar: "espera",
+  },
+  sistemas: {
+    especificar: "producao",
+    desenvolver: "producao",
+    corrigir_bug_n1: "producao",
+    corrigir_bug_n2: "producao",
+    corrigir_bug_n3: "producao",
+    ajustar: "producao",
+    testar: "revisao",
+    revisar: "revisao",
+    entregar_cliente: "espera",
+    aguardando_cliente: "espera",
+    feedback_cliente: "espera",
+  },
+};
+
 
 const MIDIA_DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
