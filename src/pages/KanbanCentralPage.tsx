@@ -1109,6 +1109,14 @@ const KanbanCentralPage = () => {
 
   useEffect(() => { fetchFlowFunctionNames(); }, [fetchFlowFunctionNames]);
 
+  // Colaboradores com a função "Aguardando cliente" habilitada (para sinalizar inconsistências).
+  const [awaitingAllowedUsers, setAwaitingAllowedUsers] = useState<Set<string>>(new Set());
+  const fetchAwaitingAllowedUsers = useCallback(async () => {
+    if (!tenantId) return;
+    setAwaitingAllowedUsers(await fetchAllowedUsersForFunction(tenantId, "aguardando_cliente"));
+  }, [tenantId]);
+  useEffect(() => { fetchAwaitingAllowedUsers(); }, [fetchAwaitingAllowedUsers]);
+
   const FALLBACK_FN_NAMES: Record<string, string> = {
     planejar: "Planejar",
     criar_roteiro: "Criar roteiro",
