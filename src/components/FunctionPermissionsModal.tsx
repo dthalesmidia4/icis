@@ -428,10 +428,12 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     toast.success(`Durações de "${dt.name}" restauradas.`);
   };
 
-  /** Subtotal por linha (soma das etapas required). */
-  const rowSubtotal = (demandKey: string, group: DurationTypeGroup): number => {
+  /** Subtotal por linha (soma das etapas required), podendo filtrar categorias de etapa. */
+  const rowSubtotal = (demandKey: string, group: DurationTypeGroup, onlyKinds?: StageKind[]): number => {
     let total = 0;
+    const kindMap = STAGE_KIND[area] || {};
     for (const fn of FUNCTIONS) {
+      if (onlyKinds && !onlyKinds.includes(kindMap[fn.key] ?? "producao")) continue;
       if (rules[demandKey]?.[fn.key] === "required") {
         total += cellMinutes(fn.key, group);
       }
