@@ -55,6 +55,9 @@ import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
 import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
+import { evaluateReassign, applyReassign } from "@/lib/reassignDemand";
+import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
+import type { AssignmentConflict, FreeSlotSuggestion } from "@/lib/scheduleOccupancy";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
 
