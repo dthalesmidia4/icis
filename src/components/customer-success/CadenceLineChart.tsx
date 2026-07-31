@@ -61,7 +61,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
   const colorOf = (clientId: string) =>
     LINE_COLORS[rows.findIndex((r) => r.clientId === clientId) % LINE_COLORS.length];
 
-  const tickInterval = Math.max(1, Math.floor(points.length / 8));
+  const tickInterval = points.length <= 14 ? 0 : Math.max(1, Math.floor(points.length / 8));
 
   return (
     <div className="border rounded-lg bg-card">
