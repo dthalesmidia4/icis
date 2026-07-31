@@ -74,42 +74,56 @@ export async function evaluateReassign(params: {
   }
   if (!tenantId) return base;
 
-  // 1. Etapas de cliente exigem função explícita.
-  if (isClientStageKey(currentKey)) {
-    const ok = await userHasFunction(
+  // 1 + 2. QUALQUER etapa exige função atribuída ao novo responsável (na área do card).
+  // Se ele não tiver a etapa atual, só aceitamos a transferência quando existe uma
+  // etapa à frente que ele realmente possa exercer. Nunca "mantemos a etapa" por falta
+  // de opção — isso é justamente o furo que colocava cards em `revisar` com quem não revisa.
+  const areaLabel = (card.work_area as any) === "sistemas" ? "Sistemas" : "Mídia";
+  const stageLabel = params.functionLabel || currentKey || "etapa atual";
+  let nextFunctionKey: string | null = currentKey;
+  const functionRemapped = false;
+
+  if (currentKey) {
+    const holdsCurrent = await userHasFunction(
       tenantId,
       newAssignedTo,
-      currentKey as string,
+      currentKey,
       (card.work_area as any) ?? undefined,
     );
 
-    if (!ok) {
-      return {
-        ...base,
-        allowed: false,
-        blockedBy: "function",
-        message: `${nome} não tem a função "${params.functionLabel || currentKey}" atribuída`,
-      };
+    if (!holdsCurrent) {
+      let resolved: string | null = null;
+      try {
+        resolved = await resolveFunctionForAssignee(
+          tenantId,
+          newAssignedTo,
+          card.demand_type_key ?? null,
+          currentKey,
+          card.id,
+          { workArea: (card.work_area as any) ?? undefined, origin: (card.origin as any) ?? undefined },
+        );
+      } catch {
+        resolved = null;
+      }
+
+      const usableForward =
+        !!resolved &&
+        resolved !== currentKey &&
+        (await userHasFunction(tenantId, newAssignedTo, resolved, (card.work_area as any) ?? undefined));
+
+      if (!usableForward) {
+        return {
+          ...base,
+          allowed: false,
+          blockedBy: "function",
+          message: `${nome} não tem a função "${stageLabel}" na área ${areaLabel}`,
+        };
+      }
+
+      nextFunctionKey = resolved;
     }
   }
 
-  // 2. Etapa alvo compatível com as funções do novo responsável.
-  let nextFunctionKey: string | null = currentKey;
-  let functionRemapped = false;
-  try {
-    const resolved = await resolveFunctionForAssignee(
-      tenantId,
-      newAssignedTo,
-      card.demand_type_key ?? null,
-      currentKey,
-      card.id,
-      { workArea: (card.work_area as any) ?? undefined, origin: (card.origin as any) ?? undefined },
-    );
-    if (resolved) nextFunctionKey = resolved;
-    else if (currentKey) functionRemapped = true;
-  } catch {
-    /* mantém etapa atual */
-  }
 
   // 3. Ocupação de agenda do novo responsável.
   const conflicts = await checkAssignmentConflicts({
