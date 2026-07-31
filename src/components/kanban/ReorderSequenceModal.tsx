@@ -222,7 +222,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     let cancelled = false;
     setLoading(true);
     const enriched = cards.map((c) => ({ ...c, stage_started_at: stageStarts[c.id] ?? null }));
-    computeReorder(enriched, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(enriched, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, priority, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -237,7 +237,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, startFrom, cardsSignature, stageStartsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides]);
+  }, [open, startFrom, cardsSignature, stageStartsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides, priority]);
 
 
   // Limpa ajustes manuais ao fechar o modal
