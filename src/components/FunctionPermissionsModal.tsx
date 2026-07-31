@@ -433,6 +433,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     let total = 0;
     const kindMap = STAGE_KIND[area] || {};
     for (const fn of FUNCTIONS) {
+      if (UNTIMED_STAGE_KEYS.has(fn.key)) continue;
       if (onlyKinds && !onlyKinds.includes(kindMap[fn.key] ?? "producao")) continue;
       if (rules[demandKey]?.[fn.key] === "required") {
         total += cellMinutes(fn.key, group);
@@ -440,6 +441,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     }
     return total;
   };
+
 
   const fmtMinutes = (m: number): string => {
     if (m < 60) return `${m}min`;
