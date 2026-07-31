@@ -54,6 +54,7 @@ import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/init
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
+import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
 
