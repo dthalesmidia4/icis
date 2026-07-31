@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
 import { AreaAllocationTab } from "@/components/config/AreaAllocationTab";
+import { loadReorderPriority, saveReorderPriority, DEFAULT_REORDER_PRIORITY, type ReorderPriorityConfig } from "@/lib/reorderPriority";
+
 
 interface Props {
   open: boolean;
