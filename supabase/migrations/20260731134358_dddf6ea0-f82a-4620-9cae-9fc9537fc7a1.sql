@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS validate_demand_stage_assignment_trigger ON public.demands;
