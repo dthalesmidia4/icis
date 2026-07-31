@@ -3137,6 +3137,15 @@ const KanbanCentralPage = () => {
                                       highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
                                     )}
                                   >
+                                    {columnUserId !== "__unassigned__" && !awaitingAllowedUsers.has(columnUserId) && (
+                                      <div
+                                        className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400"
+                                        title='Este responsável não tem a função "Aguardando cliente" atribuída. Ajuste em Atribuir funções aos colaboradores.'
+                                      >
+                                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                                        <span>responsável sem a função</span>
+                                      </div>
+                                    )}
                                     <KanbanCard
                                       title={card.title}
                                       subtitle={card.clientName}
