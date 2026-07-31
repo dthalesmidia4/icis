@@ -1172,37 +1172,38 @@ const KanbanCentralPage = () => {
 
     if (previousAssignedTo === newAssignedTo) return;
 
-    // Etapas de cliente exigem função atribuída: bloqueia reatribuição manual indevida.
-    if (isClientStageKey(previousFunctionKey) && newAssignedTo && tenantId) {
-      const ok = await userHasFunction(tenantId, newAssignedTo, previousFunctionKey as string);
-      if (!ok) {
-        const nome = collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "Este colaborador";
-        sonnerToast.error(`${nome} não tem a função "${flowFunctionNames[previousFunctionKey as string] || previousFunctionKey}" atribuída`);
-        return;
+    const collabName = newAssignedTo
+      ? collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "colaborador"
+      : "Sem responsável";
+
+    // Validação única: função da etapa + ocupação de agenda (mesma área e entre áreas).
+    const evaluation = await evaluateReassign({
+      tenantId: tenantId || "",
+      card: card as any,
+      newAssignedTo,
+      collaboratorName: collabName,
+      functionLabel: previousFunctionKey
+        ? flowFunctionNames[previousFunctionKey] || previousFunctionKey
+        : undefined,
+    });
+
+    if (!evaluation.allowed) {
+      if (evaluation.blockedBy === "schedule") {
+        setScheduleConflict({
+          card: card as any,
+          newAssignedTo,
+          targetName: collabName,
+          conflicts: evaluation.hard,
+          suggestion: evaluation.suggestion,
+          nextFunctionKey: evaluation.nextFunctionKey,
+        });
+      } else {
+        sonnerToast.error(evaluation.message || "Transferência bloqueada");
       }
+      return;
     }
 
-    // Resolver etapa alvo para o novo responsável (respeita fluxo + funções permitidas).
-    let nextFunctionKey: string | null = previousFunctionKey;
-    let functionRemappedWarning = false;
-    if (newAssignedTo && tenantId) {
-      const resolved = await resolveFunctionForAssignee(
-        tenantId,
-        newAssignedTo,
-        card.demand_type_key ?? null,
-        previousFunctionKey,
-        card.id,
-        { workArea: (card as any).work_area, origin: (card as any).origin },
-      );
-      if (resolved) {
-        nextFunctionKey = resolved;
-      } else if (previousFunctionKey) {
-        functionRemappedWarning = true;
-      }
-    } else if (!newAssignedTo) {
-      // Sem responsável: limpar etapa (comportamento anterior da coluna __unassigned__).
-      nextFunctionKey = null;
-    }
+    const nextFunctionKey = evaluation.nextFunctionKey;
 
     // Optimistic update
     setCards((prev) => prev.map((c) =>
@@ -1210,37 +1211,17 @@ const KanbanCentralPage = () => {
     ));
 
     try {
-      const update: Record<string, any> = {
-        assigned_to: newAssignedTo,
-        updated_at: new Date().toISOString(),
-      };
-      if (nextFunctionKey !== previousFunctionKey) {
-        update.current_function_key = nextFunctionKey;
-      }
-      const { error } = await supabase
-        .from("demands")
-        .update(update)
-        .eq("id", card.id);
-
+      const { error } = await applyReassign({
+        tenantId: tenantId || "",
+        card: card as any,
+        newAssignedTo,
+        nextFunctionKey,
+        historySource: "kanban_drag",
+      });
       if (error) throw error;
 
-      if (tenantId) {
-        await recordFlowHistory({
-          tenantId,
-          demandId: card.id,
-          action: "manual_assignment",
-          fromUserId: previousAssignedTo,
-          toUserId: newAssignedTo,
-          fromFunctionKey: previousFunctionKey,
-          toFunctionKey: nextFunctionKey,
-          metadata: { source: "kanban_drag" },
-        });
-      }
-
-      const collabName = newAssignedTo
-        ? collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "colaborador"
-        : "Sem responsável";
-      if (functionRemappedWarning) {
+      evaluation.softMessages.forEach((m) => sonnerToast.warning(m));
+      if (evaluation.functionRemapped) {
         sonnerToast.warning(`${collabName} não tem função compatível — etapa mantida`);
       } else {
         sonnerToast.success(`Atribuída a ${collabName}`);
@@ -1252,6 +1233,48 @@ const KanbanCentralPage = () => {
       setCards((prev) => prev.map((c) =>
         c.id === draggableId ? { ...c, assigned_to: previousAssignedTo, current_function_key: previousFunctionKey } : c
       ));
+    }
+  };
+
+  const handleConflictReschedule = async (slot: { date: string; startTime: string; endTime: string }) => {
+    if (!scheduleConflict) return;
+    setReschedulingConflict(true);
+    try {
+      const { card, newAssignedTo, nextFunctionKey } = scheduleConflict;
+      const { error } = await applyReassign({
+        tenantId: tenantId || "",
+        card: card as any,
+        newAssignedTo,
+        nextFunctionKey,
+        reschedule: {
+          due_date: slot.date,
+          due_time: slot.startTime,
+          delivery_date: slot.date,
+          delivery_time: slot.endTime,
+        },
+        historySource: "kanban_drag_rescheduled",
+      });
+      if (error) throw error;
+      setCards((prev) => prev.map((c) =>
+        c.id === card.id
+          ? {
+              ...c,
+              assigned_to: newAssignedTo,
+              current_function_key: nextFunctionKey,
+              due_date: slot.date,
+              due_time: slot.startTime,
+              delivery_date: slot.date,
+              delivery_time: slot.endTime,
+            }
+          : c
+      ));
+      sonnerToast.success(`Transferida e reagendada para ${slot.startTime}–${slot.endTime}`);
+      setScheduleConflict(null);
+    } catch (e) {
+      console.error("[reschedule] error", e);
+      sonnerToast.error("Não foi possível reagendar");
+    } finally {
+      setReschedulingConflict(false);
     }
   };
 
