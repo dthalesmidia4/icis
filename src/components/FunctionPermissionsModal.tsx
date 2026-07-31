@@ -584,6 +584,15 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
               Tempo estimado, em minutos, para cada etapa por tipo de demanda. Usado ao reorganizar sequência automaticamente. Só é possível editar etapas marcadas como "Sim" na aba anterior.
             </p>
 
+            <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground mb-2">
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-primary/15 border border-primary/30" />
+                Etapas de produção (mão na massa)
+              </span>
+              <span><strong className="text-foreground">Total produção</strong> = só produção.</span>
+              <span><strong className="text-foreground">Total do ciclo</strong> = inclui revisões, envio/retorno de cliente e publicação.</span>
+            </div>
+
             <div className="border rounded-lg overflow-auto max-h-[65vh]">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 sticky top-0 z-10">
@@ -592,11 +601,22 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                       Tipo de demanda
                     </th>
                     {FUNCTIONS.map((f) => (
-                      <th key={f.key} className="text-center p-3 font-semibold uppercase text-[10px] whitespace-nowrap">
+                      <th
+                        key={f.key}
+                        className={cn(
+                          "text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap",
+                          (STAGE_KIND[area]?.[f.key] ?? "producao") === "producao" && "bg-primary/10"
+                        )}
+                      >
                         {f.name}
                       </th>
                     ))}
-                    <th className="text-center p-3 font-semibold uppercase text-[10px] whitespace-nowrap">Total</th>
+                    <th className="text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap bg-primary/10 border-l">
+                      Total produção
+                    </th>
+                    <th className="text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap text-muted-foreground">
+                      Total do ciclo
+                    </th>
                     <th className="p-2"></th>
                   </tr>
                 </thead>
