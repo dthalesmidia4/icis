@@ -441,6 +441,7 @@ export type Database = {
           tenant_id: string
           updated_at: string
           user_id: string
+          work_area: Database["public"]["Enums"]["work_area"]
         }
         Insert: {
           allowed?: boolean
@@ -450,6 +451,7 @@ export type Database = {
           tenant_id: string
           updated_at?: string
           user_id: string
+          work_area?: Database["public"]["Enums"]["work_area"]
         }
         Update: {
           allowed?: boolean
@@ -459,6 +461,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           user_id?: string
+          work_area?: Database["public"]["Enums"]["work_area"]
         }
         Relationships: []
       }
@@ -2566,15 +2569,26 @@ export type Database = {
         Returns: Json
       }
       refresh_client_templates: { Args: { p_client_id: string }; Returns: Json }
-      resolve_function_for_assignee: {
-        Args: {
-          _current_key: string
-          _demand_type_key: string
-          _tenant_id: string
-          _user_id: string
-        }
-        Returns: string
-      }
+      resolve_function_for_assignee:
+        | {
+            Args: {
+              _current_key: string
+              _demand_type_key: string
+              _tenant_id: string
+              _user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _current_key: string
+              _demand_type_key: string
+              _tenant_id: string
+              _user_id: string
+              _work_area?: Database["public"]["Enums"]["work_area"]
+            }
+            Returns: string
+          }
       use_invitation: {
         Args: { _code: string; _user_id: string }
         Returns: Json
