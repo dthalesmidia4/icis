@@ -475,6 +475,29 @@ export async function pickAssigneeForFunction(
 }
 
 /**
+ * Quem fica com o card enquanto ele espera o cliente.
+ * Regra: prioriza colaborador com a função `aguardando_cliente` atribuída
+ * (sticky se o responsável anterior já a tiver); se nenhum colaborador tiver
+ * a função habilitada, mantém o responsável anterior (fallback seguro).
+ */
+async function resolveClientWaitOwner(
+  tenantId: string,
+  previousAssignee: string | null,
+): Promise<string | null> {
+  try {
+    const picked = await pickAssigneeForFunction(tenantId, "aguardando_cliente", "Aguardando cliente", {
+      preferUserIds: previousAssignee ? [previousAssignee] : [],
+    });
+    if (picked.success && picked.userId) return picked.userId;
+  } catch (e) {
+    console.warn("[proceedDemand] resolveClientWaitOwner error:", e);
+  }
+  return previousAssignee;
+}
+
+
+
+/**
  * Todos os usuários que executaram a etapa atual do card: responsável,
  * `additional_assignees` e quem registrou entrega parcial no histórico.
  * Usado para (a) manter o card com a mesma pessoa na próxima etapa de produção
