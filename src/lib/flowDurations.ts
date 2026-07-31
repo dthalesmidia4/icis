@@ -2,7 +2,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
 import type { WorkArea } from "@/lib/flowFunctions";
 
-export type StageDurations = Record<string, Partial<Record<DurationTypeGroup, number>>>;
+export type StageDurationRow = Partial<Record<DurationTypeGroup, number>> & {
+  /** Override por TIPO de demanda (`video_gerado` ≠ `video_captado`). Prioritário. */
+  byType?: Record<string, number>;
+};
+export type StageDurations = Record<string, StageDurationRow>;
+
+/** Monta a linha combinando o formato legado (grupo) com o por tipo. */
+function rowFromConfig(config: any): StageDurationRow | null {
+  const group = config?.durations;
+  const byType = config?.durations_by_type;
+  const hasGroup = group && typeof group === "object";
+  const hasByType = byType && typeof byType === "object";
+  if (!hasGroup && !hasByType) return null;
+  return {
+    ...(hasGroup ? group : {}),
+    ...(hasByType ? { byType: { ...byType } } : {}),
+  };
+}
 
 /**
  * Carrega overrides de duração por etapa a partir de `flow_functions.config.durations`.
@@ -21,10 +38,8 @@ export async function loadDurationsForTenant(
   if (error || !data) return {};
   const out: StageDurations = {};
   for (const row of data as any[]) {
-    const dur = row?.config?.durations;
-    if (dur && typeof dur === "object") {
-      out[row.function_key] = { ...dur };
-    }
+    const built = rowFromConfig(row?.config);
+    if (built) out[row.function_key] = built;
   }
   return out;
 }
@@ -41,10 +56,8 @@ export async function loadDurationsByArea(tenantId: string): Promise<StageDurati
   if (error || !data) return {};
   const out: StageDurations = {};
   for (const row of data as any[]) {
-    const dur = row?.config?.durations;
-    if (dur && typeof dur === "object") {
-      out[`${row.work_area || "midia"}:${row.function_key}`] = { ...dur };
-    }
+    const built = rowFromConfig(row?.config);
+    if (built) out[`${row.work_area || "midia"}:${row.function_key}`] = built;
   }
   return out;
 }
@@ -54,10 +67,14 @@ export function resolveDurationMinutes(
   overrides: StageDurations | undefined,
   stage: string,
   group: DurationTypeGroup,
+  demandTypeKey?: string | null,
 ): number | null {
   const s = (stage || "").toLowerCase();
   const overrideRow = overrides?.[s];
   if (overrideRow) {
+    const typeKey = (demandTypeKey || "").toLowerCase();
+    const byType = typeKey ? overrideRow.byType?.[typeKey] : undefined;
+    if (typeof byType === "number" && byType > 0) return byType;
     const v = overrideRow[group] ?? overrideRow.default;
     if (typeof v === "number" && v > 0) return v;
   }
@@ -110,7 +127,7 @@ export async function buildReturnFromClientDates(
     overrides = {};
   }
   const minutes =
-    resolveDurationMinutes(overrides, targetStage, groupForDemandTypeKey(demandTypeKey)) ??
+    resolveDurationMinutes(overrides, targetStage, groupForDemandTypeKey(demandTypeKey), demandTypeKey) ??
     (fallbackMinutes && fallbackMinutes > 0 ? fallbackMinutes : 15);
 
   const start = new Date();
