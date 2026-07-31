@@ -1163,6 +1163,16 @@ const KanbanCentralPage = () => {
 
     if (previousAssignedTo === newAssignedTo) return;
 
+    // Etapas de cliente exigem função atribuída: bloqueia reatribuição manual indevida.
+    if (isClientStageKey(previousFunctionKey) && newAssignedTo && tenantId) {
+      const ok = await userHasFunction(tenantId, newAssignedTo, previousFunctionKey as string);
+      if (!ok) {
+        const nome = collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "Este colaborador";
+        sonnerToast.error(`${nome} não tem a função "${flowFunctionNames[previousFunctionKey as string] || previousFunctionKey}" atribuída`);
+        return;
+      }
+    }
+
     // Resolver etapa alvo para o novo responsável (respeita fluxo + funções permitidas).
     let nextFunctionKey: string | null = previousFunctionKey;
     let functionRemappedWarning = false;
