@@ -84,8 +84,9 @@ export interface ReorderProposal {
   riskStatus?: "risk" | "normal" | "recent";
   /** Folga até o prazo, em minutos. */
   slackMin?: number | null;
-  /** Ciclo restante estimado, em minutos. */
+  /** Duração estimada da etapa atual, em minutos. */
   remainingCycleMin?: number | null;
+
   /** Minutos desde a entrada na etapa atual. */
   inStageMin?: number | null;
 
@@ -641,9 +642,10 @@ export interface ReorderRiskInfo {
   status: ReorderRiskStatus;
   /** Folga até o prazo, em minutos (null quando o card não tem prazo). */
   slackMin: number | null;
-  /** Ciclo restante estimado (etapa atual + etapas seguintes) em minutos. */
+  /** Duração estimada da etapa atual, em minutos. */
   remainingMin: number;
-  /** Limite da janela de risco (fator × ciclo restante), em minutos. */
+  /** Limite da janela de risco (fator × duração da etapa atual), em minutos. */
+
   riskWindowMin: number;
   /** Minutos desde a entrada na etapa atual (null se desconhecido). */
   inStageMin: number | null;

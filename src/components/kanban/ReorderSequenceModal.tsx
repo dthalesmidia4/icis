@@ -806,7 +806,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             <Badge
                               variant="outline"
                               className="text-[10px] border-red-500/60 text-red-600 dark:text-red-400"
-                              title={`Prazo em ${fmtMinutes(Math.max(p.slackMin ?? 0, 0))} · ciclo restante ${fmtMinutes(p.remainingCycleMin || 0)}`}
+                              title={`Faltam ${fmtMinutes(Math.max(p.slackMin ?? 0, 0))} para o prazo e a etapa atual leva ~${fmtMinutes(p.remainingCycleMin || 0)} — por isso este card foi priorizado.`}
                             >
                               ⚠ risco de atraso
                             </Badge>
@@ -815,17 +815,18 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             <Badge
                               variant="outline"
                               className="text-[10px] border-slate-400/60 text-muted-foreground"
-                              title="Entrou na coluna há pouco tempo e sem risco de atraso — alocado por último."
+                              title="Chegou na coluna há pouco tempo e não está em risco — entrou no fim da fila."
                             >
                               recém-chegado
                             </Badge>
                           )}
                           {p.remainingCycleMin ? (
                             <span className="text-muted-foreground">
-                              ciclo rest. {fmtMinutes(p.remainingCycleMin)}
-                              {p.slackMin != null ? ` · folga ${fmtMinutes(p.slackMin)}` : ""}
+                              etapa ~{fmtMinutes(p.remainingCycleMin)}
+                              {p.slackMin != null ? ` · faltam ${fmtMinutes(p.slackMin)}` : ""}
                             </span>
                           ) : null}
+
 
                           {p.spansDays && p.spansDays > 1 && (
                             <Badge variant="outline" className="text-[10px] border-blue-500/60 text-blue-600 dark:text-blue-400">
