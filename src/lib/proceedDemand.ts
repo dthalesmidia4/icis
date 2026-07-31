@@ -96,6 +96,9 @@ async function avoidScheduleConflict(
   } catch {
     /* silencioso: nunca bloquear o fluxo por causa da checagem */
   }
+}
+
+
 
 /**
  * Fonte da verdade da etapa atual: o banco. O valor vindo da tela pode estar
