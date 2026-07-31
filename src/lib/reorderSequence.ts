@@ -767,6 +767,9 @@ export async function computeReorder(
     areaSchedule?: AreaScheduleMap;
     scheduledPublishIds?: Set<string>;
     manualOverrides?: Record<string, ReorderManualOverride>;
+    /** Janela de risco / carência de entrada (configurável por área). */
+    priority?: { riskFactor?: number; entryGraceMin?: number };
+
   },
 
 
