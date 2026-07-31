@@ -3027,6 +3027,15 @@ export default function TaskCard({
           }
         }}
       />
+      <ScheduleConflictModal
+        open={!!assignConflict}
+        onOpenChange={(o) => { if (!o) setAssignConflict(null); }}
+        targetName={assignConflict?.targetName}
+        conflicts={assignConflict?.conflicts || []}
+        suggestion={assignConflict?.suggestion || null}
+        onReschedule={applyAssignReschedule}
+        rescheduling={reschedulingAssign}
+      />
       <AlertDialog open={!!hardConflict} onOpenChange={(o) => { if (!o) setHardConflict(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
