@@ -247,7 +247,11 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     if (!open || !agencyId) return;
     let cancelled = false;
     loadReorderPriority(agencyId).then((cfg) => {
-      if (!cancelled) setPriorityCfg({ ...cfg[area] });
+      if (cancelled) return;
+      setPriorityCfg({ ...cfg[area] });
+      // Ao trocar de área, volta ao modo de presets: a config carregada pode
+      // corresponder exatamente a um preset.
+      setCustomRisk(false);
     });
     return () => { cancelled = true; };
   }, [open, agencyId, area]);
@@ -258,13 +262,14 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     try {
       await saveReorderPriority(agencyId, area, priorityCfg);
       toast.success("Prioridade atualizada.");
-    } catch (e) {
+    } catch (e: any) {
       console.error("[flow] save priority", e);
-      toast.error("Não foi possível salvar a prioridade.");
+      toast.error(e?.message || "Não foi possível salvar a prioridade.");
     } finally {
       setSavingPriority(false);
     }
   };
+
 
 
   const seedIfEmpty = async (tenantId: string) => {
