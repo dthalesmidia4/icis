@@ -544,10 +544,12 @@ export async function pickAssigneeForFunction(
 async function resolveClientWaitOwner(
   tenantId: string,
   previousAssignee: string | null,
+  workArea?: "midia" | "sistemas" | null,
 ): Promise<string | null> {
   try {
     const picked = await pickAssigneeForFunction(tenantId, "aguardando_cliente", "Aguardando cliente", {
       preferUserIds: previousAssignee ? [previousAssignee] : [],
+      workArea: workArea ?? "midia",
     });
     if (picked.success && picked.userId) return picked.userId;
   } catch (e) {
@@ -555,6 +557,7 @@ async function resolveClientWaitOwner(
   }
   return null;
 }
+
 
 
 
@@ -618,7 +621,9 @@ async function resolveNextStage(
   sequence: { function_key: string; name: string }[],
   startIndex: number,
   executors: string[],
+  workArea?: "midia" | "sistemas" | null,
 ): Promise<ResolvedNextStage | null> {
+  const area = workArea ?? "midia";
   const skipped: string[] = [];
   for (let i = startIndex; i < sequence.length; i++) {
     const fn = sequence[i];
@@ -628,6 +633,7 @@ async function resolveNextStage(
     if (isReviewFunction(fn.function_key)) {
       const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
         excludeUserIds: executors,
+        workArea: area,
       });
       if (picked.success && picked.userId) return { fn, picked, skipped };
       skipped.push(fn.function_key);
@@ -635,11 +641,13 @@ async function resolveNextStage(
     }
     const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
       preferUserIds: STICKY_STAGES.has(fn.function_key) ? executors : [],
+      workArea: area,
     });
     return { fn, picked, skipped };
   }
   return null;
 }
+
 
 
 export interface SequenceOptions {
