@@ -21,7 +21,7 @@ import {
   Focus,
   Wand2,
   Activity
-, HeartPulse, Building2 } from "lucide-react";
+, HeartPulse, Building2, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
 import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
@@ -54,6 +54,7 @@ import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/init
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
+import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
 
@@ -1108,6 +1109,14 @@ const KanbanCentralPage = () => {
 
   useEffect(() => { fetchFlowFunctionNames(); }, [fetchFlowFunctionNames]);
 
+  // Colaboradores com a função "Aguardando cliente" habilitada (para sinalizar inconsistências).
+  const [awaitingAllowedUsers, setAwaitingAllowedUsers] = useState<Set<string>>(new Set());
+  const fetchAwaitingAllowedUsers = useCallback(async () => {
+    if (!tenantId) return;
+    setAwaitingAllowedUsers(await fetchAllowedUsersForFunction(tenantId, "aguardando_cliente"));
+  }, [tenantId]);
+  useEffect(() => { fetchAwaitingAllowedUsers(); }, [fetchAwaitingAllowedUsers]);
+
   const FALLBACK_FN_NAMES: Record<string, string> = {
     planejar: "Planejar",
     criar_roteiro: "Criar roteiro",
@@ -1143,7 +1152,7 @@ const KanbanCentralPage = () => {
   useRealtimeFlowConfig({
     tenantId,
     enabled: !!tenantId,
-    onChange: () => { fetchColumns(); fetchFlowFunctionNames(); },
+    onChange: () => { fetchColumns(); fetchFlowFunctionNames(); fetchAwaitingAllowedUsers(); },
   });
 
   const handleDragEnd = async (result: any) => {
@@ -1162,6 +1171,16 @@ const KanbanCentralPage = () => {
     const previousFunctionKey = card.current_function_key ?? null;
 
     if (previousAssignedTo === newAssignedTo) return;
+
+    // Etapas de cliente exigem função atribuída: bloqueia reatribuição manual indevida.
+    if (isClientStageKey(previousFunctionKey) && newAssignedTo && tenantId) {
+      const ok = await userHasFunction(tenantId, newAssignedTo, previousFunctionKey as string);
+      if (!ok) {
+        const nome = collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "Este colaborador";
+        sonnerToast.error(`${nome} não tem a função "${flowFunctionNames[previousFunctionKey as string] || previousFunctionKey}" atribuída`);
+        return;
+      }
+    }
 
     // Resolver etapa alvo para o novo responsável (respeita fluxo + funções permitidas).
     let nextFunctionKey: string | null = previousFunctionKey;
@@ -3126,6 +3145,15 @@ const KanbanCentralPage = () => {
                                       highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
                                     )}
                                   >
+                                    {columnUserId !== "__unassigned__" && !awaitingAllowedUsers.has(columnUserId) && (
+                                      <div
+                                        className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400"
+                                        title='Este responsável não tem a função "Aguardando cliente" atribuída. Ajuste em Atribuir funções aos colaboradores.'
+                                      >
+                                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                                        <span>responsável sem a função</span>
+                                      </div>
+                                    )}
                                     <KanbanCard
                                       title={card.title}
                                       subtitle={card.clientName}

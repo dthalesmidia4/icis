@@ -1,22 +1,34 @@
-## Contexto verificado
+## O que apurei nos dados
 
-- Em `src/components/FunctionPermissionsModal.tsx`, a etapa `aguardando_cliente` aparece na aba **Tempo estimado** com input editável (linhas 637-677) e entra no cálculo de **Total do ciclo** via `rowSubtotal` (linhas 432-442), já que é `STAGE_KIND = "espera"` mas não é excluída dos totais.
-- Em `src/lib/flowFunctions.ts` (linhas 17-28), `aguardando_cliente` já é tratada como estado de espera e não compete por slot operacional; `src/lib/reorderSequence.ts` não usa a duração dessa etapa. Ou seja, o número configurado hoje é inerte — só confunde.
-- A configuração real da espera (horas de espera, horários de retorno, reenvios) já existe na aba **Retorno do cliente** (`saveAwaitingConfig`, linhas 451-476).
+Os 2 cards em "Aguardando clientes" na coluna do Eric:
+
+1. **"Hospital Veterinário Leal – vídeos: dia dos pais"** (`df357810`)
+   - Histórico: `editar_video` (Letícia) → `aguardando_cliente` mantendo a Letícia (30/07 19:30).
+   - Depois, às 19:47, houve um evento `manual_assignment`: `aguardando_cliente` **Letícia → Eric**. Ou seja, alguém trocou o responsável (drag-and-drop / troca de responsável no card) enquanto o card já estava em espera.
+2. **"Correção de Bug ao Salvar Aplicações no Monitor de Execuções da Internação"** (`55e69819`, área Sistemas)
+   - `demand_flow_history` só tem o evento inicial `planejar`. O card está hoje em `aguardando_cliente` com `assigned_to = Eric` e **`client_wait_started_at` nulo** — chegou nesse estado por um caminho que não registra histórico nem carimba o envio (edição direta de etapa/responsável).
+
+## Por que isso acontece (causa raiz)
+
+- Em `src/pages/KanbanCentralPage.tsx`, as colunas são montadas por colaborador e os cards são filtrados **apenas** por `assigned_to` / `additional_assignees` (linhas 2463-2466). A sub-seção "Aguardando clientes" é só um recorte dessa mesma lista (2494-2499).
+- Em `src/lib/proceedDemand.ts` (linhas 638-651 e 767-799), entrar em `aguardando_cliente` **preserva de propósito o responsável anterior** e não chama `pickAssigneeForFunction`. Logo, `collaborator_function_assignments` nunca é consultado para essa etapa.
+- Consequência: estar em "Aguardando clientes" não significa "tem a função aguardando cliente"; significa "foi a última pessoa a ficar com o card". No caso do Eric, veio de uma reatribuição manual (card 1) e de uma mudança direta de etapa (card 2). Confirmei também que hoje só **1 colaborador** tem `aguardando_cliente` e **1** tem `enviar_cliente` marcados como permitidos — nenhum deles é o Eric.
+
+Ou seja: não é bug de permissão, é ausência de regra. Nada valida a atribuição de função quando o card entra/permanece em espera, e a tela não deixa claro que a coluna é "quem detém o card", não "quem tem a função".
 
 ## Ajuste proposto
 
-1. **Manter a coluna "Aguardando cliente"** na aba Tempo estimado (para leitura do fluxo completo), mas sem input:
-   - Renderizar a célula como estado, não como número: um chip discreto “sem prazo” (ícone de relógio/pausa, texto `text-muted-foreground`), com tooltip “Estado de espera pelo cliente — configurado na aba Retorno do cliente”.
-   - Cabeçalho da coluna recebe estilo neutro/tracejado indicando “estado”, distinto das colunas de produção.
-2. **Excluir da soma**: criar um conjunto `UNTIMED_STAGE_KEYS = ["aguardando_cliente"]` e ignorá-lo em `rowSubtotal`, para que não afete **Total produção** nem **Total do ciclo**.
-3. **Renomear/reescrever a legenda** para refletir a nova semântica: “Total do ciclo = produção + revisões + envio ao cliente + publicação (não inclui o tempo em que o card fica parado com o cliente)”.
-4. **`resetDurationsForType`** passa a ignorar a etapa sem prazo (não grava/limpa duração para ela).
-5. **Aba Participação**: sem alteração — continua possível marcar se a etapa `aguardando_cliente` participa do fluxo de cada tipo de demanda.
-6. **Ponteiro para a configuração certa**: pequeno link/texto na célula ou na legenda indicando que a espera é configurada em “Retorno do cliente”.
+1. **Definir o dono da espera pela função, com fallback seguro** (`src/lib/proceedDemand.ts`)
+   - Ao entrar em `aguardando_cliente`, tentar `pickAssigneeForFunction(tenant, "aguardando_cliente")`; se houver colaborador habilitado, atribuir a ele; se não houver nenhum, manter o comportamento atual (preserva o responsável anterior). Registrar o `to_user_id` correto no histórico.
+2. **Bloquear reatribuição manual para quem não tem a função**
+   - No caminho de troca manual de responsável (evento `manual_assignment`) e no drag-and-drop entre colunas: se a etapa atual for `aguardando_cliente`/`enviar_cliente` e o destino não tiver a função permitida, recusar com toast explicativo (mesmo padrão de bloqueio já usado para conflitos de área).
+3. **Sinalizar inconsistência na UI em vez de esconder**
+   - Na seção "Aguardando clientes" da coluna, marcar com um chip de alerta discreto os cards cujo responsável não tem a função `aguardando_cliente` permitida ("responsável sem a função"), com tooltip apontando para "Atribuir funções aos colaboradores".
+4. **Corrigir o dado órfão do card de Sistemas**
+   - Carimbar `client_wait_started_at` retroativamente a partir do último evento de histórico (ou do `updated_at`) para o card `55e69819`, para que o pill "Enviado ao cliente em…" pare de aparecer vazio. Já existe rotina de backfill semelhante em `KanbanCentralPage.tsx` (linhas 911-925); vou reaproveitá-la.
+5. **(Opcional, se você quiser)** Marcar `aguardando_cliente` como não atribuível na aba Participação e passar a exibir esses cards em uma coluna única "Com o cliente", em vez de dentro da coluna do colaborador. Isso é mudança maior de layout — só faço se você confirmar.
 
 ## Detalhes técnicos
 
-- Arquivo único: `src/components/FunctionPermissionsModal.tsx`.
-- Nada muda no banco: durações antigas de `aguardando_cliente` em `flow_functions.config.durations` simplesmente deixam de ser lidas/exibidas (opcionalmente limpas no reset da linha).
-- Nenhuma mudança em `reorderSequence.ts` / `flowDurations.ts`, pois já não consomem essa duração.
+- Arquivos: `src/lib/proceedDemand.ts` (resolução de responsável na espera), `src/pages/KanbanCentralPage.tsx` (bloqueio no drag/manual assignment + chip de alerta + backfill), possivelmente `src/components/TaskCard.tsx` (troca manual de responsável).
+- Sem migração de schema; apenas um `UPDATE` pontual de dado para o card órfão.

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { isClientStageKey, userHasFunction } from "@/lib/clientStageAssignments";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -1805,6 +1806,16 @@ export default function TaskCard({
                       value={card.assigned_to || "__none__"}
                       onValueChange={async (val) => {
                         const newVal = val === "__none__" ? "" : val;
+                        // Etapas de cliente exigem função atribuída ao novo responsável.
+                        const curKey = card.current_function_key ?? null;
+                        if (newVal && card.tenant_id && isClientStageKey(curKey)) {
+                          const ok = await userHasFunction(card.tenant_id, newVal, curKey as string);
+                          if (!ok) {
+                            const nome = collaborators.find((c) => c.id === newVal)?.name || "Este colaborador";
+                            toast.error(`${nome} não tem a função desta etapa (aguardando/enviar cliente) atribuída`);
+                            return;
+                          }
+                        }
                         // Ajusta a etapa para uma função permitida do novo responsável.
                         let nextFn: string | null = card.current_function_key ?? null;
                         if (newVal && card.tenant_id) {
