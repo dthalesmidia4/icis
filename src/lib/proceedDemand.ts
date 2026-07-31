@@ -790,19 +790,25 @@ export async function proceedDemand({
   const skipMeta = skipped.length > 0 ? { skipped } : undefined;
   const skipNote = skipped.length > 0 ? " (revisão dispensada: mesma pessoa executou)" : "";
 
-  // Qualquer entrada em "Aguardando clientes" mantém o mesmo responsável e carimba o envio.
+  // Entrada em "Aguardando clientes": dono da espera vem da função atribuída
+  // (fallback: mantém o responsável anterior).
   if (nextFn.function_key === "aguardando_cliente") {
-    const keepAssignee = previousAssignee;
+    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee);
+    const waitPayload: any = {
+      current_function_key: nextFn.function_key,
+      client_wait_started_at: new Date().toISOString(),
+    };
+    if (keepAssignee !== previousAssignee) waitPayload.assigned_to = keepAssignee;
     const { error: upErr } = await supabase
       .from("demands")
-      .update({ current_function_key: nextFn.function_key, client_wait_started_at: new Date().toISOString() } as any)
+      .update(waitPayload)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
     await recordFlowHistory({
       tenantId,
       demandId,
       action: "proceeded",
-      fromUserId: keepAssignee,
+      fromUserId: previousAssignee,
       toUserId: keepAssignee,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
@@ -812,7 +818,7 @@ export async function proceedDemand({
     await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
     // Registra a entrega da etapa que enviou ao cliente (impede regressão para ela).
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
-      keepAssignee,
+      previousAssignee,
       ...stageExtras,
     ]);
 
