@@ -825,10 +825,15 @@ export async function computeReorder(
     return true;
   });
 
+  // A ordenação usa exatamente a mesma base de duração da alocação (com os
+  // ajustes de duração configurados), para que o badge de risco no modal
+  // sempre explique a posição real na fila.
   const ordered = sortForReorder(active, {
     prioritizePublishDate: opts?.prioritizePublishDate,
     priority: { ...(opts?.priority || {}), now },
+    estimateMin: (c) => estimateDurationBase(c, ctx, opts?.durations),
   });
+
 
 
   // Intervalos ocupados por cards fixos (captar, daily).
