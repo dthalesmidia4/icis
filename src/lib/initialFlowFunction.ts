@@ -105,8 +105,10 @@ export async function resolveFunctionForAssignee(
       .select("function_key, allowed")
       .eq("tenant_id", tenantId)
       .eq("user_id", assigneeUserId)
+      .eq("work_area", area)
       .eq("allowed", true)
       .neq("function_key", "avaliar"),
+
   ]);
 
   if (!fns || fns.length === 0) return null;
@@ -200,7 +202,10 @@ export async function assignInitialResponsible(
       );
       if (resolved) functionKey = resolved;
     } else {
-      const picked = await pickAssigneeForFunction(tenantId, initial.functionKey, initial.functionName);
+      const picked = await pickAssigneeForFunction(tenantId, initial.functionKey, initial.functionName, {
+        workArea: normalizeWorkArea(opts?.workArea),
+      });
+
       if (picked.success && picked.userId) assigneeId = picked.userId;
     }
 
