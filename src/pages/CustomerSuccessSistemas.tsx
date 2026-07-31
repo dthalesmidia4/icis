@@ -80,7 +80,7 @@ export default function CustomerSuccessSistemas() {
   const [history, setHistory] = useState<TouchpointRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [timeline, setTimeline] = useState<Record<string, TimelineTouchpoint[]>>({});
-  const [timelineDays, setTimelineDays] = useState(90);
+  const [timelineDays, setTimelineDays] = useState(7);
   const [showTable, setShowTable] = useState(false);
 
   const load = useCallback(async () => {
