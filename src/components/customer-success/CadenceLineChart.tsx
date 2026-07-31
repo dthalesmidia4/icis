@@ -179,6 +179,7 @@ export function CadenceLineChart({ rows, timeline, days }: Props) {
                     );
                   }}
                   activeDot={{ r: 4 }}
+                  connectNulls={false}
                   isAnimationActive={false}
                 />
               ))}
