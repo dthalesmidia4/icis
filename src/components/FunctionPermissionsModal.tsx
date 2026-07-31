@@ -406,8 +406,10 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     setSavingDuration(`reset:${demandKey}`);
     const nextDurations = { ...durations };
     for (const fn of FUNCTIONS) {
+      if (UNTIMED_STAGE_KEYS.has(fn.key)) continue;
       const req = rules[demandKey]?.[fn.key];
       if (req !== "required") continue;
+
       const fallback = hardcodedDuration(fn.key, group);
       const newRow = { ...(nextDurations[fn.key] || {}), [group]: fallback };
       nextDurations[fn.key] = newRow;
