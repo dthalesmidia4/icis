@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Wand2, AlertTriangle, ArrowRight, Filter, Pencil, RotateCcw, Pin, CalendarClock } from "lucide-react";
+import { Loader2, Wand2, AlertTriangle, Filter, RotateCcw, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import ReorderProposalRow, { fmtDate } from "./ReorderProposalRow";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -34,65 +37,6 @@ interface Props {
 
 }
 
-function fmtDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-function fmtDuration(min: number): string {
-  if (min < 60) return `${min}min`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
-}
-
-/** Rótulos legíveis de etapa e tipo — o modal antes mostrava só "etapa". */
-const STAGE_LABELS: Record<string, string> = {
-  planejar: "Planejar",
-  criar_roteiro: "Criar roteiro",
-  revisar_roteiro: "Revisar roteiro",
-  criar_arte: "Criar arte",
-  captar: "Captar",
-  descarregar_captacao: "Descarregar captação",
-  revisar_captacao: "Revisar captação",
-  gerar_video: "Gerar vídeo",
-  editar_video: "Editar vídeo",
-  revisar: "Revisar",
-  enviar_cliente: "Enviar cliente",
-  aguardando_cliente: "Aguardando cliente",
-  publicar: "Publicar",
-  revisar_publicacao: "Revisar publicação",
-  especificar: "Especificar",
-  desenvolver: "Em desenvolvimento",
-  corrigir_bug_n1: "Bug — Nível 1",
-  corrigir_bug_n2: "Bug — Nível 2",
-  corrigir_bug_n3: "Bug — Nível 3",
-  testar: "Testar",
-  ajustar: "Ajustar",
-  entregar_cliente: "Entregar ao cliente",
-  feedback_cliente: "Feedback ao cliente",
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  criativo_estatico: "Criativo estático",
-  carrossel: "Carrossel",
-  video_captado: "Vídeo captado",
-  video_gerado: "Vídeo gerado",
-  anuncio: "Anúncio",
-  outro: "Outro",
-  bug_n1: "Bug nível 1",
-  bug_n2: "Bug nível 2",
-  bug_n3: "Bug nível 3",
-  desenvolvimento: "Desenvolvimento",
-  melhoria: "Melhoria",
-  suporte: "Suporte",
-};
-
-const labelFor = (map: Record<string, string>, key?: string | null): string | null => {
-  const k = (key || "").toLowerCase();
-  if (!k) return null;
-  return map[k] || k.replace(/_/g, " ");
-};
 
 function toMinutes(t: string | null | undefined): number {
   if (!t) return 0;
@@ -125,6 +69,9 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [startFrom, setStartFrom] = useState<Date | null>(null);
   // Entrada de cada card na etapa atual (histórico de fluxo): base do cálculo de atraso.
   const [stageStarts, setStageStarts] = useState<Record<string, string>>({});
+  const [showHow, setShowHow] = useState(false);
+  const [showFixed, setShowFixed] = useState(false);
+
 
   useEffect(() => {
     if (open) setStartFrom((prev) => prev ?? new Date());
@@ -449,7 +396,56 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     onOpenChange(false);
   }
 
+  const orderedRows = proposals.map((p, i) => ({ p, i }));
+  const activeRows = orderedRows.filter((r) => !r.p.skipped);
+  const fixedRows = orderedRows.filter((r) => r.p.skipped);
+
+  const renderRow = (p: ReorderProposal, i: number) => (
+    <ReorderProposalRow
+      key={p.id}
+      index={i}
+      proposal={p}
+      orig={cardById.get(p.id)}
+      isEditing={editingId === p.id}
+      disabled={applying || loading}
+      draft={draft}
+      setDraft={setDraft}
+      baseDate={startFrom ?? new Date()}
+      hasOverride={!!manualOverrides[p.id]}
+      onToggleEdit={() => {
+        if (editingId === p.id) {
+          setEditingId(null);
+          return;
+        }
+        setEditingId(p.id);
+        setDraft({
+          date: p.startISO,
+          time: p.startTime,
+          duration: String(p.durationMin),
+          endDate: p.endISO,
+          endTime: p.endTime,
+          durMode: "auto",
+          endEdited: false,
+        });
+      }}
+      onCloseEdit={() => setEditingId(null)}
+      onSaveOverride={(o) => {
+        setManualOverrides((prev) => ({ ...prev, [p.id]: o }));
+        setEditingId(null);
+      }}
+      onRemoveOverride={() => {
+        setManualOverrides((prev) => {
+          const next = { ...prev };
+          delete next[p.id];
+          return next;
+        });
+        setEditingId(null);
+      }}
+    />
+  );
+
   return (
+
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
@@ -459,11 +455,22 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
           </DialogTitle>
         </DialogHeader>
 
-        <div className="text-xs text-muted-foreground -mt-2 mb-2">
-          Duração estimada por tipo × etapa do fluxo (ex.: Carrossel em <b>Criar arte</b> 40min, em <b>Revisar</b> 10min).
-          Janela {workHours.start}–{workHours.end}, almoço {workHours.lunchStart}–{workHours.lunchEnd} ({workHours.tz.replace("America/", "")}).
-          Pula finais de semana/feriados. Cards em <b>Aguardando cliente</b>, <b>Captar</b> e <b>diários</b> não são reagendados.
-        </div>
+        <Collapsible open={showHow} onOpenChange={setShowHow}>
+          <CollapsibleTrigger asChild>
+            <button type="button" className="-mt-2 mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronDown className={"h-3 w-3 transition-transform " + (showHow ? "rotate-180" : "")} />
+              Como funciona o cálculo
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mb-2 rounded-md border border-border/60 bg-muted/30 p-2 text-xs text-muted-foreground">
+              Duração estimada por tipo × etapa do fluxo (ex.: Carrossel em <b>Criar arte</b> 40min, em <b>Revisar</b> 10min).
+              Janela {workHours.start}–{workHours.end}, almoço {workHours.lunchStart}–{workHours.lunchEnd} ({workHours.tz.replace("America/", "")}).
+              Pula finais de semana/feriados. Cards em <b>Aguardando cliente</b>, <b>Captar</b> e <b>diários</b> não são reagendados.
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
 
         {hasActiveFilters && (
           <div className="mb-3 p-2.5 rounded-md border border-amber-500/50 bg-amber-500/10 flex items-start gap-2">
@@ -533,407 +540,27 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
             </div>
           ) : (
             <div className="space-y-2">
-              {proposals.map((p, i) => {
-                const orig = cardById.get(p.id);
-                const origStart = orig?.due_date ? `${fmtDate(orig.due_date)} ${(orig.due_time || "").slice(0, 5)}` : "—";
-                const origEnd = orig?.delivery_date ? `${fmtDate(orig.delivery_date)} ${(orig.delivery_time || "").slice(0, 5)}` : "—";
-                const newStart = p.startISO ? `${fmtDate(p.startISO)} ${p.startTime}` : "—";
-                const newEnd = p.endISO ? `${fmtDate(p.endISO)} ${p.endTime}` : "—";
-                const isEditing = editingId === p.id;
-                return (
-                  <div
-                    key={p.id}
-                    className={
-                      "border rounded-lg p-3 " +
-                      (p.skipped
-                        ? "border-muted-foreground/30 bg-muted/30 opacity-80"
-                        : p.warning
-                          ? "border-amber-500/50 bg-amber-500/5"
-                          : p.changed
-                            ? "border-primary/40 bg-primary/5"
-                            : "border-border/60")
-                    }
-                  >
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs font-mono text-muted-foreground mt-0.5 w-6">{i + 1}.</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {(() => {
-                            const tier = orig ? reorderTier(orig) : 0;
-                            const meta = tier === 2
-                              ? { label: "Avaliar", cls: "border-purple-500/60 text-purple-600 dark:text-purple-400" }
-                              : tier === 1
-                                ? { label: "Revisão", cls: "border-amber-500/60 text-amber-600 dark:text-amber-400" }
-                                : { label: "Produção", cls: "border-primary/60 text-primary" };
-                            return (
-                              <Badge variant="outline" className={"text-[10px] shrink-0 " + meta.cls}>
-                                {meta.label}
-                              </Badge>
-                            );
-                          })()}
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium truncate">{p.title}</div>
-                            {(() => {
-                              const stage = labelFor(STAGE_LABELS, p.stageKey ?? orig?.current_function_key);
-                              const type = labelFor(TYPE_LABELS, p.demandTypeKey ?? orig?.demand_type_key);
-                              const areaName = (p.workArea ?? orig?.work_area) === "sistemas" ? "Sistemas" : (p.workArea ?? orig?.work_area) === "midia" ? "Mídia" : null;
-                              const parts = [stage, type, areaName].filter(Boolean);
-                              if (parts.length === 0) return null;
-                              return (
-                                <div className="text-[11px] text-muted-foreground truncate">
-                                  {parts.join(" · ")}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          {!p.skipped && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 ml-auto shrink-0 text-xs text-muted-foreground"
-                              disabled={applying || loading}
-                              onClick={() => {
-                                if (isEditing) { setEditingId(null); return; }
-                                setEditingId(p.id);
-                                setDraft({
-                                  date: p.startISO,
-                                  time: p.startTime,
-                                  duration: String(p.durationMin),
-                                  endDate: p.endISO,
-                                  endTime: p.endTime,
-                                  durMode: "auto",
-                                  endEdited: false,
-                                });
-                              }}
-                            >
-                              <Pencil className="h-3 w-3 mr-1" /> Ajustar
-                            </Button>
-                          )}
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                          {p.skipped ? (
-                            <span className="text-muted-foreground">{origStart}</span>
-                          ) : p.keepStart ? (
-                            <>
-                              <span className="text-muted-foreground">Em execução desde:</span>
-                              <span className="text-foreground">{newStart}</span>
-                              <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">Novo término:</span>
-                              <span className="text-muted-foreground line-through">{origEnd}</span>
-                              <span className="font-semibold text-foreground">{newEnd}</span>
-                              <Badge variant="outline" className="text-[10px]">
-                                +{fmtDuration(p.extensionMin || p.durationMin)}
-                              </Badge>
-                              {p.pinned && (
-                                <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
-                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "both" ? "início e término ajustados" : p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
-                                </Badge>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-muted-foreground">Anterior:</span>
-                              <span className="text-muted-foreground line-through">{origStart} → {origEnd}</span>
-                              <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">Proposto:</span>
-                              <span className="font-semibold text-foreground">{newStart}</span>
-                              <span className="text-muted-foreground">→</span>
-                              <span className="font-semibold text-foreground">{newEnd}</span>
-                              <Badge variant="outline" className="text-[10px]">
-                                {fmtDuration(p.durationMin)}
-                              </Badge>
-                              {p.pinned && (
-                                <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
-                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "both" ? "início e término ajustados" : p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
-                                </Badge>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        {p.keepStart && (
-                          <div className="mt-1 text-[11px] text-muted-foreground">
-                            Na etapa atual desde {p.stageStartISO && p.stageStartTime ? `${fmtDate(p.stageStartISO)} ${p.stageStartTime}` : "—"}
-                            {p.stagePlannedMin ? ` · tempo planejado na etapa ${fmtDuration(p.stagePlannedMin)} · extensão de 30% = ${fmtDuration(p.extensionMin || 0)}` : ""}
-                          </div>
-                        )}
+              {activeRows.map(({ p, i }) => renderRow(p, i))}
 
-                        {isEditing && (
-                          <div className="mt-2 p-2 rounded-md border border-border/60 bg-muted/30">
-                            <div className="flex flex-wrap items-end gap-2">
-                              {p.keepStart ? (
-                                <>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-[10px] text-muted-foreground">Novo término (data)</Label>
-                                    <Input
-                                      type="date"
-                                      className="h-8 w-[9.5rem] text-xs"
-                                      value={draft.endDate}
-                                      onChange={(e) => setDraft((d) => ({ ...d, endDate: e.target.value }))}
-                                    />
-                                  </div>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-[10px] text-muted-foreground">Hora</Label>
-                                    <Input
-                                      type="time"
-                                      className="h-8 w-[6.5rem] text-xs"
-                                      value={draft.endTime}
-                                      onChange={(e) => setDraft((d) => ({ ...d, endTime: e.target.value }))}
-                                    />
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-[10px] text-muted-foreground">Início</Label>
-                                    <Input
-                                      type="date"
-                                      className="h-8 w-[9.5rem] text-xs"
-                                      value={draft.date}
-                                      onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
-                                    />
-                                  </div>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-[10px] text-muted-foreground">Hora</Label>
-                                    <Input
-                                      type="time"
-                                      className="h-8 w-[6.5rem] text-xs"
-                                      value={draft.time}
-                                      onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))}
-                                    />
-                                  </div>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-[10px] text-muted-foreground">Término</Label>
-                                    <Input
-                                      type="date"
-                                      className="h-8 w-[9.5rem] text-xs"
-                                      value={draft.endDate}
-                                      onChange={(e) =>
-                                        setDraft((d) => ({ ...d, endDate: e.target.value, endEdited: true, durMode: "auto" }))
-                                      }
-                                    />
-                                  </div>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-[10px] text-muted-foreground">Hora</Label>
-                                    <Input
-                                      type="time"
-                                      className="h-8 w-[6.5rem] text-xs"
-                                      value={draft.endTime}
-                                      onChange={(e) =>
-                                        setDraft((d) => ({ ...d, endTime: e.target.value, endEdited: true, durMode: "auto" }))
-                                      }
-                                    />
-                                  </div>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-[10px] text-muted-foreground">
-                                      {draft.durMode === "manual"
-                                        ? "Duração (min) — manual"
-                                        : draft.endEdited
-                                          ? "Duração — derivada do término"
-                                          : "Duração — ajustada ao expediente e à área"}
-                                    </Label>
-                                    <div className="flex items-center gap-1">
-                                      <Input
-                                        type="number"
-                                        min={5}
-                                        step={5}
-                                        disabled={draft.durMode === "auto"}
-                                        className="h-8 w-[6.5rem] text-xs"
-                                        value={draft.duration}
-                                        onChange={(e) =>
-                                          setDraft((d) => ({
-                                            ...d,
-                                            duration: e.target.value,
-                                            durMode: "manual",
-                                            endEdited: false,
-                                          }))
-                                        }
-                                      />
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-8 px-2 text-[10px] text-muted-foreground"
-                                        onClick={() =>
-                                          setDraft((d) => ({
-                                            ...d,
-                                            durMode: d.durMode === "auto" ? "manual" : "auto",
-                                            duration: d.durMode === "manual" ? String(p.durationMin) : d.duration,
-                                            endEdited: d.durMode === "auto" ? false : d.endEdited,
-                                          }))
-                                        }
-                                      >
-                                        {draft.durMode === "auto" ? "digitar" : "voltar para automática"}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                              <Button
-                                size="sm"
-                                className="h-8"
-                                onClick={() => {
-                                  const base = startFrom ?? new Date();
-                                  if (p.keepStart) {
-                                    if (!draft.endDate || !draft.endTime) {
-                                      toast.error("Informe a data e a hora do novo término.");
-                                      return;
-                                    }
-                                    const [hh, mm] = draft.endTime.split(":").map((x) => parseInt(x, 10) || 0);
-                                    const [y, mo, dd] = draft.endDate.split("-").map((x) => parseInt(x, 10) || 0);
-                                    const endLocal = new Date(y, (mo || 1) - 1, dd || 1, hh, mm, 0, 0);
-                                    if (endLocal.getTime() <= base.getTime()) {
-                                      toast.error("O novo término precisa ser posterior ao horário atual.");
-                                      return;
-                                    }
-                                    setManualOverrides((prev) => ({
-                                      ...prev,
-                                      [p.id]: { endISO: draft.endDate, endTime: draft.endTime },
-                                    }));
-                                    setEditingId(null);
-                                    return;
-                                  }
-                                  const dur = parseInt(draft.duration, 10);
-                                  if (!draft.date || !draft.time) {
-                                    toast.error("Informe data e hora de início.");
-                                    return;
-                                  }
-                                  if (draft.durMode === "manual" && (!Number.isFinite(dur) || dur < 5)) {
-                                    toast.error("Duração manual mínima de 5 min.");
-                                    return;
-                                  }
-                                  const parseLocal = (dISO: string, t: string) => {
-                                    const [hh, mm] = t.split(":").map((x) => parseInt(x, 10) || 0);
-                                    const [y, mo, dd] = dISO.split("-").map((x) => parseInt(x, 10) || 0);
-                                    return new Date(y, (mo || 1) - 1, dd || 1, hh, mm, 0, 0);
-                                  };
-                                  const pinEnd = draft.durMode === "auto" && draft.endEdited;
-                                  if (pinEnd) {
-                                    if (!draft.endDate || !draft.endTime) {
-                                      toast.error("Informe a data e a hora do término.");
-                                      return;
-                                    }
-                                    const endLocal = parseLocal(draft.endDate, draft.endTime);
-                                    if (endLocal.getTime() <= parseLocal(draft.date, draft.time).getTime()) {
-                                      toast.error("O término precisa ser posterior ao início.");
-                                      return;
-                                    }
-                                    if (endLocal.getTime() <= base.getTime()) {
-                                      toast.error("O término precisa ser posterior ao horário atual.");
-                                      return;
-                                    }
-                                  }
-                                  setManualOverrides((prev) => ({
-                                    ...prev,
-                                    [p.id]: {
-                                      startISO: draft.date,
-                                      startTime: draft.time,
-                                      ...(draft.durMode === "manual" ? { durationMin: dur } : {}),
-                                      ...(pinEnd ? { endISO: draft.endDate, endTime: draft.endTime } : {}),
-                                    },
-                                  }));
-                                  setEditingId(null);
-                                }}
-                              >
-                                Aplicar ajuste
-                              </Button>
-
-                              {manualOverrides[p.id] && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 text-muted-foreground"
-                                  onClick={() => {
-                                    setManualOverrides((prev) => {
-                                      const next = { ...prev };
-                                      delete next[p.id];
-                                      return next;
-                                    });
-                                    setEditingId(null);
-                                  }}
-                                >
-                                  Remover ajuste
-                                </Button>
-                              )}
-                            </div>
-                            <p className="mt-1.5 text-[10px] text-muted-foreground">
-                              {p.keepStart
-                                ? "Card em execução: o início histórico é preservado; apenas o término é recalculado."
-                                : "Edite início e/ou término — a duração é derivada do intervalo útil (expediente da área). Ou digite a duração para que o término seja calculado."}
-                            </p>
-                          </div>
-                        )}
-
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                          {p.riskStatus === "risk" && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] border-red-500/60 text-red-600 dark:text-red-400"
-                              title={`Faltam ${fmtMinutes(Math.max(p.slackMin ?? 0, 0))} para o prazo e a etapa atual leva ~${fmtMinutes(p.remainingCycleMin || 0)} — por isso este card foi priorizado.`}
-                            >
-                              ⚠ risco de atraso
-                            </Badge>
-                          )}
-                          {p.riskStatus === "recent" && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] border-slate-400/60 text-muted-foreground"
-                              title="Chegou na coluna há pouco tempo e não está em risco — entrou no fim da fila."
-                            >
-                              recém-chegado
-                            </Badge>
-                          )}
-                          {p.remainingCycleMin ? (
-                            <span className="text-muted-foreground">
-                              {labelFor(STAGE_LABELS, p.stageKey ?? orig?.current_function_key) || "Etapa atual"} ~{fmtMinutes(p.remainingCycleMin)}
-                              {p.slackMin != null ? ` · prazo em ${fmtMinutes(p.slackMin)}` : ""}
-                            </span>
-                          ) : null}
-
-
-                          {p.spansDays && p.spansDays > 1 && (
-                            <Badge variant="outline" className="text-[10px] border-blue-500/60 text-blue-600 dark:text-blue-400">
-                              {p.spansDays} dias
-                            </Badge>
-                          )}
-
-                          {p.slackApplied && (
-                            <Badge variant="outline" className="text-[10px] border-orange-500/60 text-orange-600 dark:text-orange-400">
-                              +folga
-                            </Badge>
-                          )}
-                          {p.pausedByCaptar && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] border-amber-500/60 text-amber-700 dark:text-amber-300"
-                              title={`Pausado para captação: ${p.pausedByCaptar.captarTitle}`}
-                            >
-                              ⏸ Pausado {p.pausedByCaptar.atTime} · captação
-                            </Badge>
-                          )}
-                          {orig?.publish_date && (
-                            <span className="text-muted-foreground">
-                              📢 pub {fmtDate(orig.publish_date)}
-                              {orig.publish_time ? ` ${orig.publish_time.slice(0, 5)}` : ""}
-                            </span>
-                          )}
-                        </div>
-                        {p.jumpReason && (
-                          <div className="mt-1 text-[11px] text-muted-foreground flex items-start gap-1">
-                            <CalendarClock className="h-3 w-3 mt-0.5 shrink-0" />
-                            <span>{p.jumpReason}</span>
-                          </div>
-                        )}
-                        {p.warning && (
-                          <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            {p.warning}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {fixedRows.length > 0 && (
+                <Collapsible open={showFixed} onOpenChange={setShowFixed}>
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-1.5 rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <ChevronDown className={"h-3.5 w-3.5 transition-transform " + (showFixed ? "rotate-180" : "")} />
+                      {fixedRows.length} card{fixedRows.length > 1 ? "s" : ""} mantido{fixedRows.length > 1 ? "s" : ""} sem reagendamento
+                      <span className="ml-auto opacity-70">Captar · diários · aguardando cliente</span>
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 pt-2">
+                    {fixedRows.map(({ p, i }) => renderRow(p, i))}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
+
           )}
         </ScrollArea>
 

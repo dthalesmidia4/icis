@@ -1,35 +1,49 @@
-## 1. Bug: tempo de "Editar vídeo" compartilhado entre Vídeo captado e Vídeo gerado
+## Problema
 
-Causa confirmada: as durações não são salvas por tipo de demanda, e sim por **grupo**. Em `src/lib/reorderSequence.ts`, `Vídeo captado` e `Vídeo gerado` caem no mesmo grupo `video_curto` (`typeGroup()` / `groupForDemandTypeKey()`), então editar uma célula grava em `flow_functions.config.durations[etapa].video_curto` e as duas linhas mudam juntas.
+Hoje cada card do modal empilha 5–7 linhas com o mesmo peso visual: título, etapa/tipo/área, "Em execução desde → Novo término", "Na etapa atual desde…", badges de risco/folga, explicação de janela e aviso amarelo. Tudo em `text-xs`, quase tudo com cor de destaque (vermelho, âmbar, azul). O olho não sabe onde começar e as informações se repetem (risco aparece como badge e como texto; "extensão de 30%" aparece 3 vezes).
 
-Correção (compatível com o que já está salvo):
-- Passar a gravar em uma nova chave por tipo: `config.durations_by_type[<demand_type_key>]` (ex.: `video_gerado`, `video_captado`, `criativo_estatico`, `carrossel`, `anuncio`, `outro`).
-- Ordem de leitura em todo consumo de duração: `durations_by_type[tipo]` → `durations[grupo]` (legado) → `DURATION_MATRIX` hardcoded. Nada precisa ser migrado; valores antigos continuam valendo como fallback.
-- Arquivos afetados: `src/components/FunctionPermissionsModal.tsx` (edição, reset por tipo e os totais "Total produção"/"Total do ciclo"), `src/lib/flowDurations.ts` (`loadDurationsForTenant`, `loadDurationsByArea`, `resolveDurationMinutes`), `src/lib/reorderSequence.ts` (`pickFromOverrides` e o cálculo de duração da etapa passam a receber o `demand_type_key` do card, não só o grupo).
-- Efeito: a tabela e o motor de reorganização passam a usar exatamente o mesmo número por (área × tipo × etapa), inclusive nas duas linhas de vídeo separadamente.
+## Objetivo
 
-## 2. Feedback: por que o card foi para 03/08 09:20
+Ler cada card em 2 segundos: **o que muda de horário** e **por quê**. Todo o resto continua acessível, mas em segundo plano ou sob clique. Nenhuma funcionalidade é removida (ajuste manual, fixados, toggle de publicação, desfazer, recalcular).
 
-Hoje o modal só diz "+20min" e o novo término, sem explicar que o motivo é a **alocação de área do colaborador** (Letícia não tem Mídia alocada à tarde), o que faz o cálculo pular para o próximo bloco disponível.
+## Nova anatomia do card
 
-- O motor passa a devolver, por card, o motivo do salto: `jumpReason` com o bloco usado e a lacuna (`sem janela de Mídia após 12:00 nesta data`, `fim de semana`, `feriado`, `fora do expediente`).
-- No card do modal, quando o término cai em outro dia, aparece uma linha explicativa: "Letícia tem **Mídia** alocada apenas 09:00–12:00 nesta data — próximo horário livre: seg 03/08 09:20." Com link/atalho para a aba **Alocação por área** das configurações de fluxo.
-- Quando não há bloco algum da área para o colaborador, a mensagem é explícita ("nenhuma janela de Mídia configurada") em vez de simplesmente empurrar a data.
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ 1  TESTE VÍDEO LEAL                          ⚠ risco   Ajustar│
+│    Editar vídeo · Vídeo gerado · Mídia                        │
+│                                                               │
+│    31/07 12:00  →  03/08 09:20            20min   [detalhes ▾]│
+│    ↳ Sem janela de Mídia após 14:40 em 31/07                  │
+└──────────────────────────────────────────────────────────────┘
+```
 
-## 3. Redesenho do modal "Reorganizar sequência"
+1. **Linha 1 (peso forte):** número + título. À direita, no máximo **um** selo de estado (`em execução`, `risco`, `fixado`, `não reagendado`) e o botão Ajustar como ícone discreto.
+2. **Linha 2 (fraca):** etapa · tipo · área — cinza, sem badge.
+3. **Linha 3 (a informação principal):** antes → depois em fonte tabular, com o "antes" riscado e discreto e o "depois" em destaque. Duração como texto simples à direita, não badge.
+4. **Linha 4 (opcional, uma só):** o motivo — jumpReason, pausa por captação ou aviso de prazo — em cinza com ícone pequeno; âmbar só quando é aviso real de prazo de publicação.
+5. **"detalhes"** (collapse por card, fechado por padrão): entrada na etapa, tempo planejado, extensão de 30%, folga aplicada, dias de extensão, prazo de publicação, tipo de fixação. Sai da leitura principal e para de competir.
 
-Mantendo 100% das funcionalidades (ajuste manual com cascata, +folga, pinos, recalcular, aplicar, cards não reagendados):
+## Regras de cor e ruído
 
-- **Cabeçalho enxuto**: título + coluna, e o parágrafo longo de explicação vira um botão "Como isto é calculado?" (popover) com janela de trabalho, almoço, feriados e regras de exceção. Os chips `Total / Reagendados / com aviso` ficam, mais compactos, junto de `base 14:28 · recalcular`.
-- **Nome da etapa sempre visível**: cada card mostra `Etapa: Editar vídeo · Vídeo gerado` (etapa + tipo de demanda). Fim de "etapa ~30min" sem contexto — passa a ser "Editar vídeo: 30min estimados, 30min já usados".
-- **Fim da redundância**: hoje o mesmo fato aparece 3 vezes (badge "risco de atraso", linha "faltam 0min" e o aviso amarelo "Atrasado: extensão de 30%"). Passa a existir **uma** linha de status por card, com ícone e cor: `Atrasado — estendido +20min (30% da etapa)` ou `No prazo — folga 32min`.
-- **Estrutura de cada card em 3 blocos fixos**: (1) posição + título + tipo/etapa; (2) horário — `31/07 11:00 → 03/08 09:20` com o valor antigo riscado só quando muda; (3) status/motivo em uma linha, mais os botões `Ajustar` / `+folga`.
-- **Cards não reagendados** (Captar, Aguardando cliente, diários) ganham visual atenuado e selo `Fixo` com o motivo curto, separados visualmente dos que serão alterados.
-- **Ordem e legibilidade**: badges de tier (`Produção`/`Revisão`) ficam discretos; o motivo da ordenação (`em execução`, `risco`, `normal`, `recém-chegado`) aparece como texto pequeno em vez de badge colorido competindo com o status.
-- Nenhuma mudança na lógica de cálculo além do `jumpReason`; a reordenação em si permanece a já aprovada.
+- Uma cor de destaque por card, na seguinte prioridade: vermelho (risco) > âmbar (aviso de prazo) > azul (reagendado) > neutro.
+- Cards não reagendados (Captar, Aguardando cliente, diários) ficam em bloco colapsado no fim: **"3 cards não reagendados"**, expansível, sem borda colorida.
+- Badges "Produção/Revisão/Avaliar", "+folga", "N dias", "recém-chegado" saem da linha principal e passam a viver no collapse de detalhes ou como tooltip do selo único.
+- Texto duplicado eliminado: risco descrito só uma vez (selo + tooltip com "faltam X, etapa leva ~Y").
+
+## Cabeçalho e rodapé
+
+- Descrição longa atual (janela, almoço, feriados, quem não é reagendado) vira um **"Como funciona"** colapsado; o padrão mostra só a linha: `Base 14:39 · janela 09:00–18:00 · recalcular`.
+- Barra de resumo enxuta: `2 cards · 1 reagendado · 1 em risco` (chips neutros, um único com cor quando há risco).
+- Toggle "Priorizar publicação" fica em linha única compacta, com a explicação como tooltip.
+- Rodapé inalterado (Restaurar sugestão / Cancelar / Aplicar).
 
 ## Detalhes técnicos
 
-- `ReorderProposal` recebe: `stageKey`, `stageLabel`, `demandTypeLabel`, `jumpReason` (`{ kind, areaLabel, lastBlockEnd, nextAvailableISO }`).
-- Assinaturas alteradas: `pickFromOverrides(overrides, stage, group, area, demandTypeKey)` e `resolveDurationMinutes(overrides, stage, group, demandTypeKey)` — chamadores atualizados (`buildReturnFromClientDates`, `ReorderSequenceModal`, `KanbanCentralPage`).
-- Sem migração de banco: apenas nova chave dentro do `jsonb` `flow_functions.config`.
+- Arquivo principal: `src/components/kanban/ReorderSequenceModal.tsx`.
+- Extrair a renderização de cada item para um subcomponente `ReorderProposalRow` no mesmo diretório (`src/components/kanban/ReorderProposalRow.tsx`) para o modal ficar legível: recebe `proposal`, `orig`, `index`, callbacks de edição.
+- Selo único: função `primaryBadge(p)` que resolve estado por prioridade (execução > risco > fixado > skipped > reagendado).
+- Motivo único: função `primaryReason(p)` que escolhe entre `jumpReason`, `pausedByCaptar` e `warning` (avisos restantes vão para o collapse).
+- Usar `Collapsible` do shadcn já presente no projeto para "detalhes", "Como funciona" e o grupo de não reagendados.
+- Sem mudanças em `src/lib/reorderSequence.ts` (motor), na aplicação das mudanças (`handleApply`) nem no fluxo de ajustes manuais — o painel de "Ajustar" continua igual, apenas aberto dentro do card.
+- Números de horário com `tabular-nums` para alinhar as colunas antes/depois.
