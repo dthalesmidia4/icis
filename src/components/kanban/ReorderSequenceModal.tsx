@@ -69,6 +69,9 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [startFrom, setStartFrom] = useState<Date | null>(null);
   // Entrada de cada card na etapa atual (histórico de fluxo): base do cálculo de atraso.
   const [stageStarts, setStageStarts] = useState<Record<string, string>>({});
+  const [showHow, setShowHow] = useState(false);
+  const [showFixed, setShowFixed] = useState(false);
+
 
   useEffect(() => {
     if (open) setStartFrom((prev) => prev ?? new Date());
