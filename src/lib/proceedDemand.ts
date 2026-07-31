@@ -1040,7 +1040,9 @@ export async function regressDemand({
     const waitAssignee = (current as any)?.assigned_to || null;
     const picked = await pickAssigneeForFunction(tenantId, "enviar_cliente", prevFn.name, {
       preferUserIds: waitAssignee ? [waitAssignee] : [],
+      workArea: backArea,
     });
+
     if (!picked.success || !picked.userId) {
       return { success: false, message: picked.message || 'Nenhum colaborador possui a função "Enviar cliente" habilitada.' };
     }
@@ -1095,7 +1097,7 @@ export async function regressDemand({
         .maybeSingle();
       return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
     }
-    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
+    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name, { workArea: backArea });
   })();
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
