@@ -634,11 +634,15 @@ export async function jumpToFunction({
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
-  // Qualquer entrada em "Aguardando clientes" mantém o mesmo responsável e carimba o envio.
+  // Entrada em "Aguardando clientes": prioriza quem tem a função atribuída;
+  // sem ninguém habilitado, mantém o responsável anterior.
   if (target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
-    const keep = (cur as any)?.assigned_to || null;
-    const { error } = await supabase.from("demands").update({ current_function_key: target.function_key, client_wait_started_at: new Date().toISOString() } as any).eq("id", demandId);
+    const previous = (cur as any)?.assigned_to || null;
+    const keep = await resolveClientWaitOwner(tenantId, previous);
+    const updateWait: any = { current_function_key: target.function_key, client_wait_started_at: new Date().toISOString() };
+    if (keep !== previous) updateWait.assigned_to = keep;
+    const { error } = await supabase.from("demands").update(updateWait).eq("id", demandId);
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
