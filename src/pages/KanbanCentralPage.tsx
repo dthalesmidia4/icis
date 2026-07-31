@@ -1152,7 +1152,7 @@ const KanbanCentralPage = () => {
   useRealtimeFlowConfig({
     tenantId,
     enabled: !!tenantId,
-    onChange: () => { fetchColumns(); fetchFlowFunctionNames(); },
+    onChange: () => { fetchColumns(); fetchFlowFunctionNames(); fetchAwaitingAllowedUsers(); },
   });
 
   const handleDragEnd = async (result: any) => {
