@@ -784,12 +784,37 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                         )}
 
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                          {p.riskStatus === "risk" && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-red-500/60 text-red-600 dark:text-red-400"
+                              title={`Prazo em ${fmtMinutes(Math.max(p.slackMin ?? 0, 0))} · ciclo restante ${fmtMinutes(p.remainingCycleMin || 0)}`}
+                            >
+                              ⚠ risco de atraso
+                            </Badge>
+                          )}
+                          {p.riskStatus === "recent" && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-slate-400/60 text-muted-foreground"
+                              title="Entrou na coluna há pouco tempo e sem risco de atraso — alocado por último."
+                            >
+                              recém-chegado
+                            </Badge>
+                          )}
+                          {p.remainingCycleMin ? (
+                            <span className="text-muted-foreground">
+                              ciclo rest. {fmtMinutes(p.remainingCycleMin)}
+                              {p.slackMin != null ? ` · folga ${fmtMinutes(p.slackMin)}` : ""}
+                            </span>
+                          ) : null}
 
                           {p.spansDays && p.spansDays > 1 && (
                             <Badge variant="outline" className="text-[10px] border-blue-500/60 text-blue-600 dark:text-blue-400">
                               {p.spansDays} dias
                             </Badge>
                           )}
+
                           {p.slackApplied && (
                             <Badge variant="outline" className="text-[10px] border-orange-500/60 text-orange-600 dark:text-orange-400">
                               +folga
