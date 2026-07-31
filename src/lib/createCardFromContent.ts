@@ -146,14 +146,29 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
   const status = (statuses || []).find((s: any) => s.is_initial) || (statuses || [])[0];
   if (!status) return { success: false, message: "Nenhum status configurado para o pipeline." };
 
-  // 5. Colaborador para "revisar"
-  const picked = await pickAssigneeForFunction(tenantId, "revisar", "Revisar");
+  // Área de trabalho — default do perfil do criador (fallback 'midia').
+  // Precisa ser resolvida ANTES de escolher o revisor: `revisar` existe em
+  // Mídia e em Sistemas, e a escolha é filtrada por área.
+  let workArea: "midia" | "sistemas" = "midia";
+  try {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("default_work_area")
+      .eq("id", user.id)
+      .maybeSingle();
+    const v = (prof as any)?.default_work_area;
+    if (v === "sistemas" || v === "midia") workArea = v;
+  } catch { /* mantém midia */ }
+
+  // 5. Colaborador para "revisar" na área do card
+  const picked = await pickAssigneeForFunction(tenantId, "revisar", "Revisar", { workArea });
   if (!picked.success || !picked.userId) {
     return {
       success: false,
       message: picked.message || "Nenhum colaborador tem a função Revisar atribuída.",
     };
   }
+
 
   // 6. Anexos
   const uploaderName =
