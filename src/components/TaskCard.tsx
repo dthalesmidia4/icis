@@ -30,6 +30,9 @@ import { SchedulePublicationModal } from "@/components/SchedulePublicationModal"
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
 import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
+import { evaluateReassign, applyReassign } from "@/lib/reassignDemand";
+import { checkAssignmentConflicts, type AssignmentConflict, type FreeSlotSuggestion } from "@/lib/scheduleOccupancy";
+import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
@@ -1131,6 +1134,52 @@ export default function TaskCard({
     | { items: AreaConflictInfo[]; targetArea: WorkArea; scheduleMessage?: string | null }
     | null
   >(null);
+  const [assignConflict, setAssignConflict] = useState<{
+    newAssignedTo: string | null;
+    targetName: string;
+    conflicts: AssignmentConflict[];
+    suggestion: FreeSlotSuggestion | null;
+    nextFunctionKey: string | null;
+  } | null>(null);
+  const [reschedulingAssign, setReschedulingAssign] = useState(false);
+
+  const applyAssignReschedule = async (slot: FreeSlotSuggestion) => {
+    if (!assignConflict || !card?.tenant_id) return;
+    setReschedulingAssign(true);
+    try {
+      const { error } = await applyReassign({
+        tenantId: card.tenant_id,
+        card: card as any,
+        newAssignedTo: assignConflict.newAssignedTo,
+        nextFunctionKey: assignConflict.nextFunctionKey,
+        reschedule: {
+          due_date: slot.date,
+          due_time: slot.startTime,
+          delivery_date: slot.date,
+          delivery_time: slot.endTime,
+        },
+        historySource: "task_card_rescheduled",
+      });
+      if (error) throw error;
+      onCardChange({
+        ...card,
+        assigned_to: assignConflict.newAssignedTo,
+        current_function_key: assignConflict.nextFunctionKey,
+        due_date: slot.date,
+        due_time: slot.startTime,
+        delivery_date: slot.date,
+        delivery_time: slot.endTime,
+      } as any);
+      toast.success(`Transferida e reagendada para ${slot.startTime}–${slot.endTime}`);
+      setAssignConflict(null);
+    } catch (e) {
+      console.error("[taskcard reschedule]", e);
+      toast.error("Não foi possível reagendar");
+    } finally {
+      setReschedulingAssign(false);
+    }
+  };
+
   const warnAreaConflict = async (
     dateStr: string | null | undefined,
     timeStr: string | null | undefined,
@@ -1139,41 +1188,37 @@ export default function TaskCard({
     if (!card || !dateStr || !card.assigned_to || !card.tenant_id) return;
     const area = (((card as any).work_area as WorkArea) || "midia") as WorkArea;
     try {
-      const [conflicts, scheduleResult] = await Promise.all([
-        findAreaConflicts({
-          tenantId: card.tenant_id,
-          userId: card.assigned_to,
-          area,
-          date: dateStr,
-          time: timeStr || null,
-          excludeDemandId: card.id,
-        }),
-        findScheduleAreaConflict({
-          tenantId: card.tenant_id,
-          userId: card.assigned_to,
-          area,
-          date: dateStr,
-          startTime: timeStr || null,
-          endTime: endTimeStr ?? timeStr ?? null,
-        }),
-      ]);
-      const hard = conflicts.filter((c) => c.hard);
-      if (hard.length > 0 || (scheduleResult && scheduleResult.hard)) {
+      // Motor único: pega conflito de ocupação na MESMA área e entre áreas.
+      const res = await checkAssignmentConflicts({
+        tenantId: card.tenant_id,
+        userId: card.assigned_to,
+        card: {
+          ...(card as any),
+          due_date: dateStr,
+          due_time: timeStr || null,
+          delivery_date: dateStr,
+          delivery_time: endTimeStr ?? null,
+        },
+        area,
+      });
+      if (res.hard.length > 0) {
         setHardConflict({
-          items: hard,
+          items: res.hard.map((c) => ({
+            id: c.id,
+            title: c.title,
+            work_area: c.area,
+            delivery_time: c.endTime,
+            time: c.startTime,
+            hard: true,
+          })),
           targetArea: area,
-          scheduleMessage: scheduleResult?.hard ? scheduleResult.message : null,
+          scheduleMessage: res.scheduleHard ? res.scheduleMessage : null,
         });
         return;
       }
-      if (scheduleResult && !scheduleResult.hard) {
-        toast.warning(scheduleResult.message);
-      }
-      const soft = conflicts[0];
-      if (soft) {
-        toast.warning(
-          `Conflito de área: o responsável já tem "${soft.title}" (${AREA_LABEL[soft.work_area]}) neste dia.`,
-        );
+      
+      if (res.scheduleMessage && !res.scheduleHard) {
+        toast.warning(res.scheduleMessage);
       }
     } catch { /* silencioso */ }
   };
@@ -1806,33 +1851,30 @@ export default function TaskCard({
                       value={card.assigned_to || "__none__"}
                       onValueChange={async (val) => {
                         const newVal = val === "__none__" ? "" : val;
-                        // Etapas de cliente exigem função atribuída ao novo responsável.
-                        const curKey = card.current_function_key ?? null;
-                        if (newVal && card.tenant_id && isClientStageKey(curKey)) {
-                          const ok = await userHasFunction(card.tenant_id, newVal, curKey as string);
-                          if (!ok) {
-                            const nome = collaborators.find((c) => c.id === newVal)?.name || "Este colaborador";
-                            toast.error(`${nome} não tem a função desta etapa (aguardando/enviar cliente) atribuída`);
-                            return;
+                        const nome = collaborators.find((c) => c.id === newVal)?.name || "Este colaborador";
+                        // Ponto único: função da etapa + ocupação de agenda (mesma área e entre áreas).
+                        const evaluation = await evaluateReassign({
+                          tenantId: card.tenant_id || "",
+                          card: card as any,
+                          newAssignedTo: newVal || null,
+                          collaboratorName: nome,
+                        });
+                        if (!evaluation.allowed) {
+                          if (evaluation.blockedBy === "schedule") {
+                            setAssignConflict({
+                              newAssignedTo: newVal || null,
+                              targetName: nome,
+                              conflicts: evaluation.hard,
+                              suggestion: evaluation.suggestion,
+                              nextFunctionKey: evaluation.nextFunctionKey,
+                            });
+                          } else {
+                            toast.error(evaluation.message || "Transferência bloqueada");
                           }
+                          return;
                         }
-                        // Ajusta a etapa para uma função permitida do novo responsável.
-                        let nextFn: string | null = card.current_function_key ?? null;
-                        if (newVal && card.tenant_id) {
-                          try {
-                            const resolved = await resolveFunctionForAssignee(
-                              card.tenant_id,
-                              newVal,
-                              card.demand_type_key ?? null,
-                              card.current_function_key ?? null,
-                              card.id,
-                              { workArea: (card as any).work_area, origin: (card as any).origin },
-                            );
-                            if (resolved) nextFn = resolved;
-                          } catch (e) { /* mantém etapa atual */ }
-                        } else if (!newVal) {
-                          nextFn = null;
-                        }
+                        const nextFn = evaluation.nextFunctionKey;
+                        evaluation.softMessages.forEach((m) => toast.warning(m));
                         onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
                         await onSave("assigned_to", newVal);
                         if (nextFn !== (card.current_function_key ?? null) && !isDraft) {
@@ -2984,6 +3026,15 @@ export default function TaskCard({
             setInlineScheduling(false);
           }
         }}
+      />
+      <ScheduleConflictModal
+        open={!!assignConflict}
+        onOpenChange={(o) => { if (!o) setAssignConflict(null); }}
+        targetName={assignConflict?.targetName}
+        conflicts={assignConflict?.conflicts || []}
+        suggestion={assignConflict?.suggestion || null}
+        onReschedule={applyAssignReschedule}
+        rescheduling={reschedulingAssign}
       />
       <AlertDialog open={!!hardConflict} onOpenChange={(o) => { if (!o) setHardConflict(null); }}>
         <AlertDialogContent>

@@ -4,6 +4,7 @@ import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory"
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
 import { isReviewFunction } from "@/lib/flowFunctions";
+import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 
 
 /**
@@ -51,6 +52,54 @@ async function applyReturnFromClientSchedule(
   );
   Object.assign(payload, dates);
 }
+
+/**
+ * Avanço automático de etapa NUNCA pode deixar o novo responsável com dois
+ * cards no mesmo horário. Se a janela resultante choca com a agenda dele,
+ * o card é deslocado para o primeiro slot livre.
+ */
+async function avoidScheduleConflict(
+  payload: any,
+  tenantId: string,
+  demandId: string,
+  assignedTo: string | null,
+  targetStage: string | null,
+): Promise<void> {
+  if (!tenantId || !assignedTo || !targetStage) return;
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select(
+        "id, title, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
+      )
+      .eq("id", demandId)
+      .maybeSingle();
+    if (!data) return;
+    const probe: any = { ...(data as any), ...payload, current_function_key: targetStage };
+    const res = await checkAssignmentConflicts({
+      tenantId,
+      userId: assignedTo,
+      card: probe,
+      targetStage,
+    });
+    if (res.hard.length === 0) return;
+    const slot = await suggestFreeSlot({
+      tenantId,
+      userId: assignedTo,
+      card: probe,
+      targetStage,
+    });
+    if (!slot) return;
+    payload.due_date = slot.date;
+    payload.due_time = slot.startTime;
+    payload.delivery_date = slot.date;
+    payload.delivery_time = slot.endTime;
+  } catch {
+    /* silencioso: nunca bloquear o fluxo por causa da checagem */
+  }
+}
+
+
 
 /**
  * Fonte da verdade da etapa atual: o banco. O valor vindo da tela pode estar
@@ -713,6 +762,7 @@ export async function jumpToFunction({
   if (currentFunctionKey === "captar") {
     updatePayload.additional_assignees = [];
   }
+  await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key);
   const { error } = await supabase
     .from("demands")
     .update(updatePayload)
@@ -854,6 +904,7 @@ export async function proceedDemand({
   if (currentFunctionKey === "captar") {
     proceedPayload.additional_assignees = [];
   }
+  await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key);
   const { error: upErr } = await supabase
     .from("demands")
     .update(proceedPayload)
