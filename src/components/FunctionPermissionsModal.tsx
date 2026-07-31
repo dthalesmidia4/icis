@@ -218,6 +218,32 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     timezone: string;
   }>({ wait_hours: 24, return_times: ["10:00"], max_resends: null, timezone: "America/Sao_Paulo" });
   const [savingAwaiting, setSavingAwaiting] = useState(false);
+  const [priorityCfg, setPriorityCfg] = useState<ReorderPriorityConfig>({ ...DEFAULT_REORDER_PRIORITY });
+  const [savingPriority, setSavingPriority] = useState(false);
+
+  useEffect(() => {
+    if (!open || !agencyId) return;
+    let cancelled = false;
+    loadReorderPriority(agencyId).then((cfg) => {
+      if (!cancelled) setPriorityCfg({ ...cfg[area] });
+    });
+    return () => { cancelled = true; };
+  }, [open, agencyId, area]);
+
+  const savePriorityCfg = async () => {
+    if (!agencyId) return;
+    setSavingPriority(true);
+    try {
+      await saveReorderPriority(agencyId, area, priorityCfg);
+      toast.success("Prioridade atualizada.");
+    } catch (e) {
+      console.error("[flow] save priority", e);
+      toast.error("Não foi possível salvar a prioridade.");
+    } finally {
+      setSavingPriority(false);
+    }
+  };
+
 
   const seedIfEmpty = async (tenantId: string) => {
     // Seed flow_functions da área
