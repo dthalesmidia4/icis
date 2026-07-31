@@ -867,7 +867,7 @@ export async function computeReorder(
   // sempre explique a posição real na fila.
   const ordered = sortForReorder(active, {
     prioritizePublishDate: opts?.prioritizePublishDate,
-    priority: { ...(opts?.priority || {}), now },
+    priority: { ...((opts?.priority as any) || {}), now },
     estimateMin: (c) => estimateDurationBase(c, ctx, opts?.durations),
   });
 
@@ -1184,10 +1184,11 @@ export async function computeReorder(
     const card = byId.get(p.id);
     if (!card) return p;
     const info = computeRiskInfo(card, {
-      ...(opts?.priority || {}),
+      ...priorityForCard(card, opts?.priority),
       now,
       remainingMin: estimateDurationBase(card, ctx, opts?.durations),
     });
+
     return { ...p, riskStatus: info.status, slackMin: info.slackMin, remainingCycleMin: info.remainingMin, inStageMin: info.inStageMin };
   });
 }
