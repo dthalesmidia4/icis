@@ -10,7 +10,7 @@
  * Conflito duro NUNCA é gravado: a decisão volta para a UI.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { isClientStageKey, userHasFunction } from "@/lib/clientStageAssignments";
+import { userHasFunction } from "@/lib/clientStageAssignments";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import {
