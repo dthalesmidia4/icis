@@ -228,8 +228,10 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   const [loading, setLoading] = useState(true);
   const [rules, setRules] = useState<Record<string, Record<string, Requirement>>>({});
   const [saving, setSaving] = useState<string | null>(null);
-  // durations[function_key][group] = minutos
+  // durations[function_key][group] = minutos (formato legado, compartilhado por grupo)
   const [durations, setDurations] = useState<Record<string, Partial<Record<DurationTypeGroup, number>>>>({});
+  // durationsByType[function_key][demand_type_key] = minutos (prioritário)
+  const [durationsByType, setDurationsByType] = useState<Record<string, Record<string, number>>>({});
   const [savingDuration, setSavingDuration] = useState<string | null>(null);
   const [awaitingConfig, setAwaitingConfig] = useState<{
     wait_hours: number;
@@ -337,13 +339,19 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
 
     const durMap: Record<string, Partial<Record<DurationTypeGroup, number>>> = {};
+    const byTypeMap: Record<string, Record<string, number>> = {};
     (fnRows || []).forEach((r: any) => {
       const stored = r?.config?.durations;
       if (stored && typeof stored === "object") {
         durMap[r.function_key] = { ...stored };
       }
+      const storedByType = r?.config?.durations_by_type;
+      if (storedByType && typeof storedByType === "object") {
+        byTypeMap[r.function_key] = { ...storedByType };
+      }
     });
     setDurations(durMap);
+    setDurationsByType(byTypeMap);
 
     const awaitingRow = (fnRows || []).find((r: any) => r.function_key === "aguardando_cliente");
     const ac = (awaitingRow as any)?.config?.client_return;
@@ -409,23 +417,32 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     setSaving(null);
   };
 
-  /** Retorna minutos exibidos (override do banco OU hardcoded). */
-  const cellMinutes = (fnKey: string, group: DurationTypeGroup): number => {
+  /**
+   * Minutos exibidos para (etapa × TIPO de demanda).
+   * Prioridade: override por tipo → override legado por grupo → hardcoded.
+   */
+  const cellMinutes = (fnKey: string, typeKey: string, group: DurationTypeGroup): number => {
+    const byType = durationsByType[fnKey]?.[typeKey];
+    if (typeof byType === "number" && byType > 0) return byType;
     const stored = durations[fnKey]?.[group];
     if (typeof stored === "number" && stored > 0) return stored;
     return hardcodedDuration(fnKey, group);
   };
 
-  /** Salva uma célula (função × grupo) no config JSONB da flow_functions. */
-  const saveDuration = async (fnKey: string, group: DurationTypeGroup, minutes: number) => {
+  /**
+   * Salva uma célula (etapa × TIPO de demanda) em `config.durations_by_type`.
+   * Antes gravávamos por grupo, o que fazia "Vídeo gerado" e "Vídeo captado"
+   * compartilharem o mesmo valor.
+   */
+  const saveDuration = async (fnKey: string, typeKey: string, minutes: number) => {
     if (!agencyId) return;
-    const rowKey = `${fnKey}:${group}`;
+    const rowKey = `${fnKey}:${typeKey}`;
     setSavingDuration(rowKey);
-    const newRow: Partial<Record<DurationTypeGroup, number>> = {
-      ...(durations[fnKey] || {}),
-      [group]: minutes,
+    const newRow: Record<string, number> = {
+      ...(durationsByType[fnKey] || {}),
+      [typeKey]: minutes,
     };
-    setDurations((prev) => ({ ...prev, [fnKey]: newRow }));
+    setDurationsByType((prev) => ({ ...prev, [fnKey]: newRow }));
 
     // Busca config atual para preservar outras chaves
     const { data: current } = await supabase
@@ -436,7 +453,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       .eq("function_key", fnKey)
       .maybeSingle();
     const currentConfig = (current as any)?.config || {};
-    const newConfig = { ...currentConfig, durations: newRow };
+    const newConfig = { ...currentConfig, durations_by_type: newRow };
     const { error } = await supabase
       .from("flow_functions")
       .update({ config: newConfig })
@@ -457,15 +474,15 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     if (!dt) return;
     const group = dt.group;
     setSavingDuration(`reset:${demandKey}`);
-    const nextDurations = { ...durations };
+    const nextByType = { ...durationsByType };
     for (const fn of FUNCTIONS) {
       if (UNTIMED_STAGE_KEYS.has(fn.key)) continue;
       const req = rules[demandKey]?.[fn.key];
       if (req !== "required") continue;
 
       const fallback = hardcodedDuration(fn.key, group);
-      const newRow = { ...(nextDurations[fn.key] || {}), [group]: fallback };
-      nextDurations[fn.key] = newRow;
+      const newRow = { ...(nextByType[fn.key] || {}), [demandKey]: fallback };
+      nextByType[fn.key] = newRow;
       const { data: current } = await supabase
         .from("flow_functions")
         .select("config")
@@ -474,7 +491,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         .eq("function_key", fn.key)
         .maybeSingle();
       const currentConfig = (current as any)?.config || {};
-      const newConfig = { ...currentConfig, durations: newRow };
+      const newConfig = { ...currentConfig, durations_by_type: newRow };
       await supabase
         .from("flow_functions")
         .update({ config: newConfig })
@@ -482,7 +499,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         .eq("work_area", area)
         .eq("function_key", fn.key);
     }
-    setDurations(nextDurations);
+    setDurationsByType(nextByType);
     setSavingDuration(null);
     toast.success(`Durações de "${dt.name}" restauradas.`);
   };
@@ -495,7 +512,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       if (UNTIMED_STAGE_KEYS.has(fn.key)) continue;
       if (onlyKinds && !onlyKinds.includes(kindMap[fn.key] ?? "producao")) continue;
       if (rules[demandKey]?.[fn.key] === "required") {
-        total += cellMinutes(fn.key, group);
+        total += cellMinutes(fn.key, demandKey, group);
       }
     }
     return total;
@@ -731,8 +748,8 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                               );
                             }
 
-                            const value = cellMinutes(fn.key, dt.group);
-                            const cellKey = `${fn.key}:${dt.group}`;
+                            const value = cellMinutes(fn.key, dt.key, dt.group);
+                            const cellKey = `${fn.key}:${dt.key}`;
                             const isSaving = savingDuration === cellKey;
                             return (
                               <td key={fn.key} className="p-1.5 text-center">
@@ -751,7 +768,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                                         return;
                                       }
                                       if (raw === value) return;
-                                      saveDuration(fn.key, dt.group, raw);
+                                      saveDuration(fn.key, dt.key, raw);
                                     }}
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") (e.target as HTMLInputElement).blur();
