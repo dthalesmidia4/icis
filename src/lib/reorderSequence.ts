@@ -661,6 +661,23 @@ export interface ReorderPriorityOptions {
 const DEFAULT_RISK_FACTOR = 3;
 const DEFAULT_ENTRY_GRACE_MIN = 60;
 
+/**
+ * Resolve a configuração de prioridade para um card específico. Aceita tanto
+ * uma config única quanto um mapa por área ({ midia, sistemas }).
+ */
+export function priorityForCard(
+  card: ReorderCardInput,
+  priority: any,
+): { riskFactor?: number; entryGraceMin?: number } {
+  if (!priority) return {};
+  if (priority.midia || priority.sistemas) {
+    const area = card.work_area === "sistemas" ? "sistemas" : "midia";
+    return priority[area] || {};
+  }
+  return priority;
+}
+
+
 export function computeRiskInfo(
   card: ReorderCardInput,
   opts?: ReorderPriorityOptions & { remainingMin?: number },
@@ -785,8 +802,14 @@ export async function computeReorder(
     areaSchedule?: AreaScheduleMap;
     scheduledPublishIds?: Set<string>;
     manualOverrides?: Record<string, ReorderManualOverride>;
-    /** Janela de risco / carência de entrada (configurável por área). */
-    priority?: { riskFactor?: number; entryGraceMin?: number };
+    /**
+     * Janela de risco / carência de entrada. Pode vir por área
+     * ({ midia, sistemas }) — cada card é avaliado com a config da sua área.
+     */
+    priority?:
+      | { riskFactor?: number; entryGraceMin?: number }
+      | { midia?: { riskFactor?: number; entryGraceMin?: number }; sistemas?: { riskFactor?: number; entryGraceMin?: number } };
+
 
   },
 
