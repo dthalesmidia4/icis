@@ -767,11 +767,13 @@ export async function jumpToFunction({
   let picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
     preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
     excludeUserIds: isReviewTarget ? jumpExecutors : [],
+    workArea: jumpArea,
   });
   if (isReviewTarget && (!picked.success || !picked.userId)) {
     // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
-    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
+    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea });
   }
+
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
 
 
