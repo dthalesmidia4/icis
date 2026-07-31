@@ -729,7 +729,12 @@ export function sortForReorder(
   if (cards.length === 0) return [];
 
   const riskOf = (c: ReorderCardInput) =>
-    computeRiskInfo(c, { ...opts?.priority, remainingMin: opts?.estimateMin?.(c) });
+    computeRiskInfo(c, {
+      ...priorityForCard(c, opts?.priority),
+      now: opts?.priority?.now,
+      remainingMin: opts?.estimateMin?.(c),
+    });
+
 
 
   const sortTier = (tierCards: { c: ReorderCardInput; i: number }[]) => {
