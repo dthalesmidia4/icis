@@ -284,9 +284,9 @@ const KanbanCentralPage = () => {
         from: captureKanbanColumnLayout(),
       };
     }
-    writeFocusPref(nextColumnId);
     setFocusedColumnId(nextColumnId);
-  }, [captureKanbanColumnLayout, writeFocusPref]);
+  }, [captureKanbanColumnLayout]);
+
 
 
   const enterFocus = useCallback((userId: string) => {
