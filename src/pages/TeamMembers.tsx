@@ -60,6 +60,9 @@ export default function TeamMembers() {
   const [hubPermissions, setHubPermissions] = useState<HubPermission[]>([]);
   const [clientButtonPermissions, setClientButtonPermissions] = useState<ClientButtonPermission[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+  const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
+  const { isSuperAdmin, isAgencyAdmin } = useAgencyRole();
+  const canEditRoles = isSuperAdmin || isAgencyAdmin;
   const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'client_buttons' | 'notifications'>('columns');
   const [lateNotificationEnabled, setLateNotificationEnabled] = useState(false);
 
