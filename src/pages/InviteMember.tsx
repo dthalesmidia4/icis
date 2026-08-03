@@ -11,6 +11,8 @@ import { Loader2, UserPlus, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 
+import { MANAGER_AREA_OPTIONS } from '@/lib/constants/roles';
+
 type InviteRole = 'agency_admin' | 'agency_manager' | 'agency_user';
 
 export default function InviteMember() {
