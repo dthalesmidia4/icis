@@ -377,7 +377,7 @@ const KanbanCentralPage = () => {
   }, [focusedColumnId, changeFocusColumn]);
 
   // Decisão de foco inicial (antes do primeiro render das colunas, evita "piscada"):
-  // preferência salva > colaborador foca a própria coluna > gestor abre visão completa.
+  // colaborador sempre abre focado na própria coluna; gestor abre a visão completa.
   const didFocusDecisionRef = useRef(false);
   useEffect(() => {
     if (didFocusDecisionRef.current) return;
@@ -385,17 +385,10 @@ const KanbanCentralPage = () => {
     if (!authUser?.id) return;
 
     didFocusDecisionRef.current = true;
-    const pref = readFocusPref();
-    if (pref !== undefined) {
-      setFocusedColumnId(pref);
-    } else if (!canManageQueue) {
-      setFocusedColumnId(authUser.id);
-      writeFocusPref(authUser.id);
-    } else {
-      setFocusedColumnId(null);
-    }
+    setFocusedColumnId(canManageQueue ? null : authUser.id);
     setFocusDecisionReady(true);
-  }, [roleLoading, canManageQueue, authUser?.id, readFocusPref, writeFocusPref]);
+  }, [roleLoading, canManageQueue, authUser?.id]);
+
 
 
 
