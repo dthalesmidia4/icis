@@ -397,20 +397,27 @@ const KanbanCentralPage = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [focusedColumnId, changeFocusColumn]);
 
-  // Colaborador (não gestor) abre a Visão Geral já focado na própria coluna.
-  const didAutoFocusRef = useRef(false);
+  // Decisão de foco inicial (antes do primeiro render das colunas, evita "piscada"):
+  // preferência salva > colaborador foca a própria coluna > gestor abre visão completa.
+  const didFocusDecisionRef = useRef(false);
   useEffect(() => {
-    if (didAutoFocusRef.current) return;
-    if (roleLoading || canManageQueue) return;
+    if (didFocusDecisionRef.current) return;
+    if (roleLoading) return;
     if (!authUser?.id) return;
-    if (sessionStorage.getItem("kanban_auto_focus_done") === "1") {
-      didAutoFocusRef.current = true;
-      return;
+
+    didFocusDecisionRef.current = true;
+    const pref = readFocusPref();
+    if (pref !== undefined) {
+      setFocusedColumnId(pref);
+    } else if (!canManageQueue) {
+      setFocusedColumnId(authUser.id);
+      writeFocusPref(authUser.id);
+    } else {
+      setFocusedColumnId(null);
     }
-    didAutoFocusRef.current = true;
-    sessionStorage.setItem("kanban_auto_focus_done", "1");
-    setFocusedColumnId(authUser.id);
-  }, [roleLoading, canManageQueue, authUser?.id]);
+    setFocusDecisionReady(true);
+  }, [roleLoading, canManageQueue, authUser?.id, readFocusPref, writeFocusPref]);
+
 
 
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
