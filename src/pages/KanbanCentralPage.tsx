@@ -370,6 +370,22 @@ const KanbanCentralPage = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [focusedColumnId, changeFocusColumn]);
 
+  // Colaborador (não gestor) abre a Visão Geral já focado na própria coluna.
+  const didAutoFocusRef = useRef(false);
+  useEffect(() => {
+    if (didAutoFocusRef.current) return;
+    if (roleLoading || canManageQueue) return;
+    if (!authUser?.id) return;
+    if (sessionStorage.getItem("kanban_auto_focus_done") === "1") {
+      didAutoFocusRef.current = true;
+      return;
+    }
+    didAutoFocusRef.current = true;
+    sessionStorage.setItem("kanban_auto_focus_done", "1");
+    setFocusedColumnId(authUser.id);
+  }, [roleLoading, canManageQueue, authUser?.id]);
+
+
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const savingDraftRef = useRef(false);
