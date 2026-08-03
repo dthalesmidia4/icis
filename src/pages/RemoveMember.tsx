@@ -41,7 +41,7 @@ export default function RemoveMember() {
       // Buscar user_roles do tenant
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, role')
+        .select('user_id, role, manager_work_area')
         .eq('tenant_id', agencyId);
 
       if (rolesError) throw rolesError;
