@@ -3433,7 +3433,7 @@ const KanbanCentralPage = () => {
                               <div className="mt-1.5 space-y-1">
                                 {queuedCardsSorted.map((qc) => (
                                   <div
-                                    key={qc.key}
+                                    key={qc.id}
                                     className="rounded-lg border border-dashed border-border bg-muted/30 p-2.5"
                                   >
                                     <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5 truncate">
