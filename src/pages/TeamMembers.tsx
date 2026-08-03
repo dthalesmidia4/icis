@@ -364,7 +364,7 @@ export default function TeamMembers() {
     }
   };
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (role: string, managerWorkArea?: string | null) => {
     const roleLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       'super_admin': { label: 'Super Admin', variant: 'destructive' },
       'agency_admin': { label: 'Administrador', variant: 'default' },
@@ -373,16 +373,22 @@ export default function TeamMembers() {
     };
     
     const roleInfo = roleLabels[role] || { label: role, variant: 'outline' as const };
-    return <Badge variant={roleInfo.variant}>{roleInfo.label}</Badge>;
+    const areaSuffix =
+      role === 'agency_manager' && managerWorkArea
+        ? ` · ${MANAGER_AREA_LABELS[managerWorkArea as 'midia' | 'sistemas'] ?? managerWorkArea}`
+        : '';
+    return <Badge variant={roleInfo.variant}>{roleInfo.label}{areaSuffix}</Badge>;
   };
 
   const changeMemberRole = async (member: TeamMember, role: ValidAgencyRole) => {
     if (!agencyId || role === member.role) return;
     setSavingRoleId(member.id);
     try {
+      // Área só faz sentido para o Gestor Operacional
+      const nextArea = role === 'agency_manager' ? member.manager_work_area : null;
       const { data, error } = await supabase
         .from('user_roles')
-        .update({ role: role as any })
+        .update({ role: role as any, manager_work_area: nextArea as any })
         .eq('user_id', member.id)
         .eq('tenant_id', agencyId)
         .select('user_id');
@@ -390,7 +396,7 @@ export default function TeamMembers() {
       if (!data || data.length === 0) {
         throw new Error('Sem permissão para alterar a função deste membro.');
       }
-      setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, role } : m)));
+      setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, role, manager_work_area: nextArea } : m)));
       toast.success('Função atualizada.');
     } catch (e: any) {
       toast.error(e?.message || 'Não foi possível alterar a função.');
@@ -398,6 +404,32 @@ export default function TeamMembers() {
       setSavingRoleId(null);
     }
   };
+
+  const changeManagerArea = async (member: TeamMember, value: string) => {
+    if (!agencyId) return;
+    const nextArea = value === 'ambas' ? null : (value as 'midia' | 'sistemas');
+    if (nextArea === member.manager_work_area) return;
+    setSavingRoleId(member.id);
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .update({ manager_work_area: nextArea as any })
+        .eq('user_id', member.id)
+        .eq('tenant_id', agencyId)
+        .select('user_id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Sem permissão para alterar a área deste gestor.');
+      }
+      setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, manager_work_area: nextArea } : m)));
+      toast.success('Área do gestor atualizada.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Não foi possível alterar a área.');
+    } finally {
+      setSavingRoleId(null);
+    }
+  };
+
 
 
   const getInitials = (name: string) => {
