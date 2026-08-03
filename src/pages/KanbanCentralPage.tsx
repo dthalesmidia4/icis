@@ -2578,7 +2578,15 @@ const KanbanCentralPage = () => {
                 .filter((x): x is CentralKanbanCard & { _historyAt?: string; _historyStage?: string } => !!x);
             }
 
-            const allColumnCards = isHistoryMode ? historyColumnCards : activeColumnCards;
+            const allColumnCardsRaw = isHistoryMode ? historyColumnCards : activeColumnCards;
+
+            // Fila de liberação: separa as demandas ainda não liberadas (só o gestor chega aqui).
+            const queuedCards = !isHistoryMode
+              ? allColumnCardsRaw.filter((c) => (c as any).released_at == null)
+              : [];
+            const allColumnCards = !isHistoryMode
+              ? allColumnCardsRaw.filter((c) => (c as any).released_at != null)
+              : allColumnCardsRaw;
 
             // Aguardando Clientes = cards que estão com/para cliente (apenas modo ativo)
             const awaitingCardsBase = !isHistoryMode
