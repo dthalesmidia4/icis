@@ -368,6 +368,30 @@ export default function TeamMembers() {
     return <Badge variant={roleInfo.variant}>{roleInfo.label}</Badge>;
   };
 
+  const changeMemberRole = async (member: TeamMember, role: ValidAgencyRole) => {
+    if (!agencyId || role === member.role) return;
+    setSavingRoleId(member.id);
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .update({ role: role as any })
+        .eq('user_id', member.id)
+        .eq('tenant_id', agencyId)
+        .select('user_id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Sem permissão para alterar a função deste membro.');
+      }
+      setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, role } : m)));
+      toast.success('Função atualizada.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Não foi possível alterar a função.');
+    } finally {
+      setSavingRoleId(null);
+    }
+  };
+
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
