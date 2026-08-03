@@ -1,49 +1,29 @@
-## Problema
+# Correção: não é possível escolher o tipo da demanda (área Sistemas)
 
-Hoje cada card do modal empilha 5–7 linhas com o mesmo peso visual: título, etapa/tipo/área, "Em execução desde → Novo término", "Na etapa atual desde…", badges de risco/folga, explicação de janela e aviso amarelo. Tudo em `text-xs`, quase tudo com cor de destaque (vermelho, âmbar, azul). O olho não sabe onde começar e as informações se repetem (risco aparece como badge e como texto; "extensão de 30%" aparece 3 vezes).
+## O que acontece hoje
 
-## Objetivo
+Ao escolher um tipo no card (dropdown "Definir tipo"), o sistema primeiro tenta descobrir a etapa inicial daquele tipo. Essa consulta está sendo feita **sempre como se a demanda fosse da área Mídia**, ignorando a área (Sistemas) e a origem do card.
 
-Ler cada card em 2 segundos: **o que muda de horário** e **por quê**. Todo o resto continua acessível, mas em segundo plano ou sob clique. Nenhuma funcionalidade é removida (ajuste manual, fixados, toggle de publicação, desfazer, recalcular).
+Como os tipos de Sistemas (Desenvolvimento, Melhoria, Suporte, Bug N1/N2/N3) só têm fluxo configurado na área Sistemas, a busca volta vazia, a função aborta e o tipo nunca é gravado — o dropdown continua em branco e o salvamento segue pedindo o tipo.
 
-## Nova anatomia do card
+Confirmado no banco: existem regras de fluxo para os 6 tipos de Sistemas, apenas na área `sistemas`.
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ 1  TESTE VÍDEO LEAL                          ⚠ risco   Ajustar│
-│    Editar vídeo · Vídeo gerado · Mídia                        │
-│                                                               │
-│    31/07 12:00  →  03/08 09:20            20min   [detalhes ▾]│
-│    ↳ Sem janela de Mídia após 14:40 em 31/07                  │
-└──────────────────────────────────────────────────────────────┘
-```
+## Correção
 
-1. **Linha 1 (peso forte):** número + título. À direita, no máximo **um** selo de estado (`em execução`, `risco`, `fixado`, `não reagendado`) e o botão Ajustar como ícone discreto.
-2. **Linha 2 (fraca):** etapa · tipo · área — cinza, sem badge.
-3. **Linha 3 (a informação principal):** antes → depois em fonte tabular, com o "antes" riscado e discreto e o "depois" em destaque. Duração como texto simples à direita, não badge.
-4. **Linha 4 (opcional, uma só):** o motivo — jumpReason, pausa por captação ou aviso de prazo — em cinza com ícone pequeno; âmbar só quando é aviso real de prazo de publicação.
-5. **"detalhes"** (collapse por card, fechado por padrão): entrada na etapa, tempo planejado, extensão de 30%, folga aplicada, dias de extensão, prazo de publicação, tipo de fixação. Sai da leitura principal e para de competir.
-
-## Regras de cor e ruído
-
-- Uma cor de destaque por card, na seguinte prioridade: vermelho (risco) > âmbar (aviso de prazo) > azul (reagendado) > neutro.
-- Cards não reagendados (Captar, Aguardando cliente, diários) ficam em bloco colapsado no fim: **"3 cards não reagendados"**, expansível, sem borda colorida.
-- Badges "Produção/Revisão/Avaliar", "+folga", "N dias", "recém-chegado" saem da linha principal e passam a viver no collapse de detalhes ou como tooltip do selo único.
-- Texto duplicado eliminado: risco descrito só uma vez (selo + tooltip com "faltam X, etapa leva ~Y").
-
-## Cabeçalho e rodapé
-
-- Descrição longa atual (janela, almoço, feriados, quem não é reagendado) vira um **"Como funciona"** colapsado; o padrão mostra só a linha: `Base 14:39 · janela 09:00–18:00 · recalcular`.
-- Barra de resumo enxuta: `2 cards · 1 reagendado · 1 em risco` (chips neutros, um único com cor quando há risco).
-- Toggle "Priorizar publicação" fica em linha única compacta, com a explicação como tooltip.
-- Rodapé inalterado (Restaurar sugestão / Cancelar / Aplicar).
+1. Passar a área e a origem do card na resolução da etapa inicial ao definir o tipo, exatamente como já é feito no restante do card (o card já monta esse par de dados para outras consultas de fluxo).
+2. Quando o tipo é válido mas o fluxo daquela área realmente não tem etapas configuradas, mostrar mensagem citando a área ("Nenhuma etapa configurada para este tipo na área Sistemas") em vez de falhar de forma genérica.
+3. Ao trocar a área do card, se o tipo atual não existir na nova área, limpar o tipo e a etapa atual de forma consistente (hoje o tipo é limpo, mas a etapa pode ficar apontando para uma etapa da área antiga).
+4. Em rascunho (criação pela visão geral), garantir que a seleção do tipo grave o tipo no estado local mesmo antes de existir a demanda no banco.
 
 ## Detalhes técnicos
 
-- Arquivo principal: `src/components/kanban/ReorderSequenceModal.tsx`.
-- Extrair a renderização de cada item para um subcomponente `ReorderProposalRow` no mesmo diretório (`src/components/kanban/ReorderProposalRow.tsx`) para o modal ficar legível: recebe `proposal`, `orig`, `index`, callbacks de edição.
-- Selo único: função `primaryBadge(p)` que resolve estado por prioridade (execução > risco > fixado > skipped > reagendado).
-- Motivo único: função `primaryReason(p)` que escolhe entre `jumpReason`, `pausedByCaptar` e `warning` (avisos restantes vão para o collapse).
-- Usar `Collapsible` do shadcn já presente no projeto para "detalhes", "Como funciona" e o grupo de não reagendados.
-- Sem mudanças em `src/lib/reorderSequence.ts` (motor), na aplicação das mudanças (`handleApply`) nem no fluxo de ajustes manuais — o painel de "Ajustar" continua igual, apenas aberto dentro do card.
-- Números de horário com `tabular-nums` para alinhar as colunas antes/depois.
+- `src/components/TaskCard.tsx` → `handleSetDemandType`: passar `{ workArea, origin }` (mesmo objeto `seqOpts` já usado no efeito de sequência do pipeline) para `resolveInitialFunctionKey`; extrair `seqOpts` para um `useMemo` reaproveitado pelos dois pontos.
+- Mensagem de erro contextual usando `AREA_LABEL`.
+- Handler de troca de área: limpar também `current_function_key` quando o tipo é invalidado.
+- Sem mudanças de banco de dados nem de edge functions.
+
+## Verificação
+
+- Criar demanda pela visão geral com área Sistemas → escolher "Desenvolvimento" → dropdown marca o tipo e a etapa inicial aparece; salvar funciona.
+- Repetir com área Mídia (ex.: Carrossel) para confirmar que nada regrediu.
+- Trocar a área de um card já salvo e confirmar que tipo/etapa ficam coerentes.
