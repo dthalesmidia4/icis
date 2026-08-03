@@ -18,9 +18,11 @@ export default function InviteMember() {
   const { agencyId } = useAgency();
   const { user } = useAuth();
   const [role, setRole] = useState<InviteRole>('agency_user');
+  const [managerArea, setManagerArea] = useState<'midia' | 'sistemas' | 'ambas'>('ambas');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
 
   const roles = [
     { value: 'agency_admin', label: 'Administrador', description: 'Acesso total' },
