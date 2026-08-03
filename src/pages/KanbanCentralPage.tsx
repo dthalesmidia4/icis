@@ -789,6 +789,7 @@ const KanbanCentralPage = () => {
         origin_note: (data as any).origin_note ?? null,
         subclient_id: (data as any).subclient_id ?? null,
         subclient_ids: Array.isArray((data as any).subclient_ids) ? (data as any).subclient_ids : [],
+        released_at: (data as any).released_at ?? null,
       };
 
       if (data.archived_at) {
