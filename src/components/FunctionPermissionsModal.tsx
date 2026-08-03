@@ -244,6 +244,8 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   const [savingPriority, setSavingPriority] = useState(false);
   const [customRisk, setCustomRisk] = useState(false);
 
+  const [queueCfg, setQueueCfg] = useState<ReleaseQueueConfig>({ ...DEFAULT_RELEASE_QUEUE });
+  const [savingQueue, setSavingQueue] = useState(false);
 
   useEffect(() => {
     if (!open || !agencyId) return;
@@ -254,6 +256,9 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       // Ao trocar de área, volta ao modo de presets: a config carregada pode
       // corresponder exatamente a um preset.
       setCustomRisk(false);
+    });
+    loadReleaseQueueConfig(agencyId).then((cfg) => {
+      if (!cancelled) setQueueCfg(cfg);
     });
     return () => { cancelled = true; };
   }, [open, agencyId, area]);
@@ -271,6 +276,20 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       setSavingPriority(false);
     }
   };
+
+  const saveQueueCfg = async () => {
+    if (!agencyId) return;
+    setSavingQueue(true);
+    try {
+      await saveReleaseQueueConfig(agencyId, queueCfg);
+      toast.success("Fila de liberação atualizada.");
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível salvar a fila de liberação.");
+    } finally {
+      setSavingQueue(false);
+    }
+  };
+
 
 
 
