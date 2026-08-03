@@ -763,20 +763,46 @@ export async function jumpToFunction({
   const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
   const jumpExecutors = await collectStageExecutors(tenantId, demandId, currentFunctionKey, prevUser, stageExtras);
 
+  // Salto para uma etapa ANTERIOR é regressão, não avanço: o responsável natural
+  // é quem já executou aquela etapa neste card — nunca alguém novo escolhido por
+  // carga (era assim que cards voltavam de "Aguardando cliente" para "Revisar"
+  // nas mãos de outro colaborador).
+  const curIdx = currentFunctionKey ? seq.findIndex((f) => f.function_key === currentFunctionKey) : -1;
+  const targetIdx = seq.findIndex((f) => f.function_key === target.function_key);
+  const isBackward = curIdx >= 0 && targetIdx >= 0 && targetIdx < curIdx;
+
   // Salto manual: mantém quem já está no card quando a etapa é de produção;
   // etapas de revisão nunca caem em quem executou a etapa anterior.
   const isReviewTarget = isReviewFunction(target.function_key);
-  let picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
-    preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
-    excludeUserIds: isReviewTarget ? jumpExecutors : [],
-    workArea: jumpArea,
-  });
+  let picked: PickAssigneeResult | null = null;
+
+  if (isBackward) {
+    const completions = await getStageCompletions(tenantId, demandId);
+    const historic = lastUserOfStage(completions, target.function_key);
+    if (historic) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", historic)
+        .maybeSingle();
+      picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
+    }
+  }
+
+  if (!picked) {
+    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
+      preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
+      excludeUserIds: isReviewTarget && !isBackward ? jumpExecutors : [],
+      workArea: jumpArea,
+    });
+  }
   if (isReviewTarget && (!picked.success || !picked.userId)) {
     // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
     picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea });
   }
 
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
+  const jumpAction = isBackward ? "moved_back" : "proceeded";
 
 
   const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
@@ -797,17 +823,20 @@ export async function jumpToFunction({
   if (error) return { success: false, message: "Erro ao atualizar etapa." };
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key },
+      { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key },
       [prevUser, ...captarExtras],
     );
   } else {
     // Se este é o último captador de uma captação que teve entregas parciais, registra sua entrega também.
-    if (currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
+    if (!isBackward && currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
       await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
     }
-    await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
   }
-  await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [prevUser, ...stageExtras]);
+  // Regressão não conclui a etapa atual: só avanços registram entrega.
+  if (!isBackward) {
+    await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [prevUser, ...stageExtras]);
+  }
   await recordStageTouchpoint(tenantId, demandId, target.function_key);
   return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.` };
 }

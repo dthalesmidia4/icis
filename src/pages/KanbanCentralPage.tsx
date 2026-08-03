@@ -3095,25 +3095,27 @@ const KanbanCentralPage = () => {
 
                         {/* Em Revisão — agrupa quando há 3+ cards em função de revisão neste colaborador */}
                         {reviewCards.length > 0 && (
-                          <div className="mt-3 pt-2 border-t-2 border-amber-500/60">
+                          <div className="mt-5">
                             <button
                               type="button"
                               onClick={() => toggleReview(column.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 transition-colors border border-amber-500/40"
+                              className="group w-full flex items-center gap-2 px-1 py-1.5 border-t border-border/60 hover:border-border transition-colors"
                               aria-expanded={!isReviewCollapsed}
                             >
-                              {isReviewCollapsed ? (
-                                <ChevronRight className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                              ) : (
-                                <ChevronDown className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                              )}
-                              <span className="text-sm font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                              <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground uppercase tracking-[0.12em] transition-colors">
                                 Em revisão
                               </span>
-                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/40 font-bold">
+                              <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
                                 {reviewCards.length}
-                              </Badge>
+                              </span>
+                              {isReviewCollapsed ? (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              )}
                             </button>
+
 
                             {!isReviewCollapsed && (
                               <div className="mt-1 space-y-1">
@@ -3156,26 +3158,27 @@ const KanbanCentralPage = () => {
                         )}
                         {/* Aguardando clientes — cards em `aguardando_cliente` ficam agrupados aqui */}
                         {awaitingCards.length > 0 && (
-                          <div className="mt-3 pt-2 border-t-2 border-blue-500/60">
+                          <div className="mt-5">
                             <button
                               type="button"
                               onClick={() => toggleAwaiting(column.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 transition-colors border border-blue-500/40"
+                              className="group w-full flex items-center gap-2 px-1 py-1.5 border-t border-border/60 hover:border-border transition-colors"
                               aria-expanded={!isAwaitingCollapsed}
                             >
-                              {isAwaitingCollapsed ? (
-                                <ChevronRight className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
-                              ) : (
-                                <ChevronDown className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
-                              )}
-                              <span className="text-sm font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
+                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                              <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground uppercase tracking-[0.12em] transition-colors">
                                 Aguardando clientes
                               </span>
-
-                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-blue-500/25 text-blue-700 dark:text-blue-300 border-blue-500/40 font-bold">
+                              <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
                                 {awaitingCards.length}
-                              </Badge>
+                              </span>
+                              {isAwaitingCollapsed ? (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              )}
                             </button>
+
 
                             {!isAwaitingCollapsed && (
                               <div className="mt-1 space-y-1">
