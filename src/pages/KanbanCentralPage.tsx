@@ -95,7 +95,7 @@ interface CentralKanbanCard extends KanbanCardData {
   released_at?: string | null;
 }
 
-const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
+const KANBAN_ARCHIVED_STATUS_NAMES = ['feito', 'feitos'];
 const KANBAN_FOCUS_TRANSITION_MS = 280;
 
 const getClientSentAt = (card: Pick<KanbanCardData, "client_wait_started_at"> & { client_sent_at_fallback?: string | null }) =>
