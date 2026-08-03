@@ -171,6 +171,40 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
+  const handleRelease = useCallback(async (ids: string[], userId?: string | null) => {
+    if (!tenantId || ids.length === 0) return;
+    setReleasingIds((prev) => new Set([...prev, ...ids]));
+    try {
+      await releaseDemands(tenantId, ids, userId ?? null);
+      sonnerToast.success(ids.length > 1 ? `${ids.length} demandas liberadas` : "Demanda liberada");
+      await fetchAllCards();
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Não foi possível liberar");
+    } finally {
+      setReleasingIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+  }, [tenantId]);
+  const handleUnrelease = useCallback(async (id: string, userId?: string | null) => {
+    if (!tenantId) return;
+    setReleasingIds((prev) => new Set([...prev, id]));
+    try {
+      await unreleaseDemand(tenantId, id, userId ?? null);
+      sonnerToast.success("Demanda devolvida para a fila");
+      await fetchAllCards();
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Não foi possível devolver");
+    } finally {
+      setReleasingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }, [tenantId]);
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
   const [collapsedDateGroups, setCollapsedDateGroups] = useState<Set<string>>(new Set());
