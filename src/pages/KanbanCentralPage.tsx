@@ -3277,6 +3277,7 @@ const KanbanCentralPage = () => {
                                       cardDeliveryDate={card.delivery_date || undefined}
                                       deliveryTime={card.delivery_time || undefined}
                                       isOverdue={isCardOverdue(card)}
+                                      overdueSince={cardOverdueSince(card)}
                                       cardId={card.id}
                                       statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
                                       statusColor={(card as any).status_color}
