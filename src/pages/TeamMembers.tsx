@@ -15,6 +15,9 @@ import { Loader2, Users, Settings2, LayoutGrid, Home, Bell, MousePointerClick } 
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 import { HUB_SECTIONS, CLIENT_HUB_BUTTONS } from '@/hooks/useHubPermissions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAgencyRole } from '@/hooks/useAgencyRole';
+import { INVITE_ROLE_OPTIONS, type ValidAgencyRole } from '@/lib/constants/roles';
 
 interface TeamMember {
   id: string;
