@@ -3105,6 +3105,15 @@ const KanbanCentralPage = () => {
                                 >
                                   {items.length}
                                 </Badge>
+                                {items.filter((c) => isCardOverdue(c)).length > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400"
+                                    title="Cards atrasados neste agrupamento"
+                                  >
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {items.filter((c) => isCardOverdue(c)).length}
+                                  </span>
+                                )}
                               </button>
                               <div className={cn(isCollapsed && "hidden")}>
                               {items.map((card) => {
