@@ -247,31 +247,10 @@ const KanbanCentralPage = () => {
     });
   }, []);
   // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
-  const focusPrefKey = authUser?.id ? `kanban_focus_column:${authUser.id}` : null;
-  const readFocusPref = useCallback((): string | null | undefined => {
-    if (!focusPrefKey) return undefined;
-    try {
-      const raw = localStorage.getItem(focusPrefKey);
-      if (raw === null) return undefined; // sem preferência salva
-      return raw === "" ? null : raw;
-    } catch {
-      return undefined;
-    }
-  }, [focusPrefKey]);
-  const writeFocusPref = useCallback((value: string | null) => {
-    if (!focusPrefKey) return;
-    try {
-      localStorage.setItem(focusPrefKey, value ?? "");
-    } catch {
-      /* ignore */
-    }
-  }, [focusPrefKey]);
-
-  const [focusedColumnId, setFocusedColumnId] = useState<string | null>(() => {
-    const pref = readFocusPref();
-    return pref === undefined ? null : pref;
-  });
+  // O foco não é persistido: cada abertura da tela recalcula (colaborador → própria coluna).
+  const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
   const [focusDecisionReady, setFocusDecisionReady] = useState(false);
+
   const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const focusBoardScrollLeftRef = useRef(0);
   const pendingFocusTransitionRef = useRef<{
@@ -305,9 +284,9 @@ const KanbanCentralPage = () => {
         from: captureKanbanColumnLayout(),
       };
     }
-    writeFocusPref(nextColumnId);
     setFocusedColumnId(nextColumnId);
-  }, [captureKanbanColumnLayout, writeFocusPref]);
+  }, [captureKanbanColumnLayout]);
+
 
 
   const enterFocus = useCallback((userId: string) => {
@@ -398,7 +377,7 @@ const KanbanCentralPage = () => {
   }, [focusedColumnId, changeFocusColumn]);
 
   // Decisão de foco inicial (antes do primeiro render das colunas, evita "piscada"):
-  // preferência salva > colaborador foca a própria coluna > gestor abre visão completa.
+  // colaborador sempre abre focado na própria coluna; gestor abre a visão completa.
   const didFocusDecisionRef = useRef(false);
   useEffect(() => {
     if (didFocusDecisionRef.current) return;
@@ -406,17 +385,10 @@ const KanbanCentralPage = () => {
     if (!authUser?.id) return;
 
     didFocusDecisionRef.current = true;
-    const pref = readFocusPref();
-    if (pref !== undefined) {
-      setFocusedColumnId(pref);
-    } else if (!canManageQueue) {
-      setFocusedColumnId(authUser.id);
-      writeFocusPref(authUser.id);
-    } else {
-      setFocusedColumnId(null);
-    }
+    setFocusedColumnId(canManageQueue ? null : authUser.id);
     setFocusDecisionReady(true);
-  }, [roleLoading, canManageQueue, authUser?.id, readFocusPref, writeFocusPref]);
+  }, [roleLoading, canManageQueue, authUser?.id]);
+
 
 
 
@@ -443,9 +415,8 @@ const KanbanCentralPage = () => {
     if (collaborators.length === 0) return;
     if (focusedColumnId === "__unassigned__") return;
     if (collaborators.some((c) => c.userId === focusedColumnId)) return;
-    writeFocusPref(null);
     setFocusedColumnId(null);
-  }, [focusedColumnId, focusDecisionReady, collaborators, writeFocusPref]);
+  }, [focusedColumnId, focusDecisionReady, collaborators]);
 
   const navigate = useNavigate();
   const { setSelectedClient } = useSelectedClient();
