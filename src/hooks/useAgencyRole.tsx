@@ -34,9 +34,11 @@ export function useAgencyRole(): UseAgencyRoleReturn {
   const { user, isLoading: authLoading } = useAuth();
   const { agencyId, isLoading: agencyLoading } = useAgency();
   const [role, setRole] = useState<AgencyRole>(null);
+  const [managerWorkArea, setManagerWorkArea] = useState<'midia' | 'sistemas' | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
 
   const fetchRole = useCallback(async () => {
     // Aguardar auth e agency terminarem de carregar
