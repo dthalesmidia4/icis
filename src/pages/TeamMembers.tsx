@@ -134,9 +134,11 @@ export default function TeamMembers() {
           full_name: profile?.full_name || 'Usuário',
           avatar_url: profile?.avatar_url || null,
           role: role.role,
+          manager_work_area: ((role as any).manager_work_area as 'midia' | 'sistemas' | null) ?? null,
           email: '', // Será preenchido se possível
         };
       });
+
 
       setMembers(membersData);
     } catch (error) {
