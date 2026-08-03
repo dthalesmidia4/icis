@@ -27,6 +27,8 @@ import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
 import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
 
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/hooks/useAuth";
+import { releaseDemands, unreleaseDemand } from "@/lib/releaseQueue";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
 import { useColumnPermissions } from "@/hooks/useColumnPermissions";
@@ -89,6 +91,8 @@ interface CentralKanbanCard extends KanbanCardData {
   status_color?: string | null;
   work_area?: "midia" | "sistemas" | null;
   origin?: string | null;
+  /** null = alocada mas ainda não liberada (invisível para o colaborador). */
+  released_at?: string | null;
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
@@ -151,8 +155,56 @@ const getDisplayDemandType = (
 const KanbanCentralPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
-  const { isSuperAdmin, isAgencyManager } = useAgencyRole();
+  const { isSuperAdmin, isAgencyManager, isAgencyAdmin, isLoading: roleLoading } = useAgencyRole();
   const canReorder = isSuperAdmin || isAgencyManager;
+  /** Gestor operacional / admin da agência / super admin: vê a fila não liberada e pode liberar. */
+  const canManageQueue = isSuperAdmin || isAgencyManager || isAgencyAdmin;
+  const { user: authUser } = useAuth();
+  const [releasingIds, setReleasingIds] = useState<Set<string>>(new Set());
+  const [releaseBatchSize, setReleaseBatchSize] = useState<Record<string, number>>({});
+  const [expandedQueue, setExpandedQueue] = useState<Set<string>>(new Set());
+  const toggleQueue = useCallback((columnId: string) => {
+    setExpandedQueue((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
+  const handleRelease = useCallback(async (ids: string[], userId?: string | null) => {
+    if (!tenantId || ids.length === 0) return;
+    setReleasingIds((prev) => new Set([...prev, ...ids]));
+    try {
+      await releaseDemands(tenantId, ids, userId ?? null);
+      sonnerToast.success(ids.length > 1 ? `${ids.length} demandas liberadas` : "Demanda liberada");
+      await fetchAllCards();
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Não foi possível liberar");
+    } finally {
+      setReleasingIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+  }, [tenantId]);
+  const handleUnrelease = useCallback(async (id: string, userId?: string | null) => {
+    if (!tenantId) return;
+    setReleasingIds((prev) => new Set([...prev, id]));
+    try {
+      await unreleaseDemand(tenantId, id, userId ?? null);
+      sonnerToast.success("Demanda devolvida para a fila");
+      await fetchAllCards();
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Não foi possível devolver");
+    } finally {
+      setReleasingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }, [tenantId]);
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
   const [collapsedDateGroups, setCollapsedDateGroups] = useState<Set<string>>(new Set());
@@ -317,6 +369,22 @@ const KanbanCentralPage = () => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [focusedColumnId, changeFocusColumn]);
+
+  // Colaborador (não gestor) abre a Visão Geral já focado na própria coluna.
+  const didAutoFocusRef = useRef(false);
+  useEffect(() => {
+    if (didAutoFocusRef.current) return;
+    if (roleLoading || canManageQueue) return;
+    if (!authUser?.id) return;
+    if (sessionStorage.getItem("kanban_auto_focus_done") === "1") {
+      didAutoFocusRef.current = true;
+      return;
+    }
+    didAutoFocusRef.current = true;
+    sessionStorage.setItem("kanban_auto_focus_done", "1");
+    setFocusedColumnId(authUser.id);
+  }, [roleLoading, canManageQueue, authUser?.id]);
+
 
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -518,8 +586,12 @@ const KanbanCentralPage = () => {
     // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
     // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
     baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
+    // Fila de liberação: para quem não é gestor, demandas ainda não liberadas não existem.
+    if (!canManageQueue) {
+      baseCards = baseCards.filter(card => (card as any).released_at != null);
+    }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue]);
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
@@ -717,6 +789,7 @@ const KanbanCentralPage = () => {
         origin_note: (data as any).origin_note ?? null,
         subclient_id: (data as any).subclient_id ?? null,
         subclient_ids: Array.isArray((data as any).subclient_ids) ? (data as any).subclient_ids : [],
+        released_at: (data as any).released_at ?? null,
       };
 
       if (data.archived_at) {
@@ -991,6 +1064,7 @@ const KanbanCentralPage = () => {
           client_last_resend_at: (demand as any).client_last_resend_at ?? null,
           client_sent_at_fallback: activeHistoryFallback.get(demand.id) ?? null,
           reorder_meta: (demand as any).reorder_meta ?? null,
+          released_at: (demand as any).released_at ?? null,
         } as any;
       };
 
@@ -2499,9 +2573,10 @@ const KanbanCentralPage = () => {
               const target = rawColumns.find((c) => c.userId === focusedColumnId);
               if (target) {
                 const userCards = filteredCards.filter((c) =>
+                  (c as any).released_at != null && (
                   target.userId === "__unassigned__"
                     ? !c.assigned_to && !(c.additional_assignees?.length)
-                    : c.assigned_to === target.userId || (c.additional_assignees?.includes(target.userId) ?? false)
+                    : c.assigned_to === target.userId || (c.additional_assignees?.includes(target.userId) ?? false))
                 );
                 const _aw = userCards.filter((c) => isClientWaitingFunction(c.current_function_key));
                 const _nonAw = userCards.filter((c) => !isClientWaitingFunction(c.current_function_key));
@@ -2555,7 +2630,15 @@ const KanbanCentralPage = () => {
                 .filter((x): x is CentralKanbanCard & { _historyAt?: string; _historyStage?: string } => !!x);
             }
 
-            const allColumnCards = isHistoryMode ? historyColumnCards : activeColumnCards;
+            const allColumnCardsRaw = isHistoryMode ? historyColumnCards : activeColumnCards;
+
+            // Fila de liberação: separa as demandas ainda não liberadas (só o gestor chega aqui).
+            const queuedCards = !isHistoryMode
+              ? allColumnCardsRaw.filter((c) => (c as any).released_at == null)
+              : [];
+            const allColumnCards = !isHistoryMode
+              ? allColumnCardsRaw.filter((c) => (c as any).released_at != null)
+              : allColumnCardsRaw;
 
             // Aguardando Clientes = cards que estão com/para cliente (apenas modo ativo)
             const awaitingCardsBase = !isHistoryMode
@@ -2603,13 +2686,14 @@ const KanbanCentralPage = () => {
             const awaitingCardsSorted = sortChrono(awaitingCards);
             const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
               (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
+            const queuedCardsSorted = sortChrono(queuedCards);
 
             // --- "Em andamento" = primeiro card pendente da fila operacional deste colaborador ---
             // A coluna só contém cards pendentes: a entrega remove o card daqui.
             // Ver src/lib/currentWorkCard.ts para a regra completa.
             const { currentId: currentFlowCardId, nextId: nextFlowCardId } = isHistoryMode
               ? { currentId: null as string | null, nextId: null as string | null }
-              : resolveCurrentAndNext(activeColumnCards as any[], {
+              : resolveCurrentAndNext(allColumnCards as any[], {
                   now: nowTs,
                   activeDispatchIds,
                   deliveredStagesByCard: deliveredStagesByUser.get(columnUserId),
@@ -2620,6 +2704,7 @@ const KanbanCentralPage = () => {
             const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
             const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
             const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
+            const isQueueCollapsed = !expandedQueue.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
@@ -3302,6 +3387,109 @@ const KanbanCentralPage = () => {
                                       )}
                                     </div>
                                   </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Ainda não liberadas — visível só para gestores */}
+                        {!focusKind && canManageQueue && queuedCardsSorted.length > 0 && (
+                          <div className="mt-3 pt-2 border-t border-border/60">
+                            <div className="flex items-center gap-2 px-1">
+                              <button
+                                type="button"
+                                onClick={() => toggleQueue(column.id)}
+                                className="flex items-center gap-1.5 text-left group"
+                                aria-expanded={!isQueueCollapsed}
+                              >
+                                {isQueueCollapsed ? (
+                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                ) : (
+                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                )}
+                                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 shrink-0" />
+                                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground group-hover:text-foreground transition-colors">
+                                  Ainda não liberadas
+                                </span>
+                                <span className="text-[11px] text-muted-foreground/70">
+                                  {queuedCardsSorted.length}
+                                </span>
+                              </button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="ml-auto h-6 px-2 text-[11px]"
+                                onClick={() =>
+                                  handleRelease(
+                                    queuedCardsSorted
+                                      .slice(0, releaseBatchSize[column.id] || 1)
+                                      .map((c) => c.id),
+                                    columnUserId === "__unassigned__" ? null : columnUserId,
+                                  )
+                                }
+                              >
+                                Liberar {Math.min(releaseBatchSize[column.id] || 1, queuedCardsSorted.length)}
+                              </Button>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={queuedCardsSorted.length}
+                                value={releaseBatchSize[column.id] || 1}
+                                onChange={(e) =>
+                                  setReleaseBatchSize((prev) => ({
+                                    ...prev,
+                                    [column.id]: Math.max(1, Number(e.target.value) || 1),
+                                  }))
+                                }
+                                className="h-6 w-12 px-1 text-[11px] text-center"
+                              />
+                            </div>
+
+                            {!isQueueCollapsed && (
+                              <div className="mt-1.5 space-y-1">
+                                {queuedCardsSorted.map((qc) => (
+                                  <div
+                                    key={qc.id}
+                                    className="rounded-lg border border-dashed border-border bg-muted/30 p-2.5"
+                                  >
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5 truncate">
+                                      {qc.clientName}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCardClick(qc, column.id)}
+                                      className="w-full text-left text-sm font-medium text-foreground/80 break-words line-clamp-2 hover:text-foreground"
+                                    >
+                                      {qc.title}
+                                    </button>
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                      {qc.due_date && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                          {qc.due_date.split("-").reverse().slice(0, 2).join("/")}
+                                          {qc.due_time ? ` ${qc.due_time.slice(0, 5)}` : ""}
+                                        </span>
+                                      )}
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="ml-auto h-6 px-2 text-[11px]"
+                                        disabled={releasingIds.has(qc.id)}
+                                        onClick={() =>
+                                          handleRelease(
+                                            [qc.id],
+                                            columnUserId === "__unassigned__" ? null : columnUserId,
+                                          )
+                                        }
+                                      >
+                                        {releasingIds.has(qc.id) ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          "Liberar"
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
                                 ))}
                               </div>
                             )}

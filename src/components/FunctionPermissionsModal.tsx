@@ -12,6 +12,7 @@ import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
 import { AreaAllocationTab } from "@/components/config/AreaAllocationTab";
 import { loadReorderPriority, saveReorderPriority, DEFAULT_REORDER_PRIORITY, type ReorderPriorityConfig } from "@/lib/reorderPriority";
+import { loadReleaseQueueConfig, saveReleaseQueueConfig, DEFAULT_RELEASE_QUEUE, type ReleaseQueueConfig } from "@/lib/releaseQueue";
 
 /** Presets em linguagem operacional para a janela de risco (multiplicador da etapa). */
 const RISK_PRESETS = [
@@ -244,6 +245,8 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   const [savingPriority, setSavingPriority] = useState(false);
   const [customRisk, setCustomRisk] = useState(false);
 
+  const [queueCfg, setQueueCfg] = useState<ReleaseQueueConfig>({ ...DEFAULT_RELEASE_QUEUE });
+  const [savingQueue, setSavingQueue] = useState(false);
 
   useEffect(() => {
     if (!open || !agencyId) return;
@@ -254,6 +257,9 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       // Ao trocar de área, volta ao modo de presets: a config carregada pode
       // corresponder exatamente a um preset.
       setCustomRisk(false);
+    });
+    loadReleaseQueueConfig(agencyId).then((cfg) => {
+      if (!cancelled) setQueueCfg(cfg);
     });
     return () => { cancelled = true; };
   }, [open, agencyId, area]);
@@ -271,6 +277,20 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       setSavingPriority(false);
     }
   };
+
+  const saveQueueCfg = async () => {
+    if (!agencyId) return;
+    setSavingQueue(true);
+    try {
+      await saveReleaseQueueConfig(agencyId, queueCfg);
+      toast.success("Fila de liberação atualizada.");
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível salvar a fila de liberação.");
+    } finally {
+      setSavingQueue(false);
+    }
+  };
+
 
 
 
@@ -1050,6 +1070,41 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                     : `Cards que entraram na coluna nos últimos ${priorityCfg.entryGraceMin} min e não estão com prazo apertado entram no fim da fila.`}
                 </p>
               </div>
+
+              <div className="rounded-lg border p-3 space-y-3">
+                <div>
+                  <div className="text-sm font-semibold">Fila de liberação</div>
+                  <p className="text-xs text-muted-foreground">
+                    As demandas podem ficar alocadas sem aparecer na coluna do colaborador.
+                    O gestor libera aos poucos, evitando a sensação de fila infinita.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={queueCfg.enabled}
+                    onChange={(e) => setQueueCfg({ ...queueCfg, enabled: e.target.checked })}
+                  />
+                  Liberar automaticamente a próxima quando o colaborador entrega uma
+                </label>
+                <div className="flex items-center gap-2 text-sm">
+                  <span>Máximo visível por colaborador</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={queueCfg.limit}
+                    onChange={(e) => setQueueCfg({ ...queueCfg, limit: Math.max(1, Number(e.target.value) || 1) })}
+                    className="h-8 w-16 text-center"
+                  />
+                </div>
+                <Button size="sm" variant="outline" disabled={savingQueue} onClick={saveQueueCfg}>
+                  {savingQueue && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Salvar fila de liberação
+                </Button>
+              </div>
+
 
               <div className="flex items-center gap-2">
                 <Button size="sm" disabled={savingPriority} onClick={savePriorityCfg}>

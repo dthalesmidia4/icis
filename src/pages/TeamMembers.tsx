@@ -15,6 +15,9 @@ import { Loader2, Users, Settings2, LayoutGrid, Home, Bell, MousePointerClick } 
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 import { HUB_SECTIONS, CLIENT_HUB_BUTTONS } from '@/hooks/useHubPermissions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAgencyRole } from '@/hooks/useAgencyRole';
+import { INVITE_ROLE_OPTIONS, type ValidAgencyRole } from '@/lib/constants/roles';
 
 interface TeamMember {
   id: string;
@@ -57,6 +60,9 @@ export default function TeamMembers() {
   const [hubPermissions, setHubPermissions] = useState<HubPermission[]>([]);
   const [clientButtonPermissions, setClientButtonPermissions] = useState<ClientButtonPermission[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+  const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
+  const { isSuperAdmin, isAgencyAdmin } = useAgencyRole();
+  const canEditRoles = isSuperAdmin || isAgencyAdmin;
   const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'client_buttons' | 'notifications'>('columns');
   const [lateNotificationEnabled, setLateNotificationEnabled] = useState(false);
 
@@ -365,6 +371,30 @@ export default function TeamMembers() {
     return <Badge variant={roleInfo.variant}>{roleInfo.label}</Badge>;
   };
 
+  const changeMemberRole = async (member: TeamMember, role: ValidAgencyRole) => {
+    if (!agencyId || role === member.role) return;
+    setSavingRoleId(member.id);
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .update({ role: role as any })
+        .eq('user_id', member.id)
+        .eq('tenant_id', agencyId)
+        .select('user_id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Sem permissão para alterar a função deste membro.');
+      }
+      setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, role } : m)));
+      toast.success('Função atualizada.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Não foi possível alterar a função.');
+    } finally {
+      setSavingRoleId(null);
+    }
+  };
+
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -419,7 +449,29 @@ export default function TeamMembers() {
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{member.full_name}</h3>
-                    {getRoleBadge(member.role)}
+                    {canEditRoles && member.role !== 'super_admin' ? (
+                      <div className="mt-1 flex items-center gap-2">
+                        <Select
+                          value={member.role}
+                          onValueChange={(v) => changeMemberRole(member, v as ValidAgencyRole)}
+                          disabled={savingRoleId === member.id}
+                        >
+                          <SelectTrigger className="h-8 w-56 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {INVITE_ROLE_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {savingRoleId === member.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                      </div>
+                    ) : (
+                      getRoleBadge(member.role)
+                    )}
                   </div>
                 </div>
                 <Button 
