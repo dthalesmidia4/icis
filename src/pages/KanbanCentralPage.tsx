@@ -247,13 +247,38 @@ const KanbanCentralPage = () => {
     });
   }, []);
   // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
-  const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
+  const focusPrefKey = authUser?.id ? `kanban_focus_column:${authUser.id}` : null;
+  const readFocusPref = useCallback((): string | null | undefined => {
+    if (!focusPrefKey) return undefined;
+    try {
+      const raw = localStorage.getItem(focusPrefKey);
+      if (raw === null) return undefined; // sem preferência salva
+      return raw === "" ? null : raw;
+    } catch {
+      return undefined;
+    }
+  }, [focusPrefKey]);
+  const writeFocusPref = useCallback((value: string | null) => {
+    if (!focusPrefKey) return;
+    try {
+      localStorage.setItem(focusPrefKey, value ?? "");
+    } catch {
+      /* ignore */
+    }
+  }, [focusPrefKey]);
+
+  const [focusedColumnId, setFocusedColumnId] = useState<string | null>(() => {
+    const pref = readFocusPref();
+    return pref === undefined ? null : pref;
+  });
+  const [focusDecisionReady, setFocusDecisionReady] = useState(false);
   const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const focusBoardScrollLeftRef = useRef(0);
   const pendingFocusTransitionRef = useRef<{
     direction: "enter" | "exit";
     from: Map<string, { rect: DOMRect; clone: HTMLElement }>;
   } | null>(null);
+
 
   const setKanbanColumnRef = useCallback((key: string, el: HTMLDivElement | null) => {
     if (el) kanbanColumnRefs.current.set(key, el);
@@ -280,8 +305,10 @@ const KanbanCentralPage = () => {
         from: captureKanbanColumnLayout(),
       };
     }
+    writeFocusPref(nextColumnId);
     setFocusedColumnId(nextColumnId);
-  }, [captureKanbanColumnLayout]);
+  }, [captureKanbanColumnLayout, writeFocusPref]);
+
 
   const enterFocus = useCallback((userId: string) => {
     changeFocusColumn(userId);
@@ -370,20 +397,27 @@ const KanbanCentralPage = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [focusedColumnId, changeFocusColumn]);
 
-  // Colaborador (não gestor) abre a Visão Geral já focado na própria coluna.
-  const didAutoFocusRef = useRef(false);
+  // Decisão de foco inicial (antes do primeiro render das colunas, evita "piscada"):
+  // preferência salva > colaborador foca a própria coluna > gestor abre visão completa.
+  const didFocusDecisionRef = useRef(false);
   useEffect(() => {
-    if (didAutoFocusRef.current) return;
-    if (roleLoading || canManageQueue) return;
+    if (didFocusDecisionRef.current) return;
+    if (roleLoading) return;
     if (!authUser?.id) return;
-    if (sessionStorage.getItem("kanban_auto_focus_done") === "1") {
-      didAutoFocusRef.current = true;
-      return;
+
+    didFocusDecisionRef.current = true;
+    const pref = readFocusPref();
+    if (pref !== undefined) {
+      setFocusedColumnId(pref);
+    } else if (!canManageQueue) {
+      setFocusedColumnId(authUser.id);
+      writeFocusPref(authUser.id);
+    } else {
+      setFocusedColumnId(null);
     }
-    didAutoFocusRef.current = true;
-    sessionStorage.setItem("kanban_auto_focus_done", "1");
-    setFocusedColumnId(authUser.id);
-  }, [roleLoading, canManageQueue, authUser?.id]);
+    setFocusDecisionReady(true);
+  }, [roleLoading, canManageQueue, authUser?.id, readFocusPref, writeFocusPref]);
+
 
 
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
@@ -402,6 +436,17 @@ const KanbanCentralPage = () => {
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
+
+  // Se a coluna focada não existe mais no quadro, descarta o foco silenciosamente.
+  useEffect(() => {
+    if (!focusedColumnId || !focusDecisionReady) return;
+    if (collaborators.length === 0) return;
+    if (focusedColumnId === "__unassigned__") return;
+    if (collaborators.some((c) => c.userId === focusedColumnId)) return;
+    writeFocusPref(null);
+    setFocusedColumnId(null);
+  }, [focusedColumnId, focusDecisionReady, collaborators, writeFocusPref]);
+
   const navigate = useNavigate();
   const { setSelectedClient } = useSelectedClient();
   const [evolutionPopoverOpen, setEvolutionPopoverOpen] = useState(false);
@@ -1972,7 +2017,7 @@ const KanbanCentralPage = () => {
     fetchColumns();
   };
 
-  if (tenantLoading || loading || permissionsLoading) {
+  if (tenantLoading || loading || permissionsLoading || roleLoading || !focusDecisionReady) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
