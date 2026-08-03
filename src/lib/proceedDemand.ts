@@ -763,20 +763,46 @@ export async function jumpToFunction({
   const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
   const jumpExecutors = await collectStageExecutors(tenantId, demandId, currentFunctionKey, prevUser, stageExtras);
 
+  // Salto para uma etapa ANTERIOR é regressão, não avanço: o responsável natural
+  // é quem já executou aquela etapa neste card — nunca alguém novo escolhido por
+  // carga (era assim que cards voltavam de "Aguardando cliente" para "Revisar"
+  // nas mãos de outro colaborador).
+  const curIdx = currentFunctionKey ? seq.findIndex((f) => f.function_key === currentFunctionKey) : -1;
+  const targetIdx = seq.findIndex((f) => f.function_key === target.function_key);
+  const isBackward = curIdx >= 0 && targetIdx >= 0 && targetIdx < curIdx;
+
   // Salto manual: mantém quem já está no card quando a etapa é de produção;
   // etapas de revisão nunca caem em quem executou a etapa anterior.
   const isReviewTarget = isReviewFunction(target.function_key);
-  let picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
-    preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
-    excludeUserIds: isReviewTarget ? jumpExecutors : [],
-    workArea: jumpArea,
-  });
+  let picked: PickAssigneeResult | null = null;
+
+  if (isBackward) {
+    const completions = await getStageCompletions(tenantId, demandId);
+    const historic = lastUserOfStage(completions, target.function_key);
+    if (historic) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", historic)
+        .maybeSingle();
+      picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
+    }
+  }
+
+  if (!picked) {
+    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
+      preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
+      excludeUserIds: isReviewTarget && !isBackward ? jumpExecutors : [],
+      workArea: jumpArea,
+    });
+  }
   if (isReviewTarget && (!picked.success || !picked.userId)) {
     // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
     picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea });
   }
 
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
+  const jumpAction = isBackward ? "moved_back" : "proceeded";
 
 
   const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
