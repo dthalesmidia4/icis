@@ -89,6 +89,8 @@ interface CentralKanbanCard extends KanbanCardData {
   status_color?: string | null;
   work_area?: "midia" | "sistemas" | null;
   origin?: string | null;
+  /** null = alocada mas ainda não liberada (invisível para o colaborador). */
+  released_at?: string | null;
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
