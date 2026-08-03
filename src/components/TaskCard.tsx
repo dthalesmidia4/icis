@@ -2085,8 +2085,10 @@ export default function TaskCard({
                         if (!stillValid && card.demand_type_key) {
                           patch.demand_type_key = null;
                           patch.demand_type = null;
+                          patch.current_function_key = null;
                           update.demand_type_key = null;
                           update.demand_type = null;
+                          update.current_function_key = null;
                         }
                         onCardChange(patch);
                         if (isDraft) return;
