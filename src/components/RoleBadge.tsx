@@ -8,7 +8,10 @@ interface RoleBadgeProps {
   role: AgencyRole;
   variant?: "default" | "compact";
   className?: string;
+  /** Área do Gestor Operacional (apenas identificação). */
+  managerWorkArea?: string | null;
 }
+
 
 const roleConfig: Record<string, {
   icon: React.ElementType;
@@ -32,12 +35,13 @@ const roleConfig: Record<string, {
   },
 };
 
-export function RoleBadge({ role, variant = "default", className }: RoleBadgeProps) {
+export function RoleBadge({ role, variant = "default", className, managerWorkArea }: RoleBadgeProps) {
   if (!role) return null;
 
   const config = roleConfig[role] || roleConfig.agency_user;
   const Icon = config.icon;
-  const label = getRoleLabel(role);
+  const label = getRoleLabel(role, managerWorkArea);
+
 
   if (variant === "compact") {
     return (

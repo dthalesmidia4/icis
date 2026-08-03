@@ -11,13 +11,16 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, UserMinus, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
+import { MANAGER_AREA_LABELS } from '@/lib/constants/roles';
 
 interface TeamMember {
   id: string;
   full_name: string;
   avatar_url: string | null;
   role: string;
+  manager_work_area: 'midia' | 'sistemas' | null;
 }
+
 
 export default function RemoveMember() {
   const navigate = useNavigate();
@@ -41,7 +44,7 @@ export default function RemoveMember() {
       // Buscar user_roles do tenant
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, role')
+        .select('user_id, role, manager_work_area')
         .eq('tenant_id', agencyId);
 
       if (rolesError) throw rolesError;
@@ -71,8 +74,10 @@ export default function RemoveMember() {
             full_name: profile?.full_name || 'Usuário',
             avatar_url: profile?.avatar_url || null,
             role: role.role,
+            manager_work_area: ((role as any).manager_work_area as 'midia' | 'sistemas' | null) ?? null,
           };
         });
+
 
       setMembers(membersData);
     } catch (error) {
@@ -129,7 +134,7 @@ export default function RemoveMember() {
     }
   };
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (role: string, managerWorkArea?: string | null) => {
     const roleLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       'super_admin': { label: 'Super Admin', variant: 'destructive' },
       'agency_admin': { label: 'Administrador', variant: 'default' },
@@ -138,8 +143,13 @@ export default function RemoveMember() {
     };
     
     const roleInfo = roleLabels[role] || { label: role, variant: 'outline' as const };
-    return <Badge variant={roleInfo.variant}>{roleInfo.label}</Badge>;
+    const areaSuffix =
+      role === 'agency_manager' && managerWorkArea
+        ? ` · ${MANAGER_AREA_LABELS[managerWorkArea as 'midia' | 'sistemas'] ?? managerWorkArea}`
+        : '';
+    return <Badge variant={roleInfo.variant}>{roleInfo.label}{areaSuffix}</Badge>;
   };
+
 
   const getInitials = (name: string) => {
     return name
@@ -206,7 +216,7 @@ export default function RemoveMember() {
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{member.full_name}</h3>
-                    {getRoleBadge(member.role)}
+                    {getRoleBadge(member.role, member.manager_work_area)}
                   </div>
                 </div>
                 <Button 

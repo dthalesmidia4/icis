@@ -11,6 +11,8 @@ import { Loader2, UserPlus, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 
+import { MANAGER_AREA_OPTIONS } from '@/lib/constants/roles';
+
 type InviteRole = 'agency_admin' | 'agency_manager' | 'agency_user';
 
 export default function InviteMember() {
@@ -18,9 +20,11 @@ export default function InviteMember() {
   const { agencyId } = useAgency();
   const { user } = useAuth();
   const [role, setRole] = useState<InviteRole>('agency_user');
+  const [managerArea, setManagerArea] = useState<'midia' | 'sistemas' | 'ambas'>('ambas');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
 
   const roles = [
     { value: 'agency_admin', label: 'Administrador', description: 'Acesso total' },
@@ -53,9 +57,12 @@ export default function InviteMember() {
           code: code,
           tenant_id: agencyId,
           role: role,
+          manager_work_area:
+            role === 'agency_manager' && managerArea !== 'ambas' ? managerArea : null,
           created_by: user.id,
           expires_at: expiresAt.toISOString(),
         });
+
 
       if (insertError) throw insertError;
 
@@ -124,6 +131,28 @@ export default function InviteMember() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {role === 'agency_manager' && (
+                <div className="space-y-2">
+                  <Label>Área do gestor</Label>
+                  <Select value={managerArea} onValueChange={(v) => setManagerArea(v as typeof managerArea)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a área" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MANAGER_AREA_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Serve para identificar o gestor; não restringe permissões.
+                  </p>
+                </div>
+              )}
+
 
               <div className="flex gap-3 pt-4">
                 <Button

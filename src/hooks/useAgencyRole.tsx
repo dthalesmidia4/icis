@@ -16,6 +16,8 @@ export type AgencyRole = 'super_admin' | ValidAgencyRole | null;
 
 interface UseAgencyRoleReturn {
   role: AgencyRole;
+  /** Área do Gestor Operacional (apenas identificação, não restringe ações). */
+  managerWorkArea: 'midia' | 'sistemas' | null;
   isSuperAdmin: boolean;
   isAgencyAdmin: boolean;
   isAgencyManager: boolean;
@@ -27,13 +29,16 @@ interface UseAgencyRoleReturn {
   refreshRole: () => Promise<void>;
 }
 
+
 export function useAgencyRole(): UseAgencyRoleReturn {
   const { user, isLoading: authLoading } = useAuth();
   const { agencyId, isLoading: agencyLoading } = useAgency();
   const [role, setRole] = useState<AgencyRole>(null);
+  const [managerWorkArea, setManagerWorkArea] = useState<'midia' | 'sistemas' | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
 
   const fetchRole = useCallback(async () => {
     // Aguardar auth e agency terminarem de carregar
@@ -43,11 +48,13 @@ export function useAgencyRole(): UseAgencyRoleReturn {
 
     if (!user) {
       setRole(null);
+      setManagerWorkArea(null);
       setIsSuperAdmin(false);
       setIsLoading(false);
       setError(null);
       return;
     }
+
 
     try {
       setError(null);
@@ -73,7 +80,7 @@ export function useAgencyRole(): UseAgencyRoleReturn {
       // Usar VALID_AGENCY_ROLES para manter consistência
       const { data: userRole, error: roleError } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, manager_work_area')
         .eq('user_id', user.id)
         .in('role', VALID_AGENCY_ROLES)
         .maybeSingle();
@@ -84,9 +91,12 @@ export function useAgencyRole(): UseAgencyRoleReturn {
 
       if (userRole?.role) {
         setRole(userRole.role as AgencyRole);
+        setManagerWorkArea(((userRole as any).manager_work_area as 'midia' | 'sistemas' | null) ?? null);
       } else {
         setRole(null);
+        setManagerWorkArea(null);
       }
+
     } catch (err) {
       console.error('[useAgencyRole] Error:', err);
       setError(err as Error);
@@ -118,6 +128,8 @@ export function useAgencyRole(): UseAgencyRoleReturn {
 
   return {
     role,
+    managerWorkArea,
+
     isSuperAdmin,
     isAgencyAdmin,
     isAgencyManager,

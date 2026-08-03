@@ -70,12 +70,23 @@ const colorOptions: {
   hue: 30,
   preview: 'hsl(30 50% 40%)'
 }];
+import { MANAGER_AREA_LABELS } from '@/lib/constants/roles';
+
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
   agency_admin: 'Administrador',
   agency_manager: 'Gestor',
   agency_user: 'Colaborador'
 };
+const getRoleLabel = (role: string, managerWorkArea?: string | null) => {
+  const base = ROLE_LABELS[role] || role;
+  if (role === 'agency_manager' && managerWorkArea) {
+    const area = MANAGER_AREA_LABELS[managerWorkArea as 'midia' | 'sistemas'];
+    if (area) return `${base} · ${area}`;
+  }
+  return base;
+};
+
 export default function ProfileSettings() {
   const {
     settings,
@@ -91,10 +102,12 @@ export default function ProfileSettings() {
   } = useAgency();
   const {
     role,
+    managerWorkArea,
     isAgencyAdmin,
     isSuperAdmin,
     isLoading: roleLoading
   } = useAgencyRole();
+
   const {
     user
   } = useAuth();
@@ -304,7 +317,7 @@ export default function ProfileSettings() {
                   </Label>
                   <div>
                     <Badge variant="secondary" className="text-sm">
-                      {ROLE_LABELS[role] || role}
+                      {getRoleLabel(role, managerWorkArea)}
                     </Badge>
                   </div>
                 </div>}

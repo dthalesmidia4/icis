@@ -11,21 +11,24 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Loader2, Users, Settings2, LayoutGrid, Home, Bell, MousePointerClick } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 import { HUB_SECTIONS, CLIENT_HUB_BUTTONS } from '@/hooks/useHubPermissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAgencyRole } from '@/hooks/useAgencyRole';
-import { INVITE_ROLE_OPTIONS, type ValidAgencyRole } from '@/lib/constants/roles';
+import { INVITE_ROLE_OPTIONS, MANAGER_AREA_LABELS, MANAGER_AREA_OPTIONS, type ValidAgencyRole } from '@/lib/constants/roles';
 
 interface TeamMember {
   id: string;
   full_name: string;
   avatar_url: string | null;
   role: string;
+  manager_work_area: 'midia' | 'sistemas' | null;
   email: string;
 }
+
 
 interface PipelineStatus {
   id: string;
@@ -103,8 +106,9 @@ export default function TeamMembers() {
       // Buscar user_roles do tenant
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, role')
+        .select('user_id, role, manager_work_area')
         .eq('tenant_id', agencyId);
+
 
       if (rolesError) throw rolesError;
 
@@ -131,9 +135,11 @@ export default function TeamMembers() {
           full_name: profile?.full_name || 'Usuário',
           avatar_url: profile?.avatar_url || null,
           role: role.role,
+          manager_work_area: ((role as any).manager_work_area as 'midia' | 'sistemas' | null) ?? null,
           email: '', // Será preenchido se possível
         };
       });
+
 
       setMembers(membersData);
     } catch (error) {
@@ -359,7 +365,7 @@ export default function TeamMembers() {
     }
   };
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (role: string, managerWorkArea?: string | null) => {
     const roleLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       'super_admin': { label: 'Super Admin', variant: 'destructive' },
       'agency_admin': { label: 'Administrador', variant: 'default' },
@@ -368,16 +374,22 @@ export default function TeamMembers() {
     };
     
     const roleInfo = roleLabels[role] || { label: role, variant: 'outline' as const };
-    return <Badge variant={roleInfo.variant}>{roleInfo.label}</Badge>;
+    const areaSuffix =
+      role === 'agency_manager' && managerWorkArea
+        ? ` · ${MANAGER_AREA_LABELS[managerWorkArea as 'midia' | 'sistemas'] ?? managerWorkArea}`
+        : '';
+    return <Badge variant={roleInfo.variant}>{roleInfo.label}{areaSuffix}</Badge>;
   };
 
   const changeMemberRole = async (member: TeamMember, role: ValidAgencyRole) => {
     if (!agencyId || role === member.role) return;
     setSavingRoleId(member.id);
     try {
+      // Área só faz sentido para o Gestor Operacional
+      const nextArea = role === 'agency_manager' ? member.manager_work_area : null;
       const { data, error } = await supabase
         .from('user_roles')
-        .update({ role: role as any })
+        .update({ role: role as any, manager_work_area: nextArea as any })
         .eq('user_id', member.id)
         .eq('tenant_id', agencyId)
         .select('user_id');
@@ -385,7 +397,7 @@ export default function TeamMembers() {
       if (!data || data.length === 0) {
         throw new Error('Sem permissão para alterar a função deste membro.');
       }
-      setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, role } : m)));
+      setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, role, manager_work_area: nextArea } : m)));
       toast.success('Função atualizada.');
     } catch (e: any) {
       toast.error(e?.message || 'Não foi possível alterar a função.');
@@ -393,6 +405,32 @@ export default function TeamMembers() {
       setSavingRoleId(null);
     }
   };
+
+  const changeManagerArea = async (member: TeamMember, value: string) => {
+    if (!agencyId) return;
+    const nextArea = value === 'ambas' ? null : (value as 'midia' | 'sistemas');
+    if (nextArea === member.manager_work_area) return;
+    setSavingRoleId(member.id);
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .update({ manager_work_area: nextArea as any })
+        .eq('user_id', member.id)
+        .eq('tenant_id', agencyId)
+        .select('user_id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Sem permissão para alterar a área deste gestor.');
+      }
+      setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, manager_work_area: nextArea } : m)));
+      toast.success('Área do gestor atualizada.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Não foi possível alterar a área.');
+    } finally {
+      setSavingRoleId(null);
+    }
+  };
+
 
 
   const getInitials = (name: string) => {
@@ -427,6 +465,41 @@ export default function TeamMembers() {
           Veja todos os membros da sua equipe e configure suas permissões
         </p>
       </div>
+
+      <Accordion type="single" collapsible className="mb-6 rounded-lg border bg-card px-4">
+        <AccordionItem value="perms" className="border-0">
+          <AccordionTrigger className="text-sm font-semibold">
+            O que cada função pode fazer
+          </AccordionTrigger>
+          <AccordionContent className="text-sm text-muted-foreground space-y-3 pb-4">
+            <div>
+              <p className="font-medium text-foreground">Administrador da Agência</p>
+              <p>Tudo o que o gestor faz, mais alterar funções da equipe e configurações da agência.</p>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Gestor Operacional</p>
+              <ul className="list-disc pl-5 space-y-0.5">
+                <li>Vê a seção "Ainda não liberadas" e libera ou devolve demandas na fila.</li>
+                <li>Usa o botão de reorganizar sequência nas colunas.</li>
+                <li>Enxerga as colunas de todos os colaboradores na visão geral.</li>
+                <li>Cria demandas e acessa a área administrativa.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Colaborador</p>
+              <p>Abre a visão geral focada na própria coluna e vê apenas as demandas já liberadas.</p>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Liberação automática</p>
+              <p>Ao concluir uma demanda, o sistema libera a próxima da fila respeitando o limite configurado em Configurações de fluxo → Prioridade e risco.</p>
+            </div>
+            <p className="text-xs">
+              A área do Gestor Operacional (Mídia ou Sistemas) é apenas identificação: ela não restringe nem amplia nenhuma dessas ações.
+            </p>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
 
       {members.length === 0 ? (
         <Card className="p-8 text-center">
@@ -467,11 +540,30 @@ export default function TeamMembers() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {member.role === 'agency_manager' && (
+                          <Select
+                            value={member.manager_work_area ?? 'ambas'}
+                            onValueChange={(v) => changeManagerArea(member, v)}
+                            disabled={savingRoleId === member.id}
+                          >
+                            <SelectTrigger className="h-8 w-40 text-xs">
+                              <SelectValue placeholder="Área" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MANAGER_AREA_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         {savingRoleId === member.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                       </div>
                     ) : (
-                      getRoleBadge(member.role)
+                      getRoleBadge(member.role, member.manager_work_area)
                     )}
+
                   </div>
                 </div>
                 <Button 
