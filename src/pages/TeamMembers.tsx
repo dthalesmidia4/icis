@@ -504,11 +504,30 @@ export default function TeamMembers() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {member.role === 'agency_manager' && (
+                          <Select
+                            value={member.manager_work_area ?? 'ambas'}
+                            onValueChange={(v) => changeManagerArea(member, v)}
+                            disabled={savingRoleId === member.id}
+                          >
+                            <SelectTrigger className="h-8 w-40 text-xs">
+                              <SelectValue placeholder="Área" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MANAGER_AREA_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         {savingRoleId === member.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                       </div>
                     ) : (
-                      getRoleBadge(member.role)
+                      getRoleBadge(member.role, member.manager_work_area)
                     )}
+
                   </div>
                 </div>
                 <Button 
