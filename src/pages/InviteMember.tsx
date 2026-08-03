@@ -130,6 +130,28 @@ export default function InviteMember() {
                 </Select>
               </div>
 
+              {role === 'agency_manager' && (
+                <div className="space-y-2">
+                  <Label>Área do gestor</Label>
+                  <Select value={managerArea} onValueChange={(v) => setManagerArea(v as typeof managerArea)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a área" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MANAGER_AREA_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Serve para identificar o gestor; não restringe permissões.
+                  </p>
+                </div>
+              )}
+
+
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
