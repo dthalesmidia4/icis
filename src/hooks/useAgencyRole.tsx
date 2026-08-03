@@ -16,6 +16,8 @@ export type AgencyRole = 'super_admin' | ValidAgencyRole | null;
 
 interface UseAgencyRoleReturn {
   role: AgencyRole;
+  /** Área do Gestor Operacional (apenas identificação, não restringe ações). */
+  managerWorkArea: 'midia' | 'sistemas' | null;
   isSuperAdmin: boolean;
   isAgencyAdmin: boolean;
   isAgencyManager: boolean;
@@ -26,6 +28,7 @@ interface UseAgencyRoleReturn {
   error: Error | null;
   refreshRole: () => Promise<void>;
 }
+
 
 export function useAgencyRole(): UseAgencyRoleReturn {
   const { user, isLoading: authLoading } = useAuth();
