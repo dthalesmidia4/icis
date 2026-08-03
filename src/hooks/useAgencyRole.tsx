@@ -78,7 +78,7 @@ export function useAgencyRole(): UseAgencyRoleReturn {
       // Usar VALID_AGENCY_ROLES para manter consistência
       const { data: userRole, error: roleError } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, manager_work_area')
         .eq('user_id', user.id)
         .in('role', VALID_AGENCY_ROLES)
         .maybeSingle();
@@ -89,9 +89,12 @@ export function useAgencyRole(): UseAgencyRoleReturn {
 
       if (userRole?.role) {
         setRole(userRole.role as AgencyRole);
+        setManagerWorkArea(((userRole as any).manager_work_area as 'midia' | 'sistemas' | null) ?? null);
       } else {
         setRole(null);
+        setManagerWorkArea(null);
       }
+
     } catch (err) {
       console.error('[useAgencyRole] Error:', err);
       setError(err as Error);
