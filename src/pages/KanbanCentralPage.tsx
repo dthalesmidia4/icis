@@ -415,9 +415,8 @@ const KanbanCentralPage = () => {
     if (collaborators.length === 0) return;
     if (focusedColumnId === "__unassigned__") return;
     if (collaborators.some((c) => c.userId === focusedColumnId)) return;
-    writeFocusPref(null);
     setFocusedColumnId(null);
-  }, [focusedColumnId, focusDecisionReady, collaborators, writeFocusPref]);
+  }, [focusedColumnId, focusDecisionReady, collaborators]);
 
   const navigate = useNavigate();
   const { setSelectedClient } = useSelectedClient();
