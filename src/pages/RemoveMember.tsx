@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, UserMinus, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
+import { MANAGER_AREA_LABELS } from '@/lib/constants/roles';
 
 interface TeamMember {
   id: string;
