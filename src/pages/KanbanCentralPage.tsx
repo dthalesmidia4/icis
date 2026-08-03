@@ -121,16 +121,43 @@ const getKanbanColumnVisualKey = (column: Pick<KanbanDisplayColumn, "userId" | "
 const prefersReducedKanbanMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const isCardOverdue = (card: { delivery_date?: string | null; delivery_time?: string | null; status?: string }) => {
-  if (!card.delivery_date) return false;
-  const statusLower = (card.status || '').toLowerCase();
-  if (FINAL_STATUS_NAMES.includes(statusLower)) return false;
+type OverdueCandidate = {
+  delivery_date?: string | null;
+  delivery_time?: string | null;
+  status?: string;
+  archived_at?: string | null;
+  isArchived?: boolean;
+};
+
+/** Timestamp (ms) do prazo final do card, ou null quando não há prazo. */
+const cardDeadlineTs = (card: OverdueCandidate): number | null => {
+  if (!card.delivery_date) return null;
   const rawTime = card.delivery_time || '23:59';
   // Normalize time to HH:MM:SS format (handle both HH:MM and HH:MM:SS)
   const time = rawTime.length === 5 ? `${rawTime}:00` : rawTime;
   const deadline = new Date(`${card.delivery_date}T${time}`);
-  if (isNaN(deadline.getTime())) return false;
-  return new Date() >= deadline;
+  return isNaN(deadline.getTime()) ? null : deadline.getTime();
+};
+
+/**
+ * Atraso é decidido pelo fluxo, não pelo status de pipeline.
+ * Um card com status "Publicado" pode continuar com etapa pendente
+ * (ex.: `revisar_publicacao`) e, nesse caso, o atraso precisa aparecer.
+ * Só cards efetivamente encerrados (arquivados / Feito) saem da conta.
+ */
+const isCardOverdue = (card: OverdueCandidate) => {
+  if (card.archived_at || card.isArchived) return false;
+  if (KANBAN_ARCHIVED_STATUS_NAMES.includes((card.status || '').toLowerCase())) return false;
+  const ts = cardDeadlineTs(card);
+  if (ts == null) return false;
+  return Date.now() >= ts;
+};
+
+/** ISO do prazo estourado (para o selo "Atrasado · Xd"). */
+const cardOverdueSince = (card: OverdueCandidate): string | null => {
+  if (!isCardOverdue(card)) return null;
+  const ts = cardDeadlineTs(card);
+  return ts == null ? null : new Date(ts).toISOString();
 };
 
 const getDisplayDemandType = (
