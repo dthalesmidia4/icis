@@ -805,6 +805,8 @@ export type Database = {
           publish_date: string | null
           publish_time: string | null
           rejected_attachments: Json
+          released_at: string | null
+          released_by: string | null
           reorder_meta: Json | null
           source: string
           status_id: string
@@ -860,6 +862,8 @@ export type Database = {
           publish_date?: string | null
           publish_time?: string | null
           rejected_attachments?: Json
+          released_at?: string | null
+          released_by?: string | null
           reorder_meta?: Json | null
           source?: string
           status_id: string
@@ -915,6 +919,8 @@ export type Database = {
           publish_date?: string | null
           publish_time?: string | null
           rejected_attachments?: Json
+          released_at?: string | null
+          released_by?: string | null
           reorder_meta?: Json | null
           source?: string
           status_id?: string
@@ -2490,6 +2496,10 @@ export type Database = {
     Functions: {
       can_create_demands: { Args: { _tenant_id: string }; Returns: boolean }
       can_create_tenant: { Args: { _user_id: string }; Returns: boolean }
+      can_manage_release_queue: {
+        Args: { _tenant_id: string }
+        Returns: boolean
+      }
       create_demand_from_template: {
         Args: {
           p_channel?: string
