@@ -1087,22 +1087,22 @@ export async function computeReorder(
       jumpReason = explainJump(cursor, start, area, ctx);
     }
 
-    // Atrasado em execução: preserva o início histórico apenas na exibição/gravação.
-    // O intervalo realmente ocupado na agenda é o da extensão (allocStart → end).
-    const allocStart = new Date(start);
-    if (keepStart && origStart) {
-      start = new Date(origStart);
-    }
-
-
     // Um card em andamento com término futuro já consumiu parte do esforço.
-    // Preserva o término vigente e agenda somente o tempo restante desde agora,
-    // inclusive para intervalos antigos invertidos (como 14:35 → 14:00).
-    if (!manualEnd && !treatAsStuck && inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
+    // Preserva o término vigente e ocupa na agenda somente o tempo restante
+    // desde agora — mas o INÍCIO exibido/gravado continua sendo o histórico.
+    if (!manualEnd && !treatAsStuck && inProgressFirst && origEnd && origEnd > now) {
       start = new Date(now);
       end = origEnd;
       dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
       daysSpanned = 1;
+      keepStart = true;
+    }
+
+    // Em execução (atrasado ou não): preserva o início histórico apenas na
+    // exibição/gravação. O intervalo realmente ocupado na agenda é allocStart → end.
+    const allocStart = new Date(start);
+    if (keepStart && origStart) {
+      start = new Date(origStart);
     }
 
 
