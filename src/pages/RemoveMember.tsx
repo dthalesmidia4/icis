@@ -216,7 +216,7 @@ export default function RemoveMember() {
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{member.full_name}</h3>
-                    {getRoleBadge(member.role)}
+                    {getRoleBadge(member.role, member.manager_work_area)}
                   </div>
                 </div>
                 <Button 
