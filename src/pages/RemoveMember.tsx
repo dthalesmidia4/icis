@@ -73,8 +73,10 @@ export default function RemoveMember() {
             full_name: profile?.full_name || 'Usuário',
             avatar_url: profile?.avatar_url || null,
             role: role.role,
+            manager_work_area: ((role as any).manager_work_area as 'midia' | 'sistemas' | null) ?? null,
           };
         });
+
 
       setMembers(membersData);
     } catch (error) {
