@@ -306,7 +306,7 @@ export default function ProfileSettings() {
                   </Label>
                   <div>
                     <Badge variant="secondary" className="text-sm">
-                      {ROLE_LABELS[role] || role}
+                      {getRoleLabel(role, managerWorkArea)}
                     </Badge>
                   </div>
                 </div>}
