@@ -153,8 +153,22 @@ const getDisplayDemandType = (
 const KanbanCentralPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
-  const { isSuperAdmin, isAgencyManager } = useAgencyRole();
+  const { isSuperAdmin, isAgencyManager, isAgencyAdmin, isLoading: roleLoading } = useAgencyRole();
   const canReorder = isSuperAdmin || isAgencyManager;
+  /** Gestor operacional / admin da agência / super admin: vê a fila não liberada e pode liberar. */
+  const canManageQueue = isSuperAdmin || isAgencyManager || isAgencyAdmin;
+  const { user: authUser } = useAuth();
+  const [releasingIds, setReleasingIds] = useState<Set<string>>(new Set());
+  const [releaseBatchSize, setReleaseBatchSize] = useState<Record<string, number>>({});
+  const [expandedQueue, setExpandedQueue] = useState<Set<string>>(new Set());
+  const toggleQueue = useCallback((columnId: string) => {
+    setExpandedQueue((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
   const [collapsedDateGroups, setCollapsedDateGroups] = useState<Set<string>>(new Set());
