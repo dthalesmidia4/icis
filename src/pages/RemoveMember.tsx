@@ -17,7 +17,9 @@ interface TeamMember {
   full_name: string;
   avatar_url: string | null;
   role: string;
+  manager_work_area: 'midia' | 'sistemas' | null;
 }
+
 
 export default function RemoveMember() {
   const navigate = useNavigate();
