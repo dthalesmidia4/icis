@@ -1071,6 +1071,41 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                 </p>
               </div>
 
+              <div className="rounded-lg border p-3 space-y-3">
+                <div>
+                  <div className="text-sm font-semibold">Fila de liberação</div>
+                  <p className="text-xs text-muted-foreground">
+                    As demandas podem ficar alocadas sem aparecer na coluna do colaborador.
+                    O gestor libera aos poucos, evitando a sensação de fila infinita.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={queueCfg.enabled}
+                    onChange={(e) => setQueueCfg({ ...queueCfg, enabled: e.target.checked })}
+                  />
+                  Liberar automaticamente a próxima quando o colaborador entrega uma
+                </label>
+                <div className="flex items-center gap-2 text-sm">
+                  <span>Máximo visível por colaborador</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={queueCfg.limit}
+                    onChange={(e) => setQueueCfg({ ...queueCfg, limit: Math.max(1, Number(e.target.value) || 1) })}
+                    className="h-8 w-16 text-center"
+                  />
+                </div>
+                <Button size="sm" variant="outline" disabled={savingQueue} onClick={saveQueueCfg}>
+                  {savingQueue && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Salvar fila de liberação
+                </Button>
+              </div>
+
+
               <div className="flex items-center gap-2">
                 <Button size="sm" disabled={savingPriority} onClick={savePriorityCfg}>
                   {savingPriority && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
