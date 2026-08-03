@@ -1009,6 +1009,7 @@ const KanbanCentralPage = () => {
           client_last_resend_at: (demand as any).client_last_resend_at ?? null,
           client_sent_at_fallback: activeHistoryFallback.get(demand.id) ?? null,
           reorder_meta: (demand as any).reorder_meta ?? null,
+          released_at: (demand as any).released_at ?? null,
         } as any;
       };
 
