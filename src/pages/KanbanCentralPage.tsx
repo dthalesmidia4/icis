@@ -2634,13 +2634,14 @@ const KanbanCentralPage = () => {
             const awaitingCardsSorted = sortChrono(awaitingCards);
             const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
               (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
+            const queuedCardsSorted = sortChrono(queuedCards);
 
             // --- "Em andamento" = primeiro card pendente da fila operacional deste colaborador ---
             // A coluna só contém cards pendentes: a entrega remove o card daqui.
             // Ver src/lib/currentWorkCard.ts para a regra completa.
             const { currentId: currentFlowCardId, nextId: nextFlowCardId } = isHistoryMode
               ? { currentId: null as string | null, nextId: null as string | null }
-              : resolveCurrentAndNext(activeColumnCards as any[], {
+              : resolveCurrentAndNext(allColumnCards as any[], {
                   now: nowTs,
                   activeDispatchIds,
                   deliveredStagesByCard: deliveredStagesByUser.get(columnUserId),
@@ -2651,6 +2652,7 @@ const KanbanCentralPage = () => {
             const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
             const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
             const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
+            const isQueueCollapsed = !expandedQueue.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
