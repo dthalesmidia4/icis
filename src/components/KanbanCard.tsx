@@ -75,6 +75,28 @@ const fmtDateTime = (iso?: string | null): string | null => {
   return `${dateStr} ${timeStr}`;
 };
 
+/** Monta o ISO do prazo a partir de data + hora de entrega. */
+const deadlineISO = (date?: string | null, time?: string | null): string | null => {
+  if (!date) return null;
+  const raw = (time || "23:59").slice(0, 5);
+  const d = new Date(`${date}T${raw}:00`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+/** "5d" / "3h" / "20min" de atraso, a partir do ISO do prazo. */
+const formatOverdueAmount = (iso?: string | null): string | null => {
+  if (!iso) return null;
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return null;
+  const diffMin = Math.floor((Date.now() - ts) / 60000);
+  if (diffMin < 1) return null;
+  if (diffMin < 60) return `${diffMin}min`;
+  const hours = Math.floor(diffMin / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+};
+
+
 
 const SentToClientPill = ({
   since,
