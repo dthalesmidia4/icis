@@ -641,14 +641,21 @@ export default function TaskCard({
     setSettingType(true);
     try {
       const label = DEMAND_TYPE_LABEL[key];
-      // Descobre a etapa inicial (ou mantém a atual se ainda for válida) segundo o fluxo configurado.
+      const area: WorkArea = ((card as any)?.work_area === "sistemas" ? "sistemas" : "midia");
+      // Descobre a etapa inicial (ou mantém a atual se ainda for válida) segundo o fluxo
+      // configurado PARA A ÁREA e origem do card (Mídia × Sistemas têm fluxos distintos).
       const resolved = await resolveInitialFunctionKey(
         card.tenant_id,
         key,
         card.current_function_key,
+        { workArea: area, origin: ((card as any)?.origin || "interno") as string },
       );
       if (!resolved.success) {
-        toast.error(resolved.message || "Não foi possível definir a etapa inicial deste tipo.");
+        toast.error(
+          resolved.message
+            ? `${resolved.message} (área ${AREA_LABEL[area]})`
+            : `Nenhuma etapa configurada para este tipo na área ${AREA_LABEL[area]}.`,
+        );
         setSettingType(false);
         return;
       }
@@ -2078,8 +2085,10 @@ export default function TaskCard({
                         if (!stillValid && card.demand_type_key) {
                           patch.demand_type_key = null;
                           patch.demand_type = null;
+                          patch.current_function_key = null;
                           update.demand_type_key = null;
                           update.demand_type = null;
+                          update.current_function_key = null;
                         }
                         onCardChange(patch);
                         if (isDraft) return;
