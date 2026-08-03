@@ -247,13 +247,38 @@ const KanbanCentralPage = () => {
     });
   }, []);
   // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
-  const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
+  const focusPrefKey = authUser?.id ? `kanban_focus_column:${authUser.id}` : null;
+  const readFocusPref = useCallback((): string | null | undefined => {
+    if (!focusPrefKey) return undefined;
+    try {
+      const raw = localStorage.getItem(focusPrefKey);
+      if (raw === null) return undefined; // sem preferência salva
+      return raw === "" ? null : raw;
+    } catch {
+      return undefined;
+    }
+  }, [focusPrefKey]);
+  const writeFocusPref = useCallback((value: string | null) => {
+    if (!focusPrefKey) return;
+    try {
+      localStorage.setItem(focusPrefKey, value ?? "");
+    } catch {
+      /* ignore */
+    }
+  }, [focusPrefKey]);
+
+  const [focusedColumnId, setFocusedColumnId] = useState<string | null>(() => {
+    const pref = readFocusPref();
+    return pref === undefined ? null : pref;
+  });
+  const [focusDecisionReady, setFocusDecisionReady] = useState(false);
   const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const focusBoardScrollLeftRef = useRef(0);
   const pendingFocusTransitionRef = useRef<{
     direction: "enter" | "exit";
     from: Map<string, { rect: DOMRect; clone: HTMLElement }>;
   } | null>(null);
+
 
   const setKanbanColumnRef = useCallback((key: string, el: HTMLDivElement | null) => {
     if (el) kanbanColumnRefs.current.set(key, el);
