@@ -24,8 +24,10 @@ interface TeamMember {
   full_name: string;
   avatar_url: string | null;
   role: string;
+  manager_work_area: 'midia' | 'sistemas' | null;
   email: string;
 }
+
 
 interface PipelineStatus {
   id: string;
