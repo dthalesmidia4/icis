@@ -133,7 +133,7 @@ export default function RemoveMember() {
     }
   };
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (role: string, managerWorkArea?: string | null) => {
     const roleLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       'super_admin': { label: 'Super Admin', variant: 'destructive' },
       'agency_admin': { label: 'Administrador', variant: 'default' },
@@ -142,8 +142,13 @@ export default function RemoveMember() {
     };
     
     const roleInfo = roleLabels[role] || { label: role, variant: 'outline' as const };
-    return <Badge variant={roleInfo.variant}>{roleInfo.label}</Badge>;
+    const areaSuffix =
+      role === 'agency_manager' && managerWorkArea
+        ? ` · ${MANAGER_AREA_LABELS[managerWorkArea as 'midia' | 'sistemas'] ?? managerWorkArea}`
+        : '';
+    return <Badge variant={roleInfo.variant}>{roleInfo.label}{areaSuffix}</Badge>;
   };
+
 
   const getInitials = (name: string) => {
     return name
