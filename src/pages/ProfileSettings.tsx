@@ -91,10 +91,12 @@ export default function ProfileSettings() {
   } = useAgency();
   const {
     role,
+    managerWorkArea,
     isAgencyAdmin,
     isSuperAdmin,
     isLoading: roleLoading
   } = useAgencyRole();
+
   const {
     user
   } = useAuth();
