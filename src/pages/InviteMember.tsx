@@ -55,9 +55,12 @@ export default function InviteMember() {
           code: code,
           tenant_id: agencyId,
           role: role,
+          manager_work_area:
+            role === 'agency_manager' && managerArea !== 'ambas' ? managerArea : null,
           created_by: user.id,
           expires_at: expiresAt.toISOString(),
         });
+
 
       if (insertError) throw insertError;
 
