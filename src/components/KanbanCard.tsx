@@ -126,7 +126,7 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
     <div
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0 w-full text-left",
-        isOverdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
+        "bg-muted/60 text-foreground",
         editable && "hover:bg-muted cursor-pointer transition-colors",
       )}
     >
