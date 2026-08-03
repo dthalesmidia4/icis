@@ -76,6 +76,15 @@ const ROLE_LABELS: Record<string, string> = {
   agency_manager: 'Gestor',
   agency_user: 'Colaborador'
 };
+const getRoleLabel = (role: string, managerWorkArea?: string | null) => {
+  const base = ROLE_LABELS[role] || role;
+  if (role === 'agency_manager' && managerWorkArea) {
+    const area = MANAGER_AREA_LABELS[managerWorkArea as 'midia' | 'sistemas'];
+    if (area) return `${base} · ${area}`;
+  }
+  return base;
+};
+
 export default function ProfileSettings() {
   const {
     settings,
