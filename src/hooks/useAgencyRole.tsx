@@ -123,6 +123,8 @@ export function useAgencyRole(): UseAgencyRoleReturn {
 
   return {
     role,
+    managerWorkArea,
+
     isSuperAdmin,
     isAgencyAdmin,
     isAgencyManager,
