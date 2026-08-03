@@ -436,6 +436,17 @@ const KanbanCentralPage = () => {
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
+
+  // Se a coluna focada não existe mais no quadro, descarta o foco silenciosamente.
+  useEffect(() => {
+    if (!focusedColumnId || !focusDecisionReady) return;
+    if (collaborators.length === 0) return;
+    if (focusedColumnId === "__unassigned__") return;
+    if (collaborators.some((c) => c.userId === focusedColumnId)) return;
+    writeFocusPref(null);
+    setFocusedColumnId(null);
+  }, [focusedColumnId, focusDecisionReady, collaborators, writeFocusPref]);
+
   const navigate = useNavigate();
   const { setSelectedClient } = useSelectedClient();
   const [evolutionPopoverOpen, setEvolutionPopoverOpen] = useState(false);
