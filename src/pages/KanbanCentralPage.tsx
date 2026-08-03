@@ -3376,6 +3376,109 @@ const KanbanCentralPage = () => {
                           </div>
                         )}
 
+                        {/* Ainda não liberadas — visível só para gestores */}
+                        {!focusKind && canManageQueue && queuedCardsSorted.length > 0 && (
+                          <div className="mt-3 pt-2 border-t border-border/60">
+                            <div className="flex items-center gap-2 px-1">
+                              <button
+                                type="button"
+                                onClick={() => toggleQueue(column.id)}
+                                className="flex items-center gap-1.5 text-left group"
+                                aria-expanded={!isQueueCollapsed}
+                              >
+                                {isQueueCollapsed ? (
+                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                ) : (
+                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                )}
+                                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 shrink-0" />
+                                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground group-hover:text-foreground transition-colors">
+                                  Ainda não liberadas
+                                </span>
+                                <span className="text-[11px] text-muted-foreground/70">
+                                  {queuedCardsSorted.length}
+                                </span>
+                              </button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="ml-auto h-6 px-2 text-[11px]"
+                                onClick={() =>
+                                  handleRelease(
+                                    queuedCardsSorted
+                                      .slice(0, releaseBatchSize[column.id] || 1)
+                                      .map((c) => c.id),
+                                    columnUserId === "__unassigned__" ? null : columnUserId,
+                                  )
+                                }
+                              >
+                                Liberar {Math.min(releaseBatchSize[column.id] || 1, queuedCardsSorted.length)}
+                              </Button>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={queuedCardsSorted.length}
+                                value={releaseBatchSize[column.id] || 1}
+                                onChange={(e) =>
+                                  setReleaseBatchSize((prev) => ({
+                                    ...prev,
+                                    [column.id]: Math.max(1, Number(e.target.value) || 1),
+                                  }))
+                                }
+                                className="h-6 w-12 px-1 text-[11px] text-center"
+                              />
+                            </div>
+
+                            {!isQueueCollapsed && (
+                              <div className="mt-1.5 space-y-1">
+                                {queuedCardsSorted.map((qc) => (
+                                  <div
+                                    key={qc.key}
+                                    className="rounded-lg border border-dashed border-border bg-muted/30 p-2.5"
+                                  >
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5 truncate">
+                                      {qc.clientName}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCardClick(qc, column.id)}
+                                      className="w-full text-left text-sm font-medium text-foreground/80 break-words line-clamp-2 hover:text-foreground"
+                                    >
+                                      {qc.title}
+                                    </button>
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                      {qc.due_date && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                          {qc.due_date.split("-").reverse().slice(0, 2).join("/")}
+                                          {qc.due_time ? ` ${qc.due_time.slice(0, 5)}` : ""}
+                                        </span>
+                                      )}
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="ml-auto h-6 px-2 text-[11px]"
+                                        disabled={releasingIds.has(qc.id)}
+                                        onClick={() =>
+                                          handleRelease(
+                                            [qc.id],
+                                            columnUserId === "__unassigned__" ? null : columnUserId,
+                                          )
+                                        }
+                                      >
+                                        {releasingIds.has(qc.id) ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          "Liberar"
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                       </div>
                     </ScrollArea>
                   </div>
