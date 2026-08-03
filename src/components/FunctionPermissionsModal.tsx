@@ -12,6 +12,7 @@ import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
 import { AreaAllocationTab } from "@/components/config/AreaAllocationTab";
 import { loadReorderPriority, saveReorderPriority, DEFAULT_REORDER_PRIORITY, type ReorderPriorityConfig } from "@/lib/reorderPriority";
+import { loadReleaseQueueConfig, saveReleaseQueueConfig, DEFAULT_RELEASE_QUEUE, type ReleaseQueueConfig } from "@/lib/releaseQueue";
 
 /** Presets em linguagem operacional para a janela de risco (multiplicador da etapa). */
 const RISK_PRESETS = [
