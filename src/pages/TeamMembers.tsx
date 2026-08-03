@@ -465,6 +465,41 @@ export default function TeamMembers() {
         </p>
       </div>
 
+      <Accordion type="single" collapsible className="mb-6 rounded-lg border bg-card px-4">
+        <AccordionItem value="perms" className="border-0">
+          <AccordionTrigger className="text-sm font-semibold">
+            O que cada função pode fazer
+          </AccordionTrigger>
+          <AccordionContent className="text-sm text-muted-foreground space-y-3 pb-4">
+            <div>
+              <p className="font-medium text-foreground">Administrador da Agência</p>
+              <p>Tudo o que o gestor faz, mais alterar funções da equipe e configurações da agência.</p>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Gestor Operacional</p>
+              <ul className="list-disc pl-5 space-y-0.5">
+                <li>Vê a seção "Ainda não liberadas" e libera ou devolve demandas na fila.</li>
+                <li>Usa o botão de reorganizar sequência nas colunas.</li>
+                <li>Enxerga as colunas de todos os colaboradores na visão geral.</li>
+                <li>Cria demandas e acessa a área administrativa.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Colaborador</p>
+              <p>Abre a visão geral focada na própria coluna e vê apenas as demandas já liberadas.</p>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Liberação automática</p>
+              <p>Ao concluir uma demanda, o sistema libera a próxima da fila respeitando o limite configurado em Configurações de fluxo → Prioridade e risco.</p>
+            </div>
+            <p className="text-xs">
+              A área do Gestor Operacional (Mídia ou Sistemas) é apenas identificação: ela não restringe nem amplia nenhuma dessas ações.
+            </p>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
+
       {members.length === 0 ? (
         <Card className="p-8 text-center">
           <p className="text-muted-foreground mb-4">Nenhum colaborador encontrado</p>
