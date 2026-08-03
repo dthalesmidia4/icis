@@ -40,6 +40,8 @@ interface KanbanCardProps {
   awaitingClientSince?: string | null;
   awaitingClientResendCount?: number | null;
   awaitingClientActions?: React.ReactNode;
+  /** ISO do prazo estourado — habilita o selo "Atrasado · Xd". */
+  overdueSince?: string | null;
 
 
   onClick?: () => void;
