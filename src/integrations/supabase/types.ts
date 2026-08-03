@@ -1174,6 +1174,7 @@ export type Database = {
           email: string | null
           expires_at: string
           id: string
+          manager_work_area: Database["public"]["Enums"]["work_area"] | null
           role: Database["public"]["Enums"]["app_role"]
           tenant_id: string
           updated_at: string
@@ -1187,6 +1188,7 @@ export type Database = {
           email?: string | null
           expires_at: string
           id?: string
+          manager_work_area?: Database["public"]["Enums"]["work_area"] | null
           role: Database["public"]["Enums"]["app_role"]
           tenant_id: string
           updated_at?: string
@@ -1200,6 +1202,7 @@ export type Database = {
           email?: string | null
           expires_at?: string
           id?: string
+          manager_work_area?: Database["public"]["Enums"]["work_area"] | null
           role?: Database["public"]["Enums"]["app_role"]
           tenant_id?: string
           updated_at?: string
@@ -2282,6 +2285,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          manager_work_area: Database["public"]["Enums"]["work_area"] | null
           role: Database["public"]["Enums"]["app_role"]
           tenant_id: string
           user_id: string
@@ -2289,6 +2293,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          manager_work_area?: Database["public"]["Enums"]["work_area"] | null
           role: Database["public"]["Enums"]["app_role"]
           tenant_id: string
           user_id: string
@@ -2296,6 +2301,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          manager_work_area?: Database["public"]["Enums"]["work_area"] | null
           role?: Database["public"]["Enums"]["app_role"]
           tenant_id?: string
           user_id?: string
