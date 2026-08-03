@@ -2494,6 +2494,10 @@ export type Database = {
       }
     }
     Functions: {
+      auto_release_next_for_user: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: number
+      }
       can_create_demands: { Args: { _tenant_id: string }; Returns: boolean }
       can_create_tenant: { Args: { _user_id: string }; Returns: boolean }
       can_manage_release_queue: {
