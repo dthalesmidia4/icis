@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, Send } from "lucide-react";
+import { Calendar as CalendarIcon, Send, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 import { ClientSendHistoryPopover } from "@/components/kanban/ClientSendHistoryPopover";
@@ -40,6 +40,8 @@ interface KanbanCardProps {
   awaitingClientSince?: string | null;
   awaitingClientResendCount?: number | null;
   awaitingClientActions?: React.ReactNode;
+  /** ISO do prazo estourado — habilita o selo "Atrasado · Xd". */
+  overdueSince?: string | null;
 
 
   onClick?: () => void;
@@ -72,6 +74,28 @@ const fmtDateTime = (iso?: string | null): string | null => {
   const timeStr = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   return `${dateStr} ${timeStr}`;
 };
+
+/** Monta o ISO do prazo a partir de data + hora de entrega. */
+const deadlineISO = (date?: string | null, time?: string | null): string | null => {
+  if (!date) return null;
+  const raw = (time || "23:59").slice(0, 5);
+  const d = new Date(`${date}T${raw}:00`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+/** "5d" / "3h" / "20min" de atraso, a partir do ISO do prazo. */
+const formatOverdueAmount = (iso?: string | null): string | null => {
+  if (!iso) return null;
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return null;
+  const diffMin = Math.floor((Date.now() - ts) / 60000);
+  if (diffMin < 1) return null;
+  if (diffMin < 60) return `${diffMin}min`;
+  const hours = Math.floor(diffMin / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+};
+
 
 
 const SentToClientPill = ({
@@ -124,7 +148,7 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
     <div
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0 w-full text-left",
-        isOverdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
+        "bg-muted/60 text-foreground",
         editable && "hover:bg-muted cursor-pointer transition-colors",
       )}
     >
@@ -201,6 +225,7 @@ const KanbanCard = ({
   awaitingClientSince = null,
   awaitingClientResendCount = 0,
   awaitingClientActions,
+  overdueSince = null,
 
   onClick,
   onDatesChange,
@@ -213,6 +238,7 @@ const KanbanCard = ({
   const showInline = showStartEndLabels || hasAnyDate;
   const isSistemas = workArea === "sistemas";
   const overdue = isOverdue && !awaitingClient;
+  const overdueLabel = overdue ? formatOverdueAmount(overdueSince ?? deadlineISO(cardDeliveryDate, deliveryTime)) : null;
 
 
   return (
@@ -220,26 +246,39 @@ const KanbanCard = ({
       className={cn(
         "mb-3 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50",
         isDragging && "shadow-xl rotate-1 scale-105",
-        overdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40",
-        isDailyCard && "border-l-4 border-l-amber-500",
+        overdue &&
+          "border-l-4 border-l-red-500 border-red-500/30 dark:border-red-500/40 bg-gradient-to-b from-transparent to-red-500/10 dark:to-red-500/15",
+        isDailyCard && !overdue && "border-l-4 border-l-amber-500",
         awaitingClient && "border-l-4 border-l-blue-500",
         isSistemas && !overdue && "bg-slate-500/5 dark:bg-slate-400/5 border-slate-500/25",
       )}
       onClick={onClick}
     >
       <CardHeader className="px-2.5 pt-2.5 pb-1.5 space-y-1">
-        {(subtitle || _statusName) && !awaitingClient && (
-          <div
-            className="text-xs font-semibold leading-snug line-clamp-2 break-words"
-            title={[subtitle, _statusName].filter(Boolean).join(" · ")}
-          >
-            {subtitle && <span className="text-foreground/80">{subtitle}</span>}
-            {subtitle && _statusName && (
-              <span className="text-muted-foreground/60"> · </span>
+        {((subtitle || _statusName) && !awaitingClient) || overdue ? (
+          <div className="flex items-start gap-1.5 min-w-0">
+            <div
+              className="flex-1 min-w-0 text-xs font-semibold leading-snug line-clamp-2 break-words"
+              title={[subtitle, _statusName].filter(Boolean).join(" · ")}
+            >
+              {subtitle && !awaitingClient && <span className="text-foreground/80">{subtitle}</span>}
+              {subtitle && _statusName && !awaitingClient && (
+                <span className="text-muted-foreground/60"> · </span>
+              )}
+              {_statusName && !awaitingClient && <span className="text-muted-foreground">{_statusName}</span>}
+              
+            </div>
+            {overdue && (
+              <span
+                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400"
+                title="Prazo de entrega estourado"
+              >
+                <AlertTriangle className="h-3 w-3" />
+                {overdueLabel ? `Atrasado · ${overdueLabel}` : "Atrasado"}
+              </span>
             )}
-            {_statusName && <span className="text-muted-foreground">{_statusName}</span>}
           </div>
-        )}
+        ) : null}
         {awaitingClient && subtitle && (
           <div className="text-xs font-semibold leading-snug line-clamp-2 break-words text-foreground/80">
             {subtitle}
