@@ -3238,6 +3238,15 @@ const KanbanCentralPage = () => {
                               <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
                                 {reviewCards.length}
                               </span>
+                              {reviewCards.filter((c) => isCardOverdue(c)).length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400"
+                                  title="Cards atrasados neste agrupamento"
+                                >
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {reviewCards.filter((c) => isCardOverdue(c)).length}
+                                </span>
+                              )}
                               {isReviewCollapsed ? (
                                 <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
                               ) : (
