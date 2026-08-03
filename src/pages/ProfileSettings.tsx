@@ -70,6 +70,8 @@ const colorOptions: {
   hue: 30,
   preview: 'hsl(30 50% 40%)'
 }];
+import { MANAGER_AREA_LABELS } from '@/lib/constants/roles';
+
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
   agency_admin: 'Administrador',
