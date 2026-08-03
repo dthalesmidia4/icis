@@ -244,7 +244,7 @@ const KanbanCard = ({
                 <span className="text-muted-foreground/60"> · </span>
               )}
               {_statusName && !awaitingClient && <span className="text-muted-foreground">{_statusName}</span>}
-              {awaitingClient && subtitle && <span className="text-foreground/80">{subtitle}</span>}
+              
             </div>
             {overdue && (
               <span
