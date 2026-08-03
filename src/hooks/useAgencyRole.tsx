@@ -48,11 +48,13 @@ export function useAgencyRole(): UseAgencyRoleReturn {
 
     if (!user) {
       setRole(null);
+      setManagerWorkArea(null);
       setIsSuperAdmin(false);
       setIsLoading(false);
       setError(null);
       return;
     }
+
 
     try {
       setError(null);
