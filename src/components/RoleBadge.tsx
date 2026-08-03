@@ -8,7 +8,10 @@ interface RoleBadgeProps {
   role: AgencyRole;
   variant?: "default" | "compact";
   className?: string;
+  /** Área do Gestor Operacional (apenas identificação). */
+  managerWorkArea?: string | null;
 }
+
 
 const roleConfig: Record<string, {
   icon: React.ElementType;
