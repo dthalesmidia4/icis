@@ -449,7 +449,29 @@ export default function TeamMembers() {
                   </Avatar>
                   <div>
                     <h3 className="font-semibold">{member.full_name}</h3>
-                    {getRoleBadge(member.role)}
+                    {canEditRoles && member.role !== 'super_admin' ? (
+                      <div className="mt-1 flex items-center gap-2">
+                        <Select
+                          value={member.role}
+                          onValueChange={(v) => changeMemberRole(member, v as ValidAgencyRole)}
+                          disabled={savingRoleId === member.id}
+                        >
+                          <SelectTrigger className="h-8 w-56 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {INVITE_ROLE_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {savingRoleId === member.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                      </div>
+                    ) : (
+                      getRoleBadge(member.role)
+                    )}
                   </div>
                 </div>
                 <Button 
