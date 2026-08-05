@@ -220,9 +220,12 @@ export interface ApplyReassignInput {
   nextFunctionKey: string | null;
   /** Reagendamento aplicado junto da transferência. */
   reschedule?: { due_date: string; due_time: string; delivery_date: string; delivery_time: string } | null;
+  /** Sentido do remapeamento de etapa (vindo de evaluateReassign). */
+  direction?: "same" | "forward" | "backward";
   historySource?: string;
   metadata?: Record<string, unknown>;
 }
+
 
 /** Grava a transferência (já validada) e registra o histórico. */
 export async function applyReassign(input: ApplyReassignInput): Promise<{ error: unknown | null }> {
