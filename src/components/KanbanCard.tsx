@@ -238,7 +238,10 @@ const KanbanCard = ({
   awaitingClient = false,
   awaitingClientSince = null,
   awaitingClientResendCount = 0,
+  awaitingClientNextReturn = null,
+  awaitingClientReturnLimitReached = false,
   awaitingClientActions,
+
   overdueSince = null,
 
   onClick,
