@@ -1110,12 +1110,14 @@ export async function computeReorder(
     // Um card em andamento com término futuro já consumiu parte do esforço.
     // Preserva o término vigente e ocupa na agenda somente o tempo restante
     // desde agora — mas o INÍCIO exibido/gravado continua sendo o histórico.
-    if (!manualEnd && !treatAsStuck && inProgressFirst && origEnd && origEnd > now) {
+    // Ajuste manual (início e/ou término) sempre vence esta preservação.
+    if (!pinnedKind && !treatAsStuck && inProgressFirst && origEnd && origEnd > now) {
       start = new Date(now);
       end = origEnd;
       dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
       daysSpanned = 1;
     }
+
 
     // Em execução (atrasado ou não): preserva o início histórico apenas na
     // exibição/gravação. O intervalo realmente ocupado na agenda é allocStart → end.
