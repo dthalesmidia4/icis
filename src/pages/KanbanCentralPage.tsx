@@ -3609,11 +3609,14 @@ const KanbanCentralPage = () => {
         onArchive={async (archive: boolean) => {
           if (!selectedCard) return;
           try {
-            const newArchivedAt = archive ? new Date().toISOString() : null;
-            const { error } = await supabase
-              .from("demands")
-              .update({ archived_at: newArchivedAt })
-              .eq("id", selectedCard.id);
+            // Desarquivar também devolve o card à coluna operacional do
+            // responsável: manter o status "Feito" o deixaria invisível.
+            const { error } = archive
+              ? await supabase
+                  .from("demands")
+                  .update({ archived_at: new Date().toISOString() })
+                  .eq("id", selectedCard.id)
+              : await reactivateDemandById(selectedCard.id, selectedCard.assigned_to ?? null);
             if (error) throw error;
             setIsTaskCardOpen(false);
             setSelectedCard(null);
