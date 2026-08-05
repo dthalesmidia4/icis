@@ -3355,7 +3355,10 @@ const KanbanCentralPage = () => {
                                 {awaitingCardsSorted.map((card) => {
                                   const resendCount = (card as any).client_resend_count || 0;
                                   const waitStart = getClientSentAt(card as any);
+                                  const cardArea = (card as any).work_area === "sistemas" ? "sistemas" : "midia";
+                                  const nextReturn = describeNextReturn(waitStart, resendCount, clientReturnCfg[cardArea]);
                                   return (
+
                                   <div
                                     key={card.id}
                                     ref={(el) => {
