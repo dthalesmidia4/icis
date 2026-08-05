@@ -1377,6 +1377,7 @@ const KanbanCentralPage = () => {
         card: card as any,
         newAssignedTo,
         nextFunctionKey,
+        direction: evaluation.direction,
         historySource: "kanban_drag",
       });
       if (error) throw error;
@@ -1384,11 +1385,13 @@ const KanbanCentralPage = () => {
       evaluation.softMessages.forEach((m) => sonnerToast.warning(m));
       if (nextFunctionKey && nextFunctionKey !== previousFunctionKey) {
         sonnerToast.success(
-          `Atribuída a ${collabName} — etapa: ${flowFunctionNames[nextFunctionKey] || nextFunctionKey}`,
+          `Atribuída a ${collabName} — etapa: ${flowFunctionNames[nextFunctionKey] || nextFunctionKey}` +
+            (evaluation.direction === "backward" ? " (voltou no fluxo)" : ""),
         );
       } else {
         sonnerToast.success(`Atribuída a ${collabName}`);
       }
+
 
     } catch (error) {
       console.error("Error updating assigned_to:", error);
