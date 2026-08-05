@@ -9,8 +9,11 @@ Os dois cards do print estão parados há dias e nunca voltaram ao fluxo:
 
 Duas causas confirmadas, uma em cima da outra:
 
-**1. O horário de retorno nunca foi salvo nas configurações de fluxo.**
-A rotina automática roda de hora em hora (verificado: executou às 09h, 10h, 11h, 12h e 13h de hoje) e devolve sempre a mesma resposta: `skipped: "no_return_times"`, tanto para Mídia quanto para Sistemas. Na tela de configurações o campo aparece preenchido com "10:00", mas esse valor é apenas o padrão exibido na tela — ele só é gravado no banco se a pessoa alterar algum campo. Como ninguém alterou, o banco não tem nenhum horário de retorno e a rotina desiste antes de olhar os cards.
+**1. A tela mostra "10:00", mas esse horário não existe no banco.**
+Consultei a configuração real da etapa "Aguardando cliente" nas duas áreas: ela contém apenas durações (`durations`), sem nenhum bloco de retorno do cliente. O "10:00" do print é o valor padrão que a tela preenche ao abrir — ele só é gravado quando alguém edita algum campo dessa aba. Nunca foi editado, então nada foi salvo.
+
+Prova pelo lado da rotina: ela roda de hora em hora (executou hoje às 09h, 10h, 11h, 12h e 13h) e a resposta gravada em todas as execuções, para Mídia e Sistemas, é `skipped: "no_return_times"` — ou seja, desiste antes de olhar os cards, exatamente porque não há horário salvo. Ou seja: está configurado na tela, mas não persistido — e é isso que precisa ser corrigido (inclusive para a tela nunca mais mostrar algo que não está valendo).
+
 
 **2. A responsável dos dois cards não tem a função de envio ao cliente na área Mídia.**
 Os cards estão com a Lúcia, mas na área Mídia a Lúcia está com "Aguardando cliente" e "Enviar ao cliente" desabilitados (na Mídia quem tem essas funções é a Letícia). É isso que gera o alerta "responsável sem a função" no print. Consequência: mesmo depois de corrigir o horário, a devolução automática desses cards seria recusada pela validação de etapa do banco — e a rotina hoje ignora esse erro em silêncio, sem avisar ninguém.
