@@ -40,10 +40,15 @@ export interface ReassignEvaluation {
   nextFunctionKey: string | null;
   /** Etapa mantida por não haver função compatível. */
   functionRemapped: boolean;
+  /** Sentido do remapeamento de etapa: mesma, adiante ou regressão. */
+  direction?: "same" | "forward" | "backward";
+  /** Mensagem informativa quando a etapa foi ajustada ao fluxo do novo responsável. */
+  remapMessage?: string;
   hard: AssignmentConflict[];
   softMessages: string[];
   suggestion: FreeSlotSuggestion | null;
 }
+
 
 /**
  * Avalia a transferência sem gravar nada.
