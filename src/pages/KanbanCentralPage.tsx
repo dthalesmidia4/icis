@@ -1246,6 +1246,20 @@ const KanbanCentralPage = () => {
   }, [tenantId]);
   useEffect(() => { fetchAwaitingAllowedUsers(); }, [fetchAwaitingAllowedUsers]);
 
+  // Config de retorno automático por área: alimenta o selo "Retorna ao fluxo".
+  const [clientReturnCfg, setClientReturnCfg] = useState<Record<"midia" | "sistemas", ClientReturnConfig>>({
+    midia: { ...DEFAULT_CLIENT_RETURN },
+    sistemas: { ...DEFAULT_CLIENT_RETURN },
+  });
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    loadClientReturnConfigs(tenantId).then((cfg) => { if (alive) setClientReturnCfg(cfg); });
+    return () => { alive = false; };
+  }, [tenantId]);
+
+
+
 
   const FALLBACK_FN_NAMES: Record<string, string> = {
     planejar: "Planejar",
