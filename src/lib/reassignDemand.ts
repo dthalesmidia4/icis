@@ -80,14 +80,16 @@ export async function evaluateReassign(params: {
   }
   if (!tenantId) return base;
 
-  // 1 + 2. QUALQUER etapa exige função atribuída ao novo responsável (na área do card).
-  // Se ele não tiver a etapa atual, só aceitamos a transferência quando existe uma
-  // etapa à frente que ele realmente possa exercer. Nunca "mantemos a etapa" por falta
-  // de opção — isso é justamente o furo que colocava cards em `revisar` com quem não revisa.
+  // QUALQUER etapa exige função atribuída ao novo responsável (na área do card).
+  // Se ele não tiver a etapa atual, a etapa é remapeada para uma que ele possa
+  // exercer: primeiro à frente (não regride) e, como último recurso, a etapa
+  // habilitada mais próxima atrás. Só bloqueia quando não existe nenhuma.
   const areaLabel = (card.work_area as any) === "sistemas" ? "Sistemas" : "Mídia";
   const stageLabel = params.functionLabel || currentKey || "etapa atual";
   let nextFunctionKey: string | null = currentKey;
-  const functionRemapped = false;
+  let functionRemapped = false;
+  let direction: "same" | "forward" | "backward" = "same";
+  let remapMessage: string | undefined;
 
   if (currentKey) {
     const holdsCurrent = await userHasFunction(
@@ -112,23 +114,35 @@ export async function evaluateReassign(params: {
         resolved = null;
       }
 
-      const usableForward =
+      const usableStage =
         !!resolved &&
         resolved !== currentKey &&
         (await userHasFunction(tenantId, newAssignedTo, resolved, (card.work_area as any) ?? undefined));
 
-      if (!usableForward) {
+      if (!usableStage) {
         return {
           ...base,
           allowed: false,
           blockedBy: "function",
-          message: `${nome} não tem a função "${stageLabel}" na área ${areaLabel}`,
+          message: `${nome} não tem nenhuma etapa habilitada compatível com "${stageLabel}" na área ${areaLabel}`,
         };
       }
 
       nextFunctionKey = resolved;
+      functionRemapped = true;
+      direction = await stageDirection(
+        tenantId,
+        (card.work_area as any) ?? undefined,
+        currentKey,
+        resolved as string,
+      );
+      remapMessage =
+        direction === "backward"
+          ? `Etapa ajustada: o card voltou para "${resolved}" (etapa habilitada de ${nome}).`
+          : `Etapa ajustada: o card avançou para "${resolved}" (etapa habilitada de ${nome}).`;
     }
   }
+
 
 
   // 3. Ocupação de agenda do novo responsável.
