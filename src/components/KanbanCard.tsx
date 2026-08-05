@@ -39,7 +39,11 @@ interface KanbanCardProps {
   awaitingClient?: boolean;
   awaitingClientSince?: string | null;
   awaitingClientResendCount?: number | null;
+  /** Próximo retorno automático ao fluxo (ex.: "amanhã 10:00"). */
+  awaitingClientNextReturn?: string | null;
+  awaitingClientReturnLimitReached?: boolean;
   awaitingClientActions?: React.ReactNode;
+
   /** ISO do prazo estourado — habilita o selo "Atrasado · Xd". */
   overdueSince?: string | null;
 
