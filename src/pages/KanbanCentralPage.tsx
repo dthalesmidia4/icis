@@ -3389,6 +3389,9 @@ const KanbanCentralPage = () => {
                                       awaitingClient
                                       awaitingClientSince={waitStart || null}
                                       awaitingClientResendCount={resendCount}
+                                      awaitingClientNextReturn={nextReturn.label}
+                                      awaitingClientReturnLimitReached={nextReturn.limitReached}
+
                                       awaitingClientActions={
                                         tenantId ? (
                                           <AwaitingClientActions
