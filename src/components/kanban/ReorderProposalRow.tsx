@@ -292,33 +292,18 @@ export default function ReorderProposalRow({
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Painel de ajuste manual (inalterado funcionalmente) */}
+          {/* Painel de ajuste manual — início sempre editável (inclusive no card em andamento) */}
           {isEditing && (
             <div className="mt-2 rounded-md border border-border/60 bg-muted/30 p-2">
+              {p.keepStart && (
+                <div className="mb-2 text-[10px] text-muted-foreground">
+                  O início deste card é histórico e é preservado automaticamente — só é alterado se você editar abaixo.
+                </div>
+              )}
               <div className="flex flex-wrap items-end gap-2">
-                {p.keepStart ? (
+                {(
                   <>
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-[10px] text-muted-foreground">Novo término (data)</Label>
-                      <Input
-                        type="date"
-                        className="h-8 w-[9.5rem] text-xs"
-                        value={draft.endDate}
-                        onChange={(e) => setDraft((d) => ({ ...d, endDate: e.target.value }))}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-[10px] text-muted-foreground">Hora</Label>
-                      <Input
-                        type="time"
-                        className="h-8 w-[6.5rem] text-xs"
-                        value={draft.endTime}
-                        onChange={(e) => setDraft((d) => ({ ...d, endTime: e.target.value }))}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
+
                     <div className="flex flex-col gap-1">
                       <Label className="text-[10px] text-muted-foreground">Início</Label>
                       <Input
