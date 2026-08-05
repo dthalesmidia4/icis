@@ -70,6 +70,13 @@ import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { ClipboardCheck } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Input } from "@/components/ui/input";
+import {
+  loadClientReturnConfigs,
+  describeNextReturn,
+  DEFAULT_CLIENT_RETURN,
+  type ClientReturnConfig,
+} from "@/lib/clientReturnConfig";
+
 
 interface PipelineStatus {
   id: string;
