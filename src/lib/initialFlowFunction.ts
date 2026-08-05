@@ -148,12 +148,17 @@ export async function resolveFunctionForAssignee(
   if (currentFunctionKey && sequence.includes(currentFunctionKey)) {
     if (usable(currentFunctionKey)) return currentFunctionKey;
     const idx = sequence.indexOf(currentFunctionKey);
-    // Somente para frente: trocar de responsável nunca pode regredir o fluxo.
+    // Preferência: para frente (não regride o fluxo).
     const next = sequence.slice(idx + 1).find(usable);
     if (next) return next;
-    // Sem etapa válida à frente: mantém a etapa atual.
-    return currentFunctionKey;
+    // Último recurso: etapa habilitada mais próxima ATRÁS. Trocar de responsável
+    // nunca deve travar — se ele só tem etapas anteriores, o card volta para lá.
+    const prev = sequence.slice(0, idx).reverse().find(usable);
+    if (prev) return prev;
+    // Nenhuma etapa compatível (nem à frente, nem atrás).
+    return null;
   }
+
 
   const firstUsable = allowedSeq.find(usable);
   return firstUsable ?? allowedSeq[0];

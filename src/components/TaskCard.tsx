@@ -1933,6 +1933,7 @@ export default function TaskCard({
                         }
                         const nextFn = evaluation.nextFunctionKey;
                         evaluation.softMessages.forEach((m) => toast.warning(m));
+                        if (evaluation.remapMessage) toast.info(evaluation.remapMessage);
                         onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
                         await onSave("assigned_to", newVal);
                         if (nextFn !== (card.current_function_key ?? null) && !isDraft) {
@@ -1947,13 +1948,14 @@ export default function TaskCard({
                           await recordFlowHistory({
                             tenantId: card.tenant_id,
                             demandId: card.id,
-                            action: "manual_assignment",
+                            action: evaluation.direction === "backward" ? "moved_back" : "manual_assignment",
                             fromUserId: card.assigned_to ?? null,
                             toUserId: newVal || null,
                             fromFunctionKey: card.current_function_key ?? null,
                             toFunctionKey: nextFn,
                           });
                         }
+
                       }}
                       disabled={readOnly}
                     >

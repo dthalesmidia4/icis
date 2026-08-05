@@ -292,33 +292,18 @@ export default function ReorderProposalRow({
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Painel de ajuste manual (inalterado funcionalmente) */}
+          {/* Painel de ajuste manual — início sempre editável (inclusive no card em andamento) */}
           {isEditing && (
             <div className="mt-2 rounded-md border border-border/60 bg-muted/30 p-2">
+              {p.keepStart && (
+                <div className="mb-2 text-[10px] text-muted-foreground">
+                  O início deste card é histórico e é preservado automaticamente — só é alterado se você editar abaixo.
+                </div>
+              )}
               <div className="flex flex-wrap items-end gap-2">
-                {p.keepStart ? (
+                {(
                   <>
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-[10px] text-muted-foreground">Novo término (data)</Label>
-                      <Input
-                        type="date"
-                        className="h-8 w-[9.5rem] text-xs"
-                        value={draft.endDate}
-                        onChange={(e) => setDraft((d) => ({ ...d, endDate: e.target.value }))}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-[10px] text-muted-foreground">Hora</Label>
-                      <Input
-                        type="time"
-                        className="h-8 w-[6.5rem] text-xs"
-                        value={draft.endTime}
-                        onChange={(e) => setDraft((d) => ({ ...d, endTime: e.target.value }))}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
+
                     <div className="flex flex-col gap-1">
                       <Label className="text-[10px] text-muted-foreground">Início</Label>
                       <Input
@@ -402,19 +387,8 @@ export default function ReorderProposalRow({
                       const [y, mo, dd] = dISO.split("-").map((x) => parseInt(x, 10) || 0);
                       return new Date(y, (mo || 1) - 1, dd || 1, hh, mm, 0, 0);
                     };
-                    if (p.keepStart) {
-                      if (!draft.endDate || !draft.endTime) {
-                        toast.error("Informe a data e a hora do novo término.");
-                        return;
-                      }
-                      const endLocal = parseLocal(draft.endDate, draft.endTime);
-                      if (endLocal.getTime() <= base.getTime()) {
-                        toast.error("O novo término precisa ser posterior ao horário atual.");
-                        return;
-                      }
-                      onSaveOverride({ endISO: draft.endDate, endTime: draft.endTime });
-                      return;
-                    }
+                    void p;
+
                     const dur = parseInt(draft.duration, 10);
                     if (!draft.date || !draft.time) {
                       toast.error("Informe data e hora de início.");
@@ -460,10 +434,9 @@ export default function ReorderProposalRow({
                 )}
               </div>
               <p className="mt-1.5 text-[10px] text-muted-foreground">
-                {p.keepStart
-                  ? "Card em execução: o início histórico é preservado; apenas o término é recalculado."
-                  : "Edite início e/ou término — a duração é derivada do intervalo útil (expediente da área). Ou digite a duração para que o término seja calculado."}
+                Edite início e/ou término — a duração é derivada do intervalo útil (expediente da área). Ou digite a duração para que o término seja calculado. Os cards seguintes se ajustam ao novo término.
               </p>
+
             </div>
           )}
         </div>

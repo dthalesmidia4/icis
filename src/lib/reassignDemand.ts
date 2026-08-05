@@ -40,10 +40,15 @@ export interface ReassignEvaluation {
   nextFunctionKey: string | null;
   /** Etapa mantida por não haver função compatível. */
   functionRemapped: boolean;
+  /** Sentido do remapeamento de etapa: mesma, adiante ou regressão. */
+  direction?: "same" | "forward" | "backward";
+  /** Mensagem informativa quando a etapa foi ajustada ao fluxo do novo responsável. */
+  remapMessage?: string;
   hard: AssignmentConflict[];
   softMessages: string[];
   suggestion: FreeSlotSuggestion | null;
 }
+
 
 /**
  * Avalia a transferência sem gravar nada.
@@ -75,14 +80,16 @@ export async function evaluateReassign(params: {
   }
   if (!tenantId) return base;
 
-  // 1 + 2. QUALQUER etapa exige função atribuída ao novo responsável (na área do card).
-  // Se ele não tiver a etapa atual, só aceitamos a transferência quando existe uma
-  // etapa à frente que ele realmente possa exercer. Nunca "mantemos a etapa" por falta
-  // de opção — isso é justamente o furo que colocava cards em `revisar` com quem não revisa.
+  // QUALQUER etapa exige função atribuída ao novo responsável (na área do card).
+  // Se ele não tiver a etapa atual, a etapa é remapeada para uma que ele possa
+  // exercer: primeiro à frente (não regride) e, como último recurso, a etapa
+  // habilitada mais próxima atrás. Só bloqueia quando não existe nenhuma.
   const areaLabel = (card.work_area as any) === "sistemas" ? "Sistemas" : "Mídia";
   const stageLabel = params.functionLabel || currentKey || "etapa atual";
   let nextFunctionKey: string | null = currentKey;
-  const functionRemapped = false;
+  let functionRemapped = false;
+  let direction: "same" | "forward" | "backward" = "same";
+  let remapMessage: string | undefined;
 
   if (currentKey) {
     const holdsCurrent = await userHasFunction(
@@ -107,23 +114,35 @@ export async function evaluateReassign(params: {
         resolved = null;
       }
 
-      const usableForward =
+      const usableStage =
         !!resolved &&
         resolved !== currentKey &&
         (await userHasFunction(tenantId, newAssignedTo, resolved, (card.work_area as any) ?? undefined));
 
-      if (!usableForward) {
+      if (!usableStage) {
         return {
           ...base,
           allowed: false,
           blockedBy: "function",
-          message: `${nome} não tem a função "${stageLabel}" na área ${areaLabel}`,
+          message: `${nome} não tem nenhuma etapa habilitada compatível com "${stageLabel}" na área ${areaLabel}`,
         };
       }
 
       nextFunctionKey = resolved;
+      functionRemapped = true;
+      direction = await stageDirection(
+        tenantId,
+        (card.work_area as any) ?? undefined,
+        currentKey,
+        resolved as string,
+      );
+      remapMessage =
+        direction === "backward"
+          ? `Etapa ajustada: o card voltou para "${resolved}" (etapa habilitada de ${nome}).`
+          : `Etapa ajustada: o card avançou para "${resolved}" (etapa habilitada de ${nome}).`;
     }
   }
+
 
 
   // 3. Ocupação de agenda do novo responsável.
@@ -161,14 +180,38 @@ export async function evaluateReassign(params: {
       message: `${nome} já tem demanda ocupando este horário.`,
       nextFunctionKey,
       functionRemapped,
+      direction,
+      remapMessage,
       hard: conflicts.hard,
       softMessages,
       suggestion,
     };
   }
 
-  return { ...base, nextFunctionKey, functionRemapped, softMessages };
+  return { ...base, nextFunctionKey, functionRemapped, direction, remapMessage, softMessages };
 }
+
+/** Compara a posição de duas etapas na área para saber se houve regressão. */
+async function stageDirection(
+  tenantId: string,
+  workArea: string | null | undefined,
+  fromKey: string,
+  toKey: string,
+): Promise<"same" | "forward" | "backward"> {
+  if (fromKey === toKey) return "same";
+  const area = workArea === "sistemas" ? "sistemas" : "midia";
+  const { data } = await (supabase.from("flow_functions") as any)
+    .select("function_key, position")
+    .eq("tenant_id", tenantId)
+    .eq("work_area", area)
+    .in("function_key", [fromKey, toKey]);
+  const rows = (data || []) as Array<{ function_key: string; position: number }>;
+  const from = rows.find((r) => r.function_key === fromKey)?.position;
+  const to = rows.find((r) => r.function_key === toKey)?.position;
+  if (from == null || to == null) return "forward";
+  return to < from ? "backward" : "forward";
+}
+
 
 export interface ApplyReassignInput {
   tenantId: string;
@@ -177,9 +220,12 @@ export interface ApplyReassignInput {
   nextFunctionKey: string | null;
   /** Reagendamento aplicado junto da transferência. */
   reschedule?: { due_date: string; due_time: string; delivery_date: string; delivery_time: string } | null;
+  /** Sentido do remapeamento de etapa (vindo de evaluateReassign). */
+  direction?: "same" | "forward" | "backward";
   historySource?: string;
   metadata?: Record<string, unknown>;
 }
+
 
 /** Grava a transferência (já validada) e registra o histórico. */
 export async function applyReassign(input: ApplyReassignInput): Promise<{ error: unknown | null }> {
@@ -206,7 +252,7 @@ export async function applyReassign(input: ApplyReassignInput): Promise<{ error:
     await recordFlowHistory({
       tenantId,
       demandId: card.id,
-      action: "manual_assignment",
+      action: input.direction === "backward" ? "moved_back" : "manual_assignment",
       fromUserId: card.assigned_to ?? null,
       toUserId: newAssignedTo,
       fromFunctionKey: card.current_function_key ?? null,

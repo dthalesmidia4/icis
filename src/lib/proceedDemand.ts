@@ -4,6 +4,8 @@ import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory"
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
 import { isReviewFunction } from "@/lib/flowFunctions";
+import { userHasFunction } from "@/lib/clientStageAssignments";
+
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
 
@@ -785,7 +787,22 @@ export async function jumpToFunction({
   const isReviewTarget = isReviewFunction(target.function_key);
   let picked: PickAssigneeResult | null = null;
 
-  if (isBackward) {
+  // Aderência ao responsável atual: se ele tem a função da etapa de destino
+  // habilitada na área do card, ele permanece — independente da etapa ser ou
+  // não "sticky". Revisão continua fora (ninguém revisa o que produziu).
+  if (prevUser && !isReviewTarget) {
+    const holds = await userHasFunction(tenantId, prevUser, target.function_key, jumpArea as any);
+    if (holds) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", prevUser)
+        .maybeSingle();
+      picked = { success: true, userId: prevUser, name: (prof as any)?.full_name || "Colaborador" };
+    }
+  }
+
+  if (!picked && isBackward) {
     const completions = await getStageCompletions(tenantId, demandId);
     const historic = lastUserOfStage(completions, target.function_key);
     if (historic) {
@@ -797,6 +814,7 @@ export async function jumpToFunction({
       picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
     }
   }
+
 
   if (!picked) {
     picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
