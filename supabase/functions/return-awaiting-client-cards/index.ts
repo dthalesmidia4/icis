@@ -1,7 +1,13 @@
 // Edge function: return-awaiting-client-cards
 // Cron-invoked. For each tenant, moves cards from `aguardando_cliente` back to
-// `enviar_cliente` when: (a) wait_hours elapsed, and (b) current local hour
-// matches one of the configured return_times (within ±30min window).
+// `enviar_cliente` (Mídia) / `entregar_cliente` (Sistemas) when:
+// (a) wait_hours elapsed, and (b) current local hour matches one of the
+// configured return_times (within ±30min window).
+//
+// Resiliência: se a config `client_return` nunca foi salva, usa os padrões
+// (10:00 / 24h) em vez de ignorar o tenant. Se o responsável atual não tem a
+// função de retorno atribuída na área, resolve um responsável habilitado
+// (preferindo quem já executou essa etapa no card) para não travar no trigger.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -18,10 +24,12 @@ interface AwaitingConfig {
 }
 
 const DEFAULT_TZ = "America/Sao_Paulo";
+const DEFAULT_RETURN_TIMES = ["10:00"];
+const DEFAULT_WAIT_HOURS = 24;
 const WINDOW_MIN = 30; // ±30min tolerance
 
 function parseHM(s: string): number | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s).trim());
   if (!m) return null;
   const h = parseInt(m[1], 10);
   const min = parseInt(m[2], 10);
@@ -74,18 +82,19 @@ Deno.serve(async (req) => {
 
     for (const row of (fns as any[]) || []) {
       const cfg = ((row.config || {}).client_return || {}) as Partial<AwaitingConfig>;
-      const returnTimes = Array.isArray(cfg.return_times) ? cfg.return_times : [];
-      if (returnTimes.length === 0) {
-        results.push({ tenant_id: row.tenant_id, skipped: "no_return_times" });
-        continue;
-      }
-      const waitHours = Math.max(1, Number(cfg.wait_hours) || 24);
+      const configured = Array.isArray(cfg.return_times)
+        ? cfg.return_times.filter((t: any) => parseHM(String(t)) !== null)
+        : [];
+      // Sem config salva o retorno usava a ficar parado para sempre: aplica o padrão.
+      const returnTimes = configured.length > 0 ? configured : DEFAULT_RETURN_TIMES;
+      const usedDefaults = configured.length === 0;
+      const waitHours = Math.max(1, Number(cfg.wait_hours) || DEFAULT_WAIT_HOURS);
       const maxResends = cfg.max_resends == null ? null : Number(cfg.max_resends);
       const tz = cfg.timezone || DEFAULT_TZ;
 
       const nowMin = localHourMinutes(tz);
       if (!timeMatchesReturnSlot(nowMin, returnTimes)) {
-        results.push({ tenant_id: row.tenant_id, skipped: "outside_window", nowMin });
+        results.push({ tenant_id: row.tenant_id, work_area: row.work_area, skipped: "outside_window", nowMin });
         continue;
       }
 
@@ -96,7 +105,7 @@ Deno.serve(async (req) => {
       const area = row.work_area === "sistemas" ? "sistemas" : "midia";
       // Etapa de retorno depende da área: Mídia reenvia, Sistemas reentrega.
       const returnKey = area === "sistemas" ? "entregar_cliente" : "enviar_cliente";
-      let q = supabase
+      const q = supabase
         .from("demands")
         .select("id, assigned_to, client_resend_count, client_last_resend_at, tenant_id")
         .eq("tenant_id", row.tenant_id)
@@ -107,7 +116,7 @@ Deno.serve(async (req) => {
 
       const { data: cards, error: cErr } = await q;
       if (cErr) {
-        results.push({ tenant_id: row.tenant_id, error: cErr.message });
+        results.push({ tenant_id: row.tenant_id, work_area: area, error: cErr.message });
         continue;
       }
 
@@ -121,31 +130,86 @@ Deno.serve(async (req) => {
         return true;
       });
 
+      // Quem pode assumir a etapa de retorno nesta área (trigger de banco exige).
+      const { data: allowedRows } = await supabase
+        .from("collaborator_function_assignments")
+        .select("user_id")
+        .eq("tenant_id", row.tenant_id)
+        .eq("work_area", area)
+        .eq("function_key", returnKey)
+        .eq("allowed", true);
+      const allowedUsers = new Set(((allowedRows as any[]) || []).map((r) => r.user_id));
+
       const returned: string[] = [];
+      const failures: any[] = [];
+
       for (const c of eligible) {
         const newCount = (c.client_resend_count || 0) + 1;
         const nowIso = new Date().toISOString();
+
+        // Resolve responsável válido para a etapa de retorno.
+        let assignee: string | null = c.assigned_to || null;
+        let reassignedFrom: string | null = null;
+        if (!assignee || !allowedUsers.has(assignee)) {
+          reassignedFrom = assignee;
+          let resolved: string | null = null;
+          // 1) Quem já passou por essa etapa neste card.
+          const { data: hist } = await supabase
+            .from("demand_flow_history")
+            .select("to_user_id, from_user_id, to_function_key, from_function_key, created_at")
+            .eq("demand_id", c.id)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          for (const h of ((hist as any[]) || [])) {
+            const cand =
+              h.to_function_key === returnKey ? h.to_user_id
+              : h.from_function_key === returnKey ? h.from_user_id
+              : null;
+            if (cand && allowedUsers.has(cand)) { resolved = cand; break; }
+          }
+          // 2) Qualquer colaborador habilitado na etapa/área.
+          if (!resolved && allowedUsers.size > 0) resolved = [...allowedUsers][0] as string;
+          assignee = resolved;
+        }
+
+        if (!assignee) {
+          failures.push({ id: c.id, reason: "no_allowed_assignee", function_key: returnKey });
+          continue;
+        }
 
         const { error: upErr } = await supabase
           .from("demands")
           .update({
             current_function_key: returnKey,
+            assigned_to: assignee,
             client_resend_count: newCount,
             client_last_resend_at: nowIso,
             client_wait_started_at: null,
           } as any)
           .eq("id", c.id);
-        if (upErr) continue;
+        if (upErr) {
+          console.error("[return-awaiting] update failed", c.id, upErr.message);
+          failures.push({ id: c.id, reason: upErr.message });
+          continue;
+        }
 
         await supabase.from("demand_flow_history").insert({
           tenant_id: row.tenant_id,
           demand_id: c.id,
           action: "auto_return_from_client",
           from_user_id: c.assigned_to,
-          to_user_id: c.assigned_to,
+          to_user_id: assignee,
           from_function_key: "aguardando_cliente",
           to_function_key: returnKey,
-          metadata: { resend_count: newCount, wait_hours: waitHours, work_area: area },
+          metadata: {
+            resend_count: newCount,
+            wait_hours: waitHours,
+            work_area: area,
+            used_default_config: usedDefaults,
+            ...(reassignedFrom !== undefined && reassignedFrom !== assignee
+              ? { reassigned_from: reassignedFrom, reassign_reason: "assignee_without_function" }
+              : {}),
+          },
         } as any);
 
 
@@ -154,9 +218,12 @@ Deno.serve(async (req) => {
 
       results.push({
         tenant_id: row.tenant_id,
+        work_area: area,
+        used_default_config: usedDefaults,
         eligible: eligible.length,
         returned: returned.length,
         ids: returned,
+        failures,
       });
     }
 
