@@ -40,6 +40,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
+import { reactivateDemandById } from "@/lib/reactivateDemand";
 import BackButton from "@/components/BackButton";
 import KanbanCard from "@/components/KanbanCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
