@@ -434,10 +434,9 @@ export default function ReorderProposalRow({
                 )}
               </div>
               <p className="mt-1.5 text-[10px] text-muted-foreground">
-                {p.keepStart
-                  ? "Card em execução: o início histórico é preservado; apenas o término é recalculado."
-                  : "Edite início e/ou término — a duração é derivada do intervalo útil (expediente da área). Ou digite a duração para que o término seja calculado."}
+                Edite início e/ou término — a duração é derivada do intervalo útil (expediente da área). Ou digite a duração para que o término seja calculado. Os cards seguintes se ajustam ao novo término.
               </p>
+
             </div>
           )}
         </div>
