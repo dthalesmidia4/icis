@@ -102,10 +102,14 @@ const SentToClientPill = ({
   since,
   resendCount,
   demandId,
+  nextReturnLabel,
+  returnLimitReached,
 }: {
   since?: string | null;
   resendCount?: number | null;
   demandId?: string | null;
+  nextReturnLabel?: string | null;
+  returnLimitReached?: boolean;
 }) => {
   const at = fmtDateTime(since);
   const sendNumber = Math.max(1, (Number(resendCount) || 0) + 1);
@@ -115,6 +119,11 @@ const SentToClientPill = ({
       <span className="min-w-0 flex-1 whitespace-normal break-words">
         <span>Enviado pela {sendNumber}ª vez ao cliente</span>
         {at && <span className="block font-semibold">em {at}</span>}
+        {returnLimitReached ? (
+          <span className="block opacity-80">Limite de reenvios atingido · sem retorno automático</span>
+        ) : nextReturnLabel ? (
+          <span className="block opacity-80">Retorna ao fluxo {nextReturnLabel}</span>
+        ) : null}
       </span>
       <ClientSendHistoryPopover
         demandId={demandId}
@@ -126,6 +135,7 @@ const SentToClientPill = ({
   );
 
 };
+
 
 
 interface InlineDatesProps {
