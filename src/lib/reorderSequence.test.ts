@@ -52,7 +52,10 @@ describe("computeReorder — primeiro card em andamento", () => {
   });
 
   it("preserva o início vencido quando o planejado é igual à duração configurada", async () => {
-    const [proposal] = await computeReorder([card()], opts);
+    const [proposal] = await computeReorder([card()], {
+      ...opts,
+      startFrom: new Date("2026-08-05T14:05:00.000Z"), // 11:05 em São Paulo
+    });
 
     expect(proposal.stagePlannedMin).toBe(120);
     expect(proposal.keepStart).toBe(true);
@@ -63,8 +66,11 @@ describe("computeReorder — primeiro card em andamento", () => {
 
   it("preserva o início vencido quando o planejado supera a duração configurada", async () => {
     const [proposal] = await computeReorder([
-      card({ delivery_time: "14:00" }),
-    ], opts);
+      card({ delivery_time: "11:30" }),
+    ], {
+      ...opts,
+      startFrom: new Date("2026-08-05T14:35:00.000Z"), // 11:35 em São Paulo
+    });
 
     expect(proposal.stagePlannedMin).toBeGreaterThan(120);
     expect(proposal.keepStart).toBe(true);
