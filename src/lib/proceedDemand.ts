@@ -717,13 +717,20 @@ export async function jumpToFunction({
   demandTypeKey,
   targetFunctionKey,
   currentFunctionKey,
+  skippedStages,
 }: {
   demandId: string;
   tenantId: string;
   demandTypeKey?: string | null;
   targetFunctionKey: string;
   currentFunctionKey?: string | null;
+  /** Etapas obrigatórias ignoradas pelo salto (registradas no histórico). */
+  skippedStages?: string[];
 }): Promise<ProceedResult> {
+  const jumpHistoryMeta: Record<string, unknown> | undefined =
+    skippedStages && skippedStages.length > 0
+      ? { stage_jump: true, skipped_stages: skippedStages }
+      : undefined;
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
   const jumpMeta = await getDemandFlowMeta(demandId);
   const jumpArea = jumpMeta.workArea;
@@ -747,7 +754,7 @@ export async function jumpToFunction({
     await applyFlowReactivation(updateWait, demandId, keep);
     const { error } = await supabase.from("demands").update(updateWait).eq("id", demandId);
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
-    await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: previous, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+    await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: previous, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
     await recordStageTouchpoint(tenantId, demandId, target.function_key);
     // A etapa que enviou ao cliente foi concluída: registra a entrega (trava regressão).
@@ -826,7 +833,7 @@ export async function jumpToFunction({
   if (error) return { success: false, message: "Erro ao atualizar etapa." };
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key },
+      { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta },
       [prevUser, ...captarExtras],
     );
   } else {
@@ -834,7 +841,7 @@ export async function jumpToFunction({
     if (!isBackward && currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
       await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
     }
-    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta });
   }
   // Regressão não conclui a etapa atual: só avanços registram entrega.
   if (!isBackward) {
