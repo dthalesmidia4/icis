@@ -252,7 +252,7 @@ export async function applyReassign(input: ApplyReassignInput): Promise<{ error:
     await recordFlowHistory({
       tenantId,
       demandId: card.id,
-      action: "manual_assignment",
+      action: input.direction === "backward" ? "moved_back" : "manual_assignment",
       fromUserId: card.assigned_to ?? null,
       toUserId: newAssignedTo,
       fromFunctionKey: card.current_function_key ?? null,
