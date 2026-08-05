@@ -334,7 +334,14 @@ const KanbanCard = ({
 
       {awaitingClient ? (
         <CardContent className="px-2.5 pb-2.5 pt-0 space-y-1">
-          <SentToClientPill since={awaitingClientSince} resendCount={awaitingClientResendCount} demandId={_cardId} />
+          <SentToClientPill
+            since={awaitingClientSince}
+            resendCount={awaitingClientResendCount}
+            demandId={_cardId}
+            nextReturnLabel={awaitingClientNextReturn}
+            returnLimitReached={awaitingClientReturnLimitReached}
+          />
+
           {awaitingClientActions && (
             <div className="w-full">{awaitingClientActions}</div>
 
