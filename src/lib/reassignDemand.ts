@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { userHasFunction } from "@/lib/clientStageAssignments";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { recordFlowHistory } from "@/lib/flowHistory";
+import { applyFlowReactivation } from "@/lib/reactivateDemand";
 import {
   checkAssignmentConflicts,
   suggestFreeSlot,
@@ -197,6 +198,7 @@ export async function applyReassign(input: ApplyReassignInput): Promise<{ error:
     update.delivery_time = reschedule.delivery_time;
   }
 
+  await applyFlowReactivation(update, card.id, newAssignedTo);
   const { error } = await supabase.from("demands").update(update).eq("id", card.id);
   if (error) return { error };
 
