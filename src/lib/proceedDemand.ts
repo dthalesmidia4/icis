@@ -1083,15 +1083,17 @@ export async function regressDemand({
       return { success: false, message: picked.message || 'Nenhum colaborador possui a função "Enviar cliente" habilitada.' };
     }
     const prevCount = (current as any)?.client_resend_count || 0;
+    const resendPayload: any = {
+      assigned_to: picked.userId,
+      current_function_key: prevFn.function_key,
+      client_resend_count: prevCount + 1,
+      client_last_resend_at: new Date().toISOString(),
+      client_wait_started_at: null,
+    };
+    await applyFlowReactivation(resendPayload, demandId, picked.userId);
     const { error: upErr } = await supabase
       .from("demands")
-      .update({
-        assigned_to: picked.userId,
-        current_function_key: prevFn.function_key,
-        client_resend_count: prevCount + 1,
-        client_last_resend_at: new Date().toISOString(),
-        client_wait_started_at: null,
-      } as any)
+      .update(resendPayload)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
     await recordFlowHistory({
