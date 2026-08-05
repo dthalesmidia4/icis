@@ -437,6 +437,7 @@ export default function TaskCard({
   const [pipelineSequence, setPipelineSequence] = useState<{ function_key: string; name: string }[]>([]);
   const [stepPickerOpen, setStepPickerOpen] = useState(false);
   const [jumpingStep, setJumpingStep] = useState(false);
+  const [pendingJump, setPendingJump] = useState<{ key: string; name: string; skippedKeys: string[]; skippedNames: string[] } | null>(null);
   const [delivering, setDelivering] = useState(false);
   const [inlineScheduleOpen, setInlineScheduleOpen] = useState(false);
   const [inlineScheduling, setInlineScheduling] = useState(false);
@@ -1496,7 +1497,7 @@ export default function TaskCard({
                           ? "Enviado ao cliente"
                           : (next?.name || "Prosseguir");
 
-                    const doJump = async (key: string) => {
+                    const doJump = async (key: string, skippedKeys: string[] = []) => {
                       if (!card.tenant_id || !card.demand_type_key || jumpingStep) return;
                       setJumpingStep(true);
                       try {
@@ -1506,6 +1507,7 @@ export default function TaskCard({
                           demandTypeKey: card.demand_type_key,
                           targetFunctionKey: key,
                           currentFunctionKey: curKey,
+                          skippedStages: skippedKeys,
                         });
                         if (r.success) {
                           toast.success(r.message);
@@ -1517,6 +1519,21 @@ export default function TaskCard({
                       } finally {
                         setJumpingStep(false);
                       }
+                    };
+
+                    /** Salto que ignora 2+ etapas obrigatórias pede confirmação. */
+                    const requestJump = (target: { function_key: string; name: string }, targetIdx: number) => {
+                      const between = curIdx >= 0 && targetIdx > curIdx + 1 ? seq.slice(curIdx + 1, targetIdx) : [];
+                      if (between.length >= 2) {
+                        setPendingJump({
+                          key: target.function_key,
+                          name: target.name,
+                          skippedKeys: between.map((s) => s.function_key),
+                          skippedNames: between.map((s) => s.name),
+                        });
+                        return;
+                      }
+                      doJump(target.function_key, between.map((s) => s.function_key));
                     };
 
                     return (
@@ -1604,7 +1621,7 @@ export default function TaskCard({
                                       key={s.function_key}
                                       type="button"
                                       disabled={active || jumpingStep}
-                                      onClick={() => doJump(s.function_key)}
+                                      onClick={() => requestJump(s, i)}
                                       className={cn(
                                         "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left transition-colors",
                                         active ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted",
@@ -1621,6 +1638,40 @@ export default function TaskCard({
                             </PopoverContent>
                           </Popover>
                         )}
+                        <AlertDialog open={!!pendingJump} onOpenChange={(open) => { if (!open) setPendingJump(null); }}>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Pular etapas do fluxo?</AlertDialogTitle>
+                              <AlertDialogDescription asChild>
+                                <div className="space-y-2 text-sm">
+                                  <p>
+                                    Ir direto para <strong>{pendingJump?.name}</strong> ignora {pendingJump?.skippedNames.length} etapas obrigatórias:
+                                  </p>
+                                  <ul className="list-disc pl-5 text-muted-foreground">
+                                    {(pendingJump?.skippedNames || []).map((n) => (
+                                      <li key={n}>{n}</li>
+                                    ))}
+                                  </ul>
+                                  <p className="text-muted-foreground">
+                                    O salto fica registrado no histórico do card com as etapas ignoradas.
+                                  </p>
+                                </div>
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => {
+                                  const p = pendingJump;
+                                  setPendingJump(null);
+                                  if (p) doJump(p.key, p.skippedKeys);
+                                }}
+                              >
+                                Pular etapas
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         {isLastFn ? (
                           <Button
                             variant="ghost"
