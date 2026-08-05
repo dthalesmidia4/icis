@@ -180,14 +180,38 @@ export async function evaluateReassign(params: {
       message: `${nome} já tem demanda ocupando este horário.`,
       nextFunctionKey,
       functionRemapped,
+      direction,
+      remapMessage,
       hard: conflicts.hard,
       softMessages,
       suggestion,
     };
   }
 
-  return { ...base, nextFunctionKey, functionRemapped, softMessages };
+  return { ...base, nextFunctionKey, functionRemapped, direction, remapMessage, softMessages };
 }
+
+/** Compara a posição de duas etapas na área para saber se houve regressão. */
+async function stageDirection(
+  tenantId: string,
+  workArea: string | null | undefined,
+  fromKey: string,
+  toKey: string,
+): Promise<"same" | "forward" | "backward"> {
+  if (fromKey === toKey) return "same";
+  const area = workArea === "sistemas" ? "sistemas" : "midia";
+  const { data } = await (supabase.from("flow_functions") as any)
+    .select("function_key, position")
+    .eq("tenant_id", tenantId)
+    .eq("work_area", area)
+    .in("function_key", [fromKey, toKey]);
+  const rows = (data || []) as Array<{ function_key: string; position: number }>;
+  const from = rows.find((r) => r.function_key === fromKey)?.position;
+  const to = rows.find((r) => r.function_key === toKey)?.position;
+  if (from == null || to == null) return "forward";
+  return to < from ? "backward" : "forward";
+}
+
 
 export interface ApplyReassignInput {
   tenantId: string;
