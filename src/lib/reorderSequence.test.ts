@@ -4,7 +4,7 @@ vi.mock("@/lib/dailyCards", () => ({
   fetchHolidaysInRange: vi.fn(async () => new Set<string>()),
 }));
 
-import { computeReorder, type ReorderCardInput } from "@/lib/reorderSequence";
+import { buildReorderScheduleUpdate, computeReorder, type ReorderCardInput } from "@/lib/reorderSequence";
 
 const NOW = new Date("2026-08-05T14:00:00.000Z"); // 11:00 em São Paulo
 
@@ -62,6 +62,13 @@ describe("computeReorder — primeiro card em andamento", () => {
     expect([proposal.startISO, proposal.startTime]).toEqual(["2026-08-05", "09:00"]);
     expect(proposal.endTime).not.toBe("11:00");
     expect(proposal.changed).toBe(true);
+    const payload = buildReorderScheduleUpdate(proposal);
+    expect(payload).not.toHaveProperty("due_date");
+    expect(payload).not.toHaveProperty("due_time");
+    expect(payload).toMatchObject({
+      delivery_date: proposal.endISO,
+      delivery_time: proposal.endTime,
+    });
   });
 
   it("preserva o início vencido quando o planejado supera a duração configurada", async () => {

@@ -108,6 +108,25 @@ export interface ReorderProposal {
   jumpReason?: string | null;
 }
 
+/**
+ * Monta somente os campos de agenda que podem ser persistidos para a proposta.
+ * Cards em execução preservam o início histórico também no limite de escrita.
+ */
+export function buildReorderScheduleUpdate(proposal: ReorderProposal): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    delivery_date: proposal.endISO,
+    delivery_time: proposal.endTime,
+    reorder_meta: proposal.pausedByCaptar
+      ? { pausedByCaptar: proposal.pausedByCaptar, updatedAt: new Date().toISOString() }
+      : null,
+  };
+  if (!proposal.keepStart) {
+    payload.due_date = proposal.startISO;
+    payload.due_time = proposal.startTime;
+  }
+  return payload;
+}
+
 // ------------------------------------------------------------------
 // Matriz duração
 // ------------------------------------------------------------------

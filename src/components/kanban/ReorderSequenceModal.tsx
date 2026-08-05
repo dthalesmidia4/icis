@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { computeReorder, fmtMinutes, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type ReorderManualOverride, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
+import { buildReorderScheduleUpdate, computeReorder, fmtMinutes, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type ReorderManualOverride, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
 import { loadReorderPriority, DEFAULT_REORDER_PRIORITY_BY_AREA, type ReorderPriorityByArea } from "@/lib/reorderPriority";
 
 import { loadDurationsByArea } from "@/lib/flowDurations";
@@ -329,20 +329,10 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
           return { id: p.id, status: "conflict" as const };
         }
 
-        const updatePayload: Record<string, unknown> = {
-          delivery_date: p.endISO,
-          delivery_time: p.endTime,
-          reorder_meta: p.pausedByCaptar
-            ? { pausedByCaptar: p.pausedByCaptar, updatedAt: new Date().toISOString() }
-            : null,
-        };
         // O início do primeiro card em execução é histórico. Mesmo quando o
         // término muda, não o reenvie ao banco — proteção contra regressões no
         // cálculo e contra triggers que possam reinterpretar os mesmos valores.
-        if (!p.keepStart) {
-          updatePayload.due_date = p.startISO;
-          updatePayload.due_time = p.startTime;
-        }
+        const updatePayload = buildReorderScheduleUpdate(p);
 
         let q = supabase
           .from("demands")
