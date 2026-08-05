@@ -13,8 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { userHasFunction } from "@/lib/clientStageAssignments";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { recordFlowHistory } from "@/lib/flowHistory";
-import {
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
+import {
   checkAssignmentConflicts,
   suggestFreeSlot,
   type AssignmentConflict,
