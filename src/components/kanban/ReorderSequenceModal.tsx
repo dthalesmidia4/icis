@@ -329,17 +329,24 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
           return { id: p.id, status: "conflict" as const };
         }
 
+        const updatePayload: Record<string, unknown> = {
+          delivery_date: p.endISO,
+          delivery_time: p.endTime,
+          reorder_meta: p.pausedByCaptar
+            ? { pausedByCaptar: p.pausedByCaptar, updatedAt: new Date().toISOString() }
+            : null,
+        };
+        // O início do primeiro card em execução é histórico. Mesmo quando o
+        // término muda, não o reenvie ao banco — proteção contra regressões no
+        // cálculo e contra triggers que possam reinterpretar os mesmos valores.
+        if (!p.keepStart) {
+          updatePayload.due_date = p.startISO;
+          updatePayload.due_time = p.startTime;
+        }
+
         let q = supabase
           .from("demands")
-          .update({
-            due_date: p.startISO,
-            due_time: p.startTime,
-            delivery_date: p.endISO,
-            delivery_time: p.endTime,
-            reorder_meta: p.pausedByCaptar
-              ? { pausedByCaptar: p.pausedByCaptar, updatedAt: new Date().toISOString() }
-              : null,
-          } as any)
+          .update(updatePayload as any)
           .eq("id", p.id);
         if (liveUpdatedAt) q = q.eq("updated_at", liveUpdatedAt);
         const { error, data } = await q.select("id");

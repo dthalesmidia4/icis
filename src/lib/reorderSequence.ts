@@ -1017,13 +1017,15 @@ export async function computeReorder(
     const stageBase = treatAsStuck ? stageBaseStart(card, wh.tz) : null;
     const stagePlanned = treatAsStuck ? stagePlannedMinutes(card, ctx, wh.tz) : null;
     let extensionMin: number | null = null;
-    let keepStart = false;
+    // Regra invariável: se o primeiro card já começou, seu início é histórico.
+    // A decisão de recalcular o término (inclusive por atraso) não pode liberar
+    // due_date/due_time para uma nova alocação automática.
+    let keepStart = inProgressFirst;
 
     if (treatAsStuck) {
       if (stagePlanned && stagePlanned > baseDur) {
         extensionMin = Math.max(5, Math.round((stagePlanned * 0.30) / 5) * 5);
         dur = extensionMin;
-        keepStart = true;
       } else {
         const slack = Math.round(baseDur * 0.30);
         dur = baseDur + slack;
@@ -1076,7 +1078,6 @@ export async function computeReorder(
       dur = Math.max(5, businessMinutesBetween(allocBase, usableManualEnd, area, ctx) || 5);
       daysSpanned = 1;
       if (treatAsStuck) {
-        keepStart = true;
         extensionMin = dur;
       }
     } else {
@@ -1095,7 +1096,6 @@ export async function computeReorder(
       end = origEnd;
       dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
       daysSpanned = 1;
-      keepStart = true;
     }
 
     // Em execução (atrasado ou não): preserva o início histórico apenas na
