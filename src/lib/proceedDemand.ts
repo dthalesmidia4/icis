@@ -4,6 +4,8 @@ import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory"
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
 import { isReviewFunction } from "@/lib/flowFunctions";
+import { userHasFunction } from "@/lib/clientStageAssignments";
+
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
 
