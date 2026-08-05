@@ -387,19 +387,8 @@ export default function ReorderProposalRow({
                       const [y, mo, dd] = dISO.split("-").map((x) => parseInt(x, 10) || 0);
                       return new Date(y, (mo || 1) - 1, dd || 1, hh, mm, 0, 0);
                     };
-                    if (p.keepStart) {
-                      if (!draft.endDate || !draft.endTime) {
-                        toast.error("Informe a data e a hora do novo término.");
-                        return;
-                      }
-                      const endLocal = parseLocal(draft.endDate, draft.endTime);
-                      if (endLocal.getTime() <= base.getTime()) {
-                        toast.error("O novo término precisa ser posterior ao horário atual.");
-                        return;
-                      }
-                      onSaveOverride({ endISO: draft.endDate, endTime: draft.endTime });
-                      return;
-                    }
+                    void p;
+
                     const dur = parseInt(draft.duration, 10);
                     if (!draft.date || !draft.time) {
                       toast.error("Informe data e hora de início.");
