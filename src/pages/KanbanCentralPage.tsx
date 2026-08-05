@@ -70,6 +70,13 @@ import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { ClipboardCheck } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Input } from "@/components/ui/input";
+import {
+  loadClientReturnConfigs,
+  describeNextReturn,
+  DEFAULT_CLIENT_RETURN,
+  type ClientReturnConfig,
+} from "@/lib/clientReturnConfig";
+
 
 interface PipelineStatus {
   id: string;
@@ -1245,6 +1252,20 @@ const KanbanCentralPage = () => {
     setAwaitingAllowedUsers(keys);
   }, [tenantId]);
   useEffect(() => { fetchAwaitingAllowedUsers(); }, [fetchAwaitingAllowedUsers]);
+
+  // Config de retorno automático por área: alimenta o selo "Retorna ao fluxo".
+  const [clientReturnCfg, setClientReturnCfg] = useState<Record<"midia" | "sistemas", ClientReturnConfig>>({
+    midia: { ...DEFAULT_CLIENT_RETURN },
+    sistemas: { ...DEFAULT_CLIENT_RETURN },
+  });
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    loadClientReturnConfigs(tenantId).then((cfg) => { if (alive) setClientReturnCfg(cfg); });
+    return () => { alive = false; };
+  }, [tenantId]);
+
+
 
 
   const FALLBACK_FN_NAMES: Record<string, string> = {
@@ -3334,7 +3355,10 @@ const KanbanCentralPage = () => {
                                 {awaitingCardsSorted.map((card) => {
                                   const resendCount = (card as any).client_resend_count || 0;
                                   const waitStart = getClientSentAt(card as any);
+                                  const cardArea = (card as any).work_area === "sistemas" ? "sistemas" : "midia";
+                                  const nextReturn = describeNextReturn(waitStart, resendCount, clientReturnCfg[cardArea]);
                                   return (
+
                                   <div
                                     key={card.id}
                                     ref={(el) => {
@@ -3365,6 +3389,9 @@ const KanbanCentralPage = () => {
                                       awaitingClient
                                       awaitingClientSince={waitStart || null}
                                       awaitingClientResendCount={resendCount}
+                                      awaitingClientNextReturn={nextReturn.label}
+                                      awaitingClientReturnLimitReached={nextReturn.limitReached}
+
                                       awaitingClientActions={
                                         tenantId ? (
                                           <AwaitingClientActions

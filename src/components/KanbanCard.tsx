@@ -39,7 +39,11 @@ interface KanbanCardProps {
   awaitingClient?: boolean;
   awaitingClientSince?: string | null;
   awaitingClientResendCount?: number | null;
+  /** Próximo retorno automático ao fluxo (ex.: "amanhã 10:00"). */
+  awaitingClientNextReturn?: string | null;
+  awaitingClientReturnLimitReached?: boolean;
   awaitingClientActions?: React.ReactNode;
+
   /** ISO do prazo estourado — habilita o selo "Atrasado · Xd". */
   overdueSince?: string | null;
 
@@ -102,10 +106,14 @@ const SentToClientPill = ({
   since,
   resendCount,
   demandId,
+  nextReturnLabel,
+  returnLimitReached,
 }: {
   since?: string | null;
   resendCount?: number | null;
   demandId?: string | null;
+  nextReturnLabel?: string | null;
+  returnLimitReached?: boolean;
 }) => {
   const at = fmtDateTime(since);
   const sendNumber = Math.max(1, (Number(resendCount) || 0) + 1);
@@ -115,6 +123,11 @@ const SentToClientPill = ({
       <span className="min-w-0 flex-1 whitespace-normal break-words">
         <span>Enviado pela {sendNumber}ª vez ao cliente</span>
         {at && <span className="block font-semibold">em {at}</span>}
+        {returnLimitReached ? (
+          <span className="block opacity-80">Limite de reenvios atingido · sem retorno automático</span>
+        ) : nextReturnLabel ? (
+          <span className="block opacity-80">Retorna ao fluxo {nextReturnLabel}</span>
+        ) : null}
       </span>
       <ClientSendHistoryPopover
         demandId={demandId}
@@ -126,6 +139,7 @@ const SentToClientPill = ({
   );
 
 };
+
 
 
 interface InlineDatesProps {
@@ -224,7 +238,10 @@ const KanbanCard = ({
   awaitingClient = false,
   awaitingClientSince = null,
   awaitingClientResendCount = 0,
+  awaitingClientNextReturn = null,
+  awaitingClientReturnLimitReached = false,
   awaitingClientActions,
+
   overdueSince = null,
 
   onClick,
@@ -317,7 +334,14 @@ const KanbanCard = ({
 
       {awaitingClient ? (
         <CardContent className="px-2.5 pb-2.5 pt-0 space-y-1">
-          <SentToClientPill since={awaitingClientSince} resendCount={awaitingClientResendCount} demandId={_cardId} />
+          <SentToClientPill
+            since={awaitingClientSince}
+            resendCount={awaitingClientResendCount}
+            demandId={_cardId}
+            nextReturnLabel={awaitingClientNextReturn}
+            returnLimitReached={awaitingClientReturnLimitReached}
+          />
+
           {awaitingClientActions && (
             <div className="w-full">{awaitingClientActions}</div>
 
