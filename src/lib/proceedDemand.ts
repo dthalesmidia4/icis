@@ -5,6 +5,7 @@ import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
 import { isReviewFunction } from "@/lib/flowFunctions";
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
+import { applyFlowReactivation } from "@/lib/reactivateDemand";
 
 
 /**
@@ -743,6 +744,7 @@ export async function jumpToFunction({
       current_function_key: target.function_key,
       client_wait_started_at: new Date().toISOString(),
     };
+    await applyFlowReactivation(updateWait, demandId, keep);
     const { error } = await supabase.from("demands").update(updateWait).eq("id", demandId);
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: previous, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
@@ -816,6 +818,7 @@ export async function jumpToFunction({
     updatePayload.additional_assignees = [];
   }
   await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key);
+  await applyFlowReactivation(updatePayload, demandId, picked.userId);
   const { error } = await supabase
     .from("demands")
     .update(updatePayload)
@@ -916,6 +919,7 @@ export async function proceedDemand({
       current_function_key: nextFn.function_key,
       client_wait_started_at: new Date().toISOString(),
     };
+    await applyFlowReactivation(waitPayload, demandId, keepAssignee);
     const { error: upErr } = await supabase
       .from("demands")
       .update(waitPayload)
@@ -966,6 +970,7 @@ export async function proceedDemand({
     proceedPayload.additional_assignees = [];
   }
   await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key);
+  await applyFlowReactivation(proceedPayload, demandId, picked.userId);
   const { error: upErr } = await supabase
     .from("demands")
     .update(proceedPayload)
@@ -1143,6 +1148,7 @@ export async function regressDemand({
   if (currentFunctionKey === "captar") {
     regressPayload.additional_assignees = [];
   }
+  await applyFlowReactivation(regressPayload, demandId, picked.userId);
   const { error: upErr } = await supabase
     .from("demands")
     .update(regressPayload)
