@@ -375,16 +375,14 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
     const awaitingRow = (fnRows || []).find((r: any) => r.function_key === "aguardando_cliente");
     const ac = (awaitingRow as any)?.config?.client_return;
-    if (ac && typeof ac === "object") {
-      setAwaitingConfig({
-        wait_hours: Number(ac.wait_hours) || 24,
-        return_times: Array.isArray(ac.return_times) && ac.return_times.length > 0 ? ac.return_times : ["10:00"],
-        max_resends: ac.max_resends == null ? null : Number(ac.max_resends),
-        timezone: ac.timezone || "America/Sao_Paulo",
-      });
-    }
+    const normalized = normalizeClientReturn(ac);
+    setAwaitingConfig(normalized);
+    // A UI mostrava 10:00 como padrão apenas em memória: sem o registro salvo,
+    // a rotina de retorno automático ignorava o tenant. Persiste na abertura.
+    ensureClientReturnPersisted(tenantId, area, normalized).catch(() => {});
     setLoading(false);
   };
+
 
   useEffect(() => {
     if (open && agencyId) load(agencyId);
