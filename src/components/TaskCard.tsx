@@ -1934,27 +1934,28 @@ export default function TaskCard({
                         const nextFn = evaluation.nextFunctionKey;
                         evaluation.softMessages.forEach((m) => toast.warning(m));
                         if (evaluation.remapMessage) toast.info(evaluation.remapMessage);
+                        if (isDraft || !card.tenant_id) {
+                          onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
+                          await onSave("assigned_to", newVal);
+                          return;
+                        }
+                        // Ponto único de gravação: desarquiva e tira do status final
+                        // quando o card volta ao fluxo, além de registrar o histórico.
+                        const { error: reassignError } = await applyReassign({
+                          tenantId: card.tenant_id,
+                          card: card as any,
+                          newAssignedTo: newVal || null,
+                          nextFunctionKey: nextFn,
+                          direction: evaluation.direction,
+                          historySource: "task_card",
+                        });
+                        if (reassignError) {
+                          console.error("[TaskCard] applyReassign", reassignError);
+                          toast.error("Não foi possível transferir a demanda");
+                          return;
+                        }
                         onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
-                        await onSave("assigned_to", newVal);
-                        if (nextFn !== (card.current_function_key ?? null) && !isDraft) {
-                          try {
-                            await supabase
-                              .from("demands")
-                              .update({ current_function_key: nextFn } as any)
-                              .eq("id", card.id);
-                          } catch (e) { /* noop */ }
-                        }
-                        if (!isDraft && card.tenant_id) {
-                          await recordFlowHistory({
-                            tenantId: card.tenant_id,
-                            demandId: card.id,
-                            action: evaluation.direction === "backward" ? "moved_back" : "manual_assignment",
-                            fromUserId: card.assigned_to ?? null,
-                            toUserId: newVal || null,
-                            fromFunctionKey: card.current_function_key ?? null,
-                            toFunctionKey: nextFn,
-                          });
-                        }
+
 
                       }}
                       disabled={readOnly}
