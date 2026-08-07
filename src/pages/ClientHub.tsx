@@ -28,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClientPeriodWorkspace } from "@/hooks/useClientPeriodWorkspace";
 import ClientHubHeader from "@/components/client-hub/ClientHubHeader";
 import ClientHubActionBar from "@/components/client-hub/ClientHubActionBar";
-import { buildClientBrandStyle } from "@/lib/clientBrandTheme";
+import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrandTheme";
 
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
@@ -137,6 +137,8 @@ const ClientHub = () => {
   // Logo do cliente (tenant_companies.logo_url) — usada como default de logo_ref_url
   // ao criar cenas Seedance, para que o preset visual do cliente seja respeitado.
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
+  const [clientBrandColors, setClientBrandColors] = useState<ClientBrandColors | null>(null);
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sceneIndex: number; slot: 'main_character' | 'scene_ref' | 'logo' } | null>(null);
   const [uploadingRef, setUploadingRef] = useState<string | null>(null); // key = `${sceneIdx}:${kind}`
@@ -1133,16 +1135,23 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     const fetchRequirements = async () => {
       const { data } = await supabase
         .from('tenant_companies')
-        .select('content_requirements, logo_url')
+        .select('content_requirements, logo_url, brand_primary_color, brand_secondary_color, brand_highlight_color, brand_text_color')
         .eq('id', selectedClient.id)
         .single();
       if (data) {
         setContentRequirements((data as any).content_requirements || '');
         setClientLogoUrl(((data as any).logo_url as string | null) || null);
+        setClientBrandColors({
+          brand_primary_color: (data as any).brand_primary_color ?? null,
+          brand_secondary_color: (data as any).brand_secondary_color ?? null,
+          brand_highlight_color: (data as any).brand_highlight_color ?? null,
+          brand_text_color: (data as any).brand_text_color ?? null,
+        });
       }
     };
     fetchRequirements();
   }, [selectedClient?.id, tenantId]);
+
 
   const reloadReviewCounts = async () => {
     if (!selectedClient || !tenantId) return;
@@ -1865,7 +1874,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     : allActionCards.filter(card => canAccessButton(card.id));
 
   return (
-    <div className="pb-8" style={buildClientBrandStyle(selectedClient as any)}>
+    <div className="pb-8" style={buildClientBrandStyle(clientBrandColors)}>
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
         <ClientHubHeader
           clientName={displayName}
@@ -1879,7 +1888,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           onPlanPeriod={() => setPlanPeriodModalOpen(true)}
           planPeriodDisabled={!hasVisualIdentity}
           planPeriodDisabledReason={planPeriodBlockedMessage}
-          backTo="/home"
+          
           actionsSlot={<ClientHubActionBar actions={actionCards as any} />}
         />
 
