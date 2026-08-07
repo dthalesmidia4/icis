@@ -1,6 +1,5 @@
 import { ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import BackButton from "@/components/BackButton";
 import type { CurrentPeriodInfo } from "@/lib/periodCounts";
 
 
