@@ -9,7 +9,11 @@ export interface CurrentPeriodInfo {
   ultra_plan: any[];
   rejected_plan: any[];
   operational_status: string | null;
+  budget?: string | null;
+  paid_traffic_budget?: string | null;
+  objective?: string | null;
 }
+
 
 /**
  * Retorna o período "atual" do cliente: aquele com operational_status = 'em_andamento'.
@@ -26,7 +30,7 @@ export async function getCurrentPeriodForClient(params: {
   const { data, error } = await supabase
     .from("period_plans")
     .select(
-      "id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan, operational_status"
+      "id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan, operational_status, budget, paid_traffic_budget, objective"
     )
     .eq("company_id", clientId)
     .eq("tenant_id", tenantId)
@@ -46,8 +50,12 @@ export async function getCurrentPeriodForClient(params: {
     ultra_plan: Array.isArray((data as any).ultra_plan) ? (data as any).ultra_plan : [],
     rejected_plan: Array.isArray((data as any).rejected_plan) ? (data as any).rejected_plan : [],
     operational_status: (data as any).operational_status ?? null,
+    budget: (data as any).budget ?? null,
+    paid_traffic_budget: (data as any).paid_traffic_budget ?? null,
+    objective: (data as any).objective ?? null,
   };
 }
+
 
 export interface PeriodDemandReviewCounts {
   periodPlanId: string | null;
