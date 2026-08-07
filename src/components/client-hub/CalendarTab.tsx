@@ -194,7 +194,9 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
 
   return (
     <>
+      {controls}
       {/* Grade semanal (desktop) */}
+
       <div className="hidden overflow-hidden border md:block">
         <div className="grid grid-cols-7 bg-foreground">
           {WEEKDAYS.map((w) => (
