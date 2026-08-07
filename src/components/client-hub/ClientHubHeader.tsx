@@ -65,7 +65,7 @@ export default function ClientHubHeader({
       {/* Topbar */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="flex min-w-0 items-center gap-3">
-          <BackButton to={backTo} />
+          
           <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-sm font-black tracking-tight text-primary-foreground">
             {initialsOf(clientName)}
           </span>
