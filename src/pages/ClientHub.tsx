@@ -1133,16 +1133,23 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     const fetchRequirements = async () => {
       const { data } = await supabase
         .from('tenant_companies')
-        .select('content_requirements, logo_url')
+        .select('content_requirements, logo_url, brand_primary_color, brand_secondary_color, brand_highlight_color, brand_text_color')
         .eq('id', selectedClient.id)
         .single();
       if (data) {
         setContentRequirements((data as any).content_requirements || '');
         setClientLogoUrl(((data as any).logo_url as string | null) || null);
+        setClientBrandColors({
+          brand_primary_color: (data as any).brand_primary_color ?? null,
+          brand_secondary_color: (data as any).brand_secondary_color ?? null,
+          brand_highlight_color: (data as any).brand_highlight_color ?? null,
+          brand_text_color: (data as any).brand_text_color ?? null,
+        });
       }
     };
     fetchRequirements();
   }, [selectedClient?.id, tenantId]);
+
 
   const reloadReviewCounts = async () => {
     if (!selectedClient || !tenantId) return;
