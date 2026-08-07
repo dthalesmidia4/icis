@@ -1,4 +1,4 @@
-import { CalendarDays, ClipboardList, Layers, Sparkles, TrendingUp } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CurrentPeriodInfo } from "@/lib/periodCounts";
 
@@ -11,11 +11,14 @@ const formatShort = (iso: string | null) => {
   return `${String(d).padStart(2, "0")} ${MONTHS[m - 1]}`;
 };
 
-interface Metric {
-  label: string;
-  value: string | number;
-  icon: React.ElementType;
-}
+const initialsOf = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter((w) => w.length > 2)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase() || name.slice(0, 2).toUpperCase();
 
 interface ClientHubHeaderProps {
   clientName: string;
@@ -44,79 +47,111 @@ export default function ClientHubHeader({
   planPeriodDisabled,
   planPeriodDisabledReason,
 }: ClientHubHeaderProps) {
-  const metrics: Metric[] = [
-    { label: "Publicações", value: publicationsCount, icon: Layers },
-    { label: "Dias com conteúdo", value: daysCount, icon: CalendarDays },
-    { label: "Criativos", value: creativesCount, icon: Sparkles },
-    { label: "Entregues", value: deliveredCount, icon: TrendingUp },
+  const metrics = [
+    { label: "publicações principais", value: publicationsCount },
+    { label: "dias com conteúdo", value: daysCount },
+    { label: "criativos do ciclo", value: creativesCount },
+    { label: "entregas concluídas", value: deliveredCount },
   ];
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border bg-card">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10" />
-      <div className="relative p-5 sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+    <div className="space-y-10">
+      {/* Topbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-sm font-black tracking-tight text-primary-foreground">
+            {initialsOf(clientName)}
+          </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Workspace do cliente
+            <p className="truncate text-[13px] font-black uppercase tracking-[0.12em]">{clientName}</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {period?.period_title || "Sem período em andamento"}
             </p>
-            <h1 className="mt-2 text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight break-words">
-              {clientName}
-            </h1>
-
-            {period ? (
-              <>
-                <p className="mt-3 max-w-2xl text-sm sm:text-base text-muted-foreground">
-                  {period.period_title || "Período em andamento"}
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5">
-                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs sm:text-sm font-semibold tracking-wide text-primary">
-                    {formatShort(period.period_start)} — {formatShort(period.period_end)}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="mt-4 max-w-xl rounded-xl border border-dashed p-4">
-                <p className="text-sm font-medium">Nenhum período em andamento</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Planeje um período para ativar o cronograma, o calendário e a lista de demandas deste cliente.
-                </p>
-                <Button
-                  size="sm"
-                  className="mt-3"
-                  onClick={onPlanPeriod}
-                  disabled={planPeriodDisabled}
-                  title={planPeriodDisabled ? planPeriodDisabledReason : undefined}
-                >
-                  Planejar período
-                </Button>
-              </div>
-            )}
           </div>
+        </div>
 
+        <div className="flex items-center gap-4">
+          {period && (
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground">
+                {formatShort(period.period_start)}
+              </span>
+              <span className="h-px w-8 bg-border sm:w-12" />
+              <span className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground">
+                {formatShort(period.period_end)}
+              </span>
+              <span className="rounded-sm bg-primary px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-primary-foreground">
+                Campanha
+              </span>
+            </div>
+          )}
           {canOpenRegistration && (
-            <Button variant="outline" size="sm" className="shrink-0 gap-2" onClick={onOpenRegistration}>
-              <ClipboardList className="h-4 w-4" />
-              Cadastro do cliente
+            <Button variant="ghost" size="sm" className="gap-2 text-xs" onClick={onOpenRegistration}>
+              <ClipboardList className="h-3.5 w-3.5" />
+              Cadastro
             </Button>
           )}
         </div>
+      </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Hero editorial */}
+      <div className="grid gap-8 lg:grid-cols-[1.7fr_minmax(220px,0.9fr)] lg:items-start">
+        <div className="min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-primary">
+            Plano operacional{period?.period_title ? ` · ${period.period_title}` : ""}
+          </p>
+
+          {period ? (
+            <>
+              <h1 className="mt-5 text-4xl font-black leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl">
+                Cronograma de
+                <br />
+                conteúdo
+                <br />
+                <span className="text-primary">pronto para executar.</span>
+              </h1>
+              <p className="mt-6 max-w-md text-sm leading-relaxed text-muted-foreground">
+                Demandas, textos, captação, criativos e validações organizados do início do período
+                até o último dia de publicação.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="mt-5 text-4xl font-black leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl">
+                Prepare o ciclo
+                <br />
+                <span className="text-primary">antes de produzir.</span>
+              </h1>
+              <ol className="mt-6 max-w-md space-y-2 text-sm text-muted-foreground">
+                {["Anamnese", "Estratégia geral", "Identidade visual", "Planejar período"].map((s, i) => (
+                  <li key={s} className="flex gap-3">
+                    <span className="font-black tabular-nums text-primary">{i + 1}.</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ol>
+              <Button
+                size="sm"
+                className="mt-6"
+                onClick={onPlanPeriod}
+                disabled={planPeriodDisabled}
+                title={planPeriodDisabled ? planPeriodDisabledReason : undefined}
+              >
+                Planejar período
+              </Button>
+            </>
+          )}
+        </div>
+
+        <div className="divide-y border-y">
           {metrics.map((m) => (
-            <div key={m.label} className="rounded-xl border bg-background/70 p-3 sm:p-4">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <m.icon className="h-3.5 w-3.5" />
-                <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider">
-                  {m.label}
-                </span>
-              </div>
-              <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{m.value}</p>
+            <div key={m.label} className="flex items-baseline gap-3 py-4">
+              <span className="text-3xl font-black tabular-nums leading-none">{m.value}</span>
+              <span className="text-[11px] leading-tight text-muted-foreground">{m.label}</span>
             </div>
           ))}
         </div>
       </div>
-    </section>
+    </div>
   );
 }
