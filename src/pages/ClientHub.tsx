@@ -11,7 +11,7 @@ import { useAvulsoDraft } from "@/hooks/useAvulsoDraft";
 import CostBadge from "@/components/avulso/CostBadge";
 import ReferencePickerModal from "@/components/avulso/ReferencePickerModal";
 import { toast } from "sonner";
-import BackButton from "@/components/BackButton";
+
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { getPeriodDemandReviewCounts } from "@/lib/periodCounts";
@@ -28,6 +28,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClientPeriodWorkspace } from "@/hooks/useClientPeriodWorkspace";
 import ClientHubHeader from "@/components/client-hub/ClientHubHeader";
 import ClientHubActionBar from "@/components/client-hub/ClientHubActionBar";
+import { buildClientBrandStyle } from "@/lib/clientBrandTheme";
+
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
 import DemandsTab from "@/components/client-hub/DemandsTab";
@@ -1863,10 +1865,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     : allActionCards.filter(card => canAccessButton(card.id));
 
   return (
-    <div className="pb-8">
+    <div className="pb-8" style={buildClientBrandStyle(selectedClient as any)}>
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
-        <BackButton to="/home" />
-
         <ClientHubHeader
           clientName={displayName}
           period={workspace.period}
@@ -1879,9 +1879,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           onPlanPeriod={() => setPlanPeriodModalOpen(true)}
           planPeriodDisabled={!hasVisualIdentity}
           planPeriodDisabledReason={planPeriodBlockedMessage}
+          backTo="/home"
+          actionsSlot={<ClientHubActionBar actions={actionCards as any} />}
         />
 
-        <ClientHubActionBar actions={actionCards as any} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">

@@ -94,9 +94,43 @@ export default function DemandsTab({
     { id: "planejadas", label: "Planejadas", count: rows.filter((r) => r.planned).length },
   ];
 
+  const byType = planItems.reduce<Record<string, number>>((acc, item) => {
+    const key = item.tipo || "Outros";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const typeEntries = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {!!typeEntries.length && (
+        <section>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+            Arquitetura do período
+          </p>
+          <div className="mt-4 divide-y border-y">
+            {typeEntries.map(([type, count]) => {
+              const pct = Math.round((count / planItems.length) * 100);
+              return (
+                <div key={type} className="py-3">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <span className="text-sm font-bold">{type}</span>
+                    <span className="text-xs font-bold tabular-nums text-muted-foreground">
+                      {count} · {pct}%
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1 overflow-hidden bg-muted">
+                    <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+
         <div className="w-full lg:max-w-xs">
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
             Buscar
