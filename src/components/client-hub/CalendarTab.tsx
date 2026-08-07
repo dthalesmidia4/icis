@@ -44,7 +44,10 @@ interface CalendarTabProps {
 }
 
 export default function CalendarTab({ period, planItems, demands }: CalendarTabProps) {
-  const { byDate, weeks } = useMemo(() => {
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+
+  const allEntries = useMemo(() => {
     const entries: CalendarEntry[] = [];
     const demandTitles = new Set(demands.map((d) => (d.title || "").trim()));
 
@@ -63,6 +66,28 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
     planItems.forEach((i) => {
       if (!i.data || demandTitles.has(i.titulo)) return;
       entries.push({ date: i.data, title: i.titulo, type: i.tipo, time: null, isDemand: false });
+    });
+
+    return entries;
+  }, [demands, planItems]);
+
+  const types = useMemo(() => {
+    const map = new Map<string, number>();
+    allEntries.forEach((e) => {
+      const key = (e.type || "Sem tipo").trim();
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [allEntries]);
+
+  const { byDate, weeks } = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const entries = allEntries.filter((e) => {
+      if (term && !e.title.toLowerCase().includes(term) && !(e.type || "").toLowerCase().includes(term)) {
+        return false;
+      }
+      if (typeFilter !== "all" && (e.type || "Sem tipo").trim() !== typeFilter) return false;
+      return true;
     });
 
     const map = new Map<string, CalendarEntry[]>();
@@ -95,24 +120,75 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
     if (week.length) result.push(week);
 
     return { byDate: map, weeks: result };
-  }, [demands, planItems, period]);
+  }, [allEntries, period, search, typeFilter]);
 
   const today = todayIso();
   const sortedDays = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
+  const controls = (
+    <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="w-full lg:max-w-xs">
+        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+          Buscar
+        </p>
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tema, tipo ou demanda"
+          className="h-11 rounded-lg"
+        />
+      </div>
+      <div className="flex flex-wrap gap-2 lg:justify-end">
+        <button
+          type="button"
+          onClick={() => setTypeFilter("all")}
+          className={cn(
+            "rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors",
+            typeFilter === "all"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+          )}
+        >
+          Todos <span className="tabular-nums opacity-70">{allEntries.length}</span>
+        </button>
+        {types.map(([type, count]) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setTypeFilter(type)}
+            className={cn(
+              "rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors",
+              typeFilter === type
+                ? "border-primary bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+            )}
+          >
+            {type} <span className="tabular-nums opacity-70">{count}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   if (!sortedDays.length) {
     return (
-      <div className="border-y py-14 text-center">
-        <CalendarDays className="mx-auto h-6 w-6 text-muted-foreground" />
-        <p className="mt-3 text-sm font-bold">Nenhuma data mapeada</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {period
-            ? "As demandas deste período ainda não têm datas de publicação."
-            : "Planeje um período para ver o calendário do cliente."}
-        </p>
-      </div>
+      <>
+        {controls}
+        <div className="border-y py-14 text-center">
+          <CalendarDays className="mx-auto h-6 w-6 text-muted-foreground" />
+          <p className="mt-3 text-sm font-bold">Nenhuma data mapeada</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {search || typeFilter !== "all"
+              ? "Nenhum conteúdo corresponde à busca ou ao filtro selecionado."
+              : period
+                ? "As demandas deste período ainda não têm datas de publicação."
+                : "Planeje um período para ver o calendário do cliente."}
+          </p>
+        </div>
+      </>
     );
   }
+
 
   return (
     <>
