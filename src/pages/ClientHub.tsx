@@ -1864,7 +1864,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   return (
     <div className="pb-8">
-      <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
         <BackButton to="/home" />
 
         <ClientHubHeader
@@ -1884,14 +1884,25 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         <ClientHubActionBar actions={actionCards as any} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="estrategia">Estratégia</TabsTrigger>
-            <TabsTrigger value="calendario">Calendário</TabsTrigger>
-            <TabsTrigger value="demandas">Demandas</TabsTrigger>
-            <TabsTrigger value="cuidados">Cuidados fundamentais</TabsTrigger>
+          <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">
+            {[
+              { value: "estrategia", label: "Estratégia" },
+              { value: "calendario", label: "Calendário" },
+              { value: "demandas", label: "Demandas" },
+              { value: "cuidados", label: "Cuidados fundamentais" },
+            ].map((t) => (
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className="relative rounded-none border-b-2 border-transparent bg-transparent px-0 pb-3 pt-0 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+              >
+                {t.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
-          <div className="mt-4">
+          <div className="mt-8">
+
             <TabsContent value="estrategia" className="m-0">
               <StrategyTab
                 period={workspace.period}
