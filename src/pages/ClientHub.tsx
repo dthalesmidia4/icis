@@ -1888,7 +1888,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           onPlanPeriod={() => setPlanPeriodModalOpen(true)}
           planPeriodDisabled={!hasVisualIdentity}
           planPeriodDisabledReason={planPeriodBlockedMessage}
-          backTo="/home"
+          
           actionsSlot={<ClientHubActionBar actions={actionCards as any} />}
         />
 
