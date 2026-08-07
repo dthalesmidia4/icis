@@ -1,6 +1,10 @@
-import { ShieldCheck, Save, Users, FileText } from "lucide-react";
+import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{children}</h2>
+);
 
 interface GuidelinesTabProps {
   requirements: string;
@@ -25,87 +29,78 @@ export default function GuidelinesTab({
     .filter(Boolean);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-      <div className="space-y-4">
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">Cuidados fundamentais</h2>
-          </div>
+    <div className="grid gap-10 lg:grid-cols-[1.7fr_1fr] lg:gap-14">
+      <div className="space-y-10">
+        <section>
+          <SectionTitle>Cuidados fundamentais</SectionTitle>
           {items.length ? (
-            <ol className="mt-4 space-y-3">
+            <ol className="mt-5 divide-y border-y">
               {items.map((item, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary tabular-nums">
-                    {i + 1}
+                <li key={i} className="flex gap-5 py-4">
+                  <span className="text-2xl font-black leading-none tabular-nums text-primary">
+                    {String(i + 1).padStart(2, "0")}
                   </span>
                   <p className="text-sm leading-relaxed text-muted-foreground">{item}</p>
                 </li>
               ))}
             </ol>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-4 text-sm text-muted-foreground">
               Nenhuma exigência de conteúdo registrada para este cliente.
             </p>
           )}
-        </div>
+        </section>
 
-        <div className="rounded-xl border bg-card p-5">
-          <h3 className="text-sm font-bold uppercase tracking-wider">Editar exigências</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+        <section>
+          <SectionTitle>Editar exigências</SectionTitle>
+          <p className="mt-2 text-xs text-muted-foreground">
             Uma exigência por linha. Essas regras são injetadas na geração de conteúdo por IA.
           </p>
           <Textarea
             value={requirements}
             onChange={(e) => onChangeRequirements(e.target.value)}
             rows={8}
-            className="mt-3"
+            className="mt-4 rounded-lg"
             placeholder="Ex.: Nunca prometer cura ou prazo garantido."
           />
-          <Button size="sm" className="mt-3 gap-2" onClick={onSave} disabled={saving}>
+          <Button size="sm" className="mt-4 gap-2" onClick={onSave} disabled={saving}>
             <Save className="h-4 w-4" />
             {saving ? "Salvando..." : "Salvar exigências"}
           </Button>
-        </div>
+        </section>
       </div>
 
-      <div className="space-y-4">
-        <div className="rounded-xl border bg-primary/5 p-5">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">Responsáveis do período</h2>
-          </div>
+      <div className="space-y-10 lg:border-l lg:pl-10">
+        <section>
+          <SectionTitle>Responsáveis do período</SectionTitle>
           {responsibles.length ? (
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-4 divide-y border-y">
               {responsibles.map((r) => (
-                <li key={r} className="rounded-lg border bg-background px-3 py-2 text-sm font-medium">
+                <li key={r} className="py-3 text-sm font-bold">
                   {r}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-4 text-sm text-muted-foreground">
               Nenhum responsável atribuído às demandas deste período.
             </p>
           )}
-        </div>
+        </section>
 
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">Fontes</h2>
-          </div>
-          <p className="mt-3 text-sm text-muted-foreground">
+        <section>
+          <SectionTitle>Fontes</SectionTitle>
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
             As diretrizes vêm das exigências de conteúdo do cadastro e da anamnese estratégica do cliente.
           </p>
           <button
             type="button"
             onClick={onOpenAnamnesis}
-            className="mt-3 text-xs font-semibold text-primary hover:underline"
+            className="mt-5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
           >
             Abrir anamnese estratégica
           </button>
-        </div>
+        </section>
       </div>
     </div>
   );
