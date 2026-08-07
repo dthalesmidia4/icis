@@ -137,6 +137,8 @@ const ClientHub = () => {
   // Logo do cliente (tenant_companies.logo_url) — usada como default de logo_ref_url
   // ao criar cenas Seedance, para que o preset visual do cliente seja respeitado.
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
+  const [clientBrandColors, setClientBrandColors] = useState<ClientBrandColors | null>(null);
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sceneIndex: number; slot: 'main_character' | 'scene_ref' | 'logo' } | null>(null);
   const [uploadingRef, setUploadingRef] = useState<string | null>(null); // key = `${sceneIdx}:${kind}`
