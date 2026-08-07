@@ -1821,61 +1821,74 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   return (
     <div className="pb-8">
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
-        <div className="mb-8 sm:mb-12 text-center relative">
-          <div className="absolute left-0 top-0">
-            <BackButton to="/home" />
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        <BackButton to="/home" />
+
+        <ClientHubHeader
+          clientName={displayName}
+          period={workspace.period}
+          publicationsCount={workspacePublications}
+          daysCount={workspaceDays}
+          creativesCount={workspaceCreatives}
+          deliveredCount={workspaceDelivered}
+          canOpenRegistration={isAdmin || canAccessButton('client_cadastro' as ClientHubButtonId)}
+          onOpenRegistration={() => navigate(`/clientes/${selectedClient.id}`)}
+          onPlanPeriod={() => setPlanPeriodModalOpen(true)}
+          planPeriodDisabled={!hasVisualIdentity}
+          planPeriodDisabledReason={planPeriodBlockedMessage}
+        />
+
+        <ClientHubActionBar actions={actionCards as any} />
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full justify-start overflow-x-auto">
+            <TabsTrigger value="estrategia">Estratégia</TabsTrigger>
+            <TabsTrigger value="calendario">Calendário</TabsTrigger>
+            <TabsTrigger value="demandas">Demandas</TabsTrigger>
+            <TabsTrigger value="cuidados">Cuidados fundamentais</TabsTrigger>
+          </TabsList>
+
+          <div className="mt-4">
+            <TabsContent value="estrategia" className="m-0">
+              <StrategyTab
+                period={workspace.period}
+                planItems={workspace.planItems}
+                strategyText={workspace.strategyText}
+                onOpenStrategy={() => navigate('/strategies')}
+                onOpenPeriodHistory={() => navigate('/plan-period?tab=history')}
+              />
+            </TabsContent>
+            <TabsContent value="calendario" className="m-0">
+              <CalendarTab
+                period={workspace.period}
+                planItems={workspace.planItems}
+                demands={workspace.demands}
+              />
+            </TabsContent>
+            <TabsContent value="demandas" className="m-0">
+              <DemandsTab
+                planItems={workspace.planItems}
+                demands={workspace.demands}
+                statusNames={workspace.statusNames}
+                stageNames={workspace.stageNames}
+                memberNames={workspace.memberNames}
+                onOpenEvolution={() => navigate('/client-evolution')}
+                onOpenOverview={() => navigate('/kanban-central')}
+              />
+            </TabsContent>
+            <TabsContent value="cuidados" className="m-0">
+              <GuidelinesTab
+                requirements={contentRequirements}
+                onChangeRequirements={setContentRequirements}
+                onSave={handleSaveContentRequirements}
+                saving={savingRequirements}
+                responsibles={workspaceResponsibles}
+                onOpenAnamnesis={() => navigate('/client-guide')}
+              />
+            </TabsContent>
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 break-words px-2">
-            {displayName}
-          </h1>
-          
-          {(isAdmin || canAccessButton('client_cadastro' as ClientHubButtonId)) && (
-            <button
-              onClick={() => navigate(`/clientes/${selectedClient.id}`)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-full transition-colors"
-            >
-              <ClipboardList className="w-4 h-4 text-primary-foreground" />
-              <span className="text-xs sm:text-sm font-medium text-primary-foreground">Mostrar Cadastro do Cliente</span>
-            </button>
-          )}
+        </Tabs>
 
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {actionCards.map((card, index) => {
-            const isDisabled = 'disabled' in card && card.disabled;
-            const tooltip = isDisabled && 'disabledTooltip' in card ? (card as any).disabledTooltip : undefined;
-            return (
-            <Card
-              key={index}
-              title={tooltip}
-              className={`group relative overflow-hidden transition-all duration-300 border-2 active:scale-[0.98] ${isDisabled ? 'cursor-not-allowed opacity-50 grayscale' : 'cursor-pointer hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 hover:border-primary/50'}`}
-              onClick={() => {
-                if (isDisabled) {
-                  toast.error(tooltip || 'Ação indisponível');
-                  return;
-                }
-                card.action();
-              }}
-            >
-              <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
-              {'badge' in card && card.badge && (
-                <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{card.badge}</div>
-              )}
-              <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                  <card.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-                </div>
-                <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">{card.title}</h3>
-                {isDisabled && tooltip && (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 px-2 leading-tight">{tooltip}</p>
-                )}
-              </div>
-            </Card>
-            );
-          })}
-        </div>
 
         {/* Modal Hub Conteúdo Avulso - Criar ou Histórico */}
         <Dialog open={contentHubModalOpen} onOpenChange={setContentHubModalOpen}>
