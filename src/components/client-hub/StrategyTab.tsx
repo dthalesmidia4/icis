@@ -14,18 +14,12 @@ interface StrategyTabProps {
 }
 
 export default function StrategyTab({
+  period,
   planItems,
   strategyText,
   onOpenStrategy,
   onOpenPeriodHistory,
 }: StrategyTabProps) {
-  const byType = planItems.reduce<Record<string, number>>((acc, item) => {
-    const key = item.tipo || "Outros";
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-  const typeEntries = Object.entries(byType).sort((a, b) => b[1] - a[1]);
-
   const channels = [
     ...new Set(
       planItems
@@ -39,34 +33,75 @@ export default function StrategyTab({
     ...new Set(planItems.map((i) => (i.objetivo || "").trim()).filter(Boolean)),
   ].slice(0, 6);
 
+  const paidBudget = (period?.paid_traffic_budget || "").trim();
+  const generalBudget = (period?.budget || "").trim();
+  const periodObjective = (period?.objective || "").trim();
+  const hasPaidMedia = !!(paidBudget || generalBudget);
+
   return (
     <div className="grid gap-10 lg:grid-cols-[1.7fr_1fr] lg:gap-14">
       <div className="space-y-10">
         <section>
-          <SectionTitle>Arquitetura do período</SectionTitle>
-          {typeEntries.length ? (
-            <div className="mt-5 divide-y border-y">
-              {typeEntries.map(([type, count]) => {
-                const pct = Math.round((count / planItems.length) * 100);
-                return (
-                  <div key={type} className="py-4">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <span className="text-base font-bold">{type}</span>
-                      <span className="text-xs font-bold tabular-nums text-muted-foreground">
-                        {count} · {pct}%
-                      </span>
-                    </div>
-                    <div className="mt-2 h-1 overflow-hidden bg-muted">
-                      <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <SectionTitle>Estratégia geral</SectionTitle>
+          {strategyText ? (
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+              {strategyText.length > 1600 ? `${strategyText.slice(0, 1600)}…` : strategyText}
+            </p>
           ) : (
-            <p className="mt-4 text-sm text-muted-foreground">Sem itens no plano deste período ainda.</p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Nenhuma estratégia registrada para este cliente.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={onOpenStrategy}
+            className="mt-5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
+          >
+            Abrir estratégia completa
+          </button>
+        </section>
+      </div>
+
+      <div className="space-y-10">
+        {/* Mídia paga */}
+        <section className="bg-primary p-6 text-primary-foreground">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Mídia paga</p>
+          {hasPaidMedia ? (
+            <>
+              <h3 className="mt-3 text-xl font-black leading-tight">
+                Fazer cada anúncio cumprir uma função.
+              </h3>
+              <dl className="mt-5 space-y-3 text-sm">
+                {paidBudget && (
+                  <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                    <dt className="opacity-80">Verba de tráfego pago</dt>
+                    <dd className="font-bold">{paidBudget}</dd>
+                  </div>
+                )}
+                {generalBudget && (
+                  <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                    <dt className="opacity-80">Orçamento do período</dt>
+                    <dd className="font-bold">{generalBudget}</dd>
+                  </div>
+                )}
+              </dl>
+              {periodObjective && (
+                <p className="mt-4 text-xs leading-relaxed opacity-85">{periodObjective}</p>
+              )}
+            </>
+          ) : (
+            <>
+              <h3 className="mt-3 text-xl font-black leading-tight">
+                Nenhum plano de mídia paga neste período.
+              </h3>
+              <p className="mt-4 text-xs leading-relaxed opacity-85">
+                Quando o período tiver verba de tráfego pago definida no planejamento, a distribuição
+                dos anúncios aparece aqui.
+              </p>
+            </>
           )}
         </section>
+
 
         <section>
           <SectionTitle>Estratégia geral</SectionTitle>
