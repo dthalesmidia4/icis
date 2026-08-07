@@ -51,6 +51,8 @@ export default function ClientHubHeader({
   onPlanPeriod,
   planPeriodDisabled,
   planPeriodDisabledReason,
+  backTo,
+  actionsSlot,
 }: ClientHubHeaderProps) {
   const metrics = [
     { label: "publicações principais", value: publicationsCount },
@@ -63,7 +65,8 @@ export default function ClientHubHeader({
     <div className="space-y-10">
       {/* Topbar */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <BackButton to={backTo} />
           <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-sm font-black tracking-tight text-primary-foreground">
             {initialsOf(clientName)}
           </span>
@@ -96,8 +99,10 @@ export default function ClientHubHeader({
               Cadastro
             </Button>
           )}
+          {actionsSlot}
         </div>
       </div>
+
 
       {/* Hero editorial */}
       <div className="grid gap-8 lg:grid-cols-[1.7fr_minmax(220px,0.9fr)] lg:items-start">
