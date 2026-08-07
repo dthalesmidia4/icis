@@ -1,16 +1,20 @@
 import { useMemo, useState } from "react";
-import { Search, Activity } from "lucide-react";
+import { ArrowRight, Activity } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { cn } from "@/lib/utils";
 
-const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const MONTHS = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
-const shortDate = (iso: string | null) => {
+const dayOf = (iso: string | null) => {
   if (!iso) return "—";
-  const [, m, d] = iso.split("-").map(Number);
-  if (!m || !d) return "—";
-  return `${String(d).padStart(2, "0")} ${MONTHS[m - 1]}`;
+  const [, , d] = iso.split("-").map(Number);
+  return d ? String(d).padStart(2, "0") : "—";
+};
+const monthOf = (iso: string | null) => {
+  if (!iso) return "";
+  const [, m] = iso.split("-").map(Number);
+  return m ? MONTHS[m - 1] : "";
 };
 
 type FilterId = "all" | "producao" | "concluidas" | "planejadas";
@@ -39,11 +43,12 @@ export default function DemandsTab({
 
   const rows = useMemo(() => {
     const demandTitles = new Set(demands.map((d) => (d.title || "").trim()));
-    const list = demands.map((d) => {
+    const list = demands.map((d, idx) => {
       const status = d.status_id ? statusNames[d.status_id] : undefined;
       const done = !!status?.isFinal || !!d.archived_at;
       return {
         key: d.id,
+        code: `DF-${String(idx + 1).padStart(3, "0")}`,
         title: d.title,
         type: d.demand_type,
         date: d.publish_date || d.delivery_date || d.due_date,
@@ -55,10 +60,11 @@ export default function DemandsTab({
       };
     });
 
-    planItems.forEach((i) => {
+    planItems.forEach((i, idx) => {
       if (demandTitles.has(i.titulo)) return;
       list.push({
-        key: `plan-${i.titulo}`,
+        key: `plan-${i.titulo}-${idx}`,
+        code: `PL-${String(idx + 1).padStart(3, "0")}`,
         title: i.titulo,
         type: i.tipo,
         date: i.data,
@@ -89,15 +95,17 @@ export default function DemandsTab({
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="w-full lg:max-w-xs">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+            Buscar
+          </p>
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar demanda..."
-            className="pl-9"
+            placeholder="Tema, tipo ou demanda"
+            className="h-11 rounded-lg"
           />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -107,10 +115,10 @@ export default function DemandsTab({
               type="button"
               onClick={() => setFilter(f.id)}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                "rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors",
                 filter === f.id
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "hover:border-primary/50 hover:text-primary"
+                  : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
               )}
             >
               {f.label} <span className="tabular-nums opacity-70">{f.count}</span>
@@ -120,63 +128,72 @@ export default function DemandsTab({
       </div>
 
       {filtered.length ? (
-        <div className="divide-y rounded-xl border bg-card">
+        <div className="divide-y border-y">
           {filtered.map((r) => (
             <div
               key={r.key}
               className={cn(
-                "flex flex-wrap items-center gap-3 p-4",
-                r.done && "opacity-60",
-                r.planned && "bg-muted/30"
+                "group flex items-center gap-5 py-4 transition-colors hover:bg-muted/40",
+                r.done && "opacity-55"
               )}
             >
-              <div className="w-14 shrink-0 text-xs font-bold uppercase tracking-wide text-primary tabular-nums">
-                {shortDate(r.date)}
+              <div className="w-12 shrink-0 text-center">
+                <p className="text-2xl font-black leading-none tabular-nums text-primary">
+                  {dayOf(r.date)}
+                </p>
+                <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                  {monthOf(r.date)}
+                </p>
               </div>
+
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{r.title}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                  {r.type && <span className="font-medium uppercase tracking-wide">{r.type}</span>}
-                  {r.stage && <span>· {r.stage}</span>}
-                  {r.owner && <span>· {r.owner}</span>}
-                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                  {r.code}
+                  {r.stage ? ` · ${r.stage}` : ""}
+                </p>
+                <p className="mt-1 truncate text-[15px] font-bold leading-snug">{r.title}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {[r.type, r.owner].filter(Boolean).join(" · ") || "Sem tipo definido"}
+                </p>
               </div>
+
               <span
                 className={cn(
-                  "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                  "hidden shrink-0 rounded-full px-3 py-1 text-[10px] font-bold sm:block",
                   r.planned
-                    ? "text-muted-foreground"
+                    ? "bg-muted text-muted-foreground"
                     : r.done
-                      ? "border-primary/30 text-muted-foreground"
-                      : "border-primary/40 bg-primary/10 text-primary"
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-primary/10 text-primary"
                 )}
               >
                 {r.status}
               </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+        <div className="border-y py-12 text-center text-sm text-muted-foreground">
           Nenhuma demanda encontrada com esses filtros.
         </div>
       )}
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-5">
         <button
           type="button"
           onClick={onOpenEvolution}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
         >
           <Activity className="h-3.5 w-3.5" />
-          Abrir evolução detalhada
+          Evolução detalhada
         </button>
         <button
           type="button"
           onClick={onOpenOverview}
-          className="text-xs font-semibold text-primary hover:underline"
+          className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
         >
-          Ver na visão geral das tarefas
+          Visão geral das tarefas
         </button>
       </div>
     </div>
