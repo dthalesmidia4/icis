@@ -103,28 +103,7 @@ export default function StrategyTab({
         </section>
 
 
-        <section>
-          <SectionTitle>Estratégia geral</SectionTitle>
-          {strategyText ? (
-            <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-              {strategyText.length > 1600 ? `${strategyText.slice(0, 1600)}…` : strategyText}
-            </p>
-          ) : (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Nenhuma estratégia registrada para este cliente.
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={onOpenStrategy}
-            className="mt-5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
-          >
-            Abrir estratégia completa
-          </button>
-        </section>
-      </div>
 
-      <div className="space-y-10 lg:border-l lg:pl-10">
         <section>
           <SectionTitle>Canais prioritários</SectionTitle>
           <div className="mt-4 flex flex-wrap gap-2">
