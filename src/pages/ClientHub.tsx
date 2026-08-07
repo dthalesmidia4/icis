@@ -1874,7 +1874,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     : allActionCards.filter(card => canAccessButton(card.id));
 
   return (
-    <div className="pb-8" style={buildClientBrandStyle(selectedClient as any)}>
+    <div className="pb-8" style={buildClientBrandStyle(clientBrandColors)}>
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
         <ClientHubHeader
           clientName={displayName}
