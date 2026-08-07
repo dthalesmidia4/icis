@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import type { CurrentPeriodInfo } from "@/lib/periodCounts";
+
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { cn } from "@/lib/utils";
 
