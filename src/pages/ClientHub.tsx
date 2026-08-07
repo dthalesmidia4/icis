@@ -24,6 +24,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useClientPeriodWorkspace } from "@/hooks/useClientPeriodWorkspace";
+import ClientHubHeader from "@/components/client-hub/ClientHubHeader";
+import ClientHubActionBar from "@/components/client-hub/ClientHubActionBar";
+import StrategyTab from "@/components/client-hub/StrategyTab";
+import CalendarTab from "@/components/client-hub/CalendarTab";
+import DemandsTab from "@/components/client-hub/DemandsTab";
+import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
 
 const buildFallbackDemandaQuestions = (solicitacaoCliente: string, estrategiaGeral?: string | null) => {
   const normalizedRequest = solicitacaoCliente.toLowerCase();
