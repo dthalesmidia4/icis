@@ -1,4 +1,5 @@
-import { Save } from "lucide-react";
+import { useState } from "react";
+import { Pencil, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -23,6 +24,24 @@ export default function GuidelinesTab({
   responsibles,
   onOpenAnamnesis,
 }: GuidelinesTabProps) {
+  const [editing, setEditing] = useState(false);
+  const [snapshot, setSnapshot] = useState("");
+
+  const startEditing = () => {
+    setSnapshot(requirements);
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    onChangeRequirements(snapshot);
+    setEditing(false);
+  };
+
+  const handleSave = () => {
+    onSave();
+    setEditing(false);
+  };
+
   const items = requirements
     .split(/\n+/)
     .map((l) => l.replace(/^[-•*\d.\s]+/, "").trim())
@@ -49,26 +68,40 @@ export default function GuidelinesTab({
               Nenhuma exigência de conteúdo registrada para este cliente.
             </p>
           )}
+          {!editing && (
+            <Button variant="ghost" size="sm" className="mt-4 gap-2 px-0 text-primary hover:bg-transparent" onClick={startEditing}>
+              <Pencil className="h-3.5 w-3.5" />
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em]">Editar exigências</span>
+            </Button>
+          )}
         </section>
 
-        <section>
-          <SectionTitle>Editar exigências</SectionTitle>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Uma exigência por linha. Essas regras são injetadas na geração de conteúdo por IA.
-          </p>
-          <Textarea
-            value={requirements}
-            onChange={(e) => onChangeRequirements(e.target.value)}
-            rows={8}
-            className="mt-4 rounded-lg"
-            placeholder="Ex.: Nunca prometer cura ou prazo garantido."
-          />
-          <Button size="sm" className="mt-4 gap-2" onClick={onSave} disabled={saving}>
-            <Save className="h-4 w-4" />
-            {saving ? "Salvando..." : "Salvar exigências"}
-          </Button>
-        </section>
+        {editing && (
+          <section>
+            <SectionTitle>Editar exigências</SectionTitle>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Uma exigência por linha. Essas regras são injetadas na geração de conteúdo por IA.
+            </p>
+            <Textarea
+              value={requirements}
+              onChange={(e) => onChangeRequirements(e.target.value)}
+              rows={8}
+              className="mt-4 rounded-lg"
+              placeholder="Ex.: Nunca prometer cura ou prazo garantido."
+            />
+            <div className="mt-4 flex items-center gap-2">
+              <Button size="sm" className="gap-2" onClick={handleSave} disabled={saving}>
+                <Save className="h-4 w-4" />
+                {saving ? "Salvando..." : "Salvar exigências"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={saving}>
+                Cancelar
+              </Button>
+            </div>
+          </section>
+        )}
       </div>
+
 
       <div className="space-y-10 lg:border-l lg:pl-10">
         <section>
