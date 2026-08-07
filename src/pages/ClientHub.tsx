@@ -1863,10 +1863,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     : allActionCards.filter(card => canAccessButton(card.id));
 
   return (
-    <div className="pb-8">
+    <div className="pb-8" style={buildClientBrandStyle(selectedClient as any)}>
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
-        <BackButton to="/home" />
-
         <ClientHubHeader
           clientName={displayName}
           period={workspace.period}
@@ -1879,9 +1877,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           onPlanPeriod={() => setPlanPeriodModalOpen(true)}
           planPeriodDisabled={!hasVisualIdentity}
           planPeriodDisabledReason={planPeriodBlockedMessage}
+          backTo="/home"
+          actionsSlot={<ClientHubActionBar actions={actionCards as any} />}
         />
 
-        <ClientHubActionBar actions={actionCards as any} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">
