@@ -33,7 +33,6 @@ interface ClientHubHeaderProps {
   onPlanPeriod: () => void;
   planPeriodDisabled?: boolean;
   planPeriodDisabledReason?: string;
-  backTo?: string;
   actionsSlot?: React.ReactNode;
 }
 
@@ -50,7 +49,6 @@ export default function ClientHubHeader({
   onPlanPeriod,
   planPeriodDisabled,
   planPeriodDisabledReason,
-  backTo,
   actionsSlot,
 }: ClientHubHeaderProps) {
   const metrics = [
