@@ -1,6 +1,9 @@
-import { Lightbulb, Target, Radio, ListChecks } from "lucide-react";
 import type { CurrentPeriodInfo } from "@/lib/periodCounts";
 import type { WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
+
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{children}</h2>
+);
 
 interface StrategyTabProps {
   period: CurrentPeriodInfo | null;
@@ -11,7 +14,6 @@ interface StrategyTabProps {
 }
 
 export default function StrategyTab({
-  period,
   planItems,
   strategyText,
   onOpenStrategy,
@@ -38,109 +40,98 @@ export default function StrategyTab({
   ].slice(0, 6);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-      <div className="space-y-4">
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <ListChecks className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">Arquitetura do período</h2>
-          </div>
+    <div className="grid gap-10 lg:grid-cols-[1.7fr_1fr] lg:gap-14">
+      <div className="space-y-10">
+        <section>
+          <SectionTitle>Arquitetura do período</SectionTitle>
           {typeEntries.length ? (
-            <div className="mt-4 space-y-3">
+            <div className="mt-5 divide-y border-y">
               {typeEntries.map(([type, count]) => {
                 const pct = Math.round((count / planItems.length) * 100);
                 return (
-                  <div key={type}>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">{type}</span>
-                      <span className="text-muted-foreground tabular-nums">
+                  <div key={type} className="py-4">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span className="text-base font-bold">{type}</span>
+                      <span className="text-xs font-bold tabular-nums text-muted-foreground">
                         {count} · {pct}%
                       </span>
                     </div>
-                    <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                    <div className="mt-2 h-1 overflow-hidden bg-muted">
+                      <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Sem itens no plano deste período ainda.
-            </p>
+            <p className="mt-4 text-sm text-muted-foreground">Sem itens no plano deste período ainda.</p>
           )}
-        </div>
+        </section>
 
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">Estratégia geral</h2>
-          </div>
+        <section>
+          <SectionTitle>Estratégia geral</SectionTitle>
           {strategyText ? (
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
               {strategyText.length > 1600 ? `${strategyText.slice(0, 1600)}…` : strategyText}
             </p>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-4 text-sm text-muted-foreground">
               Nenhuma estratégia registrada para este cliente.
             </p>
           )}
           <button
             type="button"
             onClick={onOpenStrategy}
-            className="mt-4 text-xs font-semibold text-primary hover:underline"
+            className="mt-5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
           >
             Abrir estratégia completa
           </button>
-        </div>
+        </section>
       </div>
 
-      <div className="space-y-4">
-        <div className="rounded-xl border bg-primary/5 p-5">
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">Canais prioritários</h2>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(channels.length ? channels : (period?.period_title ? [] : [])).map((c) => (
-              <span
-                key={c}
-                className="rounded-full border border-primary/30 bg-background px-3 py-1 text-xs font-medium text-primary"
-              >
-                {c}
-              </span>
-            ))}
-            {!channels.length && (
+      <div className="space-y-10 lg:border-l lg:pl-10">
+        <section>
+          <SectionTitle>Canais prioritários</SectionTitle>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {channels.length ? (
+              channels.map((c) => (
+                <span
+                  key={c}
+                  className="bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-primary"
+                >
+                  {c}
+                </span>
+              ))
+            ) : (
               <p className="text-sm text-muted-foreground">Sem canais definidos no plano.</p>
             )}
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">Objetivos do ciclo</h2>
-          </div>
+        <section>
+          <SectionTitle>Objetivos do ciclo</SectionTitle>
           {objectives.length ? (
-            <ul className="mt-3 space-y-2">
+            <ol className="mt-4 divide-y border-y">
               {objectives.map((o, i) => (
-                <li key={i} className="flex gap-2 text-sm text-muted-foreground">
-                  <span className="mt-0.5 font-bold text-primary tabular-nums">{i + 1}.</span>
-                  <span>{o}</span>
+                <li key={i} className="flex gap-4 py-3">
+                  <span className="text-lg font-black leading-none tabular-nums text-primary">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-sm leading-relaxed text-muted-foreground">{o}</span>
                 </li>
               ))}
-            </ul>
+            </ol>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">Sem objetivos mapeados.</p>
+            <p className="mt-4 text-sm text-muted-foreground">Sem objetivos mapeados.</p>
           )}
           <button
             type="button"
             onClick={onOpenPeriodHistory}
-            className="mt-4 text-xs font-semibold text-primary hover:underline"
+            className="mt-5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
           >
-            Ver histórico de períodos
+            Histórico de períodos
           </button>
-        </div>
+        </section>
       </div>
     </div>
   );
