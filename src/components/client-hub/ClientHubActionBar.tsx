@@ -19,7 +19,7 @@ export default function ClientHubActionBar({ actions }: ClientHubActionBarProps)
   if (!actions.length) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
       {actions.map((a) => (
         <button
           key={a.id}
@@ -33,16 +33,16 @@ export default function ClientHubActionBar({ actions }: ClientHubActionBarProps)
             a.action();
           }}
           className={cn(
-            "group relative inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs sm:text-sm font-medium transition-all active:scale-[0.97]",
+            "group inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors",
             a.disabled
-              ? "cursor-not-allowed opacity-50"
-              : "hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+              ? "cursor-not-allowed text-muted-foreground/50"
+              : "text-muted-foreground hover:text-primary"
           )}
         >
           <a.icon className="h-3.5 w-3.5" />
           <span className="whitespace-nowrap">{a.title}</span>
           {!!a.badge && (
-            <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-black text-destructive-foreground">
               {a.badge}
             </span>
           )}
@@ -50,4 +50,5 @@ export default function ClientHubActionBar({ actions }: ClientHubActionBarProps)
       ))}
     </div>
   );
+
 }
