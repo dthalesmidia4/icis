@@ -28,6 +28,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClientPeriodWorkspace } from "@/hooks/useClientPeriodWorkspace";
 import ClientHubHeader from "@/components/client-hub/ClientHubHeader";
 import ClientHubActionBar from "@/components/client-hub/ClientHubActionBar";
+import { buildClientBrandStyle } from "@/lib/clientBrandTheme";
+
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
 import DemandsTab from "@/components/client-hub/DemandsTab";
