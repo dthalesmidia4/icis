@@ -1807,6 +1807,41 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   const hasVisualIdentity = presets.length > 0;
   const planPeriodBlockedMessage = "Para planejar um período, primeiro configure a Identidade Visual do cliente.";
 
+  // ===== Workspace do período em andamento (abas do hub) =====
+  const workspace = useClientPeriodWorkspace({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+  });
+
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    return ['estrategia', 'calendario', 'demandas', 'cuidados'].includes(tab || '')
+      ? (tab as string)
+      : 'estrategia';
+  });
+
+  const workspacePublications = workspace.demands.length || workspace.planItems.length;
+  const workspaceDays = new Set(
+    [
+      ...workspace.demands.map((d) => d.publish_date || d.delivery_date || d.due_date),
+      ...workspace.planItems.map((i) => i.data),
+    ].filter(Boolean)
+  ).size;
+  const workspaceCreatives = workspace.planItems.length || workspace.demands.length;
+  const workspaceDelivered = workspace.demands.filter((d) => {
+    const status = d.status_id ? workspace.statusNames[d.status_id] : undefined;
+    return !!status?.isFinal || !!d.archived_at;
+  }).length;
+  const workspaceResponsibles = [
+    ...new Set(
+      workspace.demands
+        .map((d) => (d.assigned_to ? workspace.memberNames[d.assigned_to] : null))
+        .filter(Boolean) as string[]
+    ),
+  ];
+
+
+
   const allActionCards = [
 
     { id: 'client_anamnese' as ClientHubButtonId, title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
