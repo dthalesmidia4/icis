@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import TaskCard, { type Attachment, type KanbanCardData, type PipelineStatus } from "@/components/TaskCard";
