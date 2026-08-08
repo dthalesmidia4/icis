@@ -27,6 +27,7 @@ import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { DailyCardSection } from "@/components/DailyCardSection";
 import StructuredContentBrief from "@/components/demands/StructuredContentBrief";
+import { MainDeliveryEditor, resolveDeliveryField } from "@/components/demands/MainDeliveryEditor";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
