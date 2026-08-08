@@ -2688,6 +2688,16 @@ export default function TaskCard({
                                 )}
                               </div>
                             )}
+
+                            {activeSection === 'anuncio' && (
+                              <AdPlanSection
+                                value={((card as any).ad_plan || {}) as any}
+                                onChange={(next) => onCardChange({ ...card, ad_plan: next } as any)}
+                                onBlur={handleAdPlanSave}
+                                readOnly={readOnly}
+                              />
+                            )}
+
                           </section>
                           )}
                         </>
