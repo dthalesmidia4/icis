@@ -2679,6 +2679,9 @@ export default function TaskCard({
                           {/* Botões de navegação (estilo hub) */}
                           {(() => {
                             const sectionButtons = [
+                              ...(contentBrief
+                                ? [{ id: 'briefing' as const, label: 'Briefing', icon: FileText, savingKey: 'content_brief' }]
+                                : []),
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
                               { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
                               { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
