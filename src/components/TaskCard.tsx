@@ -2595,14 +2595,24 @@ export default function TaskCard({
 
                           <Separator />
 
+                          {isGrafica && (
+                            <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                              {GRAFICA_WARNING}
+                            </p>
+                          )}
+
                           {/* Botões de navegação (estilo hub) */}
                           {(() => {
                             const sectionButtons = [
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
                               { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
                               { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
+                              ...(isAnuncio
+                                ? [{ id: 'anuncio' as const, label: 'Anúncio', icon: Megaphone, savingKey: 'ad_plan' }]
+                                : []),
                               { id: 'anexos' as const, label: 'Anexos', icon: Paperclip, savingKey: 'attachments' },
                             ];
+
                             return (
                               <div className="flex flex-wrap gap-2">
                                 {sectionButtons.map(({ id, label, icon: Icon, savingKey }) => {
