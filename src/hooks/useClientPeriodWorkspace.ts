@@ -118,7 +118,7 @@ export function useClientPeriodWorkspace(params: {
         let demandQuery = supabase
           .from("demands")
           .select(
-            "id, title, demand_type, demand_type_key, publish_date, publish_time, due_date, delivery_date, current_function_key, status_id, assigned_to, archived_at, released_at"
+            "id, title, demand_type, demand_type_key, publish_date, publish_time, due_date, delivery_date, current_function_key, status_id, assigned_to, archived_at, released_at, classifications, ad_plan"
           )
           .eq("tenant_id", tenantId)
           .eq("client_id", clientId)
