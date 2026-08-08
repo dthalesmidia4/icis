@@ -205,14 +205,45 @@ Deno.serve(async (req) => {
       .single();
     const strategyText = strategy?.strategy_text ? strategy.strategy_text.substring(0, 800) : "";
 
-    // 6. Card content
+    // 6. Card content — `content_brief` é a FONTE CANÔNICA do conteúdo final
+    const brief = (demand.content_brief && typeof demand.content_brief === "object")
+      ? demand.content_brief as Record<string, any>
+      : null;
+
+    const stripTags = (v: unknown) => String(v ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+    // Slides definidos no briefing: usados EXATAMENTE, sem reescrita por IA.
+    const briefSlides: Array<{ text: string; label: string }> = Array.isArray(brief?.slides)
+      ? (brief!.slides as any[])
+          .map((s: any, i: number) => {
+            const text = typeof s === "string" ? stripTags(s) : stripTags(s?.text ?? s?.texto ?? "");
+            const label = typeof s === "string"
+              ? (i === 0 ? "Capa / Gancho" : "Conteúdo")
+              : stripTags(s?.label ?? s?.rotulo ?? (i === 0 ? "Capa / Gancho" : "Conteúdo"));
+            return { text, label: label || "Conteúdo" };
+          })
+          .filter((s) => s.text.length > 0)
+      : [];
+
+    const briefContext = brief
+      ? [
+          brief.message_central ? `Mensagem central (briefing): ${stripTags(brief.message_central)}` : "",
+          brief.concept_format ? `Conceito/formato (briefing): ${stripTags(brief.concept_format)}` : "",
+          Array.isArray(brief.screen_texts) && brief.screen_texts.length
+            ? `Textos de tela (briefing, usar como estão): ${brief.screen_texts.map(stripTags).join(" | ")}`
+            : "",
+          brief.cover_text ? `Texto de capa (briefing): ${stripTags(brief.cover_text)}` : "",
+        ].filter(Boolean).join("\n")
+      : "";
+
     const cardContent = [
       demand.title ? `Título interno do card (apenas referência — NÃO reproduza literalmente nos textos dos slides): ${demand.title}` : "",
+      briefContext,
       demand.objective ? `Objetivo: ${demand.objective}` : "",
-      demand.instructions ? `Instruções: ${demand.instructions.replace(/<[^>]*>/g, " ").trim()}` : "",
+      demand.instructions ? `Instruções: ${stripTags(demand.instructions)}` : "",
     ].filter(Boolean).join("\n");
 
-    const slideCount = 5;
+    const slideCount = briefSlides.length > 0 ? briefSlides.length : 5;
     const contentSignature = await hashText([
       demand.title || "",
       demand.objective || "",
@@ -220,6 +251,7 @@ Deno.serve(async (req) => {
       demand.description || "",
       demand.demand_type || "",
       demand.demand_type_key || "",
+      brief ? JSON.stringify(brief) : "",
       isPlanned ? "planned" : "standard",
     ].join("\n---\n"));
 
@@ -228,8 +260,8 @@ Deno.serve(async (req) => {
       ? new Set<number>()
       : getExistingCarouselSlideNumbers(currentAttachments);
 
-    // ============ STEP 1: slide texts via OpenAI ============
-    console.log(`Step 1: Generating ${slideCount} slide texts via ${MODELS.TEXT_PLANNING}...`);
+    // ============ STEP 1: slide texts (briefing canônico → OpenAI apenas se ausente) ============
+    console.log(`Step 1: Resolving ${slideCount} slide texts (briefing slides: ${briefSlides.length})...`);
 
     const mascotInfo = vi.mascot.galleryUrls.length > 0
       ? `O cliente possui um mascote oficial. ${vi.mascot.description ? `Descrição: ${vi.mascot.description}.` : ""}`
@@ -258,7 +290,10 @@ REGRAS:
 
     let slides: Array<{ text: string; label: string }>;
     const existingPlan = !forceRegenerate ? getCarouselGenerationMeta(demand.reorder_meta) : null;
-    if (existingPlan?.contentSignature === contentSignature && existingPlan.slides.length > 0) {
+    if (briefSlides.length > 0) {
+      slides = briefSlides;
+      console.log(`📌 Usando ${slides.length} slides do content_brief (sem reescrita por IA)`);
+    } else if (existingPlan?.contentSignature === contentSignature && existingPlan.slides.length > 0) {
       slides = existingPlan.slides.slice(0, slideCount);
       console.log(`↪️ Reusing saved carousel slide plan (${slides.length} slides) for continuation`);
     } else {

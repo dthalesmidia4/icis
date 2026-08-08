@@ -98,16 +98,41 @@ Deno.serve(async (req) => {
     const demandInstructions = demand.instructions ? demand.instructions.replace(/<[^>]*>/g, " ").trim() : "";
     const demandObjective = demand.objective || "";
 
+    // `content_brief` é a FONTE CANÔNICA: textos de arte definidos no briefing devem ser usados como estão.
+    const brief = (demand.content_brief && typeof demand.content_brief === "object")
+      ? demand.content_brief as Record<string, any>
+      : null;
+    const bText = (v: unknown) => String(v ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const bList = (v: unknown): string[] =>
+      Array.isArray(v)
+        ? v.map((i: any) => (typeof i === "string" ? bText(i) : bText(i?.text ?? i?.texto ?? ""))).filter(Boolean)
+        : [];
+    const briefArtTexts = brief ? [...bList(brief.art_text), ...bList(brief.slides)] : [];
+    const briefScreenTexts = brief ? [bText(brief.cover_text), ...bList(brief.screen_texts)].filter(Boolean) : [];
+    const briefSection = brief
+      ? [
+          `BRIEFING CANÔNICO (fonte de verdade — prevalece sobre legenda e instruções):`,
+          brief.message_central ? `- Mensagem central: ${bText(brief.message_central)}` : "",
+          brief.concept_format ? `- Conceito/formato: ${bText(brief.concept_format)}` : "",
+          briefArtTexts.length ? `- TEXTO DA ARTE (renderize EXATAMENTE este texto, sem reescrever):\n${briefArtTexts.map((t) => `  • ${t}`).join("\n")}` : "",
+          briefScreenTexts.length ? `- Textos de tela definidos: ${briefScreenTexts.join(" | ")}` : "",
+        ].filter(Boolean).join("\n")
+      : "";
+
     const contentSection = [
       `TÍTULO INTERNO DO CARD (apenas referência de nomenclatura — PROIBIDO renderizar este texto na imagem):\n"${demandTitle}"`,
+      briefSection ? `\n${briefSection}` : "",
       demandObjective ? `\nOBJETIVO DO POST (contexto temático para o design):\n${demandObjective}` : "",
       demandDescription ? `\nCONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${demandDescription}` : "",
       demandInstructions ? `\nINSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${demandInstructions}` : "",
       "",
       `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
+      briefArtTexts.length ? `- Quando o briefing define "TEXTO DA ARTE", use esse texto EXATAMENTE como tipografia da peça, sem inventar novas frases.` : "",
       `- O "TÍTULO INTERNO DO CARD" é nomenclatura interna do sistema (identificador da tarefa). NUNCA renderize esse texto na imagem, nem parcialmente, nem parafraseado literalmente.`,
       `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post na rede social. Este texto NÃO deve aparecer na imagem.`,
-      `- Crie um TÍTULO VISUAL CURTO e original (2-6 palavras impactantes) derivado do OBJETIVO/INSTRUÇÕES/CONTEXTO para usar como tipografia principal da arte — não copie o título interno do card.`,
+      briefArtTexts.length
+        ? `- Não crie títulos visuais alternativos: o texto do briefing é o título visual.`
+        : `- Crie um TÍTULO VISUAL CURTO e original (2-6 palavras impactantes) derivado do OBJETIVO/INSTRUÇÕES/CONTEXTO para usar como tipografia principal da arte — não copie o título interno do card.`,
       `- Apenas esse título visual curto e eventuais textos de gancho/CTA curtos devem aparecer como tipografia na imagem.`,
       `- A legenda e o título interno servem apenas para você entender o tema e tom do post.`,
     ].filter(Boolean).join("\n");

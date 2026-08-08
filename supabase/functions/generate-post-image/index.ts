@@ -95,9 +95,36 @@ Deno.serve(async (req) => {
     const strategySnippet = strategy?.strategy_text
       ? `Tom de voz e estratégia da marca: ${strategy.strategy_text.substring(0, 500)}` : "";
 
-    // Parse slides — try description first, then instructions
-    let allSlides = parseSlides(demand.description || "");
-    if (allSlides.length <= 1) {
+    // `content_brief` é a FONTE CANÔNICA do conteúdo final (slides / art_text / textos de tela).
+    const brief = (demand.content_brief && typeof demand.content_brief === "object")
+      ? demand.content_brief as Record<string, any>
+      : null;
+    const briefText = (v: unknown) => stripHtml(String(v ?? "")).trim();
+    const briefList = (v: unknown): string[] =>
+      Array.isArray(v)
+        ? v.map((i: any) => (typeof i === "string" ? briefText(i) : briefText(i?.text ?? i?.texto ?? ""))).filter(Boolean)
+        : [];
+
+    const briefSlideTexts = brief
+      ? (briefList(brief.slides).length > 0
+          ? briefList(brief.slides)
+          : (() => {
+              const art = briefList(brief.art_text);
+              if (art.length > 0) return art;
+              const cover = briefText(brief.cover_text);
+              const screens = briefList(brief.screen_texts);
+              return [cover, ...screens].filter(Boolean);
+            })())
+      : [];
+
+    // Parse slides — briefing canônico → description → instructions
+    let allSlides = briefSlideTexts.length > 0
+      ? briefSlideTexts.map((text, i) => {
+          const [first, ...rest] = text.split(/\n+/);
+          return { slideNumber: i + 1, title: (first || text).trim(), body: rest.join("\n").trim() };
+        })
+      : parseSlides(demand.description || "");
+    if (briefSlideTexts.length === 0 && allSlides.length <= 1) {
       const fromInstructions = parseSlides(demand.instructions || "");
       if (fromInstructions.length > allSlides.length) allSlides = fromInstructions;
     }
@@ -106,6 +133,7 @@ Deno.serve(async (req) => {
       const objText = demand.objective || "";
       const instrText = stripHtml(demand.instructions);
       const fallbackText =
+        (brief && briefText(brief.message_central).substring(0, 80)) ||
         (descText && descText.split(/[\n\.\!\?]/)[0]?.trim().substring(0, 80)) ||
         (objText && objText.substring(0, 80)) ||
         (instrText && instrText.substring(0, 80)) ||
