@@ -4,8 +4,8 @@ import { buildInstagramFeed, resolveFeedKind, type FeedDemandInput } from "./ins
 const demand = (over: Partial<FeedDemandInput>): FeedDemandInput => ({
   id: over.id || "d1",
   title: over.title || "DF-001 — Teste",
-  demand_type: over.demand_type ?? "Criativo estático",
-  demand_type_key: over.demand_type_key ?? "criativo_estatico",
+  demand_type: "demand_type" in over ? over.demand_type ?? null : "Criativo estático",
+  demand_type_key: "demand_type_key" in over ? over.demand_type_key ?? null : "criativo_estatico",
   channel: over.channel ?? null,
   publish_date: over.publish_date ?? "2026-08-20",
   publish_time: over.publish_time ?? null,
