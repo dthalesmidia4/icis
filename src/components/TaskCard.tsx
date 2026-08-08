@@ -429,8 +429,11 @@ export default function TaskCard({
   onDraftDiscard,
   draftClients = [],
   onDraftClientChange,
-  savingDraft = false
+  savingDraft = false,
+  presentation = 'fullscreen'
 }: TaskCardProps) {
+  const isDrawer = presentation === 'drawer';
+
 
 
   const [editingField, setEditingField] = useState<string | null>(null);
