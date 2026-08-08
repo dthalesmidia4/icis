@@ -774,6 +774,7 @@ export type Database = {
           client_last_resend_at: string | null
           client_resend_count: number
           client_wait_started_at: string | null
+          content_brief: Json | null
           created_at: string
           created_by: string | null
           current_function_key: string | null
@@ -833,6 +834,7 @@ export type Database = {
           client_last_resend_at?: string | null
           client_resend_count?: number
           client_wait_started_at?: string | null
+          content_brief?: Json | null
           created_at?: string
           created_by?: string | null
           current_function_key?: string | null
@@ -892,6 +894,7 @@ export type Database = {
           client_last_resend_at?: string | null
           client_resend_count?: number
           client_wait_started_at?: string | null
+          content_brief?: Json | null
           created_at?: string
           created_by?: string | null
           current_function_key?: string | null
