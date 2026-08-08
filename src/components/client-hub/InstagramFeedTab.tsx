@@ -56,7 +56,7 @@ export default function InstagramFeedTab({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-foreground">Prévia do Feed do Instagram</h2>
+          <h2 className="text-2xl font-black tracking-tight text-foreground">Prévia do Feed Simulado</h2>
           <p className="text-[12px] text-muted-foreground">Mais recentes acima</p>
           <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
             {entries.length} publicações · {withMedia} com mídia · {inProduction} em produção
@@ -143,19 +143,19 @@ function FeedCell({ entry, onOpenDemand }: { entry: FeedEntry; onOpenDemand?: (i
       {entry.previewKind !== "none" && (
         <>
           {entry.kind === "carousel" && (
-            <span className="absolute right-1.5 top-1.5 flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 text-[9px] font-bold text-foreground backdrop-blur">
-              <Layers className="h-3 w-3" />
+            <span className="absolute right-2 top-2 flex items-center gap-1 rounded bg-background/80 px-2 py-1 text-[10px] font-bold text-foreground backdrop-blur">
+              <Layers className="h-4 w-4" />
               {entry.mediaCount}
             </span>
           )}
           {entry.kind === "video" && (
-            <span className="absolute right-1.5 top-1.5 rounded bg-background/80 p-1 text-foreground backdrop-blur">
-              <Play className="h-3 w-3" />
+            <span className="absolute right-2 top-2 rounded bg-background/80 p-1.5 text-foreground backdrop-blur">
+              <Play className="h-4 w-4" />
             </span>
           )}
           {entry.kind === "static" && (
-            <span className="absolute right-1.5 top-1.5 rounded bg-background/70 p-1 text-foreground backdrop-blur">
-              <ImageIcon className="h-3 w-3" />
+            <span className="absolute right-2 top-2 rounded bg-background/70 p-1.5 text-foreground backdrop-blur">
+              <ImageIcon className="h-4 w-4" />
             </span>
           )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-1.5">
