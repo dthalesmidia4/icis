@@ -56,7 +56,7 @@ export default function InstagramFeedTab({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-foreground">Prévia do Feed do Instagram</h2>
+          <h2 className="text-2xl font-black tracking-tight text-foreground">Prévia do Feed Simulado</h2>
           <p className="text-[12px] text-muted-foreground">Mais recentes acima</p>
           <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
             {entries.length} publicações · {withMedia} com mídia · {inProduction} em produção
