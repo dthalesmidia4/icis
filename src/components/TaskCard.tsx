@@ -127,6 +127,9 @@ export interface KanbanCardData {
   assigned_to?: string | null;
   additional_assignees?: string[];
   current_function_key?: string | null;
+  // Classificações operacionais (anuncio / grafica) e informações do anúncio
+  classifications?: string[] | null;
+  ad_plan?: Record<string, any> | null;
   // Área, origem e clientes finais solicitantes (fluxo Sistemas)
   work_area?: "midia" | "sistemas" | null;
   origin?: string | null;
