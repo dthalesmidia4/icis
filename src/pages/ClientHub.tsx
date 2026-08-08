@@ -1926,7 +1926,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               { value: "estrategia", label: "Estratégia" },
               { value: "calendario", label: "Calendário" },
               { value: "demandas", label: "Demandas" },
-              { value: "feed", label: "Feed Instagram" },
+              { value: "feed", label: "Feed Simulado" },
               { value: "cuidados", label: "Cuidados fundamentais" },
             ].map((t) => (
               <TabsTrigger
