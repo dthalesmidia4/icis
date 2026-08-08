@@ -1941,8 +1941,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 period={workspace.period}
                 planItems={workspace.planItems}
                 demands={workspace.demands}
+                onOpenDemand={(id) => setDrawerDemandId(id)}
               />
             </TabsContent>
+
             <TabsContent value="demandas" className="m-0">
               <DemandsTab
                 planItems={workspace.planItems}
