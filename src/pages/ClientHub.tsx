@@ -1831,14 +1831,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       : 'estrategia';
   });
 
+  // Demanda aberta em painel lateral (a partir do calendário)
+  const [drawerDemandId, setDrawerDemandId] = useState<string | null>(null);
+
   const workspacePublications = workspace.demands.length || workspace.planItems.length;
+  // Dias do cronograma = dias com PUBLICAÇÃO (datas operacionais não entram aqui).
   const workspaceDays = new Set(
     [
-      ...workspace.demands.map((d) => d.publish_date || d.delivery_date || d.due_date),
+      ...workspace.demands.map((d) => d.publish_date),
       ...workspace.planItems.map((i) => i.data),
     ].filter(Boolean)
   ).size;
   const workspaceCreatives = workspace.planItems.length || workspace.demands.length;
+
   const workspaceDelivered = workspace.demands.filter((d) => {
     const status = d.status_id ? workspace.statusNames[d.status_id] : undefined;
     return !!status?.isFinal || !!d.archived_at;
