@@ -33,6 +33,7 @@ import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrand
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
 import DemandDrawer from "@/components/client-hub/DemandDrawer";
+import InstagramFeedTab from "@/components/client-hub/InstagramFeedTab";
 import { cn } from "@/lib/utils";
 
 import DemandsTab from "@/components/client-hub/DemandsTab";
@@ -1195,8 +1196,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     return () => { cancelled = true; };
   }, [selectedClient?.id, tenantId]);
 
+  // ===== Workspace do período em andamento (abas do hub) =====
+  const workspace = useClientPeriodWorkspace({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+  });
+
   const debouncedReloadCounts = useDebouncedCallback(() => {
     reloadReviewCounts();
+  }, 300);
+
+  // Realtime de demands recarrega também o workspace (calendário/demandas/feed).
+  const debouncedWorkspaceReload = useDebouncedCallback(() => {
+    workspace.reload();
   }, 300);
 
   useRealtimePeriodPlans({
@@ -1208,7 +1220,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   useRealtimeDemands({
     tenantId,
     clientId: selectedClient?.id ?? null,
-    onChange: () => debouncedReloadCounts(),
+    onChange: () => {
+      debouncedReloadCounts();
+      debouncedWorkspaceReload();
+    },
     enabled: !!tenantId && !!selectedClient?.id,
   });
 
@@ -1821,15 +1836,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   const hasVisualIdentity = presets.length > 0;
   const planPeriodBlockedMessage = "Para planejar um período, primeiro configure a Identidade Visual do cliente.";
 
-  // ===== Workspace do período em andamento (abas do hub) =====
-  const workspace = useClientPeriodWorkspace({
-    tenantId,
-    clientId: selectedClient?.id ?? null,
-  });
-
   const [activeTab, setActiveTab] = useState<string>(() => {
     const tab = new URLSearchParams(window.location.search).get('tab');
-    return ['estrategia', 'calendario', 'demandas', 'cuidados'].includes(tab || '')
+    return ['estrategia', 'calendario', 'demandas', 'cuidados', 'feed'].includes(tab || '')
       ? (tab as string)
       : 'estrategia';
   });
@@ -1887,7 +1896,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         className={cn(
           "container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8",
           // O calendário precisa de mais largura horizontal que as demais abas.
-          activeTab === "calendario" ? "max-w-[1800px]" : "max-w-7xl"
+          activeTab === "calendario"
+            ? "max-w-[1800px]"
+            : activeTab === "feed"
+              ? "max-w-[1500px]"
+              : "max-w-7xl"
         )}
       >
         <ClientHubHeader
@@ -1913,6 +1926,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               { value: "estrategia", label: "Estratégia" },
               { value: "calendario", label: "Calendário" },
               { value: "demandas", label: "Demandas" },
+              { value: "feed", label: "Feed Instagram" },
               { value: "cuidados", label: "Cuidados fundamentais" },
             ].map((t) => (
               <TabsTrigger
@@ -1954,6 +1968,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 memberNames={workspace.memberNames}
                 onOpenEvolution={() => navigate('/client-evolution')}
                 onOpenOverview={() => navigate('/kanban-central')}
+              />
+            </TabsContent>
+            <TabsContent value="feed" className="m-0">
+              <InstagramFeedTab
+                planItems={workspace.planItems}
+                demands={workspace.demands}
+                statusNames={workspace.statusNames}
+                stageNames={workspace.stageNames}
+                onOpenDemand={(id) => setDrawerDemandId(id)}
               />
             </TabsContent>
             <TabsContent value="cuidados" className="m-0">

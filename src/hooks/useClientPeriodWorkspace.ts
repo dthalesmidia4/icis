@@ -17,6 +17,14 @@ export interface WorkspacePlanItem {
   source: "normal" | "ultra";
 }
 
+/** Attachment enxuto consumido pela prévia do feed (nunca `rejected_attachments`). */
+export interface WorkspaceAttachment {
+  url: string;
+  name?: string | null;
+  type?: string | null;
+  storagePath?: string | null;
+}
+
 export interface WorkspaceDemand {
   id: string;
   title: string;
@@ -33,6 +41,9 @@ export interface WorkspaceDemand {
   released_at: string | null;
   classifications: string[] | null;
   ad_plan: Record<string, any> | null;
+  channel: string | null;
+  post_caption: string | null;
+  attachments: WorkspaceAttachment[] | null;
 }
 
 const normalizePlanItem = (raw: any, source: "normal" | "ultra"): WorkspacePlanItem => ({
@@ -120,7 +131,7 @@ export function useClientPeriodWorkspace(params: {
         let demandQuery = supabase
           .from("demands")
           .select(
-            "id, title, demand_type, demand_type_key, publish_date, publish_time, due_date, delivery_date, current_function_key, status_id, assigned_to, archived_at, released_at, classifications, ad_plan"
+            "id, title, demand_type, demand_type_key, publish_date, publish_time, due_date, delivery_date, current_function_key, status_id, assigned_to, archived_at, released_at, classifications, ad_plan, channel, post_caption, attachments"
           )
           .eq("tenant_id", tenantId)
           .eq("client_id", clientId)
