@@ -32,6 +32,9 @@ import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrand
 
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
+import DemandDrawer from "@/components/client-hub/DemandDrawer";
+import { cn } from "@/lib/utils";
+
 import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
 
