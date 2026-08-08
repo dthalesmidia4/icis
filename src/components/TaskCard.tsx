@@ -135,6 +135,8 @@ export interface KanbanCardData {
   // Classificações operacionais (anuncio / grafica) e informações do anúncio
   classifications?: string[] | null;
   ad_plan?: Record<string, any> | null;
+  /** Briefing editorial estruturado (JSONB) — camadas sem campo próprio. */
+  content_brief?: Record<string, any> | null;
   // Área, origem e clientes finais solicitantes (fluxo Sistemas)
   work_area?: "midia" | "sistemas" | null;
   origin?: string | null;
