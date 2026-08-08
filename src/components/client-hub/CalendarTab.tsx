@@ -5,6 +5,8 @@ import type { CurrentPeriodInfo } from "@/lib/periodCounts";
 
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { cn } from "@/lib/utils";
+import { dedupeSnapshotAgainstLive } from "@/lib/demandCode";
+
 
 const WEEKDAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const MONTHS_SHORT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
