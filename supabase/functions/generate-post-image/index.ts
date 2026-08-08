@@ -223,7 +223,9 @@ Deno.serve(async (req) => {
           if (exact.length > 0) return exact;
           const idx = slideNumber - 1;
           if (idx >= 0 && idx < allSlides.length) return [allSlides[idx]];
-          if (replaceSlide) {
+          // Fallback de regeneração derivado de description/instructions:
+          // exclusivo para cards LEGADOS sem briefing estruturado.
+          if (replaceSlide && !isStructured) {
             const descText = stripHtml(demand.description);
             const objText = demand.objective || "";
             const instrText = stripHtml(demand.instructions);
@@ -235,6 +237,11 @@ Deno.serve(async (req) => {
             const fallbackBody = [descText, objText, instrText, stripHtml(demand.observations)].find(Boolean) || "";
             return [{ slideNumber, title: fallbackTitle, body: fallbackBody }];
           }
+          // Estruturado estático: só existe uma peça — regenera essa peça.
+          if (replaceSlide && isStructured && deliveryKind !== "carrossel" && allSlides.length > 0) {
+            return [allSlides[0]];
+          }
+
 
           return [];
         })()
