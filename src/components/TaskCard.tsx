@@ -434,6 +434,18 @@ export default function TaskCard({
 }: TaskCardProps) {
   const isDrawer = presentation === 'drawer';
 
+  // ESC fecha o painel lateral (o modo fullscreen mantém o comportamento histórico).
+  useEffect(() => {
+    if (!isDrawer || !open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onOpenChange(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isDrawer, open, onOpenChange]);
+
+
+
 
 
   const [editingField, setEditingField] = useState<string | null>(null);
