@@ -61,6 +61,11 @@ import { BlockEditor } from "@/components/BlockEditor";
 import { StartEndDatePopover, SingleDateTimePopover } from "@/components/kanban/StartEndDatePopover";
 import SubclientSelect from "@/components/SubclientSelect";
 import {
+  AdPlanSection,
+  ClassificationSelector,
+  GRAFICA_WARNING,
+} from "@/components/demands/DemandClassifications";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
