@@ -110,6 +110,16 @@ export function resolveDeliveryKind(brief: ContentBrief, demandTypeLabel?: strin
   return "estatico";
 }
 
+/** Sinaliza ausência do dado operacional canônico (`content_brief`). */
+const MissingCanonical = ({ label }: { label: string }) => (
+  <div className="space-y-1">
+    <h4 className="text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">{label}</h4>
+    <p className="text-[13px] leading-relaxed text-destructive">
+      Conteúdo canônico ausente no briefing — preencha na aba Conteúdo.
+    </p>
+  </div>
+);
+
 const SectionTitle = ({ children, muted }: { children: React.ReactNode; muted?: boolean }) => (
   <h4
     className={cn(
