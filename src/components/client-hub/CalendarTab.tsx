@@ -343,6 +343,18 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
                         .join(" · ")}
                     </p>
                     <p className="mt-0.5 text-xs font-bold">{item.title}</p>
+                    {!!item.classifications.length && (
+                      <p className="mt-1 flex flex-wrap gap-1">
+                        {item.classifications.map((c) => (
+                          <span
+                            key={c}
+                            className="rounded-full border border-primary/40 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-primary"
+                          >
+                            {c === "anuncio" ? "Anúncio" : "Gráfica"}
+                          </span>
+                        ))}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
