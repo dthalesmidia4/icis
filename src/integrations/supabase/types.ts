@@ -762,12 +762,14 @@ export type Database = {
       }
       demands: {
         Row: {
+          ad_plan: Json | null
           additional_assignees: string[]
           additional_publish_dates: Json
           archived_at: string | null
           assigned_to: string | null
           attachments: Json
           channel: string | null
+          classifications: string[]
           client_id: string
           client_last_resend_at: string | null
           client_resend_count: number
@@ -819,12 +821,14 @@ export type Database = {
           work_area: Database["public"]["Enums"]["work_area"]
         }
         Insert: {
+          ad_plan?: Json | null
           additional_assignees?: string[]
           additional_publish_dates?: Json
           archived_at?: string | null
           assigned_to?: string | null
           attachments?: Json
           channel?: string | null
+          classifications?: string[]
           client_id: string
           client_last_resend_at?: string | null
           client_resend_count?: number
@@ -876,12 +880,14 @@ export type Database = {
           work_area?: Database["public"]["Enums"]["work_area"]
         }
         Update: {
+          ad_plan?: Json | null
           additional_assignees?: string[]
           additional_publish_dates?: Json
           archived_at?: string | null
           assigned_to?: string | null
           attachments?: Json
           channel?: string | null
+          classifications?: string[]
           client_id?: string
           client_last_resend_at?: string | null
           client_resend_count?: number
