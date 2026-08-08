@@ -110,6 +110,16 @@ export function resolveDeliveryKind(brief: ContentBrief, demandTypeLabel?: strin
   return "estatico";
 }
 
+/** Sinaliza ausência do dado operacional canônico (`content_brief`). */
+const MissingCanonical = ({ label }: { label: string }) => (
+  <div className="space-y-1">
+    <h4 className="text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">{label}</h4>
+    <p className="text-[13px] leading-relaxed text-destructive">
+      Conteúdo canônico ausente no briefing — preencha na aba Conteúdo.
+    </p>
+  </div>
+);
+
 const SectionTitle = ({ children, muted }: { children: React.ReactNode; muted?: boolean }) => (
   <h4
     className={cn(
@@ -231,6 +241,23 @@ export default function StructuredContentBrief({
 
   const kind = resolveDeliveryKind(brief, demandTypeLabel);
 
+  /**
+   * Demanda "estruturada" = já possui `content_brief` canônico (delivery_kind
+   * explícito ou algum campo de entrega preenchido). Nesse caso NÃO usamos
+   * `instructions` silenciosamente como entrega principal: se o dado canônico
+   * está ausente, a UI deve mostrar essa ausência em vez de parecer correta.
+   */
+  const isStructured = useMemo(
+    () =>
+      !!brief.delivery_kind ||
+      asList(brief.slides).length > 0 ||
+      asList(brief.script).length > 0 ||
+      asList(brief.art_text).length > 0 ||
+      asList(brief.composition).length > 0,
+    [brief]
+  );
+
+
   const metaLine = useMemo(() => {
     const parts: string[] = [];
     if (brief.code) parts.push(brief.code);
@@ -248,11 +275,13 @@ export default function StructuredContentBrief({
   const validation = brief.strategic_validation || {};
   const answered = VALIDATION_QUESTIONS.filter((q) => (validation as any)[q.key]?.toString().trim()).length;
 
-  // Conteúdo da entrega principal, com fallback para `instructions` (sem duplicar).
+  // Conteúdo da entrega principal. `content_brief` é canônico; `instructions`
+  // só entra como fallback em cards LEGADOS (sem briefing estruturado).
   const slides = useMemo(() => {
     const explicit = asList(brief.slides);
-    return explicit.length ? explicit : parseSlides(instructions);
-  }, [brief.slides, instructions]);
+    if (explicit.length) return explicit;
+    return isStructured ? [] : parseSlides(instructions);
+  }, [brief.slides, instructions, isStructured]);
 
   const generalNotes = useMemo(() => {
     if (kind === "carrossel" && slides.length) return instructionsWithoutSlides(instructions);
@@ -262,14 +291,15 @@ export default function StructuredContentBrief({
   const scriptText = useMemo(() => {
     const explicit = asList(brief.script);
     if (explicit.length) return explicit.join("\n\n");
-    return kind === "reel" ? stripHtml(instructions) : "";
-  }, [brief.script, kind, instructions]);
+    return kind === "reel" && !isStructured ? stripHtml(instructions) : "";
+  }, [brief.script, kind, instructions, isStructured]);
 
   const artText = useMemo(() => {
     const explicit = asList(brief.art_text);
-    if (explicit.length) return explicit.join("\n");
-    return kind === "estatico" ? stripHtml(instructions) : "";
-  }, [brief.art_text, kind, instructions]);
+    // Estático = uma peça: fragmentos legados são unidos por parágrafo.
+    if (explicit.length) return explicit.join("\n\n");
+    return kind === "estatico" && !isStructured ? stripHtml(instructions) : "";
+  }, [brief.art_text, kind, instructions, isStructured]);
 
   const visualDirection = useMemo(() => {
     const explicit = asList(brief.visual_direction);
@@ -283,8 +313,9 @@ export default function StructuredContentBrief({
   const composition = useMemo(() => {
     const explicit = asList(brief.composition);
     if (explicit.length) return explicit;
-    return kind === "grafica" && instructions ? [stripHtml(instructions)] : [];
-  }, [brief.composition, kind, instructions]);
+    return kind === "grafica" && instructions && !isStructured ? [stripHtml(instructions)] : [];
+  }, [brief.composition, kind, instructions, isStructured]);
+
 
   const amplification = asList(brief.amplification_stories);
 
@@ -580,11 +611,25 @@ export default function StructuredContentBrief({
           </div>
         )}
 
-        {kind === "carrossel" && slides.length === 0 && <TextBlock label="Estrutura dos slides" value={instructions} />}
+        {kind === "carrossel" && slides.length === 0 && !isStructured && (
+          <TextBlock label="Estrutura dos slides" value={instructions} />
+        )}
+        {kind === "carrossel" && slides.length === 0 && isStructured && (
+          <MissingCanonical label="Slides do carrossel" />
+        )}
 
         {kind === "reel" && (
           <>
-            <TextBlock label="Roteiro" value={scriptText} />
+            {scriptText ? (
+              <TextBlock label="Roteiro" value={scriptText} />
+            ) : (
+              <div className="space-y-1">
+                <SectionTitle>Roteiro</SectionTitle>
+                <p className="text-[13px] leading-relaxed text-muted-foreground">
+                  Roteiro propositalmente aberto / captação documental.
+                </p>
+              </div>
+            )}
             <ListBlock label="Textos na tela" items={asList(brief.screen_texts)} />
             <ListBlock label="Capa" items={asList(brief.cover_text)} />
             <ListBlock label="Captação" items={asList(brief.capture)} />
@@ -594,10 +639,11 @@ export default function StructuredContentBrief({
 
         {kind === "estatico" && (
           <>
-            <TextBlock label="Texto da arte" value={artText} />
+            {artText ? <TextBlock label="Texto da arte" value={artText} /> : <MissingCanonical label="Texto da arte" />}
             <ListBlock label="Direção visual" items={visualDirection} />
           </>
         )}
+
 
         {kind === "grafica" && (
           <>

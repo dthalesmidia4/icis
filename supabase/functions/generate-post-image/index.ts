@@ -44,6 +44,28 @@ function stripHtml(input: string | null | undefined): string {
   return input.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim();
 }
 
+/**
+ * Sanitização para TEXTO RENDERIZÁVEL canônico (`content_brief`).
+ * Remove HTML mas PRESERVA quebras de linha e parágrafos — a copy estruturada
+ * deve chegar ao gerador exatamente como foi aprovada.
+ */
+function stripHtmlKeepLines(input: string | null | undefined): string {
+  if (!input) return "";
+  return input
+    .replace(/\r\n?/g, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -99,32 +121,78 @@ Deno.serve(async (req) => {
     const brief = (demand.content_brief && typeof demand.content_brief === "object")
       ? demand.content_brief as Record<string, any>
       : null;
-    const briefText = (v: unknown) => stripHtml(String(v ?? "")).trim();
+    // Texto renderizável: preserva quebras de linha exatamente como aprovadas.
+    const briefText = (v: unknown) => stripHtmlKeepLines(String(v ?? ""));
     const briefList = (v: unknown): string[] =>
       Array.isArray(v)
         ? v.map((i: any) => (typeof i === "string" ? briefText(i) : briefText(i?.text ?? i?.texto ?? ""))).filter(Boolean)
         : [];
 
-    const briefSlideTexts = brief
-      ? (briefList(brief.slides).length > 0
-          ? briefList(brief.slides)
-          : (() => {
-              const art = briefList(brief.art_text);
-              if (art.length > 0) return art;
-              const cover = briefText(brief.cover_text);
-              const screens = briefList(brief.screen_texts);
-              return [cover, ...screens].filter(Boolean);
-            })())
-      : [];
+    const artTexts = brief ? briefList(brief.art_text) : [];
+    const slideTexts = brief ? briefList(brief.slides) : [];
 
-    // Parse slides — briefing canônico → description → instructions
+    /**
+     * Semântica de entrega:
+     *  - `carrossel` → cada item de `slides` é UMA imagem.
+     *  - `estatico` / `grafica` → UMA peça = UMA imagem: todo `art_text` é unido
+     *    por `\n\n` numa única unidade renderizável. `art_text.length` NUNCA
+     *    controla quantidade de imagens.
+     *  - `visual_direction` é contexto visual e NÃO é texto renderizável.
+     */
+    const deliveryKind = (() => {
+      const explicit = String(brief?.delivery_kind || "").toLowerCase();
+      if (["carrossel", "estatico", "grafica", "reel"].includes(explicit)) return explicit;
+      const hay = `${demand.demand_type_key || ""} ${demand.demand_type || ""}`.toLowerCase();
+      if (/carrossel|carousel/.test(hay)) return "carrossel";
+      if (/santinho|gr[áa]fica|impress/.test(hay)) return "grafica";
+      if (/reel|v[íi]deo|video/.test(hay)) return "reel";
+      return "estatico";
+    })();
+
+    // Estruturado = existe briefing canônico utilizável (kind explícito ou entrega preenchida).
+    const isStructured = !!brief && (!!brief.delivery_kind || artTexts.length > 0 || slideTexts.length > 0);
+
+    let briefUnits: string[] = [];
+    if (isStructured) {
+      if (deliveryKind === "carrossel") {
+        briefUnits = slideTexts;
+      } else {
+        const joined = artTexts.join("\n\n").trim();
+        if (joined) briefUnits = [joined];
+        else {
+          // Sem art_text canônico, para peça única aceitamos apenas textos de tela/capa
+          // definidos no próprio briefing — nunca description/instructions.
+          const fromScreens = [briefText(brief!.cover_text), ...briefList(brief!.screen_texts)]
+            .filter(Boolean)
+            .join("\n\n")
+            .trim();
+          if (fromScreens) briefUnits = [fromScreens];
+        }
+      }
+    }
+
+    if (isStructured && briefUnits.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error:
+            deliveryKind === "carrossel"
+              ? "Briefing estruturado sem `content_brief.slides`. Preencha os slides canônicos antes de gerar."
+              : "Briefing estruturado sem `content_brief.art_text`. Preencha o texto da arte canônico antes de gerar.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const briefSlideTexts = briefUnits;
+
+    // Parse slides — briefing canônico → (LEGADO) description → instructions
     let allSlides = briefSlideTexts.length > 0
       ? briefSlideTexts.map((text, i) => {
-          const [first, ...rest] = text.split(/\n+/);
+          const [first, ...rest] = text.split("\n");
           return { slideNumber: i + 1, title: (first || text).trim(), body: rest.join("\n").trim() };
         })
       : parseSlides(demand.description || "");
-    if (briefSlideTexts.length === 0 && allSlides.length <= 1) {
+    if (!isStructured && briefSlideTexts.length === 0 && allSlides.length <= 1) {
       const fromInstructions = parseSlides(demand.instructions || "");
       if (fromInstructions.length > allSlides.length) allSlides = fromInstructions;
     }
@@ -142,6 +210,12 @@ Deno.serve(async (req) => {
       allSlides = [{ slideNumber: 1, title: fallbackText, body: fallbackBody }];
     }
 
+    // Estático/gráfica estruturado: garante EXATAMENTE uma unidade de geração.
+    if (isStructured && deliveryKind !== "carrossel" && allSlides.length > 1) {
+      allSlides = [allSlides[0]];
+    }
+
+
 
     const slidesToGenerate = slideNumber
       ? (() => {
@@ -149,7 +223,9 @@ Deno.serve(async (req) => {
           if (exact.length > 0) return exact;
           const idx = slideNumber - 1;
           if (idx >= 0 && idx < allSlides.length) return [allSlides[idx]];
-          if (replaceSlide) {
+          // Fallback de regeneração derivado de description/instructions:
+          // exclusivo para cards LEGADOS sem briefing estruturado.
+          if (replaceSlide && !isStructured) {
             const descText = stripHtml(demand.description);
             const objText = demand.objective || "";
             const instrText = stripHtml(demand.instructions);
@@ -161,6 +237,11 @@ Deno.serve(async (req) => {
             const fallbackBody = [descText, objText, instrText, stripHtml(demand.observations)].find(Boolean) || "";
             return [{ slideNumber, title: fallbackTitle, body: fallbackBody }];
           }
+          // Estruturado estático: só existe uma peça — regenera essa peça.
+          if (replaceSlide && isStructured && deliveryKind !== "carrossel" && allSlides.length > 0) {
+            return [allSlides[0]];
+          }
+
 
           return [];
         })()
@@ -178,19 +259,40 @@ Deno.serve(async (req) => {
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
+    const visualDirection = brief ? briefList(brief.visual_direction) : [];
+    const visualDirectionSection = visualDirection.length
+      ? `DIREÇÃO VISUAL (contexto de composição — NÃO É TEXTO RENDERIZÁVEL, nunca escreva essas frases na imagem):\n${visualDirection.map((v) => `- ${v}`).join("\n")}`
+      : "";
+    const isSinglePiece = isStructured && deliveryKind !== "carrossel";
+    const unitLabel = isSinglePiece ? "DESTA PEÇA (arte única)" : "DESTE SLIDE";
+
     for (const slide of slidesToGenerate) {
       const isSingleSlideRegen = !!slideNumber;
+      const canonicalRule = isStructured
+        ? [
+            `- O texto acima vem do BRIEFING CANÔNICO: renderize-o EXATAMENTE como está, preservando quebras de linha e parágrafos. Não reescreva, não resuma, não crie frases novas.`,
+            isSinglePiece
+              ? `- Esta é UMA ÚNICA peça/arte: todo o texto acima pertence à MESMA imagem.`
+              : "",
+            `- NÃO derive nenhuma copy da legenda, do objetivo ou das instruções.`,
+          ].filter(Boolean).join("\n")
+        : "";
       const contentSection = isSingleSlideRegen
         ? [
-            `CONTEÚDO DESTE SLIDE (use EXCLUSIVAMENTE este conteúdo para gerar a imagem, NÃO use conteúdo de outros slides):`,
+            `CONTEÚDO ${unitLabel} (use EXCLUSIVAMENTE este conteúdo para gerar a imagem):`,
             `Texto principal: "${slide.title}"`,
             slide.body ? `Texto complementar/detalhes: "${slide.body}"` : "",
+            visualDirectionSection,
+            canonicalRule,
           ].filter(Boolean).join("\n")
         : [
-            `CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:`,
+            isSinglePiece
+              ? `CONTEÚDO DA PEÇA (arte única — gere UMA imagem contendo este texto):`
+              : `CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:`,
             `Texto principal: "${slide.title}"`,
             slide.body ? `Texto complementar: "${slide.body}"` : "",
             "",
+            visualDirectionSection,
             demand.title ? `TÍTULO INTERNO DO CARD (apenas nomenclatura interna do sistema — PROIBIDO renderizar este texto na imagem, nem parcial nem parafraseado):\n"${demand.title}"` : "",
             demand.objective ? `OBJETIVO DO POST (contexto temático para o design — NÃO renderizar como texto na imagem):\n${demand.objective}` : "",
             demand.description ? `CONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${stripHtml(demand.description)}` : "",
@@ -199,9 +301,10 @@ Deno.serve(async (req) => {
             `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
             `- O "TÍTULO INTERNO DO CARD" é identificador interno da tarefa. NUNCA renderize esse texto na imagem, nem parcialmente, nem parafraseado.`,
             `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post. Este texto NÃO deve aparecer na imagem.`,
-            `- Apenas o "Texto principal" do slide (gancho curto/CTA definido acima) deve aparecer como tipografia na imagem.`,
-
+            canonicalRule ||
+              `- Apenas o "Texto principal" do slide (gancho curto/CTA definido acima) deve aparecer como tipografia na imagem.`,
           ].filter(Boolean).join("\n");
+
 
       const imagePrompt = buildStaticPostPrompt({
         vi,

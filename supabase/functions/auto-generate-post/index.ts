@@ -99,23 +99,49 @@ Deno.serve(async (req) => {
     const demandObjective = demand.objective || "";
 
     // `content_brief` é a FONTE CANÔNICA: textos de arte definidos no briefing devem ser usados como estão.
+    // Estático = UMA peça = UMA imagem: todo `art_text` pertence à MESMA arte.
     const brief = (demand.content_brief && typeof demand.content_brief === "object")
       ? demand.content_brief as Record<string, any>
       : null;
+    /** Contexto (pode ser normalizado em linha única). */
     const bText = (v: unknown) => String(v ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    /** Texto RENDERIZÁVEL canônico — preserva quebras de linha e parágrafos. */
+    const bCopy = (v: unknown) =>
+      String(v ?? "")
+        .replace(/\r\n?/g, "\n")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+        .replace(/<[^>]*>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .split("\n")
+        .map((l) => l.replace(/[ \t]+/g, " ").trim())
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
     const bList = (v: unknown): string[] =>
       Array.isArray(v)
-        ? v.map((i: any) => (typeof i === "string" ? bText(i) : bText(i?.text ?? i?.texto ?? ""))).filter(Boolean)
+        ? v.map((i: any) => (typeof i === "string" ? bCopy(i) : bCopy(i?.text ?? i?.texto ?? ""))).filter(Boolean)
         : [];
-    const briefArtTexts = brief ? [...bList(brief.art_text), ...bList(brief.slides)] : [];
-    const briefScreenTexts = brief ? [bText(brief.cover_text), ...bList(brief.screen_texts)].filter(Boolean) : [];
+    // Fragmentos legados de `art_text` são UNIDOS numa única unidade renderizável.
+    const artUnit = brief ? bList(brief.art_text).join("\n\n").trim() : "";
+    const slidesUnit = brief ? bList(brief.slides).join("\n\n").trim() : "";
+    const canonicalArt = artUnit || slidesUnit;
+    const isStructured = !!brief && (!!brief.delivery_kind || !!artUnit || !!slidesUnit);
+    const briefScreenTexts = brief ? [bCopy(brief.cover_text), ...bList(brief.screen_texts)].filter(Boolean) : [];
+    const briefVisualDirection = brief ? bList(brief.visual_direction) : [];
     const briefSection = brief
       ? [
           `BRIEFING CANÔNICO (fonte de verdade — prevalece sobre legenda e instruções):`,
           brief.message_central ? `- Mensagem central: ${bText(brief.message_central)}` : "",
           brief.concept_format ? `- Conceito/formato: ${bText(brief.concept_format)}` : "",
-          briefArtTexts.length ? `- TEXTO DA ARTE (renderize EXATAMENTE este texto, sem reescrever):\n${briefArtTexts.map((t) => `  • ${t}`).join("\n")}` : "",
+          canonicalArt
+            ? `- TEXTO DA ARTE — PEÇA ÚNICA (renderize EXATAMENTE este texto nesta MESMA arte, preservando quebras de linha):\n${canonicalArt}`
+            : "",
           briefScreenTexts.length ? `- Textos de tela definidos: ${briefScreenTexts.join(" | ")}` : "",
+          briefVisualDirection.length
+            ? `- DIREÇÃO VISUAL (contexto de composição — NÃO É TEXTO RENDERIZÁVEL, nunca escreva essas frases na arte):\n${briefVisualDirection.map((v) => `  • ${v}`).join("\n")}`
+            : "",
         ].filter(Boolean).join("\n")
       : "";
 
@@ -127,15 +153,18 @@ Deno.serve(async (req) => {
       demandInstructions ? `\nINSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${demandInstructions}` : "",
       "",
       `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
-      briefArtTexts.length ? `- Quando o briefing define "TEXTO DA ARTE", use esse texto EXATAMENTE como tipografia da peça, sem inventar novas frases.` : "",
+      canonicalArt ? `- Esta é UMA ÚNICA peça/arte: todo o "TEXTO DA ARTE" pertence à MESMA imagem, na hierarquia definida pelas quebras de linha.` : "",
+      canonicalArt ? `- Use esse texto EXATAMENTE como tipografia da peça, sem reescrever, resumir ou inventar novas frases.` : "",
+      isStructured ? `- NÃO derive copy da legenda, do objetivo ou das instruções: o briefing canônico é a única fonte de texto da arte.` : "",
       `- O "TÍTULO INTERNO DO CARD" é nomenclatura interna do sistema (identificador da tarefa). NUNCA renderize esse texto na imagem, nem parcialmente, nem parafraseado literalmente.`,
       `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post na rede social. Este texto NÃO deve aparecer na imagem.`,
-      briefArtTexts.length
+      canonicalArt
         ? `- Não crie títulos visuais alternativos: o texto do briefing é o título visual.`
         : `- Crie um TÍTULO VISUAL CURTO e original (2-6 palavras impactantes) derivado do OBJETIVO/INSTRUÇÕES/CONTEXTO para usar como tipografia principal da arte — não copie o título interno do card.`,
-      `- Apenas esse título visual curto e eventuais textos de gancho/CTA curtos devem aparecer como tipografia na imagem.`,
+      canonicalArt ? "" : `- Apenas esse título visual curto e eventuais textos de gancho/CTA curtos devem aparecer como tipografia na imagem.`,
       `- A legenda e o título interno servem apenas para você entender o tema e tom do post.`,
     ].filter(Boolean).join("\n");
+
 
     const ratio = aspectFromDemandType(demand.demand_type);
     const aspectLabel = aspectPromptLabel(ratio);

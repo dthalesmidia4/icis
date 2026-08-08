@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentPeriodForClient, type CurrentPeriodInfo } from "@/lib/periodCounts";
+import { dedupeSnapshotAgainstLive } from "@/lib/demandCode";
+
 
 export interface WorkspacePlanItem {
   titulo: string;
@@ -97,6 +99,7 @@ export function useClientPeriodWorkspace(params: {
         if (cancelled) return;
         setPeriod(current);
 
+        let snapshotItems: WorkspacePlanItem[] = [];
         if (current) {
           const { data: raw } = await supabase
             .from("period_plans")
@@ -110,10 +113,9 @@ export function useClientPeriodWorkspace(params: {
                 ...current.default_plan.map((i: any) => normalizePlanItem(i, "normal")),
                 ...current.ultra_plan.map((i: any) => normalizePlanItem(i, "ultra")),
               ];
-          if (!cancelled) setPlanItems(items.filter((i) => i.titulo));
-        } else {
-          setPlanItems([]);
+          snapshotItems = items.filter((i) => i.titulo);
         }
+
 
         let demandQuery = supabase
           .from("demands")
@@ -145,6 +147,10 @@ export function useClientPeriodWorkspace(params: {
 
         const list = ((demandRows as any[]) || []) as WorkspaceDemand[];
         setDemands(list);
+        // Precedência por código estável (DF-XXX): snapshot histórico nunca
+        // concorre com a demand viva do mesmo conteúdo.
+        setPlanItems(dedupeSnapshotAgainstLive(snapshotItems, list.map((d) => d.title)));
+
         setStatusNames(
           Object.fromEntries(
             ((statusRows as any[]) || []).map((s) => [s.id, { name: s.name, isFinal: !!s.is_final }])
