@@ -44,6 +44,28 @@ function stripHtml(input: string | null | undefined): string {
   return input.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim();
 }
 
+/**
+ * Sanitização para TEXTO RENDERIZÁVEL canônico (`content_brief`).
+ * Remove HTML mas PRESERVA quebras de linha e parágrafos — a copy estruturada
+ * deve chegar ao gerador exatamente como foi aprovada.
+ */
+function stripHtmlKeepLines(input: string | null | undefined): string {
+  if (!input) return "";
+  return input
+    .replace(/\r\n?/g, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
