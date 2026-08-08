@@ -228,7 +228,41 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
     }
   };
 
-  if (!demandId || !card) return null;
+  if (!demandId) return null;
+
+  // Shell imediato: o clique no calendário sempre gera resposta visual.
+  if (!card) {
+    return createPortal(
+      <div className="fixed inset-0 z-[100] flex justify-end">
+        <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative h-full w-full max-w-[52vw] min-w-[420px] border-l border-border bg-background shadow-2xl">
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+            {loadError ? (
+              <>
+                <p className="text-sm font-bold">{loadError}</p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-sm border border-border px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em]"
+                >
+                  Fechar
+                </button>
+              </>
+            ) : (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                  {loading ? "Carregando demanda" : "Abrindo demanda"}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
 
   return (
     <TaskCard
