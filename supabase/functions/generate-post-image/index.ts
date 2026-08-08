@@ -121,32 +121,78 @@ Deno.serve(async (req) => {
     const brief = (demand.content_brief && typeof demand.content_brief === "object")
       ? demand.content_brief as Record<string, any>
       : null;
-    const briefText = (v: unknown) => stripHtml(String(v ?? "")).trim();
+    // Texto renderizável: preserva quebras de linha exatamente como aprovadas.
+    const briefText = (v: unknown) => stripHtmlKeepLines(String(v ?? ""));
     const briefList = (v: unknown): string[] =>
       Array.isArray(v)
         ? v.map((i: any) => (typeof i === "string" ? briefText(i) : briefText(i?.text ?? i?.texto ?? ""))).filter(Boolean)
         : [];
 
-    const briefSlideTexts = brief
-      ? (briefList(brief.slides).length > 0
-          ? briefList(brief.slides)
-          : (() => {
-              const art = briefList(brief.art_text);
-              if (art.length > 0) return art;
-              const cover = briefText(brief.cover_text);
-              const screens = briefList(brief.screen_texts);
-              return [cover, ...screens].filter(Boolean);
-            })())
-      : [];
+    const artTexts = brief ? briefList(brief.art_text) : [];
+    const slideTexts = brief ? briefList(brief.slides) : [];
 
-    // Parse slides — briefing canônico → description → instructions
+    /**
+     * Semântica de entrega:
+     *  - `carrossel` → cada item de `slides` é UMA imagem.
+     *  - `estatico` / `grafica` → UMA peça = UMA imagem: todo `art_text` é unido
+     *    por `\n\n` numa única unidade renderizável. `art_text.length` NUNCA
+     *    controla quantidade de imagens.
+     *  - `visual_direction` é contexto visual e NÃO é texto renderizável.
+     */
+    const deliveryKind = (() => {
+      const explicit = String(brief?.delivery_kind || "").toLowerCase();
+      if (["carrossel", "estatico", "grafica", "reel"].includes(explicit)) return explicit;
+      const hay = `${demand.demand_type_key || ""} ${demand.demand_type || ""}`.toLowerCase();
+      if (/carrossel|carousel/.test(hay)) return "carrossel";
+      if (/santinho|gr[áa]fica|impress/.test(hay)) return "grafica";
+      if (/reel|v[íi]deo|video/.test(hay)) return "reel";
+      return "estatico";
+    })();
+
+    // Estruturado = existe briefing canônico utilizável (kind explícito ou entrega preenchida).
+    const isStructured = !!brief && (!!brief.delivery_kind || artTexts.length > 0 || slideTexts.length > 0);
+
+    let briefUnits: string[] = [];
+    if (isStructured) {
+      if (deliveryKind === "carrossel") {
+        briefUnits = slideTexts;
+      } else {
+        const joined = artTexts.join("\n\n").trim();
+        if (joined) briefUnits = [joined];
+        else {
+          // Sem art_text canônico, para peça única aceitamos apenas textos de tela/capa
+          // definidos no próprio briefing — nunca description/instructions.
+          const fromScreens = [briefText(brief!.cover_text), ...briefList(brief!.screen_texts)]
+            .filter(Boolean)
+            .join("\n\n")
+            .trim();
+          if (fromScreens) briefUnits = [fromScreens];
+        }
+      }
+    }
+
+    if (isStructured && briefUnits.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error:
+            deliveryKind === "carrossel"
+              ? "Briefing estruturado sem `content_brief.slides`. Preencha os slides canônicos antes de gerar."
+              : "Briefing estruturado sem `content_brief.art_text`. Preencha o texto da arte canônico antes de gerar.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const briefSlideTexts = briefUnits;
+
+    // Parse slides — briefing canônico → (LEGADO) description → instructions
     let allSlides = briefSlideTexts.length > 0
       ? briefSlideTexts.map((text, i) => {
-          const [first, ...rest] = text.split(/\n+/);
+          const [first, ...rest] = text.split("\n");
           return { slideNumber: i + 1, title: (first || text).trim(), body: rest.join("\n").trim() };
         })
       : parseSlides(demand.description || "");
-    if (briefSlideTexts.length === 0 && allSlides.length <= 1) {
+    if (!isStructured && briefSlideTexts.length === 0 && allSlides.length <= 1) {
       const fromInstructions = parseSlides(demand.instructions || "");
       if (fromInstructions.length > allSlides.length) allSlides = fromInstructions;
     }
@@ -163,6 +209,12 @@ Deno.serve(async (req) => {
       const fallbackBody = descText || instrText || objText || "";
       allSlides = [{ slideNumber: 1, title: fallbackText, body: fallbackBody }];
     }
+
+    // Estático/gráfica estruturado: garante EXATAMENTE uma unidade de geração.
+    if (isStructured && deliveryKind !== "carrossel" && allSlides.length > 1) {
+      allSlides = [allSlides[0]];
+    }
+
 
 
     const slidesToGenerate = slideNumber
