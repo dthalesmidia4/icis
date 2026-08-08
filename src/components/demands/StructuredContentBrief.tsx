@@ -9,6 +9,8 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
+export type DeliveryKind = "grafica" | "estatico" | "carrossel" | "reel";
+
 export interface ContentBrief {
   version?: number;
   code?: string;
@@ -18,6 +20,8 @@ export interface ContentBrief {
   connection_to_paulo?: string;
   concept_format?: string;
   execution_label?: string;
+  /** Tipo de entrega: define quais blocos aparecem no modo leitura. */
+  delivery_kind?: DeliveryKind;
   strategic_validation?: {
     publish_now?: string;
     perception_need?: string;
@@ -25,10 +29,24 @@ export interface ContentBrief {
     concrete_value?: string;
     campaign_contribution?: string;
   };
+  /** Carrossel */
+  slides?: string[];
+  /** Reel */
+  script?: string[];
   screen_texts?: string[];
   cover_text?: string[];
   capture?: string[];
   production_editing?: string[];
+  /** Estático */
+  art_text?: string[];
+  visual_direction?: string[];
+  /** Gráfica / digital */
+  composition?: string[];
+  info_hierarchy?: string[];
+  print_specs?: string[];
+  /** Amplificação (apenas quando estrategicamente aprovada) */
+  amplification_stories?: string[];
+  /** Legado — mantido para compatibilidade; não é renderizado como seção padrão. */
   stories?: string[];
   mandatory_validation?: string[];
   sources?: string[];
@@ -43,30 +61,94 @@ const VALIDATION_QUESTIONS: { key: keyof NonNullable<ContentBrief["strategic_val
   { key: "campaign_contribution", label: "Como contribui para a campanha?" },
 ];
 
-const LIST_FIELDS: { key: keyof ContentBrief; label: string }[] = [
-  { key: "screen_texts", label: "Textos na tela" },
-  { key: "cover_text", label: "Texto da capa" },
-  { key: "capture", label: "Captação" },
-  { key: "production_editing", label: "Produção e edição" },
-];
+const asList = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim()) : [];
 
-const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()) : []);
+const stripHtml = (v?: string | null) =>
+  (v || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
-const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <h4 className="text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">{children}</h4>
+/** Divide um texto de instruções em slides quando ele usa marcadores "Slide N:". */
+function parseSlides(text?: string | null): string[] {
+  const clean = stripHtml(text);
+  if (!clean) return [];
+  const re = /(^|\n)\s*slide\s*\d+\s*[:.\-–]/gi;
+  if (!re.test(clean)) return [];
+  const parts = clean
+    .split(/(?=(?:^|\n)\s*slide\s*\d+\s*[:.\-–])/gi)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts
+    .filter((p) => /^slide\s*\d+/i.test(p))
+    .map((p) => p.replace(/^slide\s*\d+\s*[:.\-–]\s*/i, "").trim())
+    .filter(Boolean);
+}
+
+/** Remove os blocos de slides, sobrando apenas as observações gerais. */
+function instructionsWithoutSlides(text?: string | null): string {
+  const clean = stripHtml(text);
+  if (!clean) return "";
+  const idx = clean.search(/(^|\n)\s*slide\s*\d+\s*[:.\-–]/i);
+  return idx > 0 ? clean.slice(0, idx).trim() : idx === 0 ? "" : clean;
+}
+
+export function resolveDeliveryKind(brief: ContentBrief, demandTypeLabel?: string | null): DeliveryKind {
+  const explicit = brief.delivery_kind;
+  if (explicit === "grafica" || explicit === "estatico" || explicit === "carrossel" || explicit === "reel") {
+    return explicit;
+  }
+  const hay = `${brief.format_label || ""} ${demandTypeLabel || ""}`.toLowerCase();
+  if (/santinho|gr[áa]fica|impress/.test(hay)) return "grafica";
+  if (/carrossel|carousel/.test(hay)) return "carrossel";
+  if (/reel|v[íi]deo|video|stories?\b/.test(hay)) return "reel";
+  return "estatico";
+}
+
+const SectionTitle = ({ children, muted }: { children: React.ReactNode; muted?: boolean }) => (
+  <h4
+    className={cn(
+      "text-[11px] font-black uppercase tracking-[0.14em]",
+      muted ? "text-muted-foreground/70" : "text-muted-foreground"
+    )}
+  >
+    {children}
+  </h4>
 );
 
-const Field = ({ label, value }: { label: string; value?: string | null }) => {
-  if (!value || !value.trim()) return null;
+const Field = ({
+  label,
+  value,
+  emphasis,
+}: {
+  label: string;
+  value?: string | null;
+  emphasis?: boolean;
+}) => {
+  const text = (value || "").trim();
+  if (!text) return null;
   return (
     <div className="space-y-1">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <p className="text-sm leading-relaxed">{value}</p>
+      <p className={cn("whitespace-pre-line leading-relaxed", emphasis ? "text-[15px] font-medium" : "text-sm")}>{text}</p>
     </div>
   );
 };
 
-const ListBlock = ({ label, items, ordered }: { label: string; items: string[]; ordered?: boolean }) => {
+const ListBlock = ({
+  label,
+  items,
+  ordered,
+}: {
+  label: string;
+  items: string[];
+  ordered?: boolean;
+}) => {
   if (!items.length) return null;
   return (
     <div className="space-y-2">
@@ -74,8 +156,10 @@ const ListBlock = ({ label, items, ordered }: { label: string; items: string[]; 
       <ul className="space-y-1.5">
         {items.map((item, i) => (
           <li key={i} className="flex gap-2 text-sm leading-relaxed">
-            <span className="mt-[2px] text-[10px] font-black text-primary">{ordered ? String(i + 1).padStart(2, "0") : "—"}</span>
-            <span className="flex-1">{item}</span>
+            <span className="mt-[2px] text-[10px] font-black text-primary">
+              {ordered ? String(i + 1).padStart(2, "0") : "—"}
+            </span>
+            <span className="flex-1 whitespace-pre-line">{item}</span>
           </li>
         ))}
       </ul>
@@ -83,8 +167,20 @@ const ListBlock = ({ label, items, ordered }: { label: string; items: string[]; 
   );
 };
 
+const TextBlock = ({ label, value }: { label: string; value?: string | null }) => {
+  const text = stripHtml(value);
+  if (!text) return null;
+  return (
+    <div className="space-y-2">
+      <SectionTitle>{label}</SectionTitle>
+      <p className="whitespace-pre-line text-sm leading-relaxed">{text}</p>
+    </div>
+  );
+};
+
 interface Props {
   brief: ContentBrief;
+  title?: string | null;
   demandTypeLabel?: string | null;
   publishDate?: string | null;
   publishTime?: string | null;
@@ -109,6 +205,7 @@ interface Props {
 
 export default function StructuredContentBrief({
   brief,
+  title,
   demandTypeLabel,
   publishDate,
   publishTime,
@@ -132,6 +229,8 @@ export default function StructuredContentBrief({
   const [draft, setDraft] = useState<ContentBrief>(brief);
   const [saving, setSaving] = useState(false);
 
+  const kind = resolveDeliveryKind(brief, demandTypeLabel);
+
   const metaLine = useMemo(() => {
     const parts: string[] = [];
     if (brief.code) parts.push(brief.code);
@@ -149,6 +248,46 @@ export default function StructuredContentBrief({
   const validation = brief.strategic_validation || {};
   const answered = VALIDATION_QUESTIONS.filter((q) => (validation as any)[q.key]?.toString().trim()).length;
 
+  // Conteúdo da entrega principal, com fallback para `instructions` (sem duplicar).
+  const slides = useMemo(() => {
+    const explicit = asList(brief.slides);
+    return explicit.length ? explicit : parseSlides(instructions);
+  }, [brief.slides, instructions]);
+
+  const generalNotes = useMemo(() => {
+    if (kind === "carrossel" && slides.length) return instructionsWithoutSlides(instructions);
+    return "";
+  }, [kind, slides.length, instructions]);
+
+  const scriptText = useMemo(() => {
+    const explicit = asList(brief.script);
+    if (explicit.length) return explicit.join("\n\n");
+    return kind === "reel" ? stripHtml(instructions) : "";
+  }, [brief.script, kind, instructions]);
+
+  const artText = useMemo(() => {
+    const explicit = asList(brief.art_text);
+    if (explicit.length) return explicit.join("\n");
+    return kind === "estatico" ? stripHtml(instructions) : "";
+  }, [brief.art_text, kind, instructions]);
+
+  const visualDirection = useMemo(() => {
+    const explicit = asList(brief.visual_direction);
+    if (explicit.length) return explicit;
+    if (kind === "estatico" || kind === "grafica") {
+      return [...asList(brief.capture), ...asList(brief.production_editing)];
+    }
+    return [];
+  }, [brief.visual_direction, brief.capture, brief.production_editing, kind]);
+
+  const composition = useMemo(() => {
+    const explicit = asList(brief.composition);
+    if (explicit.length) return explicit;
+    return kind === "grafica" && instructions ? [stripHtml(instructions)] : [];
+  }, [brief.composition, kind, instructions]);
+
+  const amplification = asList(brief.amplification_stories);
+
   const startEdit = () => {
     setDraft(brief);
     setEditing(true);
@@ -164,7 +303,6 @@ export default function StructuredContentBrief({
     if (!onSaveBrief) return;
     setSaving(true);
     try {
-      // Preserva chaves desconhecidas: draft parte do JSON original.
       await onSaveBrief({ ...brief, ...draft, version: brief.version ?? 1 });
       setEditing(false);
     } finally {
@@ -172,9 +310,32 @@ export default function StructuredContentBrief({
     }
   };
 
-  const editableListFields = [...LIST_FIELDS, { key: "stories" as const, label: "Sequência de Stories" }, { key: "mandatory_validation" as const, label: "Validação obrigatória" }, { key: "sources" as const, label: "Base / fontes" }];
-
+  /* ------------------------------ MODO EDIÇÃO ------------------------------ */
   if (editing) {
+    const draftKind = resolveDeliveryKind(draft, demandTypeLabel);
+    const kindListFields: { key: string; label: string }[] =
+      draftKind === "carrossel"
+        ? [{ key: "slides", label: "Slides (um slide por linha)" }]
+        : draftKind === "reel"
+        ? [
+            { key: "script", label: "Roteiro (um bloco por linha)" },
+            { key: "screen_texts", label: "Textos na tela" },
+            { key: "cover_text", label: "Capa" },
+            { key: "capture", label: "Captação" },
+            { key: "production_editing", label: "Edição" },
+          ]
+        : draftKind === "grafica"
+        ? [
+            { key: "composition", label: "Composição da peça" },
+            { key: "info_hierarchy", label: "Hierarquia de informações" },
+            { key: "visual_direction", label: "Direção visual" },
+            { key: "print_specs", label: "Especificações de gráfica/digital" },
+          ]
+        : [
+            { key: "art_text", label: "Texto da arte" },
+            { key: "visual_direction", label: "Direção visual" },
+          ];
+
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
@@ -189,7 +350,7 @@ export default function StructuredContentBrief({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
           <div className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Código</p>
             <Input value={draft.code || ""} onChange={(e) => setDraftField("code", e.target.value)} />
@@ -201,6 +362,19 @@ export default function StructuredContentBrief({
           <div className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Território</p>
             <Input value={draft.territory || ""} onChange={(e) => setDraftField("territory", e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Tipo de entrega</p>
+            <select
+              value={draftKind}
+              onChange={(e) => setDraftField("delivery_kind", e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="estatico">Estático</option>
+              <option value="carrossel">Carrossel</option>
+              <option value="reel">Reel</option>
+              <option value="grafica">Gráfica / digital</option>
+            </select>
           </div>
         </div>
 
@@ -234,15 +408,60 @@ export default function StructuredContentBrief({
         ))}
 
         <Separator />
-        {editableListFields.map(({ key, label }) => (
-          <div key={key as string} className="space-y-1">
+        <SectionTitle>Entrega principal</SectionTitle>
+        {kindListFields.map(({ key, label }) => (
+          <div key={key} className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
               {label} <span className="normal-case font-medium tracking-normal">(um item por linha)</span>
             </p>
             <Textarea
               value={asList((draft as any)[key]).join("\n")}
-              onChange={(e) => setDraftList(key as string, e.target.value)}
-              className="min-h-[70px] resize-y"
+              onChange={(e) => setDraftList(key, e.target.value)}
+              className="min-h-[90px] resize-y"
+            />
+          </div>
+        ))}
+
+        {onChangeInstructions && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+              Execução (campo de produção)
+            </p>
+            <Textarea
+              value={instructions || ""}
+              onChange={(e) => onChangeInstructions(e.target.value)}
+              onBlur={onBlurInstructions}
+              className="min-h-[140px] resize-y text-sm"
+            />
+          </div>
+        )}
+
+        {onChangePostCaption && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Legenda</p>
+            <Textarea
+              value={postCaption || ""}
+              onChange={(e) => onChangePostCaption(e.target.value)}
+              onBlur={onBlurPostCaption}
+              className="min-h-[110px] resize-y text-sm"
+            />
+          </div>
+        )}
+
+        <Separator />
+        {[
+          { key: "amplification_stories", label: "Amplificação — Stories de apoio" },
+          { key: "mandatory_validation", label: "Validação obrigatória" },
+          { key: "sources", label: "Base / fontes" },
+        ].map(({ key, label }) => (
+          <div key={key} className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+              {label} <span className="normal-case font-medium tracking-normal">(um item por linha)</span>
+            </p>
+            <Textarea
+              value={asList((draft as any)[key]).join("\n")}
+              onChange={(e) => setDraftList(key, e.target.value)}
+              className="min-h-[80px] resize-y"
             />
           </div>
         ))}
@@ -250,38 +469,67 @@ export default function StructuredContentBrief({
     );
   }
 
+  /* ------------------------------ MODO LEITURA ------------------------------ */
   return (
-    <div className="space-y-5">
-      {/* A) META DO CONTEÚDO */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-2">
+    <div className="space-y-7">
+      {/* 1. CABEÇALHO EDITORIAL */}
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-2">
           {metaLine && <p className="text-[11px] font-black uppercase tracking-[0.18em] text-primary">{metaLine}</p>}
+          {title && <h3 className="text-lg font-black leading-tight sm:text-xl">{title}</h3>}
           <div className="flex flex-wrap items-center gap-1.5">
-            {demandTypeLabel && <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">{demandTypeLabel}</Badge>}
-            {brief.format_label && <Badge variant="outline" className="text-[10px] uppercase tracking-wide">{brief.format_label}</Badge>}
-            {brief.territory && <Badge variant="outline" className="text-[10px] uppercase tracking-wide">{brief.territory}</Badge>}
+            {demandTypeLabel && (
+              <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
+                {demandTypeLabel}
+              </Badge>
+            )}
+            {brief.format_label && (
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                {brief.format_label}
+              </Badge>
+            )}
+            {brief.territory && (
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                {brief.territory}
+              </Badge>
+            )}
           </div>
         </div>
         {!readOnly && onSaveBrief && (
-          <Button size="sm" variant="outline" onClick={startEdit} className="gap-1.5 h-8">
+          <Button size="sm" variant="outline" onClick={startEdit} className="h-8 gap-1.5">
             <Pencil className="h-3.5 w-3.5" /> Editar briefing
           </Button>
         )}
-      </div>
+      </header>
 
-      {/* B) RESUMO ESTRATÉGICO */}
-      <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
+      {/* 2. RESUMO ESTRATÉGICO EM DESTAQUE */}
+      <section className="space-y-3 rounded-xl border-2 border-primary/30 bg-primary/[0.06] p-4 sm:p-5">
         <SectionTitle>Resumo estratégico</SectionTitle>
-        <Field label="Objetivo" value={objective} />
-        <Field label="Contexto" value={description?.replace(/<[^>]*>/g, " ").trim()} />
-        <Field label="Mensagem central" value={brief.message_central} />
-        <Field label="Conexão concreta com Paulo" value={brief.connection_to_paulo} />
-        <Field label="Conceito e formato final" value={brief.concept_format} />
-      </div>
+        <Field label="Objetivo" value={objective} emphasis />
+        <Field label="Mensagem central" value={brief.message_central} emphasis />
+        <Field label="Conceito e formato final" value={brief.concept_format} emphasis />
+      </section>
 
-      {/* C) VALIDAÇÃO ESTRATÉGICA */}
+      {/* 3. CONTEXTO E CONEXÃO (secundários) */}
+      {(stripHtml(description) || brief.connection_to_paulo) && (
+        <section className="space-y-2 border-l-2 border-border pl-3">
+          <SectionTitle muted>Contexto e conexão</SectionTitle>
+          {stripHtml(description) && (
+            <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground">
+              {stripHtml(description)}
+            </p>
+          )}
+          {brief.connection_to_paulo && (
+            <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground">
+              {brief.connection_to_paulo}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* 4. POR QUE ESTE CONTEÚDO EXISTE */}
       {answered > 0 && (
-        <div className="space-y-3">
+        <section className="space-y-3">
           <div className="flex items-center gap-2">
             <SectionTitle>Por que este conteúdo existe</SectionTitle>
             <span
@@ -293,84 +541,103 @@ export default function StructuredContentBrief({
               {answered}/5
             </span>
           </div>
-          <ol className="space-y-2.5">
+          <div className="grid gap-2 sm:grid-cols-2">
             {VALIDATION_QUESTIONS.map((q, i) => {
               const answer = (validation as any)[q.key];
               if (!answer) return null;
               return (
-                <li key={q.key} className="border-l-2 border-border pl-3">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                    {i + 1}. {q.label}
-                  </p>
-                  <p className="text-sm leading-relaxed">{answer}</p>
-                </li>
+                <div key={q.key} className="rounded-lg border border-border bg-card/50 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-black text-primary">
+                      {i + 1}
+                    </span>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{q.label}</p>
+                  </div>
+                  <p className="mt-1.5 text-sm leading-relaxed">{answer}</p>
+                </div>
               );
             })}
-          </ol>
-        </div>
-      )}
-
-      {/* D) EXECUÇÃO */}
-      {(instructions || !readOnly) && (
-        <div className="space-y-2">
-          <SectionTitle>{brief.execution_label || "Execução"}</SectionTitle>
-          {readOnly || !onChangeInstructions ? (
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-              {(instructions || "").replace(/<[^>]*>/g, " ")}
-            </div>
-          ) : (
-            <Textarea
-              value={instructions || ""}
-              onChange={(e) => onChangeInstructions(e.target.value)}
-              onBlur={onBlurInstructions}
-              className="min-h-[140px] resize-y text-sm"
-              placeholder="Texto da arte, estrutura dos slides ou roteiro de fala."
-            />
-          )}
-        </div>
-      )}
-
-      {LIST_FIELDS.map(({ key, label }) => (
-        <ListBlock key={key as string} label={label} items={asList((brief as any)[key])} />
-      ))}
-
-      {/* E) LEGENDA PRONTA */}
-      {(postCaption || !readOnly) && (
-        <div className="space-y-2">
-          <SectionTitle>Legenda pronta para publicação</SectionTitle>
-          {readOnly || !onChangePostCaption ? (
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{postCaption || ""}</div>
-          ) : (
-            <Textarea
-              value={postCaption || ""}
-              onChange={(e) => onChangePostCaption(e.target.value)}
-              onBlur={onBlurPostCaption}
-              className="min-h-[110px] resize-y text-sm"
-            />
-          )}
-        </div>
-      )}
-
-      {/* F) STORIES */}
-      {asList(brief.stories).length > 0 && (
-        <div className="space-y-2">
-          <SectionTitle>Sequência de Stories</SectionTitle>
-          <div className="space-y-1.5">
-            {asList(brief.stories).map((s, i) => (
-              <div key={i} className="rounded-md border border-border bg-card/40 px-3 py-2 text-sm leading-relaxed">
-                {s}
-              </div>
-            ))}
           </div>
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Apoio à demanda principal — não gera novas demandas.
-          </p>
-        </div>
+        </section>
       )}
 
-      {/* G) ANÚNCIO */}
+      {/* 5. ENTREGA PRINCIPAL POR FORMATO */}
+      <section className="space-y-4">
+        {kind === "carrossel" && slides.length > 0 && (
+          <div className="space-y-2">
+            <SectionTitle>Slides do carrossel</SectionTitle>
+            <ol className="space-y-2">
+              {slides.map((s, i) => (
+                <li key={i} className="flex gap-3 rounded-lg border border-border bg-card/50 p-3">
+                  <span className="text-[11px] font-black text-primary">{String(i + 1).padStart(2, "0")}</span>
+                  <p className="flex-1 whitespace-pre-line text-sm leading-relaxed">{s}</p>
+                </li>
+              ))}
+            </ol>
+            {generalNotes && (
+              <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground">{generalNotes}</p>
+            )}
+          </div>
+        )}
+
+        {kind === "carrossel" && slides.length === 0 && <TextBlock label="Estrutura dos slides" value={instructions} />}
+
+        {kind === "reel" && (
+          <>
+            <TextBlock label="Roteiro" value={scriptText} />
+            <ListBlock label="Textos na tela" items={asList(brief.screen_texts)} />
+            <ListBlock label="Capa" items={asList(brief.cover_text)} />
+            <ListBlock label="Captação" items={asList(brief.capture)} />
+            <ListBlock label="Edição" items={asList(brief.production_editing)} />
+          </>
+        )}
+
+        {kind === "estatico" && (
+          <>
+            <TextBlock label="Texto da arte" value={artText} />
+            <ListBlock label="Direção visual" items={visualDirection} />
+          </>
+        )}
+
+        {kind === "grafica" && (
+          <>
+            <ListBlock label="Composição da peça" items={composition} />
+            <ListBlock label="Hierarquia de informações" items={asList(brief.info_hierarchy)} ordered />
+            <ListBlock label="Direção visual" items={visualDirection} />
+            <ListBlock label="Especificações de gráfica/digital" items={asList(brief.print_specs)} />
+          </>
+        )}
+      </section>
+
+      {/* 6. LEGENDA PRONTA */}
+      {(postCaption || "").trim() && (
+        <section className="space-y-2">
+          <SectionTitle>Legenda pronta para publicação</SectionTitle>
+          <p className="whitespace-pre-line text-sm leading-relaxed">{postCaption}</p>
+        </section>
+      )}
+
+      {/* 7. AMPLIFICAÇÃO — STORIES DE APOIO */}
+      {amplification.length > 0 && (
+        <section className="space-y-2 rounded-lg border border-dashed border-border/70 bg-muted/30 p-3">
+          <SectionTitle muted>Amplificação — Stories de apoio</SectionTitle>
+          <ul className="space-y-1">
+            {amplification.map((s, i) => (
+              <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-muted-foreground">
+                <span className="text-[10px] font-black">{String(i + 1).padStart(2, "0")}</span>
+                <span className="flex-1">{s}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground/80">
+            Apoio à publicação principal — não gera novas demandas.
+          </p>
+        </section>
+      )}
+
+      {/* 8. ANÚNCIO / GRÁFICA */}
       {isAnuncio && (
-        <div className="space-y-2 rounded-lg border border-border bg-card/40 p-3">
+        <section className="space-y-2 rounded-lg border border-border bg-card/40 p-3">
           <div className="flex items-center justify-between gap-2">
             <SectionTitle>Anúncio</SectionTitle>
             {onOpenAnuncio && (
@@ -395,25 +662,26 @@ export default function StructuredContentBrief({
           ) : (
             <p className="text-sm text-muted-foreground">Plano de anúncio ainda não preenchido.</p>
           )}
-        </div>
+        </section>
       )}
 
-      {/* H) GRÁFICA */}
       {isGrafica && (
-        <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+        <section className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
           <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-400">
             <Printer className="h-3.5 w-3.5" /> Gráfica
           </p>
-          {graficaWarning && <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">{graficaWarning}</p>}
+          {graficaWarning && (
+            <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">{graficaWarning}</p>
+          )}
           <p className="text-xs text-muted-foreground">
             Conferir as validações gráficas listadas em “Validação obrigatória” antes do fechamento.
           </p>
-        </div>
+        </section>
       )}
 
-      {/* I) VALIDAÇÃO OBRIGATÓRIA */}
+      {/* 9. VALIDAÇÃO OBRIGATÓRIA */}
       {asList(brief.mandatory_validation).length > 0 && (
-        <div className="space-y-2">
+        <section className="space-y-2">
           <SectionTitle>Validação obrigatória</SectionTitle>
           <ul className="space-y-1.5">
             {asList(brief.mandatory_validation).map((item, i) => (
@@ -423,15 +691,15 @@ export default function StructuredContentBrief({
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
 
-      {/* J) BASE */}
+      {/* 10. BASE / FONTES */}
       {asList(brief.sources).length > 0 && (
-        <div className="space-y-1">
+        <section className="space-y-1">
           <SectionTitle>Base</SectionTitle>
           <p className="text-xs leading-relaxed text-muted-foreground">{asList(brief.sources).join(" · ")}</p>
-        </div>
+        </section>
       )}
     </div>
   );
