@@ -26,6 +26,7 @@ import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { DailyCardSection } from "@/components/DailyCardSection";
+import StructuredContentBrief from "@/components/demands/StructuredContentBrief";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
@@ -135,6 +136,8 @@ export interface KanbanCardData {
   // Classificações operacionais (anuncio / grafica) e informações do anúncio
   classifications?: string[] | null;
   ad_plan?: Record<string, any> | null;
+  /** Briefing editorial estruturado (JSONB) — camadas sem campo próprio. */
+  content_brief?: Record<string, any> | null;
   // Área, origem e clientes finais solicitantes (fluxo Sistemas)
   work_area?: "midia" | "sistemas" | null;
   origin?: string | null;
@@ -462,7 +465,9 @@ export default function TaskCard({
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
-  const [activeSection, setActiveSection] = useState<'description' | 'observations' | 'caption' | 'anuncio' | 'anexos'>('description');
+  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos'>(
+    presentation === 'drawer' && (card as any)?.content_brief ? 'briefing' : 'description'
+  );
   const [datesOpen, setDatesOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [objectiveOpen, setObjectiveOpen] = useState(false);
@@ -957,6 +962,25 @@ export default function TaskCard({
     } catch (e) {
       console.error("[TaskCard] update ad_plan error", e);
       toast.error("Erro ao salvar informações do anúncio");
+    }
+  };
+
+  // Briefing editorial estruturado (JSONB `content_brief`)
+  const contentBrief = ((card as any)?.content_brief ?? null) as Record<string, any> | null;
+
+  const handleContentBriefSave = async (next: Record<string, any>) => {
+    onCardChange({ ...card, content_brief: next } as any);
+    if (isDraft) return;
+    try {
+      const { error } = await supabase
+        .from("demands")
+        .update({ content_brief: next as any })
+        .eq("id", card.id);
+      if (error) throw error;
+      toast.success("Briefing salvo!");
+    } catch (e) {
+      console.error("[TaskCard] update content_brief error", e);
+      toast.error("Erro ao salvar briefing");
     }
   };
 
@@ -2656,6 +2680,9 @@ export default function TaskCard({
                           {/* Botões de navegação (estilo hub) */}
                           {(() => {
                             const sectionButtons = [
+                              ...(contentBrief
+                                ? [{ id: 'briefing' as const, label: 'Briefing', icon: FileText, savingKey: 'content_brief' }]
+                                : []),
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
                               { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
                               { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
@@ -2696,6 +2723,30 @@ export default function TaskCard({
                           {/* Painel do botão ativo */}
                           {activeSection !== 'anexos' && (
                           <section className="rounded-lg border border-border bg-card/40 p-4">
+                            {activeSection === 'briefing' && contentBrief && (
+                              <StructuredContentBrief
+                                brief={contentBrief}
+                                demandTypeLabel={card.demand_type || inferDemandType(card)}
+                                publishDate={card.publish_date}
+                                publishTime={card.publish_time}
+                                objective={card.objective}
+                                description={card.description}
+                                instructions={card.instructions}
+                                postCaption={card.post_caption}
+                                adPlan={((card as any).ad_plan || null) as any}
+                                isAnuncio={isAnuncio}
+                                isGrafica={isGrafica}
+                                graficaWarning={GRAFICA_WARNING}
+                                readOnly={readOnly}
+                                onOpenAnuncio={() => setActiveSection('anuncio')}
+                                onSaveBrief={handleContentBriefSave}
+                                onChangeInstructions={(value) => onCardChange({ ...card, instructions: value })}
+                                onBlurInstructions={() => handleFieldSave('instructions', card.instructions || '')}
+                                onChangePostCaption={(value) => onCardChange({ ...card, post_caption: value })}
+                                onBlurPostCaption={() => handleFieldSave('post_caption', card.post_caption || '')}
+                              />
+                            )}
+
                             {activeSection === 'description' && (
                               readOnly ? (
                                 <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />

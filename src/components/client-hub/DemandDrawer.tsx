@@ -90,6 +90,7 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
       current_function_key: d.current_function_key ?? null,
       classifications: Array.isArray(d.classifications) ? d.classifications : [],
       ad_plan: (d.ad_plan as Record<string, any> | null) ?? null,
+      content_brief: (d.content_brief as Record<string, any> | null) ?? null,
       work_area: d.work_area ?? null,
       origin: d.origin ?? "interno",
       origin_note: d.origin_note ?? null,
