@@ -438,8 +438,15 @@ export default function TaskCard({
   useEffect(() => {
     if (!isDrawer || !open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onOpenChange(false);
+      if (e.key !== 'Escape') return;
+      // Não fecha o painel quando existe popover/dialog interno aberto por cima.
+      const hasInnerLayer = document.querySelector(
+        '[data-radix-popper-content-wrapper], [data-radix-dialog-content][data-state="open"]'
+      );
+      if (hasInnerLayer) return;
+      onOpenChange(false);
     };
+
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isDrawer, open, onOpenChange]);
