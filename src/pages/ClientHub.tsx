@@ -1969,6 +1969,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           </div>
         </Tabs>
 
+        {/* Painel lateral com o TaskCard completo da demanda */}
+        <DemandDrawer
+          demandId={drawerDemandId}
+          tenantId={tenantId}
+          onClose={() => setDrawerDemandId(null)}
+          onPersisted={() => workspace.reload()}
+        />
+
+
 
         {/* Modal Hub Conteúdo Avulso - Criar ou Histórico */}
         <Dialog open={contentHubModalOpen} onOpenChange={setContentHubModalOpen}>
