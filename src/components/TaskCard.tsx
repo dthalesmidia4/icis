@@ -200,8 +200,15 @@ interface TaskCardProps {
   draftClients?: { id: string; name: string }[];
   /** Called when the user picks a client in draft mode. */
   onDraftClientChange?: (clientId: string, clientName: string) => void;
+  /**
+   * Apresentação do shell externo.
+   * 'fullscreen' (padrão) = comportamento histórico usado no Kanban.
+   * 'drawer' = painel lateral direito (Hub do Cliente).
+   */
+  presentation?: 'fullscreen' | 'drawer';
 
 }
+
 
 const isImageFile = (type: string) => type.startsWith('image/');
 const AI_UPLOADER_IDS = new Set(["ai-generator", "auto-generator"]);
