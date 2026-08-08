@@ -10,7 +10,6 @@
  */
 
 import { dedupeSnapshotAgainstLive } from "@/lib/demandCode";
-import { normalizeDemandTypeKey } from "@/lib/proceedDemand";
 
 export interface FeedAttachment {
   url: string;
@@ -129,12 +128,10 @@ export const resolveFeedKind = (params: {
     return null;
   }
 
-  const normalized = normalizeDemandTypeKey(label);
-  if (normalized === "carrossel") return "carousel";
-  if (normalized === "video_captado" || normalized === "video_gerado") return "video";
-  if (normalized === "criativo_estatico" && !isStoriesOnly(label)) return "static";
-
-  const l = label.toLowerCase();
+  // Fallback textual estrito para legado (mesma semântica de
+  // `normalizeDemandTypeKey` em proceedDemand.ts, sem acoplar o helper puro ao
+  // cliente Supabase). Compostos usam a parte primária antes do "+".
+  const l = (label.includes("+") ? label.split("+")[0] : label).trim().toLowerCase();
   if (!l) return null;
   if (/carrossel|carousel/.test(l)) return "carousel";
   if (/(v[ií]deo|reels?)/.test(l)) return "video";
