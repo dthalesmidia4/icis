@@ -19,6 +19,7 @@ interface CalendarEntry {
   type: string | null;
   time: string | null;
   isDemand: boolean;
+  classifications: string[];
 }
 
 const todayIso = () => {
