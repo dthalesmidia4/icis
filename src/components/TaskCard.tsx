@@ -895,6 +895,39 @@ export default function TaskCard({
     setEditingField(null);
   };
 
+  // Classificações operacionais (Anúncio / Gráfica)
+  const classifications: string[] = Array.isArray((card as any)?.classifications)
+    ? ((card as any).classifications as string[])
+    : [];
+  const isAnuncio = classifications.includes("anuncio");
+  const isGrafica = classifications.includes("grafica");
+
+  const handleClassificationsChange = async (next: string[]) => {
+    onCardChange({ ...card, classifications: next } as any);
+    if (isDraft) return;
+    try {
+      await supabase.from("demands").update({ classifications: next } as any).eq("id", card.id);
+    } catch (e) {
+      console.error("[TaskCard] update classifications error", e);
+      toast.error("Erro ao atualizar classificações");
+    }
+  };
+
+  const handleAdPlanSave = async () => {
+    if (isDraft) return;
+    try {
+      await supabase
+        .from("demands")
+        .update({ ad_plan: ((card as any)?.ad_plan ?? {}) as any })
+        .eq("id", card.id);
+    } catch (e) {
+      console.error("[TaskCard] update ad_plan error", e);
+      toast.error("Erro ao salvar informações do anúncio");
+    }
+  };
+
+
+
 
   const handleGenerateCaption = async () => {
     if (!card) return;
