@@ -147,6 +147,10 @@ export function useClientPeriodWorkspace(params: {
 
         const list = ((demandRows as any[]) || []) as WorkspaceDemand[];
         setDemands(list);
+        // Precedência por código estável (DF-XXX): snapshot histórico nunca
+        // concorre com a demand viva do mesmo conteúdo.
+        setPlanItems(dedupeSnapshotAgainstLive(snapshotItems, list.map((d) => d.title)));
+
         setStatusNames(
           Object.fromEntries(
             ((statusRows as any[]) || []).map((s) => [s.id, { name: s.name, isFinal: !!s.is_final }])
