@@ -99,6 +99,7 @@ export function useClientPeriodWorkspace(params: {
         if (cancelled) return;
         setPeriod(current);
 
+        let snapshotItems: WorkspacePlanItem[] = [];
         if (current) {
           const { data: raw } = await supabase
             .from("period_plans")
@@ -112,10 +113,9 @@ export function useClientPeriodWorkspace(params: {
                 ...current.default_plan.map((i: any) => normalizePlanItem(i, "normal")),
                 ...current.ultra_plan.map((i: any) => normalizePlanItem(i, "ultra")),
               ];
-          if (!cancelled) setPlanItems(items.filter((i) => i.titulo));
-        } else {
-          setPlanItems([]);
+          snapshotItems = items.filter((i) => i.titulo);
         }
+
 
         let demandQuery = supabase
           .from("demands")
