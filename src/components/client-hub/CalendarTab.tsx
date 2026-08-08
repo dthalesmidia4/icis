@@ -102,6 +102,7 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
         return false;
       }
       if (typeFilter !== "all" && (e.type || "Sem tipo").trim() !== typeFilter) return false;
+      if (opFilter && !(e.isDemand && e.classifications.includes(opFilter))) return false;
       return true;
     });
 
