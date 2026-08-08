@@ -49,13 +49,16 @@ interface CalendarTabProps {
 export default function CalendarTab({ period, planItems, demands }: CalendarTabProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [opFilter, setOpFilter] = useState<"anuncio" | "grafica" | null>(null);
 
   const allEntries = useMemo(() => {
     const entries: CalendarEntry[] = [];
     const demandTitles = new Set(demands.map((d) => (d.title || "").trim()));
 
     demands.forEach((d) => {
-      const date = d.publish_date || d.delivery_date || d.due_date;
+      // Calendário do cliente = calendário de PUBLICAÇÃO.
+      // due_date/delivery_date são datas operacionais de produção e não entram aqui.
+      const date = d.publish_date;
       if (!date) return;
       entries.push({
         date,
@@ -63,16 +66,25 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
         type: d.demand_type,
         time: d.publish_time ? d.publish_time.slice(0, 5) : null,
         isDemand: true,
+        classifications: Array.isArray(d.classifications) ? d.classifications : [],
       });
     });
 
     planItems.forEach((i) => {
       if (!i.data || demandTitles.has(i.titulo)) return;
-      entries.push({ date: i.data, title: i.titulo, type: i.tipo, time: null, isDemand: false });
+      entries.push({
+        date: i.data,
+        title: i.titulo,
+        type: i.tipo,
+        time: null,
+        isDemand: false,
+        classifications: [],
+      });
     });
 
     return entries;
   }, [demands, planItems]);
+
 
   const types = useMemo(() => {
     const map = new Map<string, number>();
