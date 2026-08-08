@@ -29,6 +29,8 @@ export interface WorkspaceDemand {
   assigned_to: string | null;
   archived_at: string | null;
   released_at: string | null;
+  classifications: string[] | null;
+  ad_plan: Record<string, any> | null;
 }
 
 const normalizePlanItem = (raw: any, source: "normal" | "ultra"): WorkspacePlanItem => ({
