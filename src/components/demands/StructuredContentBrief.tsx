@@ -601,11 +601,25 @@ export default function StructuredContentBrief({
           </div>
         )}
 
-        {kind === "carrossel" && slides.length === 0 && <TextBlock label="Estrutura dos slides" value={instructions} />}
+        {kind === "carrossel" && slides.length === 0 && !isStructured && (
+          <TextBlock label="Estrutura dos slides" value={instructions} />
+        )}
+        {kind === "carrossel" && slides.length === 0 && isStructured && (
+          <MissingCanonical label="Slides do carrossel" />
+        )}
 
         {kind === "reel" && (
           <>
-            <TextBlock label="Roteiro" value={scriptText} />
+            {scriptText ? (
+              <TextBlock label="Roteiro" value={scriptText} />
+            ) : (
+              <div className="space-y-1">
+                <SectionTitle>Roteiro</SectionTitle>
+                <p className="text-[13px] leading-relaxed text-muted-foreground">
+                  Roteiro propositalmente aberto / captação documental.
+                </p>
+              </div>
+            )}
             <ListBlock label="Textos na tela" items={asList(brief.screen_texts)} />
             <ListBlock label="Capa" items={asList(brief.cover_text)} />
             <ListBlock label="Captação" items={asList(brief.capture)} />
@@ -615,10 +629,11 @@ export default function StructuredContentBrief({
 
         {kind === "estatico" && (
           <>
-            <TextBlock label="Texto da arte" value={artText} />
+            {artText ? <TextBlock label="Texto da arte" value={artText} /> : <MissingCanonical label="Texto da arte" />}
             <ListBlock label="Direção visual" items={visualDirection} />
           </>
         )}
+
 
         {kind === "grafica" && (
           <>
