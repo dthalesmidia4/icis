@@ -67,7 +67,6 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
 
   const allEntries = useMemo(() => {
     const entries: CalendarEntry[] = [];
-    const demandTitles = new Set(demands.map((d) => (d.title || "").trim()));
 
     demands.forEach((d) => {
       // Calendário do cliente = calendário de PUBLICAÇÃO.
@@ -86,8 +85,10 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
       });
     });
 
-    planItems.forEach((i) => {
-      if (!i.data || demandTitles.has(i.titulo)) return;
+    // Snapshot histórico do período: só entra se NÃO existir demand viva com o
+    // mesmo código estável (DF-XXX). Título/tipo podem divergir após edição.
+    dedupeSnapshotAgainstLive(planItems, demands.map((d) => d.title)).forEach((i) => {
+      if (!i.data) return;
       entries.push({
         date: i.data,
         title: i.titulo,
@@ -102,6 +103,7 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
 
     return entries;
   }, [demands, planItems]);
+
 
 
   const types = useMemo(() => {
