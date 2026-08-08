@@ -32,6 +32,9 @@ import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrand
 
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
+import DemandDrawer from "@/components/client-hub/DemandDrawer";
+import { cn } from "@/lib/utils";
+
 import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
 
@@ -1831,14 +1834,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       : 'estrategia';
   });
 
+  // Demanda aberta em painel lateral (a partir do calendário)
+  const [drawerDemandId, setDrawerDemandId] = useState<string | null>(null);
+
   const workspacePublications = workspace.demands.length || workspace.planItems.length;
+  // Dias do cronograma = dias com PUBLICAÇÃO (datas operacionais não entram aqui).
   const workspaceDays = new Set(
     [
-      ...workspace.demands.map((d) => d.publish_date || d.delivery_date || d.due_date),
+      ...workspace.demands.map((d) => d.publish_date),
       ...workspace.planItems.map((i) => i.data),
     ].filter(Boolean)
   ).size;
   const workspaceCreatives = workspace.planItems.length || workspace.demands.length;
+
   const workspaceDelivered = workspace.demands.filter((d) => {
     const status = d.status_id ? workspace.statusNames[d.status_id] : undefined;
     return !!status?.isFinal || !!d.archived_at;
@@ -1875,7 +1883,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   return (
     <div className="pb-8" style={buildClientBrandStyle(clientBrandColors)}>
-      <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <div
+        className={cn(
+          "container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8",
+          // O calendário precisa de mais largura horizontal que as demais abas.
+          activeTab === "calendario" ? "max-w-[1800px]" : "max-w-7xl"
+        )}
+      >
         <ClientHubHeader
           clientName={displayName}
           period={workspace.period}
@@ -1927,8 +1941,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 period={workspace.period}
                 planItems={workspace.planItems}
                 demands={workspace.demands}
+                onOpenDemand={(id) => setDrawerDemandId(id)}
               />
             </TabsContent>
+
             <TabsContent value="demandas" className="m-0">
               <DemandsTab
                 planItems={workspace.planItems}
@@ -1952,6 +1968,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             </TabsContent>
           </div>
         </Tabs>
+
+        {/* Painel lateral com o TaskCard completo da demanda */}
+        <DemandDrawer
+          demandId={drawerDemandId}
+          tenantId={tenantId}
+          onClose={() => setDrawerDemandId(null)}
+          onPersisted={() => workspace.reload()}
+        />
+
 
 
         {/* Modal Hub Conteúdo Avulso - Criar ou Histórico */}

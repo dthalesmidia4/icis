@@ -17,8 +17,10 @@ interface CalendarEntry {
   date: string;
   title: string;
   type: string | null;
+  typeKey: string | null;
   time: string | null;
   isDemand: boolean;
+  demandId: string | null;
   classifications: string[];
 }
 
@@ -40,13 +42,25 @@ const labelFor = (iso: string) => {
   return `${WEEKDAYS[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")} de ${MONTHS_FULL[d.getMonth()]}`;
 };
 
+/** Acento visual por tipo de conteúdo (tokens do design system, sem cores hardcoded). */
+const accentFor = (entry: CalendarEntry) => {
+  if (!entry.isDemand) return "border-l-muted-foreground/40 bg-muted/60";
+  const key = `${entry.typeKey || ""} ${entry.type || ""}`.toLowerCase();
+  if (key.includes("video_captado") || key.includes("captado")) return "border-l-primary bg-primary/[0.07]";
+  if (key.includes("video")) return "border-l-primary/60 bg-primary/[0.05]";
+  if (key.includes("carrossel") || key.includes("carousel")) return "border-l-accent-foreground/70 bg-accent/40";
+  if (key.includes("estatic") || key.includes("estátic")) return "border-l-secondary-foreground/60 bg-secondary/50";
+  return "border-l-muted-foreground/50 bg-muted/50";
+};
+
 interface CalendarTabProps {
   period: CurrentPeriodInfo | null;
   planItems: WorkspacePlanItem[];
   demands: WorkspaceDemand[];
+  onOpenDemand?: (demandId: string) => void;
 }
 
-export default function CalendarTab({ period, planItems, demands }: CalendarTabProps) {
+export default function CalendarTab({ period, planItems, demands, onOpenDemand }: CalendarTabProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [opFilter, setOpFilter] = useState<"anuncio" | "grafica" | null>(null);
@@ -64,8 +78,10 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
         date,
         title: d.title,
         type: d.demand_type,
+        typeKey: d.demand_type_key,
         time: d.publish_time ? d.publish_time.slice(0, 5) : null,
         isDemand: true,
+        demandId: d.id,
         classifications: Array.isArray(d.classifications) ? d.classifications : [],
       });
     });
@@ -76,8 +92,10 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
         date: i.data,
         title: i.titulo,
         type: i.tipo,
+        typeKey: i.typeKey,
         time: null,
         isDemand: false,
+        demandId: null,
         classifications: [],
       });
     });
@@ -149,8 +167,61 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
   const today = todayIso();
   const sortedDays = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
+  const openEntry = (entry: CalendarEntry) => {
+    if (!entry.isDemand || !entry.demandId || !onOpenDemand) return;
+    onOpenDemand(entry.demandId);
+  };
+
+  const renderEntry = (item: CalendarEntry, idx: number) => {
+    const clickable = item.isDemand && !!item.demandId && !!onOpenDemand;
+    const kicker = [item.time, item.type || (item.isDemand ? "Demanda" : "Planejado")]
+      .filter(Boolean)
+      .join(" · ");
+    return (
+      <div
+        key={`${item.title}-${idx}`}
+        role={clickable ? "button" : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        onClick={clickable ? () => openEntry(item) : undefined}
+        onKeyDown={
+          clickable
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openEntry(item);
+                }
+              }
+            : undefined
+        }
+        className={cn(
+          "rounded-[3px] border-l-2 px-2 py-1 transition-colors",
+          accentFor(item),
+          clickable &&
+            "cursor-pointer hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+        )}
+      >
+        <p className="truncate text-[9px] font-black uppercase tracking-[0.08em] text-muted-foreground">
+          {kicker}
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-[11px] font-bold leading-[1.15]">{item.title}</p>
+        {!!item.classifications.length && (
+          <p className="mt-1 flex flex-wrap gap-1">
+            {item.classifications.map((c) => (
+              <span
+                key={c}
+                className="rounded-sm border border-primary/40 px-1 py-0 text-[8px] font-black uppercase leading-[1.4] tracking-[0.08em] text-primary"
+              >
+                {c === "anuncio" ? "Anúncio" : "Gráfica"}
+              </span>
+            ))}
+          </p>
+        )}
+      </div>
+    );
+  };
+
   const controls = (
-    <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div className="w-full lg:max-w-xs">
         <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
           Buscar
@@ -159,7 +230,7 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tema, tipo ou demanda"
-          className="h-11 rounded-lg"
+          className="h-10 rounded-lg"
         />
       </div>
       <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -167,7 +238,7 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
           type="button"
           onClick={() => setTypeFilter("all")}
           className={cn(
-            "rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors",
+            "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
             typeFilter === "all"
               ? "border-primary bg-primary text-primary-foreground"
               : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
@@ -181,7 +252,7 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
             type="button"
             onClick={() => setTypeFilter(type)}
             className={cn(
-              "rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors",
+              "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
               typeFilter === type
                 ? "border-primary bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
@@ -200,7 +271,7 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
             type="button"
             onClick={() => setOpFilter((prev) => (prev === key ? null : key))}
             className={cn(
-              "rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors",
+              "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
               opFilter === key
                 ? "border-primary bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
@@ -237,92 +308,62 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
   return (
     <>
       {controls}
-      {/* Grade semanal (desktop) */}
+      {/* Grade semanal (desktop) — horizontal, compacta, com scroll quando estreita */}
+      <div className="hidden overflow-x-auto md:block">
+        <div className="min-w-[1060px] overflow-hidden border">
+          <div className="grid grid-cols-7 bg-foreground">
+            {WEEKDAYS.map((w) => (
+              <div
+                key={w}
+                className="px-2 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.16em] text-background"
+              >
+                {w}
+              </div>
+            ))}
+          </div>
 
-      <div className="hidden overflow-hidden border md:block">
-        <div className="grid grid-cols-7 bg-foreground">
-          {WEEKDAYS.map((w) => (
-            <div
-              key={w}
-              className="px-3 py-2.5 text-center text-[10px] font-black uppercase tracking-[0.16em] text-background"
-            >
-              {w}
+          {weeks.map((week, wi) => (
+            <div key={wi} className="grid grid-cols-7 border-t">
+              {week.map((iso) => {
+                const items = byDate.get(iso) || [];
+                const d = parse(iso);
+                const isToday = iso === today;
+                const inPeriod =
+                  !period?.period_start ||
+                  !period?.period_end ||
+                  (iso >= period.period_start && iso <= period.period_end);
+                return (
+                  <div
+                    key={iso}
+                    className={cn(
+                      "min-h-[108px] border-l px-1.5 py-1.5 first:border-l-0",
+                      !inPeriod && "bg-muted/30",
+                      isToday && "bg-primary/5 ring-1 ring-inset ring-primary/40"
+                    )}
+                  >
+                    <div className="flex items-baseline gap-1">
+                      <span
+                        className={cn(
+                          "text-[15px] font-black leading-none tabular-nums",
+                          isToday ? "text-primary" : !inPeriod && "text-muted-foreground"
+                        )}
+                      >
+                        {String(d.getDate()).padStart(2, "0")}
+                      </span>
+                      <span className="text-[8px] font-black uppercase tracking-[0.12em] text-muted-foreground">
+                        {MONTHS_SHORT[d.getMonth()]}
+                      </span>
+                    </div>
+
+                    <div className="mt-1.5 space-y-1">
+                      {items.map((item, idx) => renderEntry(item, idx))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
-
-        {weeks.map((week, wi) => (
-          <div key={wi} className="grid grid-cols-7 border-t">
-            {week.map((iso) => {
-              const items = byDate.get(iso) || [];
-              const d = parse(iso);
-              const isToday = iso === today;
-              const inPeriod =
-                !period?.period_start ||
-                !period?.period_end ||
-                (iso >= period.period_start && iso <= period.period_end);
-              return (
-                <div
-                  key={iso}
-                  className={cn(
-                    "min-h-[130px] border-l p-2 first:border-l-0",
-                    !inPeriod && "bg-muted/30",
-                    isToday && "bg-primary/5 ring-1 ring-inset ring-primary/40"
-                  )}
-                >
-                  <div className="flex items-baseline gap-1.5">
-                    <span
-                      className={cn(
-                        "text-lg font-black leading-none tabular-nums",
-                        isToday ? "text-primary" : !inPeriod && "text-muted-foreground"
-                      )}
-                    >
-                      {String(d.getDate()).padStart(2, "0")}
-                    </span>
-                    <span className="text-[9px] font-black uppercase tracking-[0.12em] text-muted-foreground">
-                      {MONTHS_SHORT[d.getMonth()]}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 space-y-1.5">
-                    {items.map((item, idx) => (
-                      <div
-                        key={`${item.title}-${idx}`}
-                        className={cn(
-                          "border-l-2 px-2 py-1.5",
-                          item.isDemand
-                            ? "border-l-primary bg-primary/10"
-                            : "border-l-muted-foreground/40 bg-muted"
-                        )}
-                      >
-                        <p className="text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground">
-                          {[item.time, item.type || (item.isDemand ? "Demanda" : "Planejado")]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
-                        <p className="mt-0.5 line-clamp-3 text-[11px] font-bold leading-snug">
-                          {item.title}
-                        </p>
-                        {!!item.classifications.length && (
-                          <p className="mt-1 flex flex-wrap gap-1">
-                            {item.classifications.map((c) => (
-                              <span
-                                key={c}
-                                className="rounded-full border border-primary/40 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-primary"
-                              >
-                                {c === "anuncio" ? "Anúncio" : "Gráfica"}
-                              </span>
-                            ))}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))}
       </div>
 
       {/* Lista vertical (mobile) */}
@@ -330,7 +371,7 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
         {sortedDays.map(([date, items]) => {
           const isToday = date === today;
           return (
-            <div key={date} className={cn("py-4", date < today && !isToday && "opacity-60")}>
+            <div key={date} className={cn("py-3.5", date < today && !isToday && "opacity-60")}>
               <p
                 className={cn(
                   "text-[10px] font-black uppercase tracking-[0.16em]",
@@ -340,36 +381,9 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
                 {labelFor(date)}
                 {isToday && " · hoje"}
               </p>
-              <ul className="mt-2 space-y-2">
-                {items.map((item, idx) => (
-                  <li
-                    key={`${item.title}-${idx}`}
-                    className={cn(
-                      "border-l-2 px-2 py-1.5",
-                      item.isDemand ? "border-l-primary bg-primary/10" : "border-l-muted-foreground/40 bg-muted"
-                    )}
-                  >
-                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground">
-                      {[item.time, item.type || (item.isDemand ? "Demanda" : "Planejado")]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    <p className="mt-0.5 text-xs font-bold">{item.title}</p>
-                    {!!item.classifications.length && (
-                      <p className="mt-1 flex flex-wrap gap-1">
-                        {item.classifications.map((c) => (
-                          <span
-                            key={c}
-                            className="rounded-full border border-primary/40 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-primary"
-                          >
-                            {c === "anuncio" ? "Anúncio" : "Gráfica"}
-                          </span>
-                        ))}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-2 space-y-1.5">
+                {items.map((item, idx) => renderEntry(item, idx))}
+              </div>
             </div>
           );
         })}
