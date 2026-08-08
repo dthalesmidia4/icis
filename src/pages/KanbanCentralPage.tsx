@@ -1073,6 +1073,7 @@ const KanbanCentralPage = () => {
           post_caption: demand.post_caption || null,
           classifications: demand.classifications || [],
           ad_plan: demand.ad_plan || null,
+          content_brief: (demand as any).content_brief || null,
           status: statusName,
           due_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
           channel: demand.channel || null,
