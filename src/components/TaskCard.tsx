@@ -2226,6 +2226,16 @@ export default function TaskCard({
                     </Select>
                   </div>
 
+                  <span className="text-muted-foreground/40 select-none">·</span>
+
+                  {/* Classificações operacionais (Anúncio / Gráfica) */}
+                  <ClassificationSelector
+                    value={classifications}
+                    onChange={handleClassificationsChange}
+                    disabled={readOnly}
+                  />
+
+
                   {/* Origem — só faz sentido em Sistemas (define se passa pelas etapas de cliente) */}
                   {card.work_area === "sistemas" && (
                   <>
