@@ -2748,13 +2748,32 @@ export default function TaskCard({
                               />
                             )}
 
-                            {activeSection === 'description' && (
-                              readOnly ? (
-                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
-                              ) : (
-                                <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Texto do post, legenda, copy..." minHeight="160px" />
-                              )
-                            )}
+                            {activeSection === 'description' && (() => {
+                              const deliveryField = resolveDeliveryField(contentBrief);
+                              return (
+                                <div className="space-y-5">
+                                  {deliveryField && contentBrief && (
+                                    <MainDeliveryEditor
+                                      brief={contentBrief}
+                                      field={deliveryField}
+                                      readOnly={readOnly}
+                                      onSaveBrief={handleContentBriefSave}
+                                    />
+                                  )}
+
+                                  <div className="space-y-2">
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                      {deliveryField ? "Contexto estratégico / legenda" : "Conteúdo"}
+                                    </p>
+                                    {readOnly ? (
+                                      <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
+                                    ) : (
+                                      <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Texto do post, legenda, copy..." minHeight="160px" />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Abas "Instruções de Produção" e "CTA Recomendado" ocultadas da UI.
                                 A coluna `instructions` continua sendo preenchida pela IA/planejamento e
