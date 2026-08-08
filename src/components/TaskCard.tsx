@@ -2722,6 +2722,30 @@ export default function TaskCard({
                           {/* Painel do botão ativo */}
                           {activeSection !== 'anexos' && (
                           <section className="rounded-lg border border-border bg-card/40 p-4">
+                            {activeSection === 'briefing' && contentBrief && (
+                              <StructuredContentBrief
+                                brief={contentBrief}
+                                demandTypeLabel={card.demand_type || inferDemandType(card)}
+                                publishDate={card.publish_date}
+                                publishTime={card.publish_time}
+                                objective={card.objective}
+                                description={card.description}
+                                instructions={card.instructions}
+                                postCaption={card.post_caption}
+                                adPlan={((card as any).ad_plan || null) as any}
+                                isAnuncio={isAnuncio}
+                                isGrafica={isGrafica}
+                                graficaWarning={GRAFICA_WARNING}
+                                readOnly={readOnly}
+                                onOpenAnuncio={() => setActiveSection('anuncio')}
+                                onSaveBrief={handleContentBriefSave}
+                                onChangeInstructions={(value) => onCardChange({ ...card, instructions: value })}
+                                onBlurInstructions={() => handleFieldSave('instructions', card.instructions || '')}
+                                onChangePostCaption={(value) => onCardChange({ ...card, post_caption: value })}
+                                onBlurPostCaption={() => handleFieldSave('post_caption', card.post_caption || '')}
+                              />
+                            )}
+
                             {activeSection === 'description' && (
                               readOnly ? (
                                 <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
