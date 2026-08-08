@@ -964,6 +964,25 @@ export default function TaskCard({
     }
   };
 
+  // Briefing editorial estruturado (JSONB `content_brief`)
+  const contentBrief = ((card as any)?.content_brief ?? null) as Record<string, any> | null;
+
+  const handleContentBriefSave = async (next: Record<string, any>) => {
+    onCardChange({ ...card, content_brief: next } as any);
+    if (isDraft) return;
+    try {
+      const { error } = await supabase
+        .from("demands")
+        .update({ content_brief: next as any })
+        .eq("id", card.id);
+      if (error) throw error;
+      toast.success("Briefing salvo!");
+    } catch (e) {
+      console.error("[TaskCard] update content_brief error", e);
+      toast.error("Erro ao salvar briefing");
+    }
+  };
+
 
 
 
