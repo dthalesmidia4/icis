@@ -143,19 +143,19 @@ function FeedCell({ entry, onOpenDemand }: { entry: FeedEntry; onOpenDemand?: (i
       {entry.previewKind !== "none" && (
         <>
           {entry.kind === "carousel" && (
-            <span className="absolute right-1.5 top-1.5 flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 text-[9px] font-bold text-foreground backdrop-blur">
-              <Layers className="h-3 w-3" />
+            <span className="absolute right-2 top-2 flex items-center gap-1 rounded bg-background/80 px-2 py-1 text-[10px] font-bold text-foreground backdrop-blur">
+              <Layers className="h-4 w-4" />
               {entry.mediaCount}
             </span>
           )}
           {entry.kind === "video" && (
-            <span className="absolute right-1.5 top-1.5 rounded bg-background/80 p-1 text-foreground backdrop-blur">
-              <Play className="h-3 w-3" />
+            <span className="absolute right-2 top-2 rounded bg-background/80 p-1.5 text-foreground backdrop-blur">
+              <Play className="h-4 w-4" />
             </span>
           )}
           {entry.kind === "static" && (
-            <span className="absolute right-1.5 top-1.5 rounded bg-background/70 p-1 text-foreground backdrop-blur">
-              <ImageIcon className="h-3 w-3" />
+            <span className="absolute right-2 top-2 rounded bg-background/70 p-1.5 text-foreground backdrop-blur">
+              <ImageIcon className="h-4 w-4" />
             </span>
           )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-1.5">
