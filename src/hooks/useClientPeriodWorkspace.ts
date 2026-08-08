@@ -17,6 +17,14 @@ export interface WorkspacePlanItem {
   source: "normal" | "ultra";
 }
 
+/** Attachment enxuto consumido pela prévia do feed (nunca `rejected_attachments`). */
+export interface WorkspaceAttachment {
+  url: string;
+  name?: string | null;
+  type?: string | null;
+  storagePath?: string | null;
+}
+
 export interface WorkspaceDemand {
   id: string;
   title: string;
@@ -33,6 +41,9 @@ export interface WorkspaceDemand {
   released_at: string | null;
   classifications: string[] | null;
   ad_plan: Record<string, any> | null;
+  channel: string | null;
+  post_caption: string | null;
+  attachments: WorkspaceAttachment[] | null;
 }
 
 const normalizePlanItem = (raw: any, source: "normal" | "ultra"): WorkspacePlanItem => ({
