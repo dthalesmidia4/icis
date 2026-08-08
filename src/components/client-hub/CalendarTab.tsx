@@ -177,35 +177,14 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
     const kicker = [item.time, item.type || (item.isDemand ? "Demanda" : "Planejado")]
       .filter(Boolean)
       .join(" · ");
-    return (
-      <div
-        key={`${item.title}-${idx}`}
-        role={clickable ? "button" : undefined}
-        tabIndex={clickable ? 0 : undefined}
-        onClick={clickable ? () => openEntry(item) : undefined}
-        onKeyDown={
-          clickable
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openEntry(item);
-                }
-              }
-            : undefined
-        }
-        className={cn(
-          "rounded-[3px] border-l-2 px-2 py-1 transition-colors",
-          accentFor(item),
-          clickable &&
-            "cursor-pointer hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-        )}
-      >
+    const body = (
+      <>
         <p className="truncate text-[9px] font-black uppercase tracking-[0.08em] text-muted-foreground">
           {kicker}
         </p>
         <p className="mt-0.5 line-clamp-2 text-[11px] font-bold leading-[1.15]">{item.title}</p>
         {!!item.classifications.length && (
-          <p className="mt-1 flex flex-wrap gap-1">
+          <span className="mt-1 flex flex-wrap gap-1">
             {item.classifications.map((c) => (
               <span
                 key={c}
@@ -214,11 +193,35 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
                 {c === "anuncio" ? "Anúncio" : "Gráfica"}
               </span>
             ))}
-          </p>
+          </span>
         )}
-      </div>
+      </>
+    );
+    const baseClass = cn("rounded-[3px] border-l-2 px-2 py-1 transition-colors", accentFor(item));
+
+    if (!clickable) {
+      return (
+        <div key={`${item.title}-${idx}`} className={baseClass}>
+          {body}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={`${item.title}-${idx}`}
+        type="button"
+        onClick={() => openEntry(item)}
+        className={cn(
+          baseClass,
+          "w-full cursor-pointer text-left hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+        )}
+      >
+        {body}
+      </button>
     );
   };
+
 
   const controls = (
     <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
