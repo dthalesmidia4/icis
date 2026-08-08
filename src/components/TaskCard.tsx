@@ -1403,13 +1403,36 @@ export default function TaskCard({
   const statusConfig = getDynamicStatusConfig(card.status || normalizedStatus);
   const priority = getDerivedPriority();
   const modalContent = <>
-      {/* Full-screen modal container - respects sidebar */}
-      <div className="fixed inset-0 z-50 md:left-16 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="task-card-title">
+      {/* Shell externo: fullscreen (Kanban) ou painel lateral direito (Hub do Cliente) */}
+      <div
+        className={cn(
+          "fixed z-50 flex flex-col",
+          isDrawer ? "inset-0" : "inset-0 md:left-16"
+        )}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-card-title"
+      >
         {/* Overlay */}
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" aria-hidden="true" />
-        
+        <div
+          className={cn(
+            "absolute inset-0",
+            isDrawer ? "bg-foreground/25" : "bg-background/80 backdrop-blur-sm"
+          )}
+          aria-hidden="true"
+          onClick={isDrawer ? () => onOpenChange(false) : undefined}
+        />
+
         {/* Modal Content */}
-        <div className="relative z-10 flex flex-col h-full w-full bg-card border-l border-border shadow-2xl animate-in fade-in-0 slide-in-from-right-2 duration-200">
+        <div
+          className={cn(
+            "relative z-10 flex flex-col bg-card border-border shadow-2xl animate-in fade-in-0 slide-in-from-right-2 duration-200",
+            isDrawer
+              ? "ml-auto h-dvh w-full border-l md:w-[82vw] lg:w-[52vw] lg:max-w-[860px] lg:min-w-[720px]"
+              : "h-full w-full border-l"
+          )}
+        >
+
           
           {/* ===== HEADER REDESENHADO ===== */}
           <div className="border-b border-border bg-card px-6 py-4 shrink-0">
