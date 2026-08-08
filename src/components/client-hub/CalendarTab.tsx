@@ -136,7 +136,15 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
     if (week.length) result.push(week);
 
     return { byDate: map, weeks: result };
-  }, [allEntries, period, search, typeFilter]);
+  }, [allEntries, period, search, typeFilter, opFilter]);
+
+  const opCounts = useMemo(
+    () => ({
+      anuncio: allEntries.filter((e) => e.isDemand && e.classifications.includes("anuncio")).length,
+      grafica: allEntries.filter((e) => e.isDemand && e.classifications.includes("grafica")).length,
+    }),
+    [allEntries]
+  );
 
   const today = todayIso();
   const sortedDays = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
