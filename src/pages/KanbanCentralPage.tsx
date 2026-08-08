@@ -807,6 +807,7 @@ const KanbanCentralPage = () => {
         post_caption: data.post_caption || null,
         classifications: (data as any).classifications || [],
         ad_plan: (data as any).ad_plan || null,
+        content_brief: (data as any).content_brief || null,
         status: statusName,
         due_date: data.due_date || data.publish_date || new Date().toISOString().split('T')[0],
         channel: data.channel || null,
