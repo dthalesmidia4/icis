@@ -259,19 +259,40 @@ Deno.serve(async (req) => {
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
+    const visualDirection = brief ? briefList(brief.visual_direction) : [];
+    const visualDirectionSection = visualDirection.length
+      ? `DIREÇÃO VISUAL (contexto de composição — NÃO É TEXTO RENDERIZÁVEL, nunca escreva essas frases na imagem):\n${visualDirection.map((v) => `- ${v}`).join("\n")}`
+      : "";
+    const isSinglePiece = isStructured && deliveryKind !== "carrossel";
+    const unitLabel = isSinglePiece ? "DESTA PEÇA (arte única)" : "DESTE SLIDE";
+
     for (const slide of slidesToGenerate) {
       const isSingleSlideRegen = !!slideNumber;
+      const canonicalRule = isStructured
+        ? [
+            `- O texto acima vem do BRIEFING CANÔNICO: renderize-o EXATAMENTE como está, preservando quebras de linha e parágrafos. Não reescreva, não resuma, não crie frases novas.`,
+            isSinglePiece
+              ? `- Esta é UMA ÚNICA peça/arte: todo o texto acima pertence à MESMA imagem.`
+              : "",
+            `- NÃO derive nenhuma copy da legenda, do objetivo ou das instruções.`,
+          ].filter(Boolean).join("\n")
+        : "";
       const contentSection = isSingleSlideRegen
         ? [
-            `CONTEÚDO DESTE SLIDE (use EXCLUSIVAMENTE este conteúdo para gerar a imagem, NÃO use conteúdo de outros slides):`,
+            `CONTEÚDO ${unitLabel} (use EXCLUSIVAMENTE este conteúdo para gerar a imagem):`,
             `Texto principal: "${slide.title}"`,
             slide.body ? `Texto complementar/detalhes: "${slide.body}"` : "",
+            visualDirectionSection,
+            canonicalRule,
           ].filter(Boolean).join("\n")
         : [
-            `CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:`,
+            isSinglePiece
+              ? `CONTEÚDO DA PEÇA (arte única — gere UMA imagem contendo este texto):`
+              : `CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:`,
             `Texto principal: "${slide.title}"`,
             slide.body ? `Texto complementar: "${slide.body}"` : "",
             "",
+            visualDirectionSection,
             demand.title ? `TÍTULO INTERNO DO CARD (apenas nomenclatura interna do sistema — PROIBIDO renderizar este texto na imagem, nem parcial nem parafraseado):\n"${demand.title}"` : "",
             demand.objective ? `OBJETIVO DO POST (contexto temático para o design — NÃO renderizar como texto na imagem):\n${demand.objective}` : "",
             demand.description ? `CONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${stripHtml(demand.description)}` : "",
@@ -280,9 +301,10 @@ Deno.serve(async (req) => {
             `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
             `- O "TÍTULO INTERNO DO CARD" é identificador interno da tarefa. NUNCA renderize esse texto na imagem, nem parcialmente, nem parafraseado.`,
             `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post. Este texto NÃO deve aparecer na imagem.`,
-            `- Apenas o "Texto principal" do slide (gancho curto/CTA definido acima) deve aparecer como tipografia na imagem.`,
-
+            canonicalRule ||
+              `- Apenas o "Texto principal" do slide (gancho curto/CTA definido acima) deve aparecer como tipografia na imagem.`,
           ].filter(Boolean).join("\n");
+
 
       const imagePrompt = buildStaticPostPrompt({
         vi,
