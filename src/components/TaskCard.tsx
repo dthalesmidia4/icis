@@ -2726,6 +2726,7 @@ export default function TaskCard({
                             {activeSection === 'briefing' && contentBrief && (
                               <StructuredContentBrief
                                 brief={contentBrief}
+                                title={card.title}
                                 demandTypeLabel={card.demand_type || inferDemandType(card)}
                                 publishDate={card.publish_date}
                                 publishTime={card.publish_time}
