@@ -50,6 +50,35 @@ function getCarouselGenerationMeta(reorderMeta: any): any | null {
   return meta;
 }
 
+/** Removes unsafe/formatting HTML while preserving canonical line and paragraph breaks. */
+export function sanitizeRenderableText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/<\s*(script|style)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*\/\s*(p|div|li|h[1-6])\s*>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Legacy-only slide quantity inference. Explicit Slide/Slide markers win; otherwise
+ * use a bounded 3–4 slide heuristic based on source length, never a universal 5.
+ */
+export function inferLegacySlideCount(...sources: unknown[]): number {
+  const content = sources.map((source) => String(source ?? "")).filter(Boolean).join("\n");
+  const explicitNumbers = Array.from(content.matchAll(/(?:slide|tela)\s*#?\s*(\d{1,2})\b/gi))
+    .map((match) => Number(match[1]))
+    .filter((number) => Number.isInteger(number) && number > 0 && number <= 20);
+  if (explicitNumbers.length > 0) return Math.max(...explicitNumbers);
+
+  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+  return wordCount > 180 ? 4 : 3;
+}
+
 async function persistCarouselGenerationMeta(
   supabase: any,
   demandId: string,
@@ -216,7 +245,9 @@ Deno.serve(async (req) => {
     const briefSlides: Array<{ text: string; label: string }> = Array.isArray(brief?.slides)
       ? (brief!.slides as any[])
           .map((s: any, i: number) => {
-            const text = typeof s === "string" ? stripTags(s) : stripTags(s?.text ?? s?.texto ?? "");
+             const text = typeof s === "string"
+               ? sanitizeRenderableText(s)
+               : sanitizeRenderableText(s?.text ?? s?.texto ?? "");
             const label = typeof s === "string"
               ? (i === 0 ? "Capa / Gancho" : "Conteúdo")
               : stripTags(s?.label ?? s?.rotulo ?? (i === 0 ? "Capa / Gancho" : "Conteúdo"));
@@ -229,10 +260,10 @@ Deno.serve(async (req) => {
       ? [
           brief.message_central ? `Mensagem central (briefing): ${stripTags(brief.message_central)}` : "",
           brief.concept_format ? `Conceito/formato (briefing): ${stripTags(brief.concept_format)}` : "",
-          Array.isArray(brief.screen_texts) && brief.screen_texts.length
-            ? `Textos de tela (briefing, usar como estão): ${brief.screen_texts.map(stripTags).join(" | ")}`
+           Array.isArray(brief.screen_texts) && brief.screen_texts.length
+             ? `Textos de tela (briefing, usar como estão): ${brief.screen_texts.map(sanitizeRenderableText).join("\n---\n")}`
             : "",
-          brief.cover_text ? `Texto de capa (briefing): ${stripTags(brief.cover_text)}` : "",
+           brief.cover_text ? `Texto de capa (briefing): ${sanitizeRenderableText(brief.cover_text)}` : "",
         ].filter(Boolean).join("\n")
       : "";
 
@@ -243,7 +274,14 @@ Deno.serve(async (req) => {
       demand.instructions ? `Instruções: ${stripTags(demand.instructions)}` : "",
     ].filter(Boolean).join("\n");
 
-    const slideCount = briefSlides.length > 0 ? briefSlides.length : 5;
+    const slideCount = briefSlides.length > 0
+      ? briefSlides.length
+      : inferLegacySlideCount(
+          Array.isArray(brief?.screen_texts) ? brief.screen_texts.join("\n") : "",
+          brief?.cover_text,
+          demand.instructions,
+          demand.description,
+        );
     const contentSignature = await hashText([
       demand.title || "",
       demand.objective || "",
