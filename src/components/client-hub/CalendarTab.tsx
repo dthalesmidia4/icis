@@ -190,9 +190,29 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
             {type} <span className="tabular-nums opacity-70">{count}</span>
           </button>
         ))}
+        <span className="mx-1 h-6 w-px self-center bg-border" aria-hidden />
+        {([
+          ["anuncio", "Anúncios"],
+          ["grafica", "Gráfica"],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setOpFilter((prev) => (prev === key ? null : key))}
+            className={cn(
+              "rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors",
+              opFilter === key
+                ? "border-primary bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+            )}
+          >
+            {label} <span className="tabular-nums opacity-70">{opCounts[key]}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
+
 
   if (!sortedDays.length) {
     return (
