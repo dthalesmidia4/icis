@@ -231,6 +231,23 @@ export default function StructuredContentBrief({
 
   const kind = resolveDeliveryKind(brief, demandTypeLabel);
 
+  /**
+   * Demanda "estruturada" = já possui `content_brief` canônico (delivery_kind
+   * explícito ou algum campo de entrega preenchido). Nesse caso NÃO usamos
+   * `instructions` silenciosamente como entrega principal: se o dado canônico
+   * está ausente, a UI deve mostrar essa ausência em vez de parecer correta.
+   */
+  const isStructured = useMemo(
+    () =>
+      !!brief.delivery_kind ||
+      asList(brief.slides).length > 0 ||
+      asList(brief.script).length > 0 ||
+      asList(brief.art_text).length > 0 ||
+      asList(brief.composition).length > 0,
+    [brief]
+  );
+
+
   const metaLine = useMemo(() => {
     const parts: string[] = [];
     if (brief.code) parts.push(brief.code);
