@@ -61,6 +61,11 @@ import { BlockEditor } from "@/components/BlockEditor";
 import { StartEndDatePopover, SingleDateTimePopover } from "@/components/kanban/StartEndDatePopover";
 import SubclientSelect from "@/components/SubclientSelect";
 import {
+  AdPlanSection,
+  ClassificationSelector,
+  GRAFICA_WARNING,
+} from "@/components/demands/DemandClassifications";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -127,6 +132,9 @@ export interface KanbanCardData {
   assigned_to?: string | null;
   additional_assignees?: string[];
   current_function_key?: string | null;
+  // Classificações operacionais (anuncio / grafica) e informações do anúncio
+  classifications?: string[] | null;
+  ad_plan?: Record<string, any> | null;
   // Área, origem e clientes finais solicitantes (fluxo Sistemas)
   work_area?: "midia" | "sistemas" | null;
   origin?: string | null;
@@ -425,7 +433,7 @@ export default function TaskCard({
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
-  const [activeSection, setActiveSection] = useState<'description' | 'observations' | 'caption' | 'anexos'>('description');
+  const [activeSection, setActiveSection] = useState<'description' | 'observations' | 'caption' | 'anuncio' | 'anexos'>('description');
   const [datesOpen, setDatesOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [objectiveOpen, setObjectiveOpen] = useState(false);
@@ -891,6 +899,39 @@ export default function TaskCard({
     await onSave(field, value);
     setEditingField(null);
   };
+
+  // Classificações operacionais (Anúncio / Gráfica)
+  const classifications: string[] = Array.isArray((card as any)?.classifications)
+    ? ((card as any).classifications as string[])
+    : [];
+  const isAnuncio = classifications.includes("anuncio");
+  const isGrafica = classifications.includes("grafica");
+
+  const handleClassificationsChange = async (next: string[]) => {
+    onCardChange({ ...card, classifications: next } as any);
+    if (isDraft) return;
+    try {
+      await supabase.from("demands").update({ classifications: next } as any).eq("id", card.id);
+    } catch (e) {
+      console.error("[TaskCard] update classifications error", e);
+      toast.error("Erro ao atualizar classificações");
+    }
+  };
+
+  const handleAdPlanSave = async () => {
+    if (isDraft) return;
+    try {
+      await supabase
+        .from("demands")
+        .update({ ad_plan: ((card as any)?.ad_plan ?? {}) as any })
+        .eq("id", card.id);
+    } catch (e) {
+      console.error("[TaskCard] update ad_plan error", e);
+      toast.error("Erro ao salvar informações do anúncio");
+    }
+  };
+
+
 
 
   const handleGenerateCaption = async () => {
@@ -2190,6 +2231,16 @@ export default function TaskCard({
                     </Select>
                   </div>
 
+                  <span className="text-muted-foreground/40 select-none">·</span>
+
+                  {/* Classificações operacionais (Anúncio / Gráfica) */}
+                  <ClassificationSelector
+                    value={classifications}
+                    onChange={handleClassificationsChange}
+                    disabled={readOnly}
+                  />
+
+
                   {/* Origem — só faz sentido em Sistemas (define se passa pelas etapas de cliente) */}
                   {card.work_area === "sistemas" && (
                   <>
@@ -2544,14 +2595,24 @@ export default function TaskCard({
 
                           <Separator />
 
+                          {isGrafica && (
+                            <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                              {GRAFICA_WARNING}
+                            </p>
+                          )}
+
                           {/* Botões de navegação (estilo hub) */}
                           {(() => {
                             const sectionButtons = [
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
                               { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
                               { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
+                              ...(isAnuncio
+                                ? [{ id: 'anuncio' as const, label: 'Anúncio', icon: Megaphone, savingKey: 'ad_plan' }]
+                                : []),
                               { id: 'anexos' as const, label: 'Anexos', icon: Paperclip, savingKey: 'attachments' },
                             ];
+
                             return (
                               <div className="flex flex-wrap gap-2">
                                 {sectionButtons.map(({ id, label, icon: Icon, savingKey }) => {
@@ -2637,6 +2698,16 @@ export default function TaskCard({
                                 )}
                               </div>
                             )}
+
+                            {activeSection === 'anuncio' && (
+                              <AdPlanSection
+                                value={((card as any).ad_plan || {}) as any}
+                                onChange={(next) => onCardChange({ ...card, ad_plan: next } as any)}
+                                onBlur={handleAdPlanSave}
+                                readOnly={readOnly}
+                              />
+                            )}
+
                           </section>
                           )}
                         </>

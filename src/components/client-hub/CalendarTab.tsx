@@ -19,6 +19,7 @@ interface CalendarEntry {
   type: string | null;
   time: string | null;
   isDemand: boolean;
+  classifications: string[];
 }
 
 const todayIso = () => {
@@ -48,13 +49,16 @@ interface CalendarTabProps {
 export default function CalendarTab({ period, planItems, demands }: CalendarTabProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [opFilter, setOpFilter] = useState<"anuncio" | "grafica" | null>(null);
 
   const allEntries = useMemo(() => {
     const entries: CalendarEntry[] = [];
     const demandTitles = new Set(demands.map((d) => (d.title || "").trim()));
 
     demands.forEach((d) => {
-      const date = d.publish_date || d.delivery_date || d.due_date;
+      // Calendário do cliente = calendário de PUBLICAÇÃO.
+      // due_date/delivery_date são datas operacionais de produção e não entram aqui.
+      const date = d.publish_date;
       if (!date) return;
       entries.push({
         date,
@@ -62,16 +66,25 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
         type: d.demand_type,
         time: d.publish_time ? d.publish_time.slice(0, 5) : null,
         isDemand: true,
+        classifications: Array.isArray(d.classifications) ? d.classifications : [],
       });
     });
 
     planItems.forEach((i) => {
       if (!i.data || demandTitles.has(i.titulo)) return;
-      entries.push({ date: i.data, title: i.titulo, type: i.tipo, time: null, isDemand: false });
+      entries.push({
+        date: i.data,
+        title: i.titulo,
+        type: i.tipo,
+        time: null,
+        isDemand: false,
+        classifications: [],
+      });
     });
 
     return entries;
   }, [demands, planItems]);
+
 
   const types = useMemo(() => {
     const map = new Map<string, number>();
@@ -89,6 +102,7 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
         return false;
       }
       if (typeFilter !== "all" && (e.type || "Sem tipo").trim() !== typeFilter) return false;
+      if (opFilter && !(e.isDemand && e.classifications.includes(opFilter))) return false;
       return true;
     });
 
@@ -122,7 +136,15 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
     if (week.length) result.push(week);
 
     return { byDate: map, weeks: result };
-  }, [allEntries, period, search, typeFilter]);
+  }, [allEntries, period, search, typeFilter, opFilter]);
+
+  const opCounts = useMemo(
+    () => ({
+      anuncio: allEntries.filter((e) => e.isDemand && e.classifications.includes("anuncio")).length,
+      grafica: allEntries.filter((e) => e.isDemand && e.classifications.includes("grafica")).length,
+    }),
+    [allEntries]
+  );
 
   const today = todayIso();
   const sortedDays = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
@@ -168,9 +190,29 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
             {type} <span className="tabular-nums opacity-70">{count}</span>
           </button>
         ))}
+        <span className="mx-1 h-6 w-px self-center bg-border" aria-hidden />
+        {([
+          ["anuncio", "Anúncios"],
+          ["grafica", "Gráfica"],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setOpFilter((prev) => (prev === key ? null : key))}
+            className={cn(
+              "rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors",
+              opFilter === key
+                ? "border-primary bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+            )}
+          >
+            {label} <span className="tabular-nums opacity-70">{opCounts[key]}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
+
 
   if (!sortedDays.length) {
     return (
@@ -261,6 +303,18 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
                         <p className="mt-0.5 line-clamp-3 text-[11px] font-bold leading-snug">
                           {item.title}
                         </p>
+                        {!!item.classifications.length && (
+                          <p className="mt-1 flex flex-wrap gap-1">
+                            {item.classifications.map((c) => (
+                              <span
+                                key={c}
+                                className="rounded-full border border-primary/40 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-primary"
+                              >
+                                {c === "anuncio" ? "Anúncio" : "Gráfica"}
+                              </span>
+                            ))}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -301,6 +355,18 @@ export default function CalendarTab({ period, planItems, demands }: CalendarTabP
                         .join(" · ")}
                     </p>
                     <p className="mt-0.5 text-xs font-bold">{item.title}</p>
+                    {!!item.classifications.length && (
+                      <p className="mt-1 flex flex-wrap gap-1">
+                        {item.classifications.map((c) => (
+                          <span
+                            key={c}
+                            className="rounded-full border border-primary/40 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-primary"
+                          >
+                            {c === "anuncio" ? "Anúncio" : "Gráfica"}
+                          </span>
+                        ))}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
