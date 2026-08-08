@@ -265,11 +265,13 @@ export default function StructuredContentBrief({
   const validation = brief.strategic_validation || {};
   const answered = VALIDATION_QUESTIONS.filter((q) => (validation as any)[q.key]?.toString().trim()).length;
 
-  // Conteúdo da entrega principal, com fallback para `instructions` (sem duplicar).
+  // Conteúdo da entrega principal. `content_brief` é canônico; `instructions`
+  // só entra como fallback em cards LEGADOS (sem briefing estruturado).
   const slides = useMemo(() => {
     const explicit = asList(brief.slides);
-    return explicit.length ? explicit : parseSlides(instructions);
-  }, [brief.slides, instructions]);
+    if (explicit.length) return explicit;
+    return isStructured ? [] : parseSlides(instructions);
+  }, [brief.slides, instructions, isStructured]);
 
   const generalNotes = useMemo(() => {
     if (kind === "carrossel" && slides.length) return instructionsWithoutSlides(instructions);
@@ -279,14 +281,15 @@ export default function StructuredContentBrief({
   const scriptText = useMemo(() => {
     const explicit = asList(brief.script);
     if (explicit.length) return explicit.join("\n\n");
-    return kind === "reel" ? stripHtml(instructions) : "";
-  }, [brief.script, kind, instructions]);
+    return kind === "reel" && !isStructured ? stripHtml(instructions) : "";
+  }, [brief.script, kind, instructions, isStructured]);
 
   const artText = useMemo(() => {
     const explicit = asList(brief.art_text);
-    if (explicit.length) return explicit.join("\n");
-    return kind === "estatico" ? stripHtml(instructions) : "";
-  }, [brief.art_text, kind, instructions]);
+    // Estático = uma peça: fragmentos legados são unidos por parágrafo.
+    if (explicit.length) return explicit.join("\n\n");
+    return kind === "estatico" && !isStructured ? stripHtml(instructions) : "";
+  }, [brief.art_text, kind, instructions, isStructured]);
 
   const visualDirection = useMemo(() => {
     const explicit = asList(brief.visual_direction);
@@ -300,8 +303,9 @@ export default function StructuredContentBrief({
   const composition = useMemo(() => {
     const explicit = asList(brief.composition);
     if (explicit.length) return explicit;
-    return kind === "grafica" && instructions ? [stripHtml(instructions)] : [];
-  }, [brief.composition, kind, instructions]);
+    return kind === "grafica" && instructions && !isStructured ? [stripHtml(instructions)] : [];
+  }, [brief.composition, kind, instructions, isStructured]);
+
 
   const amplification = asList(brief.amplification_stories);
 
