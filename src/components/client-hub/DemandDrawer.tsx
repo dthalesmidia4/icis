@@ -19,25 +19,48 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
   const [card, setCard] = useState<KanbanCardData | null>(null);
   const [pipelineStatuses, setPipelineStatuses] = useState<PipelineStatus[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadCard = useCallback(async (id: string) => {
+    setLoading(true);
+    setLoadError(null);
     const { data, error } = await supabase
       .from("demands")
-      .select("*, pipeline_statuses!inner(name, color), tenant_companies!inner(name, fantasy_name)")
+      .select("*")
       .eq("id", id)
       .maybeSingle();
     if (error || !data) {
       console.error("[DemandDrawer] load error", error);
+      setLoading(false);
+      setLoadError("Não foi possível abrir esta demanda.");
       toast.error("Não foi possível abrir a demanda.");
-      onClose();
       return;
     }
     const d = data as any;
+
+    // Relações auxiliares são opcionais: um registro válido de `demands`
+    // deve abrir mesmo que status ou empresa estejam incompletos.
+    const [statusRes, companyRes] = await Promise.all([
+      d.status_id
+        ? supabase.from("pipeline_statuses").select("name, color").eq("id", d.status_id).maybeSingle()
+        : Promise.resolve({ data: null } as any),
+      d.client_id
+        ? supabase
+            .from("tenant_companies")
+            .select("name, fantasy_name")
+            .eq("id", d.client_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null } as any),
+    ]);
+    const statusRow = (statusRes as any)?.data as any;
+    const companyRow = (companyRes as any)?.data as any;
+
     setCard({
       id: d.id,
       title: d.title,
       description: d.description || "",
-      status: d.pipeline_statuses.name,
+      status: statusRow?.name || "",
       due_date: d.due_date || "",
       publish_date: d.publish_date || "",
       publish_time: d.publish_time || "",
@@ -72,17 +95,22 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
       subclient_ids: Array.isArray(d.subclient_ids) ? d.subclient_ids : [],
       archived_at: d.archived_at ?? null,
       clientId: d.client_id,
-      clientName: d.tenant_companies.fantasy_name || d.tenant_companies.name,
+      clientName: companyRow?.fantasy_name || companyRow?.name || "",
     });
-  }, [onClose]);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!demandId) {
       setCard(null);
+      setLoadError(null);
+      setLoading(false);
       return;
     }
+    setCard(null);
     loadCard(demandId);
   }, [demandId, loadCard]);
+
 
   useEffect(() => {
     if (!demandId || !tenantId) return;
