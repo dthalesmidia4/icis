@@ -46,6 +46,8 @@ describe("instagramFeed", () => {
     expect(e.mediaCount).toBe(8);
     expect(e.previewKind).toBe("image");
     expect(e.previewUrl).toBe("https://x/s0.png");
+    expect(e.media.length).toBe(8);
+    expect(e.media[0]).toEqual({ url: "https://x/s0.png", kind: "image", name: "s0.png" });
   });
 
   it("E: vídeo com 2 imagens e nenhum mp4 usa a primeira imagem", () => {
@@ -59,6 +61,7 @@ describe("instagramFeed", () => {
     expect(e.kind).toBe("video");
     expect(e.previewKind).toBe("image");
     expect(e.previewUrl).toBe("https://x/a.png");
+    expect(e.media.length).toBe(1);
   });
 
   it("F: vídeo só com mp4 usa video-file", () => {
@@ -73,6 +76,7 @@ describe("instagramFeed", () => {
     expect(e.kind).toBe("static");
     expect(e.mediaCount).toBe(1);
     expect(e.previewUrl).toBe("https://x/a.png");
+    expect(e.media).toEqual([{ url: "https://x/a.png", kind: "image", name: "a.png" }]);
   });
 
   it("H: stories-only legado é excluído", () => {

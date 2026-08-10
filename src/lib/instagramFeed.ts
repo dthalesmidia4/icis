@@ -43,6 +43,12 @@ export interface FeedPlanItemInput {
   data?: string | null;
 }
 
+export interface FeedMediaItem {
+  url: string;
+  kind: Exclude<FeedPreviewKind, "none">;
+  name: string | null;
+}
+
 export interface FeedEntry {
   key: string;
   demandId: string | null;
@@ -55,6 +61,8 @@ export interface FeedEntry {
   previewKind: FeedPreviewKind;
   previewUrl: string | null;
   mediaCount: number;
+  /** Todas as peças navegáveis da célula, na ordem persistida. media[0] === preview. */
+  media: FeedMediaItem[];
   stageLabel: string;
   caption: string | null;
 }
@@ -169,16 +177,22 @@ export function buildInstagramFeed({
     let previewKind: FeedPreviewKind = "none";
     let previewUrl: string | null = null;
     let mediaCount = 0;
+    let media: FeedMediaItem[] = [];
+
+    const toMedia = (list: FeedAttachment[], kind: Exclude<FeedPreviewKind, "none">) =>
+      list.map((a) => ({ url: a.url, kind, name: a.name ?? null }));
 
     if (kind === "carousel") {
       mediaCount = images.length;
       if (images.length) {
         previewKind = "image";
         previewUrl = images[0].url;
+        media = toMedia(images, "image");
       } else if (videos.length) {
         previewKind = "video-file";
         previewUrl = videos[0].url;
         mediaCount = videos.length;
+        media = toMedia(videos, "video-file");
       }
     } else if (kind === "video") {
       // Capa: qualquer imagem vence o mp4 (vídeo pode ainda não estar anexado).
@@ -186,10 +200,12 @@ export function buildInstagramFeed({
         previewKind = "image";
         previewUrl = images[0].url;
         mediaCount = 1;
+        media = toMedia(images.slice(0, 1), "image");
       } else if (videos.length) {
         previewKind = "video-file";
         previewUrl = videos[0].url;
         mediaCount = 1;
+        media = toMedia(videos.slice(0, 1), "video-file");
       }
     } else {
       // Estático = uma peça = uma imagem, mesmo com múltiplos anexos legados.
@@ -197,10 +213,12 @@ export function buildInstagramFeed({
         previewKind = "image";
         previewUrl = images[0].url;
         mediaCount = 1;
+        media = toMedia(images.slice(0, 1), "image");
       } else if (videos.length) {
         previewKind = "video-file";
         previewUrl = videos[0].url;
         mediaCount = 1;
+        media = toMedia(videos.slice(0, 1), "video-file");
       }
     }
 
@@ -221,6 +239,7 @@ export function buildInstagramFeed({
       previewKind,
       previewUrl,
       mediaCount,
+      media,
       stageLabel,
       caption: d.post_caption ?? null,
     });
@@ -247,6 +266,7 @@ export function buildInstagramFeed({
       previewKind: "none",
       previewUrl: null,
       mediaCount: 0,
+      media: [],
       stageLabel: "Planejado · produção não iniciada",
       caption: null,
     });
