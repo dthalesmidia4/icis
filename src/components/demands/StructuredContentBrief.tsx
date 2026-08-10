@@ -355,6 +355,7 @@ export default function StructuredContentBrief({
             { key: "script", label: "Roteiro (um bloco por linha)" },
             { key: "screen_texts", label: "Textos na tela" },
             { key: "cover_text", label: "Capa" },
+            { key: "visual_direction", label: "Direção visual" },
             { key: "capture", label: "Captação" },
             { key: "production_editing", label: "Edição" },
           ]
