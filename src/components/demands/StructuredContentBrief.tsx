@@ -635,6 +635,7 @@ export default function StructuredContentBrief({
             )}
             <ListBlock label="Textos na tela" items={asList(brief.screen_texts)} />
             <ListBlock label="Capa" items={asList(brief.cover_text)} />
+            <ListBlock label="Direção visual" items={asList(brief.visual_direction)} />
             <ListBlock label="Captação" items={asList(brief.capture)} />
             <ListBlock label="Edição" items={asList(brief.production_editing)} />
           </>
