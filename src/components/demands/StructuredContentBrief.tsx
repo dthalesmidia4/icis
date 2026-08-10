@@ -103,6 +103,9 @@ export function resolveDeliveryKind(brief: ContentBrief, demandTypeLabel?: strin
   if (explicit === "grafica" || explicit === "estatico" || explicit === "carrossel" || explicit === "reel") {
     return explicit;
   }
+  // Vídeo gerado/captado usa a mesma estrutura operacional do reel (roteiro).
+  const explicitRaw = String(explicit || "").toLowerCase();
+  if (explicitRaw === "video" || explicitRaw === "video_gerado" || explicitRaw === "video_captado") return "reel";
   const hay = `${brief.format_label || ""} ${demandTypeLabel || ""}`.toLowerCase();
   if (/santinho|gr[áa]fica|impress/.test(hay)) return "grafica";
   if (/carrossel|carousel/.test(hay)) return "carrossel";
