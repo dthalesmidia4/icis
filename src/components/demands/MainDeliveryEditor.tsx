@@ -48,7 +48,7 @@ export const resolveDeliveryField = (brief: Record<string, any> | null): Deliver
   if (!brief) return null;
   const kind = String(brief.delivery_kind || "").toLowerCase();
   if (kind === "carrossel") return "slides";
-  if (kind === "reel" || kind === "video" || kind === "video_captado") return "script";
+  if (kind === "reel" || kind === "video" || kind === "video_captado" || kind === "video_gerado") return "script";
   if (kind === "estatico" || kind === "grafica") return "art_text";
   if (Array.isArray(brief.slides) && brief.slides.length > 0) return "slides";
   if (Array.isArray(brief.script) && brief.script.length > 0) return "script";

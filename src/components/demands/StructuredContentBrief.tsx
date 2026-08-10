@@ -103,6 +103,9 @@ export function resolveDeliveryKind(brief: ContentBrief, demandTypeLabel?: strin
   if (explicit === "grafica" || explicit === "estatico" || explicit === "carrossel" || explicit === "reel") {
     return explicit;
   }
+  // Vídeo gerado/captado usa a mesma estrutura operacional do reel (roteiro).
+  const explicitRaw = String(explicit || "").toLowerCase();
+  if (explicitRaw === "video" || explicitRaw === "video_gerado" || explicitRaw === "video_captado") return "reel";
   const hay = `${brief.format_label || ""} ${demandTypeLabel || ""}`.toLowerCase();
   if (/santinho|gr[áa]fica|impress/.test(hay)) return "grafica";
   if (/carrossel|carousel/.test(hay)) return "carrossel";
@@ -352,6 +355,7 @@ export default function StructuredContentBrief({
             { key: "script", label: "Roteiro (um bloco por linha)" },
             { key: "screen_texts", label: "Textos na tela" },
             { key: "cover_text", label: "Capa" },
+            { key: "visual_direction", label: "Direção visual" },
             { key: "capture", label: "Captação" },
             { key: "production_editing", label: "Edição" },
           ]
@@ -632,6 +636,7 @@ export default function StructuredContentBrief({
             )}
             <ListBlock label="Textos na tela" items={asList(brief.screen_texts)} />
             <ListBlock label="Capa" items={asList(brief.cover_text)} />
+            <ListBlock label="Direção visual" items={asList(brief.visual_direction)} />
             <ListBlock label="Captação" items={asList(brief.capture)} />
             <ListBlock label="Edição" items={asList(brief.production_editing)} />
           </>
