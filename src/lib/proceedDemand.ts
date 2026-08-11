@@ -1017,6 +1017,9 @@ export async function proceedDemand({
       message: `Demanda marcada como enviada — aguardando retorno do cliente.${skipNote}`,
       flowState: waitCommit.flowState,
     };
+  }
+
+
 
 
   const picked = resolved.picked;
