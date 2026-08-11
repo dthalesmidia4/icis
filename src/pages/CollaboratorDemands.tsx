@@ -344,7 +344,7 @@ const CollaboratorDemands = () => {
       sonnerToast.error(evaluation.message || "Transferência bloqueada.");
       return false;
     }
-    const { error } = await applyReassign({
+    const res = await applyReassign({
       tenantId,
       card: card as any,
       newAssignedTo,
@@ -352,9 +352,15 @@ const CollaboratorDemands = () => {
       direction: evaluation.direction,
       historySource: "collaborator_demands",
     });
-    if (error) {
-      sonnerToast.error("Erro ao transferir responsável");
+    const failure = reassignFailureMessage(res);
+    if (failure) {
+      sonnerToast.error(failure);
       return false;
+    }
+    if (evaluation.nextFunctionKey && evaluation.nextFunctionKey !== (card.current_function_key || null)) {
+      sonnerToast.info(
+        `Destino: ${(target as any)?.full_name || "colaborador"} — etapa ${evaluation.nextFunctionKey}`,
+      );
     }
     if (extraPayload && Object.keys(extraPayload).length > 0) {
       await supabase.from("demands").update(extraPayload as any).eq("id", card.id);

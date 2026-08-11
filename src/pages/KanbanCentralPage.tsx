@@ -1443,7 +1443,7 @@ const KanbanCentralPage = () => {
     setReschedulingConflict(true);
     try {
       const { card, newAssignedTo, nextFunctionKey } = scheduleConflict;
-      const { error } = await applyReassign({
+      const res = await applyReassign({
         tenantId: tenantId || "",
         card: card as any,
         newAssignedTo,
@@ -1456,7 +1456,8 @@ const KanbanCentralPage = () => {
         },
         historySource: "kanban_drag_rescheduled",
       });
-      if (error) throw error;
+      const failure = reassignFailureMessage(res);
+      if (failure) throw new Error(failure);
       setCards((prev) => prev.map((c) =>
         c.id === card.id
           ? {

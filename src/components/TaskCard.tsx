@@ -1409,7 +1409,7 @@ export default function TaskCard({
     if (!assignConflict || !card?.tenant_id) return;
     setReschedulingAssign(true);
     try {
-      const { error } = await applyReassign({
+      const res = await applyReassign({
         tenantId: card.tenant_id,
         card: card as any,
         newAssignedTo: assignConflict.newAssignedTo,
@@ -1422,7 +1422,8 @@ export default function TaskCard({
         },
         historySource: "task_card_rescheduled",
       });
-      if (error) throw error;
+      const failure = reassignFailureMessage(res);
+      if (failure) throw new Error(failure);
       onCardChange({
         ...card,
         assigned_to: assignConflict.newAssignedTo,
@@ -2226,7 +2227,7 @@ export default function TaskCard({
                         }
                         // Ponto único de gravação: desarquiva e tira do status final
                         // quando o card volta ao fluxo, além de registrar o histórico.
-                        const { error: reassignError } = await applyReassign({
+                        const reassignRes = await applyReassign({
                           tenantId: card.tenant_id,
                           card: card as any,
                           newAssignedTo: newVal || null,
@@ -2234,9 +2235,10 @@ export default function TaskCard({
                           direction: evaluation.direction,
                           historySource: "task_card",
                         });
-                        if (reassignError) {
-                          console.error("[TaskCard] applyReassign", reassignError);
-                          toast.error("Não foi possível transferir a demanda");
+                        const reassignFailure = reassignFailureMessage(reassignRes);
+                        if (reassignFailure) {
+                          console.error("[TaskCard] applyReassign", reassignRes);
+                          toast.error(reassignFailure);
                           return;
                         }
                         onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
