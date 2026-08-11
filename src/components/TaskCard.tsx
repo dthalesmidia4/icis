@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { isClientStageKey, userHasFunction } from "@/lib/clientStageAssignments";
+import { IMAGE_ASPECT_OPTIONS, DEFAULT_SOCIAL_ASPECT, isImageAspectRatio, type ImageAspectRatio } from "@/lib/imageAspect";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -137,6 +138,9 @@ export interface KanbanCardData {
   // Classificações operacionais (anuncio / grafica) e informações do anúncio
   classifications?: string[] | null;
   ad_plan?: Record<string, any> | null;
+  /** Proporção da arte (4:5 padrão do sistema) usada na geração/regeneração. */
+  image_aspect_ratio?: string | null;
+
   /** Briefing editorial estruturado (JSONB) — camadas sem campo próprio. */
   content_brief?: Record<string, any> | null;
   // Área, origem e clientes finais solicitantes (fluxo Sistemas)
@@ -732,6 +736,14 @@ export default function TaskCard({
   };
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [selectedAiModel, setSelectedAiModel] = useState<"gpt2" | "nanobanana3" | "nanobanana25">("gpt2");
+  // Proporção da arte para geração manual — 4:5 é o padrão do sistema.
+  const [generationAspect, setGenerationAspect] = useState<ImageAspectRatio>(DEFAULT_SOCIAL_ASPECT);
+  useEffect(() => {
+    if (!card) return;
+    setGenerationAspect(
+      isImageAspectRatio(card.image_aspect_ratio) ? card.image_aspect_ratio : DEFAULT_SOCIAL_ASPECT,
+    );
+  }, [card?.id, card?.image_aspect_ratio]);
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
@@ -1078,10 +1090,23 @@ export default function TaskCard({
 
     try {
       setGenerationProgress({ current: 1, total: 1 });
-      
+
+      // Persiste a proporção escolhida ANTES de gerar — ela é autoritativa
+      // para esta geração e para todas as regenerações futuras.
+      const { error: aspectError } = await supabase
+        .from("demands")
+        .update({ image_aspect_ratio: generationAspect })
+        .eq("id", card.id);
+      if (aspectError) {
+        console.error("[TaskCard] save image_aspect_ratio error", aspectError);
+        toast.error("Não foi possível salvar a proporção da arte. Geração cancelada.");
+        return;
+      }
+      onCardChange({ ...card, image_aspect_ratio: generationAspect });
+
       const functionName = isCarousel ? "auto-generate-carousel" : "generate-post-image";
       const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { demandId: card.id, aiModel: selectedAiModel },
+        body: { demandId: card.id, aiModel: selectedAiModel, aspectRatio: generationAspect },
       });
       if (error) throw error;
       if (data?.error) {
@@ -1147,11 +1172,14 @@ export default function TaskCard({
   const handleRegenerateAll = async () => {
     if (!card) return;
     setRegeneratingAll(true);
+    const aspectRatio = isImageAspectRatio(card.image_aspect_ratio)
+      ? card.image_aspect_ratio
+      : DEFAULT_SOCIAL_ASPECT;
     try {
       // Regenerate based on type — preserve existing attachments (new ones are appended)
       if (isCarousel) {
         const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
-          body: { demandId: card.id, aiModel: selectedAiModel, forceRegenerate: true },
+          body: { demandId: card.id, aiModel: selectedAiModel, forceRegenerate: true, aspectRatio },
         });
         if (error) throw error;
         if (data?.error) {
@@ -1165,7 +1193,7 @@ export default function TaskCard({
         }
       } else {
         const { data, error } = await supabase.functions.invoke("generate-post-image", {
-          body: { demandId: card.id, aiModel: selectedAiModel },
+          body: { demandId: card.id, aiModel: selectedAiModel, aspectRatio },
         });
         if (error) throw error;
         if (data?.error) {
@@ -1208,7 +1236,15 @@ export default function TaskCard({
     setRegeneratingSlide(slideNumber);
     try {
       const { data, error } = await supabase.functions.invoke("generate-post-image", {
-        body: { demandId: card.id, slideNumber, replaceSlide: false, aiModel: "gpt2" },
+        body: {
+          demandId: card.id,
+          slideNumber,
+          replaceSlide: false,
+          aiModel: "gpt2",
+          aspectRatio: isImageAspectRatio(card.image_aspect_ratio)
+            ? card.image_aspect_ratio
+            : DEFAULT_SOCIAL_ASPECT,
+        },
       });
       if (error) throw error;
       if (data?.error) {
@@ -3214,6 +3250,25 @@ export default function TaskCard({
                 <SelectItem value="nanobanana25">Nanobanana 2.5 (Gemini Flash)</SelectItem>
               </SelectContent>
             </Select>
+            <div className="space-y-2 pt-1">
+              <label className="text-xs font-medium text-muted-foreground">Proporção da arte</label>
+              <Select
+                value={generationAspect}
+                onValueChange={(v) => setGenerationAspect(v as ImageAspectRatio)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMAGE_ASPECT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                A proporção escolhida será salva nesta demanda e usada também nas regenerações.
+              </p>
+            </div>
             <p className="text-[11px] text-muted-foreground">
               {selectedAiModel === "gpt2" && "openai · gpt-image-2"}
               {selectedAiModel === "nanobanana3" && "google · gemini-3-pro-image-preview"}
