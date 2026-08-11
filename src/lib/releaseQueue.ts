@@ -41,19 +41,29 @@ export async function loadReleaseQueueConfig(tenantId: string): Promise<ReleaseQ
   }
 }
 
-export async function saveReleaseQueueConfig(tenantId: string, config: ReleaseQueueConfig): Promise<void> {
-  const { data } = await supabase.from("tenants").select("settings").eq("id", tenantId).maybeSingle();
-  const settings = ((data as any)?.settings || {}) as Record<string, any>;
-  const next = { ...settings, release_queue: sanitize(config) };
-  const { data: updated, error } = await supabase
-    .from("tenants")
-    .update({ settings: next } as any)
-    .eq("id", tenantId)
-    .select("id");
+/**
+ * Salva a configuração da fila. Ao DESATIVAR, o banco normaliza todo o backlog
+ * pendente (`released_at IS NULL`) para que nenhum card fique invisível por um
+ * estado que deixou de ter significado.
+ *
+ * Devolve quantas demandas foram normalizadas.
+ */
+export async function saveReleaseQueueConfig(
+  tenantId: string,
+  config: ReleaseQueueConfig,
+): Promise<{ normalized: number }> {
+  const clean = sanitize(config);
+  const { data, error } = await (supabase.rpc as any)("set_release_queue_config", {
+    _tenant_id: tenantId,
+    _enabled: clean.enabled,
+    _limit: clean.limit,
+  });
   if (error) throw error;
-  if (!updated || updated.length === 0) {
-    throw new Error("Sem permissão para salvar as configurações desta agência.");
+  const result = data as { success?: boolean; error?: string; normalized?: number } | null;
+  if (!result?.success) {
+    throw new Error(result?.error || "Sem permissão para salvar as configurações desta agência.");
   }
+  return { normalized: Number(result.normalized) || 0 };
 }
 
 async function logRelease(
