@@ -34,7 +34,7 @@ import { SchedulePublicationModal } from "@/components/SchedulePublicationModal"
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
 import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
-import { evaluateReassign, applyReassign } from "@/lib/reassignDemand";
+import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
 import { checkAssignmentConflicts, type AssignmentConflict, type FreeSlotSuggestion } from "@/lib/scheduleOccupancy";
 import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
 import { CalendarClock } from "lucide-react";
@@ -844,6 +844,62 @@ export default function TaskCard({
     return () => { cancelled = true; };
   }, [open, card?.tenant_id]);
 
+  /**
+   * Responsáveis ELEGÍVEIS para o fluxo escolhido.
+   *
+   * Escolher responsável antes do tipo (ou escolher alguém sem etapa compatível)
+   * era a principal fonte de card criado "fora do fluxo". Aqui a lista é
+   * pré-filtrada: só entra quem tem alguma etapa habilitada no fluxo do tipo +
+   * área + origem do card. `null` = ainda calculando / sem tipo definido.
+   */
+  const [eligibleAssignees, setEligibleAssignees] = useState<Set<string> | null>(null);
+  const demandTypeKeyForEligibility = (card as any)?.demand_type_key ?? null;
+  const workAreaForEligibility = (card as any)?.work_area ?? null;
+  const originForEligibility = (card as any)?.origin ?? null;
+
+  useEffect(() => {
+    if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
+      setEligibleAssignees(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        collaborators.map(async (c) => {
+          try {
+            const resolved = await resolveFunctionForAssignee(
+              card.tenant_id as string,
+              c.id,
+              demandTypeKeyForEligibility,
+              null,
+              null,
+              { workArea: workAreaForEligibility, origin: originForEligibility },
+            );
+            return resolved ? c.id : null;
+          } catch {
+            return c.id; // em caso de falha de leitura, não esconder o colaborador
+          }
+        }),
+      );
+      if (cancelled) return;
+      setEligibleAssignees(new Set(entries.filter(Boolean) as string[]));
+    })();
+    return () => { cancelled = true; };
+  }, [
+    open,
+    card?.tenant_id,
+    demandTypeKeyForEligibility,
+    workAreaForEligibility,
+    originForEligibility,
+    collaborators,
+  ]);
+
+  const assigneeOptions = eligibleAssignees
+    ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
+    : collaborators;
+
+
+
   // Opções de "Voltar demanda" (etapas anteriores + quem executou cada uma)
   const [regressOpen, setRegressOpen] = useState(false);
   const [regressOptions, setRegressOptions] = useState<RegressOption[]>([]);
@@ -1409,7 +1465,7 @@ export default function TaskCard({
     if (!assignConflict || !card?.tenant_id) return;
     setReschedulingAssign(true);
     try {
-      const { error } = await applyReassign({
+      const res = await applyReassign({
         tenantId: card.tenant_id,
         card: card as any,
         newAssignedTo: assignConflict.newAssignedTo,
@@ -1422,7 +1478,8 @@ export default function TaskCard({
         },
         historySource: "task_card_rescheduled",
       });
-      if (error) throw error;
+      const failure = reassignFailureMessage(res);
+      if (failure) throw new Error(failure);
       onCardChange({
         ...card,
         assigned_to: assignConflict.newAssignedTo,
@@ -2195,6 +2252,40 @@ export default function TaskCard({
                       onValueChange={async (val) => {
                         const newVal = val === "__none__" ? "" : val;
                         const nome = collaborators.find((c) => c.id === newVal)?.name || "Este colaborador";
+                        // RASCUNHO: nada é gravado e o card ainda não existe no banco —
+                        // resolve a etapa localmente e mantém tudo em memória.
+                        if (isDraft || !card.tenant_id) {
+                          if (!newVal) {
+                            onCardChange({ ...card, assigned_to: null });
+                            return;
+                          }
+                          if (!(card as any).demand_type_key) {
+                            toast.error("Defina o tipo da demanda antes de escolher o responsável.");
+                            return;
+                          }
+                          let draftStage: string | null = null;
+                          try {
+                            draftStage = await resolveFunctionForAssignee(
+                              card.tenant_id as string,
+                              newVal,
+                              (card as any).demand_type_key ?? null,
+                              null,
+                              null,
+                              {
+                                workArea: (card as any).work_area ?? null,
+                                origin: (card as any).origin ?? null,
+                              },
+                            );
+                          } catch {
+                            draftStage = null;
+                          }
+                          if (!draftStage) {
+                            toast.error(`${nome} não possui nenhuma etapa compatível com este tipo de demanda.`);
+                            return;
+                          }
+                          onCardChange({ ...card, assigned_to: newVal, current_function_key: draftStage });
+                          return;
+                        }
                         // Ponto único: função da etapa + ocupação de agenda (mesma área e entre áreas).
                         const evaluation = await evaluateReassign({
                           tenantId: card.tenant_id || "",
@@ -2219,14 +2310,9 @@ export default function TaskCard({
                         const nextFn = evaluation.nextFunctionKey;
                         evaluation.softMessages.forEach((m) => toast.warning(m));
                         if (evaluation.remapMessage) toast.info(evaluation.remapMessage);
-                        if (isDraft || !card.tenant_id) {
-                          onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
-                          await onSave("assigned_to", newVal);
-                          return;
-                        }
                         // Ponto único de gravação: desarquiva e tira do status final
                         // quando o card volta ao fluxo, além de registrar o histórico.
-                        const { error: reassignError } = await applyReassign({
+                        const reassignRes = await applyReassign({
                           tenantId: card.tenant_id,
                           card: card as any,
                           newAssignedTo: newVal || null,
@@ -2234,25 +2320,37 @@ export default function TaskCard({
                           direction: evaluation.direction,
                           historySource: "task_card",
                         });
-                        if (reassignError) {
-                          console.error("[TaskCard] applyReassign", reassignError);
-                          toast.error("Não foi possível transferir a demanda");
+                        const reassignFailure = reassignFailureMessage(reassignRes);
+                        if (reassignFailure) {
+                          console.error("[TaskCard] applyReassign", reassignRes);
+                          toast.error(reassignFailure);
                           return;
                         }
                         onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
 
 
                       }}
-                      disabled={readOnly}
+                      disabled={readOnly || (isDraft && !(card as any).demand_type_key)}
                     >
                       <SelectTrigger className="h-7 text-sm border-0 shadow-none bg-transparent px-1.5 gap-1 hover:bg-background/60 focus:ring-0 w-auto min-w-[110px]" aria-label="Responsável">
-                        <SelectValue placeholder="Sem responsável" />
+                        <SelectValue
+                          placeholder={
+                            isDraft && !(card as any).demand_type_key
+                              ? "Defina o tipo primeiro"
+                              : "Sem responsável"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">Sem responsável</SelectItem>
-                        {collaborators.map((c) => (
+                        {assigneeOptions.map((c) => (
                           <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                         ))}
+                        {assigneeOptions.length === 0 && (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                            Nenhum colaborador com etapa compatível
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -2606,7 +2704,7 @@ export default function TaskCard({
                         dueTime={card.due_time}
                         deliveryDate={card.delivery_date}
                         deliveryTime={card.delivery_time}
-                        disabled={readOnly}
+                        disabled={readOnly || (isDraft && !(card as any).demand_type_key)}
                         onSave={async (v) => {
                           const patch: any = {
                             ...card,
@@ -2616,6 +2714,8 @@ export default function TaskCard({
                             delivery_time: v.delivery_time || '',
                           };
                           onCardChange(patch);
+                          // RASCUNHO: só memória — nada é gravado antes de "Salvar Demanda".
+                          if (isDraft) return;
                           await onSave('due_date', patch.due_date);
                           await onSave('due_time', patch.due_time);
                           await onSave('delivery_date', patch.delivery_date);
