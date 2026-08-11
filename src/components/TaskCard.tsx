@@ -844,6 +844,62 @@ export default function TaskCard({
     return () => { cancelled = true; };
   }, [open, card?.tenant_id]);
 
+  /**
+   * Responsáveis ELEGÍVEIS para o fluxo escolhido.
+   *
+   * Escolher responsável antes do tipo (ou escolher alguém sem etapa compatível)
+   * era a principal fonte de card criado "fora do fluxo". Aqui a lista é
+   * pré-filtrada: só entra quem tem alguma etapa habilitada no fluxo do tipo +
+   * área + origem do card. `null` = ainda calculando / sem tipo definido.
+   */
+  const [eligibleAssignees, setEligibleAssignees] = useState<Set<string> | null>(null);
+  const demandTypeKeyForEligibility = (card as any)?.demand_type_key ?? null;
+  const workAreaForEligibility = (card as any)?.work_area ?? null;
+  const originForEligibility = (card as any)?.origin ?? null;
+
+  useEffect(() => {
+    if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
+      setEligibleAssignees(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        collaborators.map(async (c) => {
+          try {
+            const resolved = await resolveFunctionForAssignee(
+              card.tenant_id as string,
+              c.id,
+              demandTypeKeyForEligibility,
+              null,
+              null,
+              { workArea: workAreaForEligibility, origin: originForEligibility },
+            );
+            return resolved ? c.id : null;
+          } catch {
+            return c.id; // em caso de falha de leitura, não esconder o colaborador
+          }
+        }),
+      );
+      if (cancelled) return;
+      setEligibleAssignees(new Set(entries.filter(Boolean) as string[]));
+    })();
+    return () => { cancelled = true; };
+  }, [
+    open,
+    card?.tenant_id,
+    demandTypeKeyForEligibility,
+    workAreaForEligibility,
+    originForEligibility,
+    collaborators,
+  ]);
+
+  const assigneeOptions = eligibleAssignees
+    ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
+    : collaborators;
+
+
+
   // Opções de "Voltar demanda" (etapas anteriores + quem executou cada uma)
   const [regressOpen, setRegressOpen] = useState(false);
   const [regressOptions, setRegressOptions] = useState<RegressOption[]>([]);
