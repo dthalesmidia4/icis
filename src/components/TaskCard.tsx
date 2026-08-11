@@ -866,7 +866,7 @@ export default function TaskCard({
         demand_type_key: key,
         current_function_key: nextFunctionKey,
       });
-      if (!isDraft) toast.success(`Tipo definido: ${label}`);
+      toast.success(`Tipo definido: ${label}`);
     } catch (err: any) {
       console.error("[TaskCard] set demand_type_key error", err);
       toast.error(err?.message || "Erro ao definir o tipo da demanda");
