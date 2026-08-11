@@ -20,13 +20,18 @@ export function normalizeAspectRatio(input?: string | null): AspectRatio {
  * Map demand_type ("Reel", "Stories", "Capa", etc) to a canonical aspect.
  * Used by auto-generate-post and generate-post-image so that period plans pick
  * the right format from the card type without manual selection.
+ *
+ * IMPORTANTE: o fallback do sistema para peças sociais estáticas/feed/carrossel
+ * é 4:5 (feed vertical). 1:1 NUNCA é fallback implícito — só quando o usuário
+ * escolhe explicitamente ou uma rota específica passa esse valor.
  */
 export function aspectFromDemandType(demandType?: string | null): AspectRatio {
   const t = (demandType || "").toLowerCase();
   if (t.includes("reel") || t.includes("stories") || t.includes("story") || t.includes("video curto")) return "9:16";
   if (t.includes("cover") || t.includes("banner") || t.includes("capa")) return "16:9";
-  return "1:1";
+  return "4:5";
 }
+
 
 /**
  * gpt-image-2 accepts ANY size that satisfies (per OpenAI docs):
