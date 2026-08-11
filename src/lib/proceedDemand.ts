@@ -465,6 +465,11 @@ interface ProceedInput {
   /** Chave técnica salva em `demands.demand_type_key`. Único sinal aceito. */
   demandTypeKey?: string | null;
   currentFunctionKey?: string | null;
+  /**
+   * Escolha manual explícita de destino (menu do botão Prosseguir).
+   * Só é aceita se o usuário for realmente elegível para a próxima etapa.
+   */
+  forcedAssigneeId?: string | null;
 }
 
 export interface PickAssigneeResult {
@@ -964,6 +969,7 @@ export async function proceedDemand({
   tenantId,
   demandTypeKey,
   currentFunctionKey,
+  forcedAssigneeId,
 }: ProceedInput): Promise<ProceedResult> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
@@ -1013,6 +1019,7 @@ export async function proceedDemand({
     nextIndex,
     executors,
     flowArea,
+    flowMeta.clientId,
   );
   if (!resolved) {
     return { success: false, end: true, message: "Essa demanda já chegou ao final do fluxo." };
@@ -1024,7 +1031,7 @@ export async function proceedDemand({
 
   // Entrada em "Aguardando clientes": dono da espera sempre vem da função atribuída.
   if (nextFn.function_key === "aguardando_cliente") {
-    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee, flowArea);
+    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee, flowArea, flowMeta.clientId);
 
     if (!keepAssignee) {
       return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
@@ -1076,10 +1083,33 @@ export async function proceedDemand({
 
 
 
-  const picked = resolved.picked;
+  let picked = resolved.picked;
+
+  // Escolha manual de destino: vence preferência/carga, mas nunca contorna
+  // elegibilidade nem as exclusões de anti-auto-revisão.
+  if (forcedAssigneeId) {
+    const eligible = await getEligibleStageCandidates({
+      tenantId,
+      clientId: flowMeta.clientId,
+      workArea: flowArea,
+      functionKey: nextFn.function_key,
+      excludeUserIds: isReviewFunction(nextFn.function_key) ? executors : [],
+    });
+    const match = eligible.find((c) => c.userId === forcedAssigneeId);
+    if (!match) {
+      return {
+        success: false,
+        message: `Colaborador escolhido não pode assumir a etapa "${nextFn.name}".`,
+      };
+    }
+    picked = { success: true, userId: match.userId, name: match.fullName, source: "manual_choice" };
+  }
+
   if (!picked || !picked.success || !picked.userId) {
     return { success: false, message: picked?.message || "Não foi possível escolher colaborador." };
   }
+  const routingMeta = { routing: picked.source || "automatic_load" };
+  const proceedMeta: Record<string, unknown> = { ...(skipMeta || {}), ...routingMeta };
 
   const proceedPayload: any = { assigned_to: picked.userId, current_function_key: nextFn.function_key };
 
@@ -1106,7 +1136,7 @@ export async function proceedDemand({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: skipMeta as any },
+      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: proceedMeta as any },
       [previousAssignee, ...captarExtras],
     );
   } else {
@@ -1131,7 +1161,7 @@ export async function proceedDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
-      metadata: skipMeta as any,
+      metadata: proceedMeta as any,
     });
   }
 
