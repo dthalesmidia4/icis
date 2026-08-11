@@ -489,6 +489,7 @@ export default function TaskCard({
   const [routingOpen, setRoutingOpen] = useState(false);
   const [routingLoading, setRoutingLoading] = useState(false);
   const [routingPreview, setRoutingPreview] = useState<NextStageRoutingPreview | null>(null);
+  const [routingRefreshKey, setRoutingRefreshKey] = useState(0);
   const [regressing, setRegressing] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
   const [pipelineSequence, setPipelineSequence] = useState<{ function_key: string; name: string }[]>([]);
@@ -529,6 +530,47 @@ export default function TaskCard({
       .catch(() => { if (!cancelled) setPipelineSequence([]); });
     return () => { cancelled = true; };
   }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key, (card as any)?.work_area, (card as any)?.origin]);
+
+  /**
+   * Prévia do roteamento carregada PROATIVAMENTE: o botão "Prosseguir" precisa
+   * saber o destino antes do clique (mostrar o nome / abrir seletor).
+   * Rascunho não tem fluxo real, então nunca consulta.
+   */
+  useEffect(() => {
+    if (!open || isDraft) { setRoutingPreview(null); return; }
+    if (!card?.tenant_id || !card?.demand_type_key) { setRoutingPreview(null); return; }
+    let cancelled = false;
+    setRoutingLoading(true);
+    previewNextStageRouting({
+      demandId: card.id,
+      tenantId: card.tenant_id,
+      demandTypeKey: card.demand_type_key,
+      currentFunctionKey: card.current_function_key,
+    })
+      .then((p) => { if (!cancelled) setRoutingPreview(p); })
+      .catch(() => { if (!cancelled) setRoutingPreview(null); })
+      .finally(() => { if (!cancelled) setRoutingLoading(false); });
+    return () => { cancelled = true; };
+  }, [
+    open,
+    isDraft,
+    card?.id,
+    card?.tenant_id,
+    card?.assigned_to,
+    card?.current_function_key,
+    card?.demand_type_key,
+    (card as any)?.work_area,
+    (card as any)?.origin,
+    card?.clientId,
+    routingRefreshKey,
+  ]);
+
+  /** Mudança de funções/atribuições/preferências revalida a prévia sem F5. */
+  useRealtimeFlowConfig({
+    tenantId: card?.tenant_id ?? null,
+    enabled: !!open && !isDraft && !!card?.tenant_id,
+    onChange: () => setRoutingRefreshKey((k) => k + 1),
+  });
 
 
   /**
