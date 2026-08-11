@@ -56,7 +56,7 @@ describe("computeDraftMissingFields", () => {
 
 describe("draftAreaChangePatch", () => {
   it("limpa tipo e responsável quando o tipo não existe na nova área", () => {
-    const r = draftAreaChangePatch({ demand_type_key: "carrossel", assigned_to: "u1" }, "sistemas");
+    const r = draftAreaChangePatch({ demand_type_key: "carrossel", assigned_to: "u1" }, "sistemas", ["bug", "feature"]);
     expect(r.typeCleared).toBe(true);
     expect(r.needsAssigneeRecheck).toBe(false);
     expect(r.patch.demand_type_key).toBeNull();
@@ -65,7 +65,7 @@ describe("draftAreaChangePatch", () => {
   });
 
   it("volta para Mídia zerando origem e subclientes", () => {
-    const r = draftAreaChangePatch({ demand_type_key: null, assigned_to: null }, "midia");
+    const r = draftAreaChangePatch({ demand_type_key: null, assigned_to: null }, "midia", ["carrossel"]);
     expect(r.patch.origin).toBe("interno");
     expect(r.patch.subclient_id).toBeNull();
     expect(r.patch.subclient_ids).toEqual([]);
@@ -73,7 +73,7 @@ describe("draftAreaChangePatch", () => {
 
   it("pede revalidação do responsável quando o tipo continua válido", () => {
     const midiaType = "carrossel";
-    const r = draftAreaChangePatch({ demand_type_key: midiaType, assigned_to: "u1" }, "midia");
+    const r = draftAreaChangePatch({ demand_type_key: midiaType, assigned_to: "u1" }, "midia", [midiaType]);
     expect(r.typeCleared).toBe(false);
     expect(r.needsAssigneeRecheck).toBe(true);
     expect(r.patch.demand_type_key).toBeUndefined();

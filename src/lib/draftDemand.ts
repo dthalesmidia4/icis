@@ -7,8 +7,7 @@
  *  - o que precisa ser limpo quando o operador troca área ou cliente.
  */
 
-import { demandTypesForArea } from "@/lib/proceedDemand";
-import type { WorkArea } from "@/lib/flowFunctions";
+export type DraftWorkArea = "midia" | "sistemas";
 
 export interface DraftCompletenessInput {
   clientId?: string | null;
@@ -60,10 +59,14 @@ export interface DraftAreaChangeResult {
  * Tipos são específicos por área: manter um tipo de Mídia em Sistemas apontaria
  * para etapas inexistentes. Quando o tipo cai, o responsável cai com ele.
  * Voltar para Mídia também zera origem/subclientes, que só existem em Sistemas.
+ *
+ * `typeKeysForArea` vem de `demandTypesForArea(newArea)` — recebido por parâmetro
+ * para manter este módulo puro (sem depender do client Supabase).
  */
 export function draftAreaChangePatch(
   card: { demand_type_key?: string | null; assigned_to?: string | null },
-  newArea: WorkArea,
+  newArea: DraftWorkArea,
+  typeKeysForArea: string[],
 ): DraftAreaChangeResult {
   const patch: Record<string, unknown> = { work_area: newArea };
   if (newArea === "midia") {
@@ -71,8 +74,7 @@ export function draftAreaChangePatch(
     patch.subclient_id = null;
     patch.subclient_ids = [];
   }
-  const stillValid =
-    !!card.demand_type_key && demandTypesForArea(newArea).some((t) => t.key === card.demand_type_key);
+  const stillValid = !!card.demand_type_key && typeKeysForArea.includes(card.demand_type_key);
   if (!stillValid) {
     patch.demand_type = null;
     patch.demand_type_key = null;
