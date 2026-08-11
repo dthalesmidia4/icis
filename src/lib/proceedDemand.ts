@@ -8,6 +8,13 @@ import { userHasFunction } from "@/lib/clientStageAssignments";
 
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
+import {
+  commitFlowTransition,
+  fetchFlowState,
+  STALE_TRANSITION_MESSAGE,
+  type FlowState,
+} from "@/lib/flowTransition";
+
 
 
 /**
