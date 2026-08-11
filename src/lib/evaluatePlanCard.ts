@@ -402,7 +402,9 @@ export async function updatePlanCard(params: {
     else if ("suggested_date" in item) item.suggested_date = p.data_sugerida;
     else item.date = p.data_sugerida;
   }
+  if (p.aspect_ratio !== undefined) item.aspect_ratio = p.aspect_ratio;
   plan[params.indexInPlan] = item;
+
 
   const key = isDefault ? "default_plan" : "ultra_plan";
   const { error } = await supabase
