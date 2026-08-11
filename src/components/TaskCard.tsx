@@ -1078,10 +1078,23 @@ export default function TaskCard({
 
     try {
       setGenerationProgress({ current: 1, total: 1 });
-      
+
+      // Persiste a proporção escolhida ANTES de gerar — ela é autoritativa
+      // para esta geração e para todas as regenerações futuras.
+      const { error: aspectError } = await supabase
+        .from("demands")
+        .update({ image_aspect_ratio: generationAspect })
+        .eq("id", card.id);
+      if (aspectError) {
+        console.error("[TaskCard] save image_aspect_ratio error", aspectError);
+        toast.error("Não foi possível salvar a proporção da arte. Geração cancelada.");
+        return;
+      }
+      onCardChange({ ...card, image_aspect_ratio: generationAspect });
+
       const functionName = isCarousel ? "auto-generate-carousel" : "generate-post-image";
       const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { demandId: card.id, aiModel: selectedAiModel },
+        body: { demandId: card.id, aiModel: selectedAiModel, aspectRatio: generationAspect },
       });
       if (error) throw error;
       if (data?.error) {
