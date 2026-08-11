@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Layers, Play, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
+import { AttachmentPreviewModal, type AttachmentPreviewItem } from "@/components/AttachmentPreviewModal";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { buildInstagramFeed, feedHasMedia, type FeedEntry, type FeedMediaItem } from "@/lib/instagramFeed";
 
@@ -29,6 +29,20 @@ const mediaFileName = (item: FeedMediaItem): string => {
   return item.kind === "video-file" ? "arquivo.mp4" : "arquivo.png";
 };
 
+const isTypingTarget = (target: EventTarget | null): boolean => {
+  const el = target as HTMLElement | null;
+  if (!el || !el.tagName) return false;
+  const tag = el.tagName.toUpperCase();
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return !!el.isContentEditable;
+};
+
+interface PreviewState {
+  items: AttachmentPreviewItem[];
+  initialIndex: number;
+  entryKey: string;
+}
+
 interface InstagramFeedTabProps {
   planItems: WorkspacePlanItem[];
   demands: WorkspaceDemand[];
@@ -45,7 +59,9 @@ export default function InstagramFeedTab({
   onOpenDemand,
 }: InstagramFeedTabProps) {
   const [filter, setFilter] = useState<"all" | "media" | "producao">("all");
-  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+  const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [slideByEntry, setSlideByEntry] = useState<Record<string, number>>({});
+  const [activeCarouselKey, setActiveCarouselKey] = useState<string | null>(null);
 
   const entries = useMemo(
     () => buildInstagramFeed({ demands, planItems, stageNames, statusNames }),
@@ -65,13 +81,42 @@ export default function InstagramFeedTab({
     { value: "producao", label: "Em produção", count: inProduction },
   ];
 
+  const setSlide = useCallback((key: string, next: number) => {
+    setSlideByEntry((prev) => (prev[key] === next ? prev : { ...prev, [key]: next }));
+  }, []);
+
+  // Teclado: navega o último carrossel cuja seta foi clicada — nunca todos.
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const previewOpen = !!preview;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (previewOpen) return; // modal expandido tem prioridade absoluta
+      if (isTypingTarget(e.target)) return;
+      if (!activeCarouselKey) return;
+      const entry = visibleRef.current.find((x) => x.key === activeCarouselKey);
+      if (!entry || entry.kind !== "carousel" || entry.media.length <= 1) return;
+
+      const total = entry.media.length;
+      const current = Math.min(slideByEntry[entry.key] ?? 0, total - 1);
+      const next = e.key === "ArrowLeft" ? current - 1 : current + 1;
+      if (next < 0 || next > total - 1) return;
+      e.preventDefault();
+      setSlide(entry.key, next);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeCarouselKey, slideByEntry, previewOpen, setSlide]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black tracking-tight text-foreground">Prévia do Feed Simulado</h2>
           <p className="text-[12px] text-muted-foreground">
-            Mais recentes acima · segure o clique para abrir a mídia
+            Mais recentes acima · segure o clique para abrir a mídia · setas ← → navegam o carrossel ativo
           </p>
           <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
             {entries.length} publicações · {withMedia} com mídia · {inProduction} em produção
@@ -106,8 +151,17 @@ export default function InstagramFeedTab({
             <FeedCell
               key={entry.key}
               entry={entry}
+              slideIndex={slideByEntry[entry.key] ?? 0}
+              onSlideChange={(next) => setSlide(entry.key, next)}
+              onActivateCarousel={() => setActiveCarouselKey(entry.key)}
               onOpenDemand={onOpenDemand}
-              onOpenMedia={(item) => setPreview({ url: item.url, name: mediaFileName(item) })}
+              onOpenMedia={(items, initialIndex) =>
+                setPreview({
+                  items: items.map((it) => ({ url: it.url, name: mediaFileName(it) })),
+                  initialIndex,
+                  entryKey: entry.key,
+                })
+              }
             />
           ))}
         </div>
@@ -117,8 +171,11 @@ export default function InstagramFeedTab({
         <AttachmentPreviewModal
           isOpen
           onClose={() => setPreview(null)}
-          fileUrl={preview.url}
-          fileName={preview.name}
+          fileUrl={preview.items[preview.initialIndex]?.url ?? preview.items[0]?.url ?? ""}
+          fileName={preview.items[preview.initialIndex]?.name ?? preview.items[0]?.name ?? ""}
+          items={preview.items}
+          initialIndex={preview.initialIndex}
+          onIndexChange={(idx) => setSlide(preview.entryKey, idx)}
         />
       )}
     </div>
@@ -127,21 +184,26 @@ export default function InstagramFeedTab({
 
 function FeedCell({
   entry,
+  slideIndex,
+  onSlideChange,
+  onActivateCarousel,
   onOpenDemand,
   onOpenMedia,
 }: {
   entry: FeedEntry;
+  slideIndex: number;
+  onSlideChange: (next: number) => void;
+  onActivateCarousel: () => void;
   onOpenDemand?: (id: string) => void;
-  onOpenMedia: (item: FeedMediaItem) => void;
+  onOpenMedia: (items: FeedMediaItem[], initialIndex: number) => void;
 }) {
   const clickable = entry.isDemand && !!entry.demandId && !!onOpenDemand;
   const media = entry.media;
-  const [slide, setSlide] = useState(0);
   const [pressing, setPressing] = useState(false);
   const timerRef = useRef<number | null>(null);
   const longFiredRef = useRef(false);
 
-  const index = Math.min(slide, Math.max(media.length - 1, 0));
+  const index = Math.min(Math.max(slideIndex, 0), Math.max(media.length - 1, 0));
   const current = media[index];
   const hasMedia = !!current;
   const showArrows = entry.kind === "carousel" && media.length > 1;
@@ -163,7 +225,7 @@ function FeedCell({
     timerRef.current = window.setTimeout(() => {
       longFiredRef.current = true;
       clearTimer();
-      onOpenMedia(current!);
+      onOpenMedia(media, index);
     }, LONG_PRESS_MS);
   };
 
@@ -174,6 +236,9 @@ function FeedCell({
     }
     if (clickable) onOpenDemand!(entry.demandId!);
   };
+
+  const arrowClass =
+    "absolute top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/85 text-foreground shadow backdrop-blur transition disabled:opacity-30 group-hover:flex [@media(hover:none)]:flex";
 
   const content = (
     <div className="relative h-full w-full overflow-hidden bg-muted">
@@ -245,11 +310,12 @@ function FeedCell({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSlide((s) => Math.max(0, Math.min(s, media.length - 1) - 1));
+                  onActivateCarousel();
+                  if (index > 0) onSlideChange(index - 1);
                 }}
-                className="absolute left-1 top-1/2 hidden -translate-y-1/2 rounded-full bg-background/85 p-1 text-foreground shadow backdrop-blur transition disabled:opacity-30 group-hover:block"
+                className={cn(arrowClass, "left-2")}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-5 w-5" />
               </button>
               <button
                 type="button"
@@ -258,11 +324,12 @@ function FeedCell({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSlide((s) => Math.min(media.length - 1, Math.min(s, media.length - 1) + 1));
+                  onActivateCarousel();
+                  if (index < media.length - 1) onSlideChange(index + 1);
                 }}
-                className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded-full bg-background/85 p-1 text-foreground shadow backdrop-blur transition disabled:opacity-30 group-hover:block"
+                className={cn(arrowClass, "right-2")}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-5 w-5" />
               </button>
             </>
           )}
