@@ -171,6 +171,7 @@ const CollaboratorDemands = () => {
           client_resend_count: d.client_resend_count ?? 0,
           client_last_resend_at: d.client_last_resend_at ?? null,
           client_sent_at_fallback: historyFallback.get(d.id) ?? null,
+          released_at: d.released_at ?? null,
           clientName: d.tenant_companies.fantasy_name || d.tenant_companies.name,
           clientId: d.client_id,
           is_daily_card: !!d.is_daily_card,
