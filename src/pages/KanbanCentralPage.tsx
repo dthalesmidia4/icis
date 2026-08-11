@@ -202,6 +202,25 @@ const KanbanCentralPage = () => {
   const canReorder = isSuperAdmin || isAgencyManager;
   /** Gestor operacional / admin da agência / super admin: vê a fila não liberada e pode liberar. */
   const canManageQueue = isSuperAdmin || isAgencyManager || isAgencyAdmin;
+
+  /**
+   * Configuração da fila de liberação. Com a fila DESATIVADA, `released_at`
+   * é apenas histórico: não esconde card do colaborador nem gera o
+   * agrupamento "Ainda não liberadas".
+   */
+  const [releaseConfig, setReleaseConfig] = useState<ReleaseQueueConfig>(DEFAULT_RELEASE_QUEUE);
+  const queueActive = isReleaseQueueActive(releaseConfig);
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    loadReleaseQueueConfig(tenantId).then((cfg) => {
+      if (alive) setReleaseConfig(cfg);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
   const { user: authUser } = useAuth();
   const [releasingIds, setReleasingIds] = useState<Set<string>>(new Set());
   const [releaseBatchSize, setReleaseBatchSize] = useState<Record<string, number>>({});
