@@ -1620,8 +1620,9 @@ export default function TaskCard({
       ...card,
       publish_date: dateStr
     });
-    await onSave('publish_date', dateStr);
     setIsDatePickerOpen(false);
+    if (isDraft) return;
+    await onSave('publish_date', dateStr);
     // Sync existing active dispatch (does NOT create a new one)
     const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: dateStr, publishTime: card.publish_time });
     if (res.pastDate && res.cancelled) {
@@ -1639,6 +1640,7 @@ export default function TaskCard({
       ...card,
       publish_time: time
     });
+    if (isDraft) return;
     await onSave('publish_time', time);
     const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: card.publish_date, publishTime: time });
     if (res.pastDate && res.cancelled) {
@@ -1662,6 +1664,7 @@ export default function TaskCard({
     }
     const updated = [...additionalDates, dateStr].sort();
     onCardChange({ ...card, additional_publish_dates: updated });
+    if (isDraft) { setIsAdditionalDatePickerOpen(false); return; }
     try {
       await supabase.from("demands").update({ additional_publish_dates: updated }).eq("id", card.id);
     } catch (e) {
@@ -1675,6 +1678,7 @@ export default function TaskCard({
     if (!card) return;
     const updated = additionalDates.filter(d => d !== dateStr);
     onCardChange({ ...card, additional_publish_dates: updated });
+    if (isDraft) return;
     try {
       await supabase.from("demands").update({ additional_publish_dates: updated }).eq("id", card.id);
     } catch (e) {
@@ -2960,6 +2964,7 @@ export default function TaskCard({
                           const dateStr = v.date || '';
                           const timeStr = v.time || (dateStr ? '09:00' : '');
                           onCardChange({ ...card, publish_date: dateStr, publish_time: timeStr });
+                          if (isDraft) return;
                           await onSave('publish_date', dateStr);
                           await onSave('publish_time', timeStr);
                           if (!dateStr) {
