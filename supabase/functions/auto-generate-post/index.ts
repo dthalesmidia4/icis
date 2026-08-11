@@ -6,7 +6,7 @@ import { loadVisualIdentity } from "../_shared/visual-identity.ts";
 import { buildStaticPostPrompt } from "../_shared/image-prompts.ts";
 import { fetchInlineImage, fetchInlineImages } from "../_shared/fetch-image.ts";
 import { generateImageWithModel } from "../_shared/image-generation.ts";
-import { aspectFromDemandType, aspectPromptLabel } from "../_shared/aspect.ts";
+import { aspectFromDemandType, aspectPromptLabel, normalizeAspectRatio } from "../_shared/aspect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { demandId, aiModel: aiModelInput, source, minimalText } = await req.json();
+    const { demandId, aiModel: aiModelInput, source, minimalText, aspectRatio } = await req.json();
     const isPlanned = source === 'planned' || minimalText === true;
 
     if (!demandId) {
@@ -166,8 +166,12 @@ Deno.serve(async (req) => {
     ].filter(Boolean).join("\n");
 
 
-    const ratio = aspectFromDemandType(demand.demand_type);
+    // Proporção autoritativa: request > campo persistido na demand > default do tipo.
+    const ratio = normalizeAspectRatio(
+      aspectRatio || demand.image_aspect_ratio || aspectFromDemandType(demand.demand_type),
+    );
     const aspectLabel = aspectPromptLabel(ratio);
+    const authoritativeAspectRule = `\n\nFORMATO DE SAÍDA AUTORITATIVO: ${aspectLabel}. A proporção selecionada na interface prevalece sobre qualquer dimensão ou proporção diferente mencionada em textos antigos de planejamento/instruções. Não mude o canvas para seguir referências legadas.`;
 
     const minimalTextRule = isPlanned
       ? `\n\n========================================\n🚨 MODO "DEMANDA PLANEJADA" — TEXTO MÍNIMO NA IMAGEM (OBRIGATÓRIO):\n- A imagem deve ser VISUALMENTE CHAMATIVA, SIMPLES e de leitura instantânea.\n- TEXTO TOTAL na arte: no MÁXIMO 6 PALAVRAS (idealmente 2-4 palavras grandes e impactantes).\n- NÃO inclua parágrafos, frases longas, subtítulos, listas, descrições ou explicações na imagem.\n- NÃO escreva a legenda/descrição do post dentro da arte — isso vai apenas na descrição da rede social.\n- Use tipografia GRANDE, em destaque, com hierarquia clara (uma palavra-chave dominante).\n- Priorize ELEMENTO VISUAL (mascote, objeto, ilustração, ícone) ocupando a maior parte da composição.\n- Sem CTAs longos, sem "saiba mais", sem URLs, sem hashtags na imagem.\n========================================\n`
@@ -176,7 +180,7 @@ Deno.serve(async (req) => {
       vi,
       basePrompt: basePrompt + minimalTextRule,
       strategySnippet,
-      contentSection: contentSection + minimalTextRule,
+      contentSection: contentSection + minimalTextRule + authoritativeAspectRule,
       hasMascotReference: mascotImageUrls.length > 0,
       aspectLabel,
     });

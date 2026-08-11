@@ -72,7 +72,7 @@ export async function generateCarouselSlideImages(
     storagePathBuilder, onSlideDone,
   } = opts;
   const batchOffset = opts.batchOffset ?? 0;
-  const aspectLabel = opts.aspectLabel || "1:1 (1024x1024)";
+  const aspectLabel = opts.aspectLabel || "4:5";
   const bucket = opts.storageBucket || "card-attachments";
 
   const totalSlides = allSlides.length;
