@@ -47,10 +47,12 @@ export function StageRoutingTab({ area }: Props) {
     (async () => {
       const { data } = await supabase
         .from("tenant_companies")
-        .select("id, name")
-        .eq("tenant_id", agencyId)
-        .order("name");
-      setClients(((data || []) as any[]).map((c) => ({ id: c.id, name: c.name })));
+        .select("id, name, fantasy_name")
+        .eq("tenant_id", agencyId);
+      const list = ((data || []) as any[])
+        .map((c) => ({ id: c.id, name: (c.fantasy_name || c.name || "Cliente") as string }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      setClients(list);
     })();
   }, [agencyId]);
 
@@ -162,6 +164,9 @@ export function StageRoutingTab({ area }: Props) {
         <AlertDescription className="text-xs">
           A preferência define <strong>quem recebe primeiro</strong> em cada etapa deste cliente. Ela não
           concede função: se o colaborador perder a permissão, o fluxo volta a escolher pela regra normal.
+          <br />
+          Prioridade 1 é a primeira escolha; se estiver indisponível ou inelegível, o sistema tenta a próxima e
+          depois usa distribuição automática.
         </AlertDescription>
       </Alert>
 
@@ -224,8 +229,9 @@ export function StageRoutingTab({ area }: Props) {
                         <div key={key} className="flex items-center gap-3 px-3 py-2">
                           <span className="flex-1 text-sm truncate">{u.name}</span>
                           {pref?.active && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] uppercase text-muted-foreground">Ordem</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-semibold uppercase text-primary">Preferencial</span>
+                              <span className="text-[10px] uppercase text-muted-foreground">Prioridade</span>
                               <Input
                                 type="number"
                                 min={1}
