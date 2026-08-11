@@ -3173,11 +3173,19 @@ export default function TaskCard({
                           ) : (
                             <Upload className="h-5 w-5 text-muted-foreground" />
                           )}
-                          <span className="text-sm text-muted-foreground">
-                            {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
-                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm text-muted-foreground">
+                              {uploading ? 'Fazendo upload...' : 'Clique, arraste ou cole arquivos aqui'}
+                            </p>
+                            {!uploading && (
+                              <p className="text-[11px] text-muted-foreground/70">
+                                Ctrl+V / Cmd+V • vários arquivos • máx. 50MB por arquivo
+                              </p>
+                            )}
+                          </div>
                         </label>
                       )}
+
 
                     </>
                   )}
