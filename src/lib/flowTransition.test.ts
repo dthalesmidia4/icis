@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyFlowCasFilters, buildFlowState } from "@/lib/flowTransition";
+import { applyFlowCasFilters, buildFlowState } from "@/lib/flowTransitionCore";
 
 /** Query builder falso que registra os filtros aplicados. */
 function fakeQuery() {
