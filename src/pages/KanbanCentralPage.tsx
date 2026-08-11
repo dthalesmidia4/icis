@@ -664,12 +664,13 @@ const KanbanCentralPage = () => {
     // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
     // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
     baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
-    // Fila de liberação: para quem não é gestor, demandas ainda não liberadas não existem.
-    if (!canManageQueue) {
-      baseCards = baseCards.filter(card => (card as any).released_at != null);
+    // Fila de liberação: SÓ quando ativada, demandas não liberadas deixam de
+    // existir para quem não é gestor. Fila desativada => nada é escondido.
+    if (!canManageQueue && queueActive) {
+      baseCards = baseCards.filter(card => isOperationallyReleased(card as any, releaseConfig));
     }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue, queueActive, releaseConfig]);
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
