@@ -1040,11 +1040,15 @@ export async function proceedDemand({
   }
   await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key);
   await applyFlowReactivation(proceedPayload, demandId, picked.userId);
-  const { error: upErr } = await supabase
-    .from("demands")
-    .update(proceedPayload)
-    .eq("id", demandId);
-  if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+  const proceedCommit = await commitFlowTransition({
+    demandId,
+    payload: proceedPayload,
+    expectedFunctionKey: currentFunctionKey || null,
+    expectedAssignee: previousAssignee,
+  });
+  if (proceedCommit.status === "stale") return staleResult(demandId);
+  if (proceedCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
