@@ -1230,11 +1230,15 @@ export async function regressDemand({
     regressPayload.additional_assignees = [];
   }
   await applyFlowReactivation(regressPayload, demandId, picked.userId);
-  const { error: upErr } = await supabase
-    .from("demands")
-    .update(regressPayload)
-    .eq("id", demandId);
-  if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+  const regressCommit = await commitFlowTransition({
+    demandId,
+    payload: regressPayload,
+    expectedFunctionKey: currentFunctionKey || null,
+    expectedAssignee: previousAssignee,
+  });
+  if (regressCommit.status === "stale") return staleResult(demandId);
+  if (regressCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
       { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key },
