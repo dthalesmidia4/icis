@@ -430,7 +430,25 @@ export interface ProceedResult {
   functionName?: string;
   end?: boolean;
   needsTypeKey?: boolean;
+  /** true quando a transição foi rejeitada por concorrência (compare-and-set). */
+  stale?: boolean;
+  /** Estado real do card no banco após (ou no lugar de) a transição. */
+  flowState?: FlowState;
 }
+
+/**
+ * Resultado padrão de uma transição rejeitada por concorrência: devolve o
+ * estado real do banco para a UI reconciliar, sem falso sucesso.
+ */
+async function staleResult(demandId: string): Promise<ProceedResult> {
+  return {
+    success: false,
+    stale: true,
+    message: STALE_TRANSITION_MESSAGE,
+    flowState: await fetchFlowState(demandId),
+  };
+}
+
 
 interface ProceedInput {
   demandId: string;
