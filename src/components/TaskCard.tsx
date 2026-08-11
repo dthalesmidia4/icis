@@ -1147,11 +1147,14 @@ export default function TaskCard({
   const handleRegenerateAll = async () => {
     if (!card) return;
     setRegeneratingAll(true);
+    const aspectRatio = isImageAspectRatio(card.image_aspect_ratio)
+      ? card.image_aspect_ratio
+      : DEFAULT_SOCIAL_ASPECT;
     try {
       // Regenerate based on type — preserve existing attachments (new ones are appended)
       if (isCarousel) {
         const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
-          body: { demandId: card.id, aiModel: selectedAiModel, forceRegenerate: true },
+          body: { demandId: card.id, aiModel: selectedAiModel, forceRegenerate: true, aspectRatio },
         });
         if (error) throw error;
         if (data?.error) {
@@ -1165,7 +1168,7 @@ export default function TaskCard({
         }
       } else {
         const { data, error } = await supabase.functions.invoke("generate-post-image", {
-          body: { demandId: card.id, aiModel: selectedAiModel },
+          body: { demandId: card.id, aiModel: selectedAiModel, aspectRatio },
         });
         if (error) throw error;
         if (data?.error) {
