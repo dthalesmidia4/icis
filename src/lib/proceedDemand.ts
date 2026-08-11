@@ -5,6 +5,12 @@ import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
 import { isReviewFunction } from "@/lib/flowFunctions";
 import { userHasFunction } from "@/lib/clientStageAssignments";
+import {
+  getEligibleStageCandidates,
+  getPreferredStageAssignee,
+  type RoutingSource,
+  type StageRoutingCandidate,
+} from "@/lib/stageRouting";
 
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
@@ -396,6 +402,8 @@ export interface DemandFlowMeta {
   workArea: "midia" | "sistemas";
   origin: DemandOrigin;
   typeKey: DemandTypeKey | null;
+  /** Cliente do card — necessário para aplicar preferência de roteamento. */
+  clientId: string | null;
 }
 
 /**
@@ -406,7 +414,7 @@ export async function getDemandFlowMeta(demandId: string): Promise<DemandFlowMet
   try {
     const { data } = await supabase
       .from("demands")
-      .select("work_area, origin, demand_type_key" as any)
+      .select("work_area, origin, demand_type_key, client_id" as any)
       .eq("id", demandId)
       .maybeSingle();
     const d: any = data || {};
@@ -414,9 +422,10 @@ export async function getDemandFlowMeta(demandId: string): Promise<DemandFlowMet
       workArea: d.work_area === "sistemas" ? "sistemas" : "midia",
       origin: (d.origin || "interno") as DemandOrigin,
       typeKey: coerceDemandTypeKey(d.demand_type_key),
+      clientId: d.client_id ? String(d.client_id) : null,
     };
   } catch {
-    return { workArea: "midia", origin: "interno", typeKey: null };
+    return { workArea: "midia", origin: "interno", typeKey: null, clientId: null };
   }
 }
 
@@ -463,6 +472,8 @@ export interface PickAssigneeResult {
   message?: string;
   userId?: string;
   name?: string;
+  /** Como o responsável foi decidido (auditoria em `demand_flow_history`). */
+  source?: RoutingSource;
 }
 
 /**
@@ -482,6 +493,10 @@ export async function pickAssigneeForFunction(
     excludeUserIds?: Array<string | null | undefined>;
     preferUserIds?: Array<string | null | undefined>;
     workArea?: "midia" | "sistemas" | null;
+    /** Quando informado, a preferência de roteamento do cliente é aplicada antes do sticky/carga. */
+    clientId?: string | null;
+    /** Preferência do cliente vem antes ou depois do sticky (salto manual usa "after"). */
+    clientPreferenceOrder?: "before" | "after";
   },
 ): Promise<PickAssigneeResult> {
   const label = functionName || functionKey;
@@ -542,11 +557,44 @@ export async function pickAssigneeForFunction(
   const profileById = new Map<string, string>();
   (profiles || []).forEach((p: any) => profileById.set(p.id, p.full_name || "Colaborador"));
 
-  // Preferência (sticky): se alguém que já está no card pode exercer a função, fica com ele.
+  // Preferência do cliente para esta etapa/área — nunca concede função:
+  // só vale se o usuário continuar na lista de elegíveis.
+  const clientPreferenceOrder = opts?.clientPreferenceOrder ?? "before";
+  const clientPreferred = opts?.clientId
+    ? await getPreferredStageAssignee({
+        tenantId,
+        clientId: opts.clientId,
+        workArea: area,
+        functionKey,
+        excludeUserIds: Array.from(excluded),
+      })
+    : null;
+  const clientPreferredValid =
+    clientPreferred && internalIds.includes(clientPreferred.userId) ? clientPreferred : null;
+
+  if (clientPreferenceOrder === "before" && clientPreferredValid) {
+    return {
+      success: true,
+      userId: clientPreferredValid.userId,
+      name: profileById.get(clientPreferredValid.userId) || clientPreferredValid.fullName,
+      source: "client_preference",
+    };
+  }
+
+  // Continuidade (sticky): se alguém que já está no card pode exercer a função, fica com ele.
   const preferred = (opts?.preferUserIds || []).filter(Boolean) as string[];
   const stickyMatch = preferred.find((id) => internalIds.includes(id));
   if (stickyMatch) {
-    return { success: true, userId: stickyMatch, name: profileById.get(stickyMatch) || "Colaborador" };
+    return { success: true, userId: stickyMatch, name: profileById.get(stickyMatch) || "Colaborador", source: "sticky" };
+  }
+
+  if (clientPreferredValid) {
+    return {
+      success: true,
+      userId: clientPreferredValid.userId,
+      name: profileById.get(clientPreferredValid.userId) || clientPreferredValid.fullName,
+      source: "client_preference",
+    };
   }
 
   internalIds.sort((a, b) => {
@@ -560,6 +608,7 @@ export async function pickAssigneeForFunction(
     success: true,
     userId: chosen,
     name: profileById.get(chosen) || "Colaborador",
+    source: "automatic_load",
   };
 }
 
