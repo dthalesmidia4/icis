@@ -28,7 +28,15 @@ import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
 
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/hooks/useAuth";
-import { releaseDemands, unreleaseDemand } from "@/lib/releaseQueue";
+import {
+  releaseDemands,
+  unreleaseDemand,
+  loadReleaseQueueConfig,
+  isReleaseQueueActive,
+  isOperationallyReleased,
+  DEFAULT_RELEASE_QUEUE,
+  type ReleaseQueueConfig,
+} from "@/lib/releaseQueue";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
 import { useColumnPermissions } from "@/hooks/useColumnPermissions";
