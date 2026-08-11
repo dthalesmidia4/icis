@@ -81,11 +81,47 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
     },
   });
 
+  /**
+   * Demandas ativas do colaborador NAQUELA etapa e área. Remover a função
+   * enquanto elas existem deixaria cards órfãos numa coluna sem permissão.
+   */
+  const countActiveDemandsInStage = async (
+    tenantId: string,
+    userId: string,
+    functionKey: string,
+    workArea: WorkAreaKey,
+  ): Promise<number> => {
+    const { count } = await (supabase.from("demands") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("assigned_to", userId)
+      .eq("current_function_key", functionKey)
+      .eq("work_area", workArea)
+      .eq("is_draft", false)
+      .is("archived_at", null);
+    return count || 0;
+  };
+
   const toggle = async (userId: string, functionKey: string) => {
     if (!agencyId) return;
     const current = assignments[userId]?.[functionKey] ?? false;
     const next = !current;
     const key = `${userId}:${functionKey}`;
+
+    // Retirar a função só é permitido quando o colaborador não tem demanda ativa nela.
+    if (!next) {
+      setSaving(key);
+      const active = await countActiveDemandsInStage(agencyId, userId, functionKey, area);
+      setSaving(null);
+      if (active > 0) {
+        const fnName = functions.find((f) => f.function_key === functionKey)?.name || functionKey;
+        toast.error(
+          `Não é possível retirar "${fnName}": o colaborador tem ${active} demanda(s) ativa(s) nesta etapa. Transfira-as antes.`,
+        );
+        return;
+      }
+    }
+
     setSaving(key);
     setAssignments((prev) => ({
       ...prev,

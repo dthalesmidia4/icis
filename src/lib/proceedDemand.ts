@@ -8,6 +8,13 @@ import { userHasFunction } from "@/lib/clientStageAssignments";
 
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
+import {
+  commitFlowTransition,
+  fetchFlowState,
+  STALE_TRANSITION_MESSAGE,
+  type FlowState,
+} from "@/lib/flowTransition";
+
 
 
 /**
@@ -423,7 +430,25 @@ export interface ProceedResult {
   functionName?: string;
   end?: boolean;
   needsTypeKey?: boolean;
+  /** true quando a transição foi rejeitada por concorrência (compare-and-set). */
+  stale?: boolean;
+  /** Estado real do card no banco após (ou no lugar de) a transição. */
+  flowState?: FlowState;
 }
+
+/**
+ * Resultado padrão de uma transição rejeitada por concorrência: devolve o
+ * estado real do banco para a UI reconciliar, sem falso sucesso.
+ */
+async function staleResult(demandId: string): Promise<ProceedResult> {
+  return {
+    success: false,
+    stale: true,
+    message: STALE_TRANSITION_MESSAGE,
+    flowState: await fetchFlowState(demandId),
+  };
+}
+
 
 interface ProceedInput {
   demandId: string;
@@ -754,8 +779,14 @@ export async function jumpToFunction({
       client_wait_started_at: new Date().toISOString(),
     };
     await applyFlowReactivation(updateWait, demandId, keep);
-    const { error } = await supabase.from("demands").update(updateWait).eq("id", demandId);
-    if (error) return { success: false, message: "Erro ao atualizar etapa." };
+    const commit = await commitFlowTransition({
+      demandId,
+      payload: updateWait,
+      expectedFunctionKey: currentFunctionKey || null,
+      expectedAssignee: previous,
+    });
+    if (commit.status === "stale") return staleResult(demandId);
+    if (commit.status === "error") return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: previous, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
     await recordStageTouchpoint(tenantId, demandId, target.function_key);
@@ -764,7 +795,8 @@ export async function jumpToFunction({
       previous,
       ...(await fetchExtraAssignees(demandId)),
     ]);
-    return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
+    return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.`, flowState: commit.flowState };
+
   }
 
 
@@ -844,11 +876,15 @@ export async function jumpToFunction({
   }
   await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key);
   await applyFlowReactivation(updatePayload, demandId, picked.userId);
-  const { error } = await supabase
-    .from("demands")
-    .update(updatePayload)
-    .eq("id", demandId);
-  if (error) return { success: false, message: "Erro ao atualizar etapa." };
+  const jumpCommit = await commitFlowTransition({
+    demandId,
+    payload: updatePayload,
+    expectedFunctionKey: currentFunctionKey || null,
+    expectedAssignee: prevUser,
+  });
+  if (jumpCommit.status === "stale") return staleResult(demandId);
+  if (jumpCommit.status === "error") return { success: false, message: "Erro ao atualizar etapa." };
+
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
       { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta },
@@ -866,7 +902,7 @@ export async function jumpToFunction({
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [prevUser, ...stageExtras]);
   }
   await recordStageTouchpoint(tenantId, demandId, target.function_key);
-  return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.` };
+  return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.`, flowState: jumpCommit.flowState };
 }
 
 export async function proceedDemand({
@@ -945,11 +981,15 @@ export async function proceedDemand({
       client_wait_started_at: new Date().toISOString(),
     };
     await applyFlowReactivation(waitPayload, demandId, keepAssignee);
-    const { error: upErr } = await supabase
-      .from("demands")
-      .update(waitPayload)
-      .eq("id", demandId);
-    if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    const waitCommit = await commitFlowTransition({
+      demandId,
+      payload: waitPayload,
+      expectedFunctionKey: currentFunctionKey || null,
+      expectedAssignee: previousAssignee,
+    });
+    if (waitCommit.status === "stale") return staleResult(demandId);
+    if (waitCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+
     await recordFlowHistory({
       tenantId,
       demandId,
@@ -975,8 +1015,12 @@ export async function proceedDemand({
       functionKey: nextFn.function_key,
       functionName: nextFn.name,
       message: `Demanda marcada como enviada — aguardando retorno do cliente.${skipNote}`,
+      flowState: waitCommit.flowState,
     };
   }
+
+
+
 
   const picked = resolved.picked;
   if (!picked || !picked.success || !picked.userId) {
@@ -996,11 +1040,15 @@ export async function proceedDemand({
   }
   await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key);
   await applyFlowReactivation(proceedPayload, demandId, picked.userId);
-  const { error: upErr } = await supabase
-    .from("demands")
-    .update(proceedPayload)
-    .eq("id", demandId);
-  if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+  const proceedCommit = await commitFlowTransition({
+    demandId,
+    payload: proceedPayload,
+    expectedFunctionKey: currentFunctionKey || null,
+    expectedAssignee: previousAssignee,
+  });
+  if (proceedCommit.status === "stale") return staleResult(demandId);
+  if (proceedCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
@@ -1046,6 +1094,7 @@ export async function proceedDemand({
     message: samePerson
       ? `Demanda avançou para ${nextFn.name} e continua com ${picked.name}.${skipNote}`
       : `Demanda enviada para ${picked.name} na função ${nextFn.name}.${skipNote}`,
+    flowState: proceedCommit.flowState,
   };
 
 
@@ -1116,11 +1165,14 @@ export async function regressDemand({
       client_wait_started_at: null,
     };
     await applyFlowReactivation(resendPayload, demandId, picked.userId);
-    const { error: upErr } = await supabase
-      .from("demands")
-      .update(resendPayload)
-      .eq("id", demandId);
-    if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    const resendCommit = await commitFlowTransition({
+      demandId,
+      payload: resendPayload,
+      expectedFunctionKey: currentFunctionKey || null,
+      expectedAssignee: waitAssignee,
+    });
+    if (resendCommit.status === "stale") return staleResult(demandId);
+    if (resendCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
     await recordFlowHistory({
       tenantId,
       demandId,
@@ -1137,7 +1189,9 @@ export async function regressDemand({
       functionKey: prevFn.function_key,
       functionName: prevFn.name,
       message: `Demanda devolvida para "Enviar cliente" com ${picked.name}.`,
+      flowState: resendCommit.flowState,
     };
+
   }
 
   const { data: currentDemand } = await supabase
@@ -1176,11 +1230,15 @@ export async function regressDemand({
     regressPayload.additional_assignees = [];
   }
   await applyFlowReactivation(regressPayload, demandId, picked.userId);
-  const { error: upErr } = await supabase
-    .from("demands")
-    .update(regressPayload)
-    .eq("id", demandId);
-  if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+  const regressCommit = await commitFlowTransition({
+    demandId,
+    payload: regressPayload,
+    expectedFunctionKey: currentFunctionKey || null,
+    expectedAssignee: previousAssignee,
+  });
+  if (regressCommit.status === "stale") return staleResult(demandId);
+  if (regressCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
       { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key },
@@ -1204,6 +1262,7 @@ export async function regressDemand({
     functionKey: prevFn.function_key,
     functionName: prevFn.name,
     message: `Demanda devolvida para ${picked.name} na função ${prevFn.name}.`,
+    flowState: regressCommit.flowState,
   };
 
 }

@@ -28,7 +28,15 @@ import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
 
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/hooks/useAuth";
-import { releaseDemands, unreleaseDemand } from "@/lib/releaseQueue";
+import {
+  releaseDemands,
+  unreleaseDemand,
+  loadReleaseQueueConfig,
+  isReleaseQueueActive,
+  isOperationallyReleased,
+  DEFAULT_RELEASE_QUEUE,
+  type ReleaseQueueConfig,
+} from "@/lib/releaseQueue";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
 import { useColumnPermissions } from "@/hooks/useColumnPermissions";
@@ -194,6 +202,25 @@ const KanbanCentralPage = () => {
   const canReorder = isSuperAdmin || isAgencyManager;
   /** Gestor operacional / admin da agência / super admin: vê a fila não liberada e pode liberar. */
   const canManageQueue = isSuperAdmin || isAgencyManager || isAgencyAdmin;
+
+  /**
+   * Configuração da fila de liberação. Com a fila DESATIVADA, `released_at`
+   * é apenas histórico: não esconde card do colaborador nem gera o
+   * agrupamento "Ainda não liberadas".
+   */
+  const [releaseConfig, setReleaseConfig] = useState<ReleaseQueueConfig>(DEFAULT_RELEASE_QUEUE);
+  const queueActive = isReleaseQueueActive(releaseConfig);
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    loadReleaseQueueConfig(tenantId).then((cfg) => {
+      if (alive) setReleaseConfig(cfg);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
   const { user: authUser } = useAuth();
   const [releasingIds, setReleasingIds] = useState<Set<string>>(new Set());
   const [releaseBatchSize, setReleaseBatchSize] = useState<Record<string, number>>({});
@@ -637,12 +664,13 @@ const KanbanCentralPage = () => {
     // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
     // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
     baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
-    // Fila de liberação: para quem não é gestor, demandas ainda não liberadas não existem.
-    if (!canManageQueue) {
-      baseCards = baseCards.filter(card => (card as any).released_at != null);
+    // Fila de liberação: SÓ quando ativada, demandas não liberadas deixam de
+    // existir para quem não é gestor. Fila desativada => nada é escondido.
+    if (!canManageQueue && queueActive) {
+      baseCards = baseCards.filter(card => isOperationallyReleased(card as any, releaseConfig));
     }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue, queueActive, releaseConfig]);
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
@@ -2647,7 +2675,7 @@ const KanbanCentralPage = () => {
               const target = rawColumns.find((c) => c.userId === focusedColumnId);
               if (target) {
                 const userCards = filteredCards.filter((c) =>
-                  (c as any).released_at != null && (
+                  isOperationallyReleased(c as any, releaseConfig) && (
                   target.userId === "__unassigned__"
                     ? !c.assigned_to && !(c.additional_assignees?.length)
                     : c.assigned_to === target.userId || (c.additional_assignees?.includes(target.userId) ?? false))
@@ -2706,11 +2734,12 @@ const KanbanCentralPage = () => {
 
             const allColumnCardsRaw = isHistoryMode ? historyColumnCards : activeColumnCards;
 
-            // Fila de liberação: separa as demandas ainda não liberadas (só o gestor chega aqui).
-            const queuedCards = !isHistoryMode
+            // Fila de liberação: só separa "não liberadas" quando a fila está ATIVA.
+            // Com a fila desativada, `released_at` é histórico e todo card é operacional.
+            const queuedCards = !isHistoryMode && queueActive
               ? allColumnCardsRaw.filter((c) => (c as any).released_at == null)
               : [];
-            const allColumnCards = !isHistoryMode
+            const allColumnCards = !isHistoryMode && queueActive
               ? allColumnCardsRaw.filter((c) => (c as any).released_at != null)
               : allColumnCardsRaw;
 

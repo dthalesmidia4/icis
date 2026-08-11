@@ -20,6 +20,14 @@ import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { ClientSendHistoryPopover } from "@/components/kanban/ClientSendHistoryPopover";
+import { evaluateReassign, applyReassign } from "@/lib/reassignDemand";
+import {
+  DEFAULT_RELEASE_QUEUE,
+  isOperationallyReleased,
+  loadReleaseQueueConfig,
+  type ReleaseQueueConfig,
+} from "@/lib/releaseQueue";
+
 
 import { getRoleLabel } from "@/lib/constants/roles";
 
@@ -55,6 +63,21 @@ const CollaboratorDemands = () => {
   const [collaboratorName, setCollaboratorName] = useState<string>("");
   const [collaboratorRole, setCollaboratorRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [releaseConfig, setReleaseConfig] = useState<ReleaseQueueConfig>(DEFAULT_RELEASE_QUEUE);
+
+  // Mesma regra da Visão Geral: com a fila desativada, `released_at` é histórico
+  // e não pode esconder demanda alguma.
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    loadReleaseQueueConfig(tenantId).then((cfg) => {
+      if (alive) setReleaseConfig(cfg);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
 
   useBreadcrumbOverride("collaboratorName", collaboratorName);
 
@@ -148,6 +171,7 @@ const CollaboratorDemands = () => {
           client_resend_count: d.client_resend_count ?? 0,
           client_last_resend_at: d.client_last_resend_at ?? null,
           client_sent_at_fallback: historyFallback.get(d.id) ?? null,
+          released_at: d.released_at ?? null,
           clientName: d.tenant_companies.fantasy_name || d.tenant_companies.name,
           clientId: d.client_id,
           is_daily_card: !!d.is_daily_card,
@@ -215,7 +239,9 @@ const CollaboratorDemands = () => {
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
 
   const sortedCards = useMemo(() => {
-    const arr = [...cards].filter((c) => !activeDispatchIds.has(c.id));
+    const arr = [...cards].filter(
+      (c) => !activeDispatchIds.has(c.id) && isOperationallyReleased(c, releaseConfig),
+    );
     const getVal = (c: KanbanCardData): string => {
       switch (sortKey) {
         case "title": return (c.title || "").toLowerCase();
@@ -233,7 +259,7 @@ const CollaboratorDemands = () => {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
-  }, [cards, sortKey, sortDir, collaboratorName, activeDispatchIds]);
+  }, [cards, sortKey, sortDir, collaboratorName, activeDispatchIds, releaseConfig]);
 
   const totalCards = sortedCards.length;
 
@@ -296,8 +322,52 @@ const CollaboratorDemands = () => {
     setEditingId(null);
   };
 
+  /**
+   * Transferência manual: NUNCA gravar `assigned_to` direto.
+   * Passa por evaluateReassign/applyReassign para respeitar função da etapa,
+   * conflito de agenda e histórico de fluxo.
+   */
+  const transferAssignee = async (
+    card: KanbanCardData,
+    newAssignedTo: string | null,
+    extraPayload?: Record<string, any>,
+  ): Promise<boolean> => {
+    if (!tenantId) return false;
+    const target = collaborators.find((c: any) => c.user_id === newAssignedTo);
+    const evaluation = await evaluateReassign({
+      tenantId,
+      card: card as any,
+      newAssignedTo,
+      collaboratorName: (target as any)?.full_name,
+    });
+    if (!evaluation.allowed) {
+      sonnerToast.error(evaluation.message || "Transferência bloqueada.");
+      return false;
+    }
+    const { error } = await applyReassign({
+      tenantId,
+      card: card as any,
+      newAssignedTo,
+      nextFunctionKey: evaluation.nextFunctionKey,
+      direction: evaluation.direction,
+      historySource: "collaborator_demands",
+    });
+    if (error) {
+      sonnerToast.error("Erro ao transferir responsável");
+      return false;
+    }
+    if (extraPayload && Object.keys(extraPayload).length > 0) {
+      await supabase.from("demands").update(extraPayload as any).eq("id", card.id);
+    }
+    evaluation.softMessages.forEach((m) => sonnerToast.warning(m));
+    if (evaluation.remapMessage) sonnerToast.info(evaluation.remapMessage);
+    return true;
+  };
+
   const saveEdit = async (cardId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const card = cards.find((c) => c.id === cardId);
+    if (!card) return;
     try {
       const payload = {
         title: editDraft.title,
@@ -305,12 +375,20 @@ const CollaboratorDemands = () => {
         due_time: editDraft.due_time || null,
         delivery_date: editDraft.delivery_date || null,
         delivery_time: editDraft.delivery_time || null,
-        assigned_to: editDraft.assigned_to || null,
       };
-      const { error } = await supabase.from("demands").update(payload as any).eq("id", cardId);
-      if (error) throw error;
+      const nextAssignee = editDraft.assigned_to || null;
+      const assigneeChanged = nextAssignee !== (card.assigned_to || null);
+
+      if (assigneeChanged) {
+        const ok = await transferAssignee(card, nextAssignee, payload);
+        if (!ok) return;
+      } else {
+        const { error } = await supabase.from("demands").update(payload as any).eq("id", cardId);
+        if (error) throw error;
+      }
+
       // Se o responsável mudou e não é mais este colaborador, remove da lista
-      if (payload.assigned_to !== userId) {
+      if (nextAssignee !== userId) {
         setCards((prev) => prev.filter((c) => c.id !== cardId));
       } else {
         setCards((prev) => prev.map((c) => c.id === cardId ? { ...c, ...payload } as KanbanCardData : c));
@@ -326,10 +404,25 @@ const CollaboratorDemands = () => {
 
 
 
-
   const handleSave = async (field: string, value: string) => {
     if (!selectedCard) return;
     try {
+      // Responsável passa pelo ponto único de transferência.
+      if (field === "assigned_to") {
+        const ok = await transferAssignee(selectedCard, value || null);
+        if (!ok) return;
+        if (value !== userId) {
+          setCards((prev) => prev.filter((c) => c.id !== selectedCard.id));
+          setSelectedCard(null);
+          sonnerToast.success("Responsável atualizado");
+          return;
+        }
+        setCards((prev) => prev.map((c) => c.id === selectedCard.id ? { ...c, assigned_to: value } : c));
+        setSelectedCard((prev) => prev ? { ...prev, assigned_to: value } : prev);
+        sonnerToast.success("Responsável atualizado");
+        return;
+      }
+
       const updateData: Record<string, any> = {};
       if (field === "status") {
         const st = pipelineStatuses.find((s) => s.name === value);
@@ -340,14 +433,6 @@ const CollaboratorDemands = () => {
       const { error } = await supabase.from("demands").update(updateData as any).eq("id", selectedCard.id);
       if (error) throw error;
 
-      // Se mudou o responsável e não é mais este usuário, remover da lista
-      if (field === "assigned_to" && value !== userId) {
-        setCards((prev) => prev.filter((c) => c.id !== selectedCard.id));
-        setSelectedCard(null);
-        sonnerToast.success("Responsável atualizado");
-        return;
-      }
-
       setCards((prev) => prev.map((c) => c.id === selectedCard.id ? { ...c, [field]: value } : c));
       setSelectedCard((prev) => prev ? { ...prev, [field]: value } : prev);
       sonnerToast.success("Salvo!");
@@ -356,6 +441,7 @@ const CollaboratorDemands = () => {
       sonnerToast.error("Erro ao salvar");
     }
   };
+
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedCard || !event.target.files?.length) return;
