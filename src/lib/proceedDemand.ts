@@ -981,11 +981,15 @@ export async function proceedDemand({
       client_wait_started_at: new Date().toISOString(),
     };
     await applyFlowReactivation(waitPayload, demandId, keepAssignee);
-    const { error: upErr } = await supabase
-      .from("demands")
-      .update(waitPayload)
-      .eq("id", demandId);
-    if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    const waitCommit = await commitFlowTransition({
+      demandId,
+      payload: waitPayload,
+      expectedFunctionKey: currentFunctionKey || null,
+      expectedAssignee: previousAssignee,
+    });
+    if (waitCommit.status === "stale") return staleResult(demandId);
+    if (waitCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+
     await recordFlowHistory({
       tenantId,
       demandId,
