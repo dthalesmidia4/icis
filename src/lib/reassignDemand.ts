@@ -315,3 +315,20 @@ export async function applyReassign(input: ApplyReassignInput): Promise<ApplyRea
   return { status: "ok", error: null };
 }
 
+
+/**
+ * Mensagem de falha (ou null quando a transferência foi efetivada).
+ * Centraliza o tratamento para todos os pontos de UI.
+ */
+export function reassignFailureMessage(result: ApplyReassignResult): string | null {
+  switch (result.status) {
+    case "ok":
+      return null;
+    case "stale":
+      return "A demanda foi alterada por outra ação enquanto você transferia. Recarregue e tente novamente.";
+    case "conflict":
+      return result.message;
+    default:
+      return "Não foi possível transferir a demanda.";
+  }
+}
