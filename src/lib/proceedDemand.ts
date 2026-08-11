@@ -5,6 +5,12 @@ import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
 import { isReviewFunction } from "@/lib/flowFunctions";
 import { userHasFunction } from "@/lib/clientStageAssignments";
+import {
+  getEligibleStageCandidates,
+  getPreferredStageAssignee,
+  type RoutingSource,
+  type StageRoutingCandidate,
+} from "@/lib/stageRouting";
 
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
@@ -396,6 +402,8 @@ export interface DemandFlowMeta {
   workArea: "midia" | "sistemas";
   origin: DemandOrigin;
   typeKey: DemandTypeKey | null;
+  /** Cliente do card — necessário para aplicar preferência de roteamento. */
+  clientId: string | null;
 }
 
 /**
@@ -406,7 +414,7 @@ export async function getDemandFlowMeta(demandId: string): Promise<DemandFlowMet
   try {
     const { data } = await supabase
       .from("demands")
-      .select("work_area, origin, demand_type_key" as any)
+      .select("work_area, origin, demand_type_key, client_id" as any)
       .eq("id", demandId)
       .maybeSingle();
     const d: any = data || {};
@@ -414,9 +422,10 @@ export async function getDemandFlowMeta(demandId: string): Promise<DemandFlowMet
       workArea: d.work_area === "sistemas" ? "sistemas" : "midia",
       origin: (d.origin || "interno") as DemandOrigin,
       typeKey: coerceDemandTypeKey(d.demand_type_key),
+      clientId: d.client_id ? String(d.client_id) : null,
     };
   } catch {
-    return { workArea: "midia", origin: "interno", typeKey: null };
+    return { workArea: "midia", origin: "interno", typeKey: null, clientId: null };
   }
 }
 
@@ -456,6 +465,11 @@ interface ProceedInput {
   /** Chave técnica salva em `demands.demand_type_key`. Único sinal aceito. */
   demandTypeKey?: string | null;
   currentFunctionKey?: string | null;
+  /**
+   * Escolha manual explícita de destino (menu do botão Prosseguir).
+   * Só é aceita se o usuário for realmente elegível para a próxima etapa.
+   */
+  forcedAssigneeId?: string | null;
 }
 
 export interface PickAssigneeResult {
@@ -463,6 +477,8 @@ export interface PickAssigneeResult {
   message?: string;
   userId?: string;
   name?: string;
+  /** Como o responsável foi decidido (auditoria em `demand_flow_history`). */
+  source?: RoutingSource;
 }
 
 /**
@@ -482,6 +498,10 @@ export async function pickAssigneeForFunction(
     excludeUserIds?: Array<string | null | undefined>;
     preferUserIds?: Array<string | null | undefined>;
     workArea?: "midia" | "sistemas" | null;
+    /** Quando informado, a preferência de roteamento do cliente é aplicada antes do sticky/carga. */
+    clientId?: string | null;
+    /** Preferência do cliente vem antes ou depois do sticky (salto manual usa "after"). */
+    clientPreferenceOrder?: "before" | "after";
   },
 ): Promise<PickAssigneeResult> {
   const label = functionName || functionKey;
@@ -542,11 +562,44 @@ export async function pickAssigneeForFunction(
   const profileById = new Map<string, string>();
   (profiles || []).forEach((p: any) => profileById.set(p.id, p.full_name || "Colaborador"));
 
-  // Preferência (sticky): se alguém que já está no card pode exercer a função, fica com ele.
+  // Preferência do cliente para esta etapa/área — nunca concede função:
+  // só vale se o usuário continuar na lista de elegíveis.
+  const clientPreferenceOrder = opts?.clientPreferenceOrder ?? "before";
+  const clientPreferred = opts?.clientId
+    ? await getPreferredStageAssignee({
+        tenantId,
+        clientId: opts.clientId,
+        workArea: area,
+        functionKey,
+        excludeUserIds: Array.from(excluded),
+      })
+    : null;
+  const clientPreferredValid =
+    clientPreferred && internalIds.includes(clientPreferred.userId) ? clientPreferred : null;
+
+  if (clientPreferenceOrder === "before" && clientPreferredValid) {
+    return {
+      success: true,
+      userId: clientPreferredValid.userId,
+      name: profileById.get(clientPreferredValid.userId) || clientPreferredValid.fullName,
+      source: "client_preference",
+    };
+  }
+
+  // Continuidade (sticky): se alguém que já está no card pode exercer a função, fica com ele.
   const preferred = (opts?.preferUserIds || []).filter(Boolean) as string[];
   const stickyMatch = preferred.find((id) => internalIds.includes(id));
   if (stickyMatch) {
-    return { success: true, userId: stickyMatch, name: profileById.get(stickyMatch) || "Colaborador" };
+    return { success: true, userId: stickyMatch, name: profileById.get(stickyMatch) || "Colaborador", source: "sticky" };
+  }
+
+  if (clientPreferredValid) {
+    return {
+      success: true,
+      userId: clientPreferredValid.userId,
+      name: profileById.get(clientPreferredValid.userId) || clientPreferredValid.fullName,
+      source: "client_preference",
+    };
   }
 
   internalIds.sort((a, b) => {
@@ -560,6 +613,7 @@ export async function pickAssigneeForFunction(
     success: true,
     userId: chosen,
     name: profileById.get(chosen) || "Colaborador",
+    source: "automatic_load",
   };
 }
 
@@ -573,13 +627,15 @@ async function resolveClientWaitOwner(
   tenantId: string,
   previousAssignee: string | null,
   workArea?: "midia" | "sistemas" | null,
-): Promise<string | null> {
+  clientId?: string | null,
+): Promise<{ userId: string; source: RoutingSource } | null> {
   try {
     const picked = await pickAssigneeForFunction(tenantId, "aguardando_cliente", "Aguardando cliente", {
       preferUserIds: previousAssignee ? [previousAssignee] : [],
       workArea: workArea ?? "midia",
+      clientId: clientId ?? null,
     });
-    if (picked.success && picked.userId) return picked.userId;
+    if (picked.success && picked.userId) return { userId: picked.userId, source: picked.source || "automatic_load" };
   } catch (e) {
     console.warn("[proceedDemand] resolveClientWaitOwner error:", e);
   }
@@ -650,6 +706,7 @@ async function resolveNextStage(
   startIndex: number,
   executors: string[],
   workArea?: "midia" | "sistemas" | null,
+  clientId?: string | null,
 ): Promise<ResolvedNextStage | null> {
   const area = workArea ?? "midia";
   const skipped: string[] = [];
@@ -662,6 +719,7 @@ async function resolveNextStage(
       const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
         excludeUserIds: executors,
         workArea: area,
+        clientId: clientId ?? null,
       });
       if (picked.success && picked.userId) return { fn, picked, skipped };
       skipped.push(fn.function_key);
@@ -670,6 +728,7 @@ async function resolveNextStage(
     const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
       preferUserIds: STICKY_STAGES.has(fn.function_key) ? executors : [],
       workArea: area,
+      clientId: clientId ?? null,
     });
     return { fn, picked, skipped };
   }
@@ -770,7 +829,8 @@ export async function jumpToFunction({
   if (target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const previous = (cur as any)?.assigned_to || null;
-    const keep = await resolveClientWaitOwner(tenantId, previous, jumpArea);
+    const keepOwner = await resolveClientWaitOwner(tenantId, previous, jumpArea, jumpMeta.clientId);
+    const keep = keepOwner?.userId || null;
 
     if (!keep) return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
     const updateWait: any = {
@@ -830,7 +890,7 @@ export async function jumpToFunction({
         .select("full_name")
         .eq("id", prevUser)
         .maybeSingle();
-      picked = { success: true, userId: prevUser, name: (prof as any)?.full_name || "Colaborador" };
+      picked = { success: true, userId: prevUser, name: (prof as any)?.full_name || "Colaborador", source: "sticky" };
     }
   }
 
@@ -843,7 +903,7 @@ export async function jumpToFunction({
         .select("full_name")
         .eq("id", historic)
         .maybeSingle();
-      picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
+      picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador", source: "historic_return" };
     }
   }
 
@@ -853,15 +913,20 @@ export async function jumpToFunction({
       preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
       excludeUserIds: isReviewTarget && !isBackward ? jumpExecutors : [],
       workArea: jumpArea,
+      clientId: jumpMeta.clientId,
     });
   }
   if (isReviewTarget && (!picked.success || !picked.userId)) {
     // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
-    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea });
+    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea, clientId: jumpMeta.clientId });
   }
 
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
   const jumpAction = isBackward ? "moved_back" : "proceeded";
+  const jumpMetaOut: Record<string, unknown> = {
+    ...(jumpHistoryMeta || {}),
+    routing: picked.source || "automatic_load",
+  };
 
 
   const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
@@ -887,7 +952,7 @@ export async function jumpToFunction({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta },
+      { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpMetaOut as any },
       [prevUser, ...captarExtras],
     );
   } else {
@@ -895,7 +960,7 @@ export async function jumpToFunction({
     if (!isBackward && currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
       await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
     }
-    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta });
+    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpMetaOut as any });
   }
   // Regressão não conclui a etapa atual: só avanços registram entrega.
   if (!isBackward) {
@@ -905,11 +970,99 @@ export async function jumpToFunction({
   return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.`, flowState: jumpCommit.flowState };
 }
 
+export interface NextStageRoutingPreview {
+  /** `false` quando não há próxima etapa (fim de fluxo) ou falta tipo. */
+  available: boolean;
+  reason?: string;
+  functionKey?: string;
+  functionName?: string;
+  /** Etapa de cliente: o responsável é herdado, não escolhido. */
+  inherited?: boolean;
+  suggestedUserId?: string | null;
+  suggestedName?: string | null;
+  candidates: StageRoutingCandidate[];
+}
+
+/**
+ * Prévia da próxima etapa e dos responsáveis possíveis — alimenta o menu do
+ * botão "Prosseguir". Usa exatamente as mesmas regras da execução real, para
+ * que a lista mostrada nunca inclua alguém que o motor recusaria.
+ */
+export async function previewNextStageRouting({
+  demandId,
+  tenantId,
+  demandTypeKey,
+  currentFunctionKey,
+}: ProceedInput): Promise<NextStageRoutingPreview> {
+  const typeKey = coerceDemandTypeKey(demandTypeKey);
+  if (!typeKey) {
+    return { available: false, reason: "Defina o tipo da demanda antes de prosseguir.", candidates: [] };
+  }
+  const stage = await resolveCurrentStage(demandId, currentFunctionKey);
+  const meta = await getDemandFlowMeta(demandId);
+  const sequence = await getPipelineSequence(tenantId, typeKey, {
+    demandId,
+    workArea: meta.workArea,
+    origin: meta.origin,
+  });
+  if (sequence.length === 0) {
+    return { available: false, reason: "Este tipo de demanda não tem funções configuradas.", candidates: [] };
+  }
+  let nextIndex = 0;
+  if (stage) {
+    const idx = sequence.findIndex((f: any) => f.function_key === stage);
+    nextIndex = idx === -1 ? 0 : idx + 1;
+  }
+  if (nextIndex >= sequence.length) {
+    return { available: false, reason: "Essa demanda já chegou ao final do fluxo.", candidates: [] };
+  }
+
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("assigned_to")
+    .eq("id", demandId)
+    .maybeSingle();
+  const previousAssignee = (currentDemand as any)?.assigned_to || null;
+  const stageExtras = stage === "captar" ? await fetchCaptarExtras(demandId) : await fetchExtraAssignees(demandId);
+  const executors = await collectStageExecutors(tenantId, demandId, stage, previousAssignee, stageExtras);
+
+  const resolved = await resolveNextStage(tenantId, sequence as any, nextIndex, executors, meta.workArea, meta.clientId);
+  if (!resolved) {
+    return { available: false, reason: "Essa demanda já chegou ao final do fluxo.", candidates: [] };
+  }
+  const fn = resolved.fn;
+  if (fn.function_key === "aguardando_cliente") {
+    return {
+      available: true,
+      functionKey: fn.function_key,
+      functionName: fn.name,
+      inherited: true,
+      candidates: [],
+    };
+  }
+  const candidates = await getEligibleStageCandidates({
+    tenantId,
+    clientId: meta.clientId,
+    workArea: meta.workArea,
+    functionKey: fn.function_key,
+    excludeUserIds: isReviewFunction(fn.function_key) ? executors : [],
+  });
+  return {
+    available: true,
+    functionKey: fn.function_key,
+    functionName: fn.name,
+    suggestedUserId: resolved.picked?.userId || null,
+    suggestedName: resolved.picked?.name || null,
+    candidates,
+  };
+}
+
 export async function proceedDemand({
   demandId,
   tenantId,
   demandTypeKey,
   currentFunctionKey,
+  forcedAssigneeId,
 }: ProceedInput): Promise<ProceedResult> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
@@ -959,6 +1112,7 @@ export async function proceedDemand({
     nextIndex,
     executors,
     flowArea,
+    flowMeta.clientId,
   );
   if (!resolved) {
     return { success: false, end: true, message: "Essa demanda já chegou ao final do fluxo." };
@@ -970,7 +1124,8 @@ export async function proceedDemand({
 
   // Entrada em "Aguardando clientes": dono da espera sempre vem da função atribuída.
   if (nextFn.function_key === "aguardando_cliente") {
-    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee, flowArea);
+    const waitOwner = await resolveClientWaitOwner(tenantId, previousAssignee, flowArea, flowMeta.clientId);
+    const keepAssignee = waitOwner?.userId || null;
 
     if (!keepAssignee) {
       return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
@@ -998,7 +1153,7 @@ export async function proceedDemand({
       toUserId: keepAssignee,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
-      metadata: skipMeta as any,
+      metadata: { ...(skipMeta || {}), routing: waitOwner?.source || "automatic_load" } as any,
     });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
     await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
@@ -1022,10 +1177,33 @@ export async function proceedDemand({
 
 
 
-  const picked = resolved.picked;
+  let picked = resolved.picked;
+
+  // Escolha manual de destino: vence preferência/carga, mas nunca contorna
+  // elegibilidade nem as exclusões de anti-auto-revisão.
+  if (forcedAssigneeId) {
+    const eligible = await getEligibleStageCandidates({
+      tenantId,
+      clientId: flowMeta.clientId,
+      workArea: flowArea,
+      functionKey: nextFn.function_key,
+      excludeUserIds: isReviewFunction(nextFn.function_key) ? executors : [],
+    });
+    const match = eligible.find((c) => c.userId === forcedAssigneeId);
+    if (!match) {
+      return {
+        success: false,
+        message: `Colaborador escolhido não pode assumir a etapa "${nextFn.name}".`,
+      };
+    }
+    picked = { success: true, userId: match.userId, name: match.fullName, source: "manual_choice" };
+  }
+
   if (!picked || !picked.success || !picked.userId) {
     return { success: false, message: picked?.message || "Não foi possível escolher colaborador." };
   }
+  const routingMeta = { routing: picked.source || "automatic_load" };
+  const proceedMeta: Record<string, unknown> = { ...(skipMeta || {}), ...routingMeta };
 
   const proceedPayload: any = { assigned_to: picked.userId, current_function_key: nextFn.function_key };
 
@@ -1052,7 +1230,7 @@ export async function proceedDemand({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: skipMeta as any },
+      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: proceedMeta as any },
       [previousAssignee, ...captarExtras],
     );
   } else {
@@ -1077,7 +1255,7 @@ export async function proceedDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
-      metadata: skipMeta as any,
+      metadata: proceedMeta as any,
     });
   }
 
@@ -1151,6 +1329,8 @@ export async function regressDemand({
     const picked = await pickAssigneeForFunction(tenantId, "enviar_cliente", prevFn.name, {
       preferUserIds: waitAssignee ? [waitAssignee] : [],
       workArea: backArea,
+      clientId: backMeta.clientId,
+      clientPreferenceOrder: "after",
     });
 
     if (!picked.success || !picked.userId) {
@@ -1181,6 +1361,7 @@ export async function regressDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: prevFn.function_key,
+      metadata: { routing: picked.source || "automatic_load" } as any,
     });
     return {
       success: true,
@@ -1202,19 +1383,26 @@ export async function regressDemand({
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
 
-  // Ao voltar, o responsável natural é quem já executou aquela etapa.
+  // Ao voltar, o responsável natural é quem já executou aquela etapa — um
+  // executor histórico ainda elegível nunca é substituído pelo preferencial.
   let picked = await (async (): Promise<PickAssigneeResult> => {
     const completions = await getStageCompletions(tenantId, demandId);
     const historic = lastUserOfStage(completions, prevFn.function_key);
     if (historic) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", historic)
-        .maybeSingle();
-      return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
+      const stillEligible = await userHasFunction(tenantId, historic, prevFn.function_key, backArea);
+      if (stillEligible) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", historic)
+          .maybeSingle();
+        return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador", source: "historic_return" };
+      }
     }
-    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name, { workArea: backArea });
+    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name, {
+      workArea: backArea,
+      clientId: backMeta.clientId,
+    });
   })();
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
@@ -1241,7 +1429,7 @@ export async function regressDemand({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key },
+      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: { routing: picked.source || "automatic_load" } as any },
       [previousAssignee, ...captarExtras],
     );
   } else {
@@ -1253,6 +1441,7 @@ export async function regressDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: prevFn.function_key,
+      metadata: { routing: picked.source || "automatic_load" } as any,
     });
   }
   return {

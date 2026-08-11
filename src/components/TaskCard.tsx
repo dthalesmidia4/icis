@@ -20,7 +20,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
 import { recordFlowHistory } from "@/lib/flowHistory";
-import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, demandTypesForArea, DEMAND_ORIGINS, DEMAND_ORIGIN_LABEL, isClientOrigin, type DemandOrigin, getPipelineSequence, jumpToFunction, getRegressOptions, type RegressOption, type DemandTypeKey } from "@/lib/proceedDemand";
+import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, demandTypesForArea, DEMAND_ORIGINS, DEMAND_ORIGIN_LABEL, isClientOrigin, type DemandOrigin, getPipelineSequence, jumpToFunction, getRegressOptions, type RegressOption, type DemandTypeKey, previewNextStageRouting, type NextStageRoutingPreview } from "@/lib/proceedDemand";
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -486,6 +486,9 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [proceeding, setProceeding] = useState(false);
+  const [routingOpen, setRoutingOpen] = useState(false);
+  const [routingLoading, setRoutingLoading] = useState(false);
+  const [routingPreview, setRoutingPreview] = useState<NextStageRoutingPreview | null>(null);
   const [regressing, setRegressing] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
   const [pipelineSequence, setPipelineSequence] = useState<{ function_key: string; name: string }[]>([]);
@@ -553,7 +556,7 @@ export default function TaskCard({
     } as any);
   };
 
-  const handleProceed = async () => {
+  const handleProceed = async (forcedAssigneeId?: string | null) => {
     if (!card || proceeding) return;
     if (!card.demand_type_key) {
       toast.error("Defina o tipo da demanda antes de prosseguir.");
@@ -566,6 +569,7 @@ export default function TaskCard({
         tenantId: card.tenant_id,
         demandTypeKey: card.demand_type_key,
         currentFunctionKey: card.current_function_key,
+        forcedAssigneeId: forcedAssigneeId || null,
       });
       if (result.success) {
         toast.success(result.message);
@@ -588,9 +592,26 @@ export default function TaskCard({
       }
     } finally {
       setProceeding(false);
+      setRoutingOpen(false);
     }
   };
 
+  /** Prévia da próxima etapa + candidatos elegíveis (menu do botão Prosseguir). */
+  const loadRoutingPreview = async () => {
+    if (!card?.demand_type_key) return;
+    setRoutingLoading(true);
+    try {
+      const preview = await previewNextStageRouting({
+        demandId: card.id,
+        tenantId: card.tenant_id,
+        demandTypeKey: card.demand_type_key,
+        currentFunctionKey: card.current_function_key,
+      });
+      setRoutingPreview(preview);
+    } finally {
+      setRoutingLoading(false);
+    }
+  };
 
   const handleDeliverMyPart = async (targetUserId?: string) => {
     if (!card || deliveringPart) return;
@@ -2083,17 +2104,81 @@ export default function TaskCard({
                                 </PopoverContent>
                               </Popover>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
-                              onClick={handleProceed}
-                              disabled={proceeding || !card.demand_type_key}
-                              title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
-                            >
-                              <span className="max-w-[140px] truncate">{nextLabel}</span>
-                              {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                            </Button>
+                            <div className="flex items-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10 rounded-r-none"
+                                onClick={() => handleProceed()}
+                                disabled={proceeding || !card.demand_type_key}
+                                title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
+                              >
+                                <span className="max-w-[140px] truncate">{nextLabel}</span>
+                                {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                              </Button>
+                              <Popover
+                                open={routingOpen}
+                                onOpenChange={(v) => {
+                                  setRoutingOpen(v);
+                                  if (v) loadRoutingPreview();
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-6 px-0 text-primary hover:text-primary hover:bg-primary/10 rounded-l-none border-l border-primary/20"
+                                    disabled={proceeding || !card.demand_type_key}
+                                    title="Escolher para quem enviar"
+                                  >
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent align="end" className="w-72 p-2">
+                                  {routingLoading ? (
+                                    <div className="p-3 flex justify-center">
+                                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                    </div>
+                                  ) : !routingPreview?.available ? (
+                                    <p className="p-2 text-xs text-muted-foreground">
+                                      {routingPreview?.reason || "Não há próxima etapa disponível."}
+                                    </p>
+                                  ) : routingPreview.inherited ? (
+                                    <p className="p-2 text-xs text-muted-foreground">
+                                      A etapa "{routingPreview.functionName}" mantém o responsável atual — não há escolha de destino.
+                                    </p>
+                                  ) : routingPreview.candidates.length === 0 ? (
+                                    <p className="p-2 text-xs text-muted-foreground">
+                                      Nenhum colaborador tem a função "{routingPreview.functionName}" habilitada nesta área.
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      <p className="px-2 pb-1 text-[10px] uppercase font-semibold text-muted-foreground">
+                                        Enviar "{routingPreview.functionName}" para
+                                      </p>
+                                      {routingPreview.candidates.map((c) => (
+                                        <button
+                                          key={c.userId}
+                                          onClick={() => handleProceed(c.userId)}
+                                          disabled={proceeding}
+                                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left disabled:opacity-50"
+                                        >
+                                          <span className="truncate flex-1">{c.fullName}</span>
+                                          {c.preferred && (
+                                            <span className="text-[9px] font-semibold uppercase text-primary shrink-0">
+                                              preferencial
+                                            </span>
+                                          )}
+                                          {c.userId === routingPreview.suggestedUserId && (
+                                            <span className="text-[9px] text-muted-foreground shrink-0">sugerido</span>
+                                          )}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                           </>
                         )}
                       </div>

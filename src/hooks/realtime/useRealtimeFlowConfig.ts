@@ -9,7 +9,7 @@ export interface UseRealtimeFlowConfigOptions {
 }
 
 /**
- * Um canal único que agrega mudanças nas 3 tabelas de configuração de fluxo.
+ * Um canal único que agrega mudanças nas tabelas de configuração de fluxo.
  */
 export function useRealtimeFlowConfig({ tenantId, onChange, enabled = true }: UseRealtimeFlowConfigOptions) {
   const debouncedChange = useDebouncedCallback(onChange, 250);
@@ -26,6 +26,7 @@ export function useRealtimeFlowConfig({ tenantId, onChange, enabled = true }: Us
       .on("postgres_changes", { event: "*", schema: "public", table: "flow_functions", filter }, () => debouncedRef.current())
       .on("postgres_changes", { event: "*", schema: "public", table: "demand_type_flow_rules", filter }, () => debouncedRef.current())
       .on("postgres_changes", { event: "*", schema: "public", table: "collaborator_function_assignments", filter }, () => debouncedRef.current())
+      .on("postgres_changes", { event: "*", schema: "public", table: "client_stage_routing_preferences", filter }, () => debouncedRef.current())
       .subscribe();
 
     return () => {

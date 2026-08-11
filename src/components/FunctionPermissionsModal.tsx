@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { StageRoutingTab } from "@/components/config/StageRoutingTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -616,12 +617,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
         <Tabs key={`fpm-tabs-v3-${area}`} defaultValue="participacao" className="w-full">
 
-          <TabsList className="grid w-full max-w-4xl grid-cols-5">
+          <TabsList className="grid w-full max-w-5xl grid-cols-6">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
             <TabsTrigger value="alocacao">Alocação por área</TabsTrigger>
             <TabsTrigger value="retorno">Retorno do cliente</TabsTrigger>
             <TabsTrigger value="prioridade">Prioridade e risco</TabsTrigger>
+            <TabsTrigger value="roteamento">Roteamento</TabsTrigger>
           </TabsList>
 
 
@@ -1128,6 +1130,10 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                 </Button>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="roteamento" className="mt-4">
+            <StageRoutingTab area={area} />
           </TabsContent>
 
         </Tabs>

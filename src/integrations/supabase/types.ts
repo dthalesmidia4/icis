@@ -351,6 +351,60 @@ export type Database = {
           },
         ]
       }
+      client_stage_routing_preferences: {
+        Row: {
+          active: boolean
+          client_id: string
+          created_at: string
+          function_key: string
+          id: string
+          priority: number
+          tenant_id: string
+          updated_at: string
+          user_id: string
+          work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Insert: {
+          active?: boolean
+          client_id: string
+          created_at?: string
+          function_key: string
+          id?: string
+          priority?: number
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+          work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          function_key?: string
+          id?: string
+          priority?: number
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+          work_area?: Database["public"]["Enums"]["work_area"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_stage_routing_preferences_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_stage_routing_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_touchpoints: {
         Row: {
           client_id: string
