@@ -2538,6 +2538,7 @@ export type Database = {
         }
         Returns: Json
       }
+      create_manual_demand_atomic: { Args: { p_payload: Json }; Returns: Json }
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
       generate_demand_fingerprint: {
         Args: { p_channel: string; p_demand_type: string; p_title: string }
@@ -2592,6 +2593,10 @@ export type Database = {
         Returns: Json
       }
       is_agency_admin: { Args: { _tenant_id: string }; Returns: boolean }
+      is_release_queue_enabled: {
+        Args: { _tenant_id: string }
+        Returns: boolean
+      }
       is_super_admin: { Args: never; Returns: boolean }
       record_demand_feedback: {
         Args: {
@@ -2621,6 +2626,30 @@ export type Database = {
             }
             Returns: string
           }
+        | {
+            Args: {
+              _current_key: string
+              _demand_type_key: string
+              _origin: string
+              _tenant_id: string
+              _user_id: string
+              _work_area: Database["public"]["Enums"]["work_area"]
+            }
+            Returns: string
+          }
+      resolve_initial_function: {
+        Args: {
+          _demand_type_key: string
+          _origin?: string
+          _tenant_id: string
+          _work_area?: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: string
+      }
+      set_release_queue_config: {
+        Args: { _enabled: boolean; _limit: number; _tenant_id: string }
+        Returns: Json
+      }
       use_invitation: {
         Args: { _code: string; _user_id: string }
         Returns: Json
