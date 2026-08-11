@@ -284,8 +284,12 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     if (!agencyId) return;
     setSavingQueue(true);
     try {
-      await saveReleaseQueueConfig(agencyId, queueCfg);
-      toast.success("Fila de liberação atualizada.");
+      const { normalized } = await saveReleaseQueueConfig(agencyId, queueCfg);
+      toast.success(
+        normalized > 0
+          ? `Fila desativada — ${normalized} ${normalized === 1 ? "demanda voltou" : "demandas voltaram"} a ficar visível.`
+          : "Fila de liberação atualizada.",
+      );
     } catch (e: any) {
       toast.error(e?.message || "Não foi possível salvar a fila de liberação.");
     } finally {
