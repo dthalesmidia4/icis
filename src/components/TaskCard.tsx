@@ -640,11 +640,19 @@ export default function TaskCard({
       if (result.success) {
         toast.success(result.message);
         setRegressOpen(false);
-        onCardChange({
-          ...card,
-          assigned_to: result.assignedTo || null,
-          current_function_key: result.functionKey || null,
-        });
+        if (result.flowState) {
+          reconcileFlowResult(result);
+        } else {
+          onCardChange({
+            ...card,
+            assigned_to: result.assignedTo || null,
+            current_function_key: result.functionKey || null,
+          });
+        }
+      } else if (result.stale) {
+        toast.warning(result.message);
+        setRegressOpen(false);
+        reconcileFlowResult(result);
       } else {
         toast.error(result.message);
       }
