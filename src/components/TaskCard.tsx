@@ -473,7 +473,10 @@ export default function TaskCard({
   const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos'>(
     presentation === 'drawer' && (card as any)?.content_brief ? 'briefing' : 'description'
   );
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const fileDragDepthRef = useRef(0);
   const [datesOpen, setDatesOpen] = useState(false);
+
   const [publishOpen, setPublishOpen] = useState(false);
   const [objectiveOpen, setObjectiveOpen] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
