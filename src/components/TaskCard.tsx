@@ -1788,7 +1788,15 @@ export default function TaskCard({
                         });
                         if (r.success) {
                           toast.success(r.message);
-                          onCardChange({ ...card, assigned_to: r.assignedTo || null, current_function_key: r.functionKey || null });
+                          if (r.flowState) {
+                            reconcileFlowResult(r);
+                          } else {
+                            onCardChange({ ...card, assigned_to: r.assignedTo || null, current_function_key: r.functionKey || null });
+                          }
+                          setStepPickerOpen(false);
+                        } else if (r.stale) {
+                          toast.warning(r.message);
+                          reconcileFlowResult(r);
                           setStepPickerOpen(false);
                         } else {
                           toast.error(r.message);
