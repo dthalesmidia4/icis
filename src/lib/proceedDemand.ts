@@ -970,6 +970,93 @@ export async function jumpToFunction({
   return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.`, flowState: jumpCommit.flowState };
 }
 
+export interface NextStageRoutingPreview {
+  /** `false` quando não há próxima etapa (fim de fluxo) ou falta tipo. */
+  available: boolean;
+  reason?: string;
+  functionKey?: string;
+  functionName?: string;
+  /** Etapa de cliente: o responsável é herdado, não escolhido. */
+  inherited?: boolean;
+  suggestedUserId?: string | null;
+  suggestedName?: string | null;
+  candidates: StageRoutingCandidate[];
+}
+
+/**
+ * Prévia da próxima etapa e dos responsáveis possíveis — alimenta o menu do
+ * botão "Prosseguir". Usa exatamente as mesmas regras da execução real, para
+ * que a lista mostrada nunca inclua alguém que o motor recusaria.
+ */
+export async function previewNextStageRouting({
+  demandId,
+  tenantId,
+  demandTypeKey,
+  currentFunctionKey,
+}: ProceedInput): Promise<NextStageRoutingPreview> {
+  const typeKey = coerceDemandTypeKey(demandTypeKey);
+  if (!typeKey) {
+    return { available: false, reason: "Defina o tipo da demanda antes de prosseguir.", candidates: [] };
+  }
+  const stage = await resolveCurrentStage(demandId, currentFunctionKey);
+  const meta = await getDemandFlowMeta(demandId);
+  const sequence = await getPipelineSequence(tenantId, typeKey, {
+    demandId,
+    workArea: meta.workArea,
+    origin: meta.origin,
+  });
+  if (sequence.length === 0) {
+    return { available: false, reason: "Este tipo de demanda não tem funções configuradas.", candidates: [] };
+  }
+  let nextIndex = 0;
+  if (stage) {
+    const idx = sequence.findIndex((f: any) => f.function_key === stage);
+    nextIndex = idx === -1 ? 0 : idx + 1;
+  }
+  if (nextIndex >= sequence.length) {
+    return { available: false, reason: "Essa demanda já chegou ao final do fluxo.", candidates: [] };
+  }
+
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("assigned_to")
+    .eq("id", demandId)
+    .maybeSingle();
+  const previousAssignee = (currentDemand as any)?.assigned_to || null;
+  const stageExtras = stage === "captar" ? await fetchCaptarExtras(demandId) : await fetchExtraAssignees(demandId);
+  const executors = await collectStageExecutors(tenantId, demandId, stage, previousAssignee, stageExtras);
+
+  const resolved = await resolveNextStage(tenantId, sequence as any, nextIndex, executors, meta.workArea, meta.clientId);
+  if (!resolved) {
+    return { available: false, reason: "Essa demanda já chegou ao final do fluxo.", candidates: [] };
+  }
+  const fn = resolved.fn;
+  if (fn.function_key === "aguardando_cliente") {
+    return {
+      available: true,
+      functionKey: fn.function_key,
+      functionName: fn.name,
+      inherited: true,
+      candidates: [],
+    };
+  }
+  const candidates = await getEligibleStageCandidates({
+    tenantId,
+    clientId: meta.clientId,
+    workArea: meta.workArea,
+    functionKey: fn.function_key,
+    excludeUserIds: isReviewFunction(fn.function_key) ? executors : [],
+  });
+  return {
+    available: true,
+    functionKey: fn.function_key,
+    functionName: fn.name,
+    suggestedUserId: resolved.picked?.userId || null,
+    suggestedName: resolved.picked?.name || null,
+    candidates,
+  };
+}
+
 export async function proceedDemand({
   demandId,
   tenantId,
