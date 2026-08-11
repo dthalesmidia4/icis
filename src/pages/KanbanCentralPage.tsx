@@ -1406,7 +1406,7 @@ const KanbanCentralPage = () => {
     ));
 
     try {
-      const { error } = await applyReassign({
+      const res = await applyReassign({
         tenantId: tenantId || "",
         card: card as any,
         newAssignedTo,
@@ -1414,7 +1414,8 @@ const KanbanCentralPage = () => {
         direction: evaluation.direction,
         historySource: "kanban_drag",
       });
-      if (error) throw error;
+      const failure = reassignFailureMessage(res);
+      if (failure) throw new Error(failure);
 
       evaluation.softMessages.forEach((m) => sonnerToast.warning(m));
       if (nextFunctionKey && nextFunctionKey !== previousFunctionKey) {
