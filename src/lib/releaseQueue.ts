@@ -108,3 +108,25 @@ export async function unreleaseDemand(
 export function isReleased(card: { released_at?: string | null } | null | undefined): boolean {
   return !!card && card.released_at != null;
 }
+
+/**
+ * A fila de liberação SÓ existe quando explicitamente habilitada.
+ * Com ela desativada, `released_at` é um dado histórico e não pode esconder
+ * card nem gerar agrupamento "Ainda não liberadas".
+ */
+export function isReleaseQueueActive(config: ReleaseQueueConfig | null | undefined): boolean {
+  return config?.enabled === true;
+}
+
+/**
+ * Visibilidade operacional de um card do ponto de vista da fila de liberação.
+ * Fila desativada => sempre visível.
+ */
+export function isOperationallyReleased(
+  card: { released_at?: string | null } | null | undefined,
+  config: ReleaseQueueConfig | null | undefined,
+): boolean {
+  if (!isReleaseQueueActive(config)) return true;
+  return !!card && card.released_at != null;
+}
+
