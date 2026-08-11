@@ -348,6 +348,11 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
               <span className="text-sm font-medium text-foreground truncate">
                 {activeName}
               </span>
+              {total > 1 && (
+                <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                  {currentIndex + 1} / {total}
+                </span>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -361,9 +366,33 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
           </div>
 
           {/* Preview area */}
-          <div className="flex-1 min-h-0 bg-muted/30 overflow-hidden">
+          <div className="relative flex-1 min-h-0 bg-muted/30 overflow-hidden">
             {renderPreview()}
+
+            {total > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Arquivo anterior"
+                  disabled={!canPrev}
+                  onClick={() => goTo(currentIndex - 1)}
+                  className="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground shadow-lg backdrop-blur transition hover:bg-background disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Próximo arquivo"
+                  disabled={!canNext}
+                  onClick={() => goTo(currentIndex + 1)}
+                  className="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground shadow-lg backdrop-blur transition hover:bg-background disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              </>
+            )}
           </div>
+
 
           {/* Action bar */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card shrink-0">
