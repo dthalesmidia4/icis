@@ -20,6 +20,14 @@ import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { ClientSendHistoryPopover } from "@/components/kanban/ClientSendHistoryPopover";
+import { evaluateReassign, applyReassign } from "@/lib/reassignDemand";
+import {
+  DEFAULT_RELEASE_QUEUE,
+  isOperationallyReleased,
+  loadReleaseQueueConfig,
+  type ReleaseQueueConfig,
+} from "@/lib/releaseQueue";
+
 
 import { getRoleLabel } from "@/lib/constants/roles";
 
