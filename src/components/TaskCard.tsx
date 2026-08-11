@@ -2252,6 +2252,40 @@ export default function TaskCard({
                       onValueChange={async (val) => {
                         const newVal = val === "__none__" ? "" : val;
                         const nome = collaborators.find((c) => c.id === newVal)?.name || "Este colaborador";
+                        // RASCUNHO: nada é gravado e o card ainda não existe no banco —
+                        // resolve a etapa localmente e mantém tudo em memória.
+                        if (isDraft || !card.tenant_id) {
+                          if (!newVal) {
+                            onCardChange({ ...card, assigned_to: null });
+                            return;
+                          }
+                          if (!(card as any).demand_type_key) {
+                            toast.error("Defina o tipo da demanda antes de escolher o responsável.");
+                            return;
+                          }
+                          let draftStage: string | null = null;
+                          try {
+                            draftStage = await resolveFunctionForAssignee(
+                              card.tenant_id as string,
+                              newVal,
+                              (card as any).demand_type_key ?? null,
+                              null,
+                              null,
+                              {
+                                workArea: (card as any).work_area ?? null,
+                                origin: (card as any).origin ?? null,
+                              },
+                            );
+                          } catch {
+                            draftStage = null;
+                          }
+                          if (!draftStage) {
+                            toast.error(`${nome} não possui nenhuma etapa compatível com este tipo de demanda.`);
+                            return;
+                          }
+                          onCardChange({ ...card, assigned_to: newVal, current_function_key: draftStage });
+                          return;
+                        }
                         // Ponto único: função da etapa + ocupação de agenda (mesma área e entre áreas).
                         const evaluation = await evaluateReassign({
                           tenantId: card.tenant_id || "",
@@ -2276,11 +2310,6 @@ export default function TaskCard({
                         const nextFn = evaluation.nextFunctionKey;
                         evaluation.softMessages.forEach((m) => toast.warning(m));
                         if (evaluation.remapMessage) toast.info(evaluation.remapMessage);
-                        if (isDraft || !card.tenant_id) {
-                          onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
-                          await onSave("assigned_to", newVal);
-                          return;
-                        }
                         // Ponto único de gravação: desarquiva e tira do status final
                         // quando o card volta ao fluxo, além de registrar o histórico.
                         const reassignRes = await applyReassign({
@@ -2301,16 +2330,27 @@ export default function TaskCard({
 
 
                       }}
-                      disabled={readOnly}
+                      disabled={readOnly || (isDraft && !(card as any).demand_type_key)}
                     >
                       <SelectTrigger className="h-7 text-sm border-0 shadow-none bg-transparent px-1.5 gap-1 hover:bg-background/60 focus:ring-0 w-auto min-w-[110px]" aria-label="Responsável">
-                        <SelectValue placeholder="Sem responsável" />
+                        <SelectValue
+                          placeholder={
+                            isDraft && !(card as any).demand_type_key
+                              ? "Defina o tipo primeiro"
+                              : "Sem responsável"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">Sem responsável</SelectItem>
-                        {collaborators.map((c) => (
+                        {assigneeOptions.map((c) => (
                           <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                         ))}
+                        {assigneeOptions.length === 0 && (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                            Nenhum colaborador com etapa compatível
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
