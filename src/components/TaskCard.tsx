@@ -1941,6 +1941,278 @@ export default function TaskCard({
   if (!card || !open) return null;
   const statusConfig = getDynamicStatusConfig(card.status || normalizedStatus);
   const priority = getDerivedPriority();
+  /**
+   * RASCUNHO — bloco "Configuração da demanda".
+   *
+   * Ordem obrigatória (é a ordem das dependências reais do fluxo):
+   * Cliente → Área → Tipo → Origem(Sistemas) → Responsável → Datas de produção
+   * → Publicação → Período. Nenhum controle daqui escreve no banco: a criação
+   * acontece só em `onDraftSave` via `create_manual_demand_atomic`.
+   */
+  const renderDraftConfig = () => {
+    if (!card) return null;
+    const area: WorkArea = ((card as any).work_area === "sistemas" ? "sistemas" : "midia");
+    const typeKey = (card as any).demand_type_key as string | null;
+    const hasClient = !!card.clientId;
+    const hasType = !!typeKey;
+    const hasOwner = !!card.assigned_to;
+    const subclientValue = card.subclient_ids?.length
+      ? card.subclient_ids
+      : card.subclient_id
+        ? [card.subclient_id]
+        : [];
+
+    return (
+      <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-4">
+        <div className="space-y-0.5">
+          <p className="text-sm font-semibold text-foreground">Configuração da demanda</p>
+          <p className="text-xs text-muted-foreground">
+            Preencha na ordem abaixo. Os próximos campos são liberados conforme as dependências são definidas.
+          </p>
+        </div>
+
+        {/* LINHA 1 — DEFINIÇÃO */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Cliente *</label>
+            <Select
+              value={card.clientId || ""}
+              onValueChange={(v) => {
+                const c = draftClients.find((d) => d.id === v);
+                handleDraftClientSelect(v, c?.name || "Cliente");
+              }}
+            >
+              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione o cliente" /></SelectTrigger>
+              <SelectContent className="bg-background z-50 max-h-[320px]">
+                {draftClients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Área *</label>
+            <Select value={area} onValueChange={(v) => handleDraftAreaChange(v as WorkArea)}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                <SelectItem value="midia">{AREA_LABEL.midia}</SelectItem>
+                <SelectItem value="sistemas">{AREA_LABEL.sistemas}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Tipo de demanda *</label>
+            <Select
+              value={typeKey || ""}
+              onValueChange={(v) => handleSetDemandType(v as DemandTypeKey)}
+              disabled={!hasClient || settingType}
+            >
+              <SelectTrigger
+                className={cn("h-9 text-sm", !hasClient && "opacity-50 cursor-not-allowed")}
+                title={!hasClient ? "Selecione o cliente primeiro" : undefined}
+              >
+                <SelectValue placeholder="Definir tipo" />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                {demandTypesForArea(area).map((opt) => (
+                  <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {area === "sistemas" && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Origem *</label>
+              <Select
+                value={((card as any).origin as DemandOrigin) || "interno"}
+                onValueChange={(v) => handleDraftOriginChange(v as DemandOrigin)}
+              >
+                <SelectTrigger className="h-9 text-sm" title="Origem interna pula as etapas de cliente">
+                  <SelectValue placeholder="Origem" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {DEMAND_ORIGINS.map((oo) => (
+                    <SelectItem key={oo.key} value={oo.key}>{oo.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        {/* LINHA 2 — EXECUÇÃO */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Responsável *</label>
+            <Select
+              value={card.assigned_to || "__none__"}
+              onValueChange={(v) => handleDraftAssigneeChange(v === "__none__" ? "" : v)}
+              disabled={!hasClient || !hasType}
+            >
+              <SelectTrigger
+                className={cn("h-9 text-sm", (!hasClient || !hasType) && "opacity-50 cursor-not-allowed")}
+                title={!hasType ? "Defina o tipo da demanda primeiro" : undefined}
+              >
+                <SelectValue placeholder="Selecione o responsável" />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50 max-h-[320px]">
+                <SelectItem value="__none__">Sem responsável</SelectItem>
+                {collaborators.map((c) => {
+                  const res = draftAssigneeResolution[c.id];
+                  const incompatible = res ? !res.eligible : false;
+                  return (
+                    <SelectItem key={c.id} value={c.id} disabled={incompatible}>
+                      <span className="flex flex-col">
+                        <span>{c.name}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {incompatible
+                            ? "Sem etapa compatível neste fluxo"
+                            : res?.functionName
+                              ? `começa em ${res.functionName}`
+                              : ""}
+                        </span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {!card.is_daily_card && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Datas de produção *</label>
+              <div
+                className={cn("flex", !hasOwner && "opacity-50 cursor-not-allowed")}
+                title={!hasOwner ? "Escolha o responsável primeiro" : undefined}
+              >
+                <StartEndDatePopover
+                  dueDate={card.due_date}
+                  dueTime={card.due_time}
+                  deliveryDate={card.delivery_date}
+                  deliveryTime={card.delivery_time}
+                  disabled={!hasOwner}
+                  onSave={(v) => {
+                    onCardChange({
+                      ...card,
+                      due_date: v.due_date || '',
+                      due_time: v.due_time || '',
+                      delivery_date: v.delivery_date || '',
+                      delivery_time: v.delivery_time || '',
+                    } as any);
+                  }}
+                  trigger={
+                    <button
+                      type="button"
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-left text-sm truncate"
+                    >
+                      {card.due_date
+                        ? `${formatShortDate(card.due_date)}${card.due_time ? ' ' + card.due_time : ''}${card.delivery_date ? ` → ${formatShortDate(card.delivery_date)}` : ''}`
+                        : "Definir início da produção"}
+                    </button>
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          {!card.is_daily_card && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Publicação</label>
+              <SingleDateTimePopover
+                date={card.publish_date}
+                time={card.publish_time}
+                label="Publicação"
+                onSave={(v) => {
+                  const dateStr = v.date || '';
+                  onCardChange({
+                    ...card,
+                    publish_date: dateStr,
+                    publish_time: v.time || (dateStr ? '09:00' : ''),
+                  } as any);
+                }}
+                trigger={
+                  <button
+                    type="button"
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-left text-sm truncate"
+                  >
+                    {card.publish_date
+                      ? `${formatShortDate(card.publish_date)}${card.publish_time ? ' ' + card.publish_time : ''}`
+                      : "Opcional"}
+                  </button>
+                }
+              />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Período</label>
+            {card.period_plan_id ? (
+              <div className="h-9 flex items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
+                <span className="truncate">{periodTitle || "Carregando..."}</span>
+                <button
+                  type="button"
+                  className="ml-auto text-muted-foreground hover:text-destructive"
+                  onClick={() => {
+                    onCardChange({ ...card, period_plan_id: null } as any);
+                    setPeriodTitle(null);
+                  }}
+                  title="Desvincular do período"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <Select onValueChange={handleLinkPeriod} disabled={!hasClient || periodPlans.length === 0}>
+                <SelectTrigger
+                  className={cn("h-9 text-sm", (!hasClient || periodPlans.length === 0) && "opacity-50")}
+                  title={!hasClient ? "Selecione o cliente primeiro" : undefined}
+                >
+                  <SelectValue placeholder={loadingPeriodPlans ? "Carregando..." : "Opcional"} />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {periodPlans.map((pp) => (
+                    <SelectItem key={pp.id} value={pp.id}>
+                      <span className="text-xs">
+                        {pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </div>
+
+        {/* LINHA AUXILIAR — classificações e clientes finais */}
+        <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-border/60">
+          <ClassificationSelector
+            value={classifications}
+            onChange={handleClassificationsChange}
+            disabled={false}
+          />
+          {area === "sistemas" && (
+            <SubclientSelect
+              tenantId={card.tenant_id}
+              parentCompanyId={card.clientId}
+              value={subclientValue}
+              onChange={(ids) => {
+                onCardChange({
+                  ...card,
+                  subclient_ids: ids,
+                  subclient_id: ids[0] ?? null,
+                } as any);
+              }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const modalContent = <>
       {/* Shell externo: fullscreen (Kanban) ou painel lateral direito (Hub do Cliente) */}
       <div
@@ -3308,7 +3580,7 @@ export default function TaskCard({
 
                 {/* ===== RASCUNHO: bloco de configuração na ordem de dependência ===== */}
                 {isDraft && (
-                  <DraftConfigBlock />
+                  renderDraftConfig()
                 )}
 
 
