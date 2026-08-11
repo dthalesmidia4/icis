@@ -28,6 +28,7 @@ import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
+import { computeDraftMissingFields, draftAreaChangePatch, draftClientChangePatch } from "@/lib/draftDemand";
 import { DailyCardSection } from "@/components/DailyCardSection";
 import StructuredContentBrief from "@/components/demands/StructuredContentBrief";
 import { MainDeliveryEditor, resolveDeliveryField } from "@/components/demands/MainDeliveryEditor";
@@ -904,6 +905,15 @@ export default function TaskCard({
    * área + origem do card. `null` = ainda calculando / sem tipo definido.
    */
   const [eligibleAssignees, setEligibleAssignees] = useState<Set<string> | null>(null);
+  /**
+   * Mapa RICO de elegibilidade: além de sim/não, guarda QUAL etapa a pessoa
+   * assumiria. É isso que permite mostrar "começa em Criar arte" no seletor
+   * do rascunho em vez de apenas esconder/desabilitar sem explicação.
+   */
+  const [draftAssigneeResolution, setDraftAssigneeResolution] = useState<
+    Record<string, { eligible: boolean; functionKey: string | null; functionName: string | null }>
+  >({});
+  const [flowFunctionNames, setFlowFunctionNames] = useState<Record<string, string>>({});
   const demandTypeKeyForEligibility = (card as any)?.demand_type_key ?? null;
   const workAreaForEligibility = (card as any)?.work_area ?? null;
   const originForEligibility = (card as any)?.origin ?? null;
@@ -945,26 +955,73 @@ export default function TaskCard({
     collaborators,
   ]);
 
+  /** Nomes das etapas da área atual (chave → rótulo) para textos auxiliares. */
+  useEffect(() => {
+    if (!open || !card?.tenant_id) { setFlowFunctionNames({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase.from("flow_functions") as any)
+        .select("function_key, name, work_area")
+        .eq("tenant_id", card.tenant_id)
+        .eq("work_area", workAreaForEligibility === "sistemas" ? "sistemas" : "midia");
+      if (cancelled) return;
+      const map: Record<string, string> = {};
+      (data || []).forEach((f: any) => { map[f.function_key] = f.name; });
+      setFlowFunctionNames(map);
+    })();
+    return () => { cancelled = true; };
+  }, [open, card?.tenant_id, workAreaForEligibility]);
+
+  /** Resolve etapa inicial de cada colaborador na configuração atual (rascunho). */
+  useEffect(() => {
+    if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
+      setDraftAssigneeResolution({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        collaborators.map(async (c) => {
+          try {
+            const key = await resolveFunctionForAssignee(
+              card.tenant_id as string,
+              c.id,
+              demandTypeKeyForEligibility,
+              null,
+              null,
+              { workArea: workAreaForEligibility, origin: originForEligibility },
+            );
+            return [c.id, { eligible: !!key, functionKey: key ?? null, functionName: key ? (flowFunctionNames[key] ?? null) : null }] as const;
+          } catch {
+            return [c.id, { eligible: true, functionKey: null, functionName: null }] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setDraftAssigneeResolution(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [
+    open,
+    card?.tenant_id,
+    card?.clientId,
+    demandTypeKeyForEligibility,
+    workAreaForEligibility,
+    originForEligibility,
+    collaborators,
+    flowFunctionNames,
+  ]);
+
   const assigneeOptions = eligibleAssignees
     ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
     : collaborators;
 
   /**
    * RASCUNHO — completude.
-   * "Salvar Demanda" só habilita quando o card tem o mínimo para entrar no fluxo:
-   * cliente, tipo, responsável, título e alguma data de produção/publicação.
+   * "Salvar Demanda" só habilita quando o card tem o mínimo para entrar no fluxo.
+   * Regras em `src/lib/draftDemand.ts` (Publicação não substitui início de produção).
    */
-  const draftMissingFields: string[] = isDraft
-    ? [
-        !card?.clientId ? "cliente" : null,
-        !(card as any)?.demand_type_key ? "tipo de demanda" : null,
-        !card?.assigned_to ? "responsável" : null,
-        !card?.title?.trim() ? "título" : null,
-        !card?.due_date && !card?.delivery_date && !card?.publish_date && !card?.is_daily_card
-          ? "datas"
-          : null,
-      ].filter(Boolean) as string[]
-    : [];
+  const draftMissingFields: string[] = isDraft ? computeDraftMissingFields(card as any) : [];
   const draftReady = isDraft && draftMissingFields.length === 0;
 
   /**
