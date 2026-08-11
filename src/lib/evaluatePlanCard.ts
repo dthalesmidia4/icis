@@ -364,6 +364,8 @@ export async function updatePlanCard(params: {
     objetivo?: string;
     conteudo?: string;
     data_sugerida?: string;
+    aspect_ratio?: string;
+
   };
 }) {
   const isDefault = params.source === "default";
