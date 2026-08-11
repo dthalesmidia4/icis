@@ -732,6 +732,14 @@ export default function TaskCard({
   };
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [selectedAiModel, setSelectedAiModel] = useState<"gpt2" | "nanobanana3" | "nanobanana25">("gpt2");
+  // Proporção da arte para geração manual — 4:5 é o padrão do sistema.
+  const [generationAspect, setGenerationAspect] = useState<ImageAspectRatio>(DEFAULT_SOCIAL_ASPECT);
+  useEffect(() => {
+    if (!card) return;
+    setGenerationAspect(
+      isImageAspectRatio(card.image_aspect_ratio) ? card.image_aspect_ratio : DEFAULT_SOCIAL_ASPECT,
+    );
+  }, [card?.id, card?.image_aspect_ratio]);
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
