@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 import { assignInitialResponsible } from "@/lib/initialFlowFunction";
+import { isAspectConfigurableType, resolveCardAspect } from "@/lib/imageAspect";
+
 
 /**
  * Núcleo compartilhado da lógica de "Avaliar Demandas".
