@@ -876,11 +876,15 @@ export async function jumpToFunction({
   }
   await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key);
   await applyFlowReactivation(updatePayload, demandId, picked.userId);
-  const { error } = await supabase
-    .from("demands")
-    .update(updatePayload)
-    .eq("id", demandId);
-  if (error) return { success: false, message: "Erro ao atualizar etapa." };
+  const jumpCommit = await commitFlowTransition({
+    demandId,
+    payload: updatePayload,
+    expectedFunctionKey: currentFunctionKey || null,
+    expectedAssignee: prevUser,
+  });
+  if (jumpCommit.status === "stale") return staleResult(demandId);
+  if (jumpCommit.status === "error") return { success: false, message: "Erro ao atualizar etapa." };
+
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
       { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta },
