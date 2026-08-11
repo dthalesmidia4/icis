@@ -811,7 +811,47 @@ export default function TaskCard({
         ? (resolved.functionKey ?? null)
         : (card.current_function_key ?? null);
 
-      if (!isDraft) {
+      /*
+       * RASCUNHO: a etapa correta não é a primeira do fluxo, é a etapa do
+       * RESPONSÁVEL já escolhido. Gravar a etapa inicial global criaria o card
+       * numa coluna onde a pessoa não tem função. Zero writes aqui.
+       */
+      if (isDraft) {
+        if (!card.assigned_to) {
+          onCardChange({ ...card, demand_type: label, demand_type_key: key, current_function_key: null });
+          setSettingType(false);
+          return;
+        }
+        let stageForOwner: string | null = null;
+        try {
+          stageForOwner = await resolveFunctionForAssignee(
+            card.tenant_id as string,
+            card.assigned_to,
+            key,
+            null,
+            null,
+            { workArea: area, origin: ((card as any)?.origin ?? null) },
+          );
+        } catch {
+          stageForOwner = null;
+        }
+        if (stageForOwner) {
+          onCardChange({ ...card, demand_type: label, demand_type_key: key, current_function_key: stageForOwner });
+        } else {
+          onCardChange({
+            ...card,
+            demand_type: label,
+            demand_type_key: key,
+            assigned_to: null,
+            current_function_key: null,
+          } as any);
+          toast.info("O responsável anterior não possui etapa compatível com este novo tipo. Escolha outro responsável.");
+        }
+        setSettingType(false);
+        return;
+      }
+
+      {
         const updatePayload: Record<string, any> = { demand_type: label, demand_type_key: key };
         if (resolved.shouldUpdate) updatePayload.current_function_key = nextFunctionKey;
         const { error } = await supabase
