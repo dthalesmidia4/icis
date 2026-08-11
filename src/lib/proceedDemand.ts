@@ -622,11 +622,13 @@ async function resolveClientWaitOwner(
   tenantId: string,
   previousAssignee: string | null,
   workArea?: "midia" | "sistemas" | null,
+  clientId?: string | null,
 ): Promise<string | null> {
   try {
     const picked = await pickAssigneeForFunction(tenantId, "aguardando_cliente", "Aguardando cliente", {
       preferUserIds: previousAssignee ? [previousAssignee] : [],
       workArea: workArea ?? "midia",
+      clientId: clientId ?? null,
     });
     if (picked.success && picked.userId) return picked.userId;
   } catch (e) {
@@ -699,6 +701,7 @@ async function resolveNextStage(
   startIndex: number,
   executors: string[],
   workArea?: "midia" | "sistemas" | null,
+  clientId?: string | null,
 ): Promise<ResolvedNextStage | null> {
   const area = workArea ?? "midia";
   const skipped: string[] = [];
@@ -711,6 +714,7 @@ async function resolveNextStage(
       const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
         excludeUserIds: executors,
         workArea: area,
+        clientId: clientId ?? null,
       });
       if (picked.success && picked.userId) return { fn, picked, skipped };
       skipped.push(fn.function_key);
@@ -719,6 +723,7 @@ async function resolveNextStage(
     const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
       preferUserIds: STICKY_STAGES.has(fn.function_key) ? executors : [],
       workArea: area,
+      clientId: clientId ?? null,
     });
     return { fn, picked, skipped };
   }
