@@ -137,6 +137,9 @@ export interface KanbanCardData {
   // Classificações operacionais (anuncio / grafica) e informações do anúncio
   classifications?: string[] | null;
   ad_plan?: Record<string, any> | null;
+  /** Proporção da arte (4:5 padrão do sistema) usada na geração/regeneração. */
+  image_aspect_ratio?: string | null;
+
   /** Briefing editorial estruturado (JSONB) — camadas sem campo próprio. */
   content_brief?: Record<string, any> | null;
   // Área, origem e clientes finais solicitantes (fluxo Sistemas)
