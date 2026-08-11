@@ -2675,7 +2675,7 @@ const KanbanCentralPage = () => {
               const target = rawColumns.find((c) => c.userId === focusedColumnId);
               if (target) {
                 const userCards = filteredCards.filter((c) =>
-                  (c as any).released_at != null && (
+                  isOperationallyReleased(c as any, releaseConfig) && (
                   target.userId === "__unassigned__"
                     ? !c.assigned_to && !(c.additional_assignees?.length)
                     : c.assigned_to === target.userId || (c.additional_assignees?.includes(target.userId) ?? false))
