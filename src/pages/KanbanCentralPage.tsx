@@ -1951,99 +1951,76 @@ const KanbanCentralPage = () => {
       sonnerToast.error("Informe um título");
       return;
     }
+    if (!selectedCard.assigned_to) {
+      sonnerToast.error("Escolha um responsável antes de salvar");
+      return;
+    }
     savingDraftRef.current = true;
     setIsSavingDraft(true);
     try {
-      const chosenLabel = selectedCard.demand_type || selectedCard.demand_type_key;
-      // Para Card Diário, não passamos publish_date/due_date reais (evita herdar data de criação como entrega).
-      // A RPC exige due_date apenas se o status inicial requerer; usamos daily_start_date como fallback técnico.
-      const dueDateArg = isDaily
-        ? ((selectedCard as any).daily_start_date || null)
-        : (selectedCard.due_date || null);
-      const { data, error } = await supabase.rpc("create_demand_from_template", {
-        p_client_id: selectedCard.clientId,
-        p_template_id: null,
-        p_pipeline_id: null,
-        p_status_id: null,
-        p_title: selectedCard.title,
-        p_description: selectedCard.description || null,
-        p_demand_type: chosenLabel,
-        p_channel: selectedCard.channel || null,
-        p_publish_date: isDaily ? null : (selectedCard.publish_date || null),
-        p_due_date: dueDateArg,
-        p_period_plan_id: selectedCard.period_plan_id || null
+      const c = selectedCard as any;
+      const subIds = Array.isArray(c.subclient_ids) ? (c.subclient_ids as string[]) : [];
+      const payload: Record<string, any> = {
+        client_id: selectedCard.clientId,
+        title: selectedCard.title.trim(),
+        description: selectedCard.description || null,
+        objective: selectedCard.objective || null,
+        instructions: selectedCard.instructions || null,
+        observations: selectedCard.observations || null,
+        post_caption: selectedCard.post_caption || null,
+        demand_type: selectedCard.demand_type || selectedCard.demand_type_key,
+        demand_type_key: selectedCard.demand_type_key,
+        channel: selectedCard.channel || null,
+        work_area: c.work_area || "midia",
+        origin: c.origin || "interno",
+        origin_note: c.origin_note || null,
+        assigned_to: selectedCard.assigned_to,
+        period_plan_id: selectedCard.period_plan_id || null,
+        subclient_id: subIds[0] || c.subclient_id || null,
+        subclient_ids: subIds,
+        classifications: Array.isArray(c.classifications) ? c.classifications : [],
+        image_aspect_ratio: c.image_aspect_ratio || null,
+        is_daily_card: isDaily,
+      };
+
+      if (isDaily) {
+        payload.daily_start_date = c.daily_start_date ?? null;
+        payload.daily_end_date = c.daily_end_date ?? null;
+        payload.daily_time = c.daily_time ?? null;
+        payload.daily_exclude_weekends = c.daily_exclude_weekends ?? true;
+        payload.daily_exclude_holidays = c.daily_exclude_holidays ?? true;
+        payload.daily_next_date = c.daily_next_date ?? c.daily_start_date ?? null;
+        payload.daily_total_occurrences = c.daily_total_occurrences ?? null;
+      } else {
+        payload.due_date = selectedCard.due_date || null;
+        payload.due_time = selectedCard.due_time || null;
+        payload.delivery_date = selectedCard.delivery_date || null;
+        payload.delivery_time = selectedCard.delivery_time || null;
+        payload.publish_date = selectedCard.publish_date || null;
+        payload.publish_time = selectedCard.publish_time || null;
+        payload.additional_publish_dates = selectedCard.additional_publish_dates || [];
+      }
+
+      const { data, error } = await (supabase.rpc as any)("create_manual_demand_atomic", {
+        p_payload: payload,
       });
       if (error) throw error;
-      const result = data as { success?: boolean; demand_id?: string; error?: string } | null;
+      const result = data as {
+        success?: boolean;
+        demand_id?: string;
+        code?: string;
+        error?: string;
+        current_function_key?: string | null;
+      } | null;
+
       if (!result?.success || !result.demand_id) {
         sonnerToast.error(result?.error || "Erro ao criar demanda");
         return;
       }
 
-      // Persist the fields the RPC doesn't accept
-      const extra: Record<string, any> = {
-        demand_type_key: selectedCard.demand_type_key,
-        work_area: (selectedCard as any).work_area || "midia",
-        origin: (selectedCard as any).origin || "interno",
-      };
-      {
-        const subIds = Array.isArray((selectedCard as any).subclient_ids)
-          ? ((selectedCard as any).subclient_ids as string[])
-          : [];
-        if (subIds.length > 0) {
-          extra.subclient_ids = subIds;
-          extra.subclient_id = subIds[0];
-        }
-      }
-      if (selectedCard.objective) extra.objective = selectedCard.objective;
-      if (selectedCard.instructions) extra.instructions = selectedCard.instructions;
-      if (selectedCard.observations) extra.observations = selectedCard.observations;
-      if (selectedCard.post_caption) extra.post_caption = selectedCard.post_caption;
-      if (selectedCard.assigned_to) extra.assigned_to = selectedCard.assigned_to;
-
-      if (isDaily) {
-        // Card Diário: NÃO usar delivery/publish/due — depende só dos campos diários.
-        extra.delivery_date = null;
-        extra.delivery_time = null;
-        extra.publish_time = null;
-        extra.due_time = null;
-        extra.is_daily_card = true;
-        extra.daily_start_date = (selectedCard as any).daily_start_date ?? null;
-        extra.daily_end_date = (selectedCard as any).daily_end_date ?? null;
-        extra.daily_time = (selectedCard as any).daily_time ?? null;
-        extra.daily_exclude_weekends = (selectedCard as any).daily_exclude_weekends ?? true;
-        extra.daily_exclude_holidays = (selectedCard as any).daily_exclude_holidays ?? true;
-        extra.daily_next_date = (selectedCard as any).daily_next_date ?? (selectedCard as any).daily_start_date ?? null;
-        extra.daily_total_occurrences = (selectedCard as any).daily_total_occurrences ?? null;
-        extra.daily_completed_occurrences = 0;
-        extra.daily_completed_dates = [];
-      } else {
-        if (selectedCard.delivery_date) extra.delivery_date = selectedCard.delivery_date;
-        if (selectedCard.due_time) extra.due_time = selectedCard.due_time;
-        if (selectedCard.delivery_time) extra.delivery_time = selectedCard.delivery_time;
-        if (selectedCard.publish_time) extra.publish_time = selectedCard.publish_time;
-        if (selectedCard.additional_publish_dates?.length) extra.additional_publish_dates = selectedCard.additional_publish_dates;
-      }
-
-      await supabase.from("demands").update(extra).eq("id", result.demand_id);
-
       // Registra o contato que originou o card (solicitação/feedback do cliente).
       if (tenantId) {
         await recordOriginTouchpoint(tenantId, result.demand_id);
-      }
-
-
-      if (tenantId) {
-        await assignInitialResponsible(
-          result.demand_id,
-          tenantId,
-          selectedCard.demand_type_key ?? null,
-          {
-            metadataSource: "manual",
-            workArea: (selectedCard as any).work_area ?? null,
-            origin: (selectedCard as any).origin ?? null,
-          },
-        );
       }
 
       sonnerToast.success("Demanda criada!");
@@ -2059,6 +2036,7 @@ const KanbanCentralPage = () => {
       setIsSavingDraft(false);
     }
   };
+
 
   const handleDraftDiscard = () => {
     setIsDraftMode(false);
