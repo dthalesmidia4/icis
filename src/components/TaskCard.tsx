@@ -2953,8 +2953,22 @@ export default function TaskCard({
             {activeSection === 'anexos' && (
             <div className="px-6 pb-6">
               <Card>
-                <CardContent className="p-5">
+                <CardContent
+                  className="p-5 relative"
+                  onDragEnter={handleFilesDragEnter}
+                  onDragOver={handleFilesDragOver}
+                  onDragLeave={handleFilesDragLeave}
+                  onDrop={handleFilesDrop}
+                >
+                  {isDraggingFiles && (
+                    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/10 backdrop-blur-sm">
+                      <Upload className="h-8 w-8 text-primary" />
+                      <p className="text-sm font-semibold text-primary">Solte os arquivos para anexar</p>
+                      <p className="text-xs text-primary/80">Você pode enviar vários arquivos de uma vez</p>
+                    </div>
+                  )}
                   {/* Header dos Anexos */}
+
                   <div className="flex items-center justify-between mb-4">
                     <button 
                       type="button"
