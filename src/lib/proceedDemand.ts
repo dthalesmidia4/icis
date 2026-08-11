@@ -1262,6 +1262,7 @@ export async function regressDemand({
     functionKey: prevFn.function_key,
     functionName: prevFn.name,
     message: `Demanda devolvida para ${picked.name} na função ${prevFn.name}.`,
+    flowState: regressCommit.flowState,
   };
 
 }
