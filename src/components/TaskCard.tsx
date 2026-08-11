@@ -155,6 +155,9 @@ export interface KanbanCardData {
   client_resend_count?: number | null;
   client_last_resend_at?: string | null;
   client_sent_at_fallback?: string | null;
+  /** Fila de liberação: null = ainda não liberada ao colaborador. */
+  released_at?: string | null;
+
   // Card Diário (recorrência)
   is_daily_card?: boolean;
   daily_start_date?: string | null;
