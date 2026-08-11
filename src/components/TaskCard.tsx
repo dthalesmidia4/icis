@@ -528,6 +528,31 @@ export default function TaskCard({
   }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key, (card as any)?.work_area, (card as any)?.origin]);
 
 
+  /**
+   * Reconcilia o card com o estado REAL devolvido pela transição.
+   * Quando a transição é rejeitada por concorrência (`stale`), o card também é
+   * reconciliado — para a UI nunca ficar mostrando uma etapa que não existe.
+   */
+  const reconcileFlowResult = (result: { flowState?: any }) => {
+    if (!card) return;
+    const s = result.flowState;
+    if (!s) return;
+    onCardChange({
+      ...card,
+      assigned_to: s.assigned_to ?? null,
+      current_function_key: s.current_function_key ?? null,
+      additional_assignees: s.additional_assignees ?? [],
+      due_date: s.due_date ?? "",
+      due_time: s.due_time ?? "",
+      delivery_date: s.delivery_date ?? "",
+      delivery_time: s.delivery_time ?? "",
+      client_wait_started_at: s.client_wait_started_at ?? null,
+      client_resend_count: s.client_resend_count ?? 0,
+      client_last_resend_at: s.client_last_resend_at ?? null,
+      released_at: s.released_at ?? null,
+    } as any);
+  };
+
   const handleProceed = async () => {
     if (!card || proceeding) return;
     if (!card.demand_type_key) {
@@ -544,11 +569,18 @@ export default function TaskCard({
       });
       if (result.success) {
         toast.success(result.message);
-        onCardChange({
-          ...card,
-          assigned_to: result.assignedTo || null,
-          current_function_key: result.functionKey || null,
-        });
+        if (result.flowState) {
+          reconcileFlowResult(result);
+        } else {
+          onCardChange({
+            ...card,
+            assigned_to: result.assignedTo || null,
+            current_function_key: result.functionKey || null,
+          });
+        }
+      } else if (result.stale) {
+        toast.warning(result.message);
+        reconcileFlowResult(result);
       } else if (result.end) {
         toast(result.message);
       } else {
@@ -558,6 +590,7 @@ export default function TaskCard({
       setProceeding(false);
     }
   };
+
 
   const handleDeliverMyPart = async (targetUserId?: string) => {
     if (!card || deliveringPart) return;
