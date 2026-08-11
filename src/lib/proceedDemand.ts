@@ -779,8 +779,14 @@ export async function jumpToFunction({
       client_wait_started_at: new Date().toISOString(),
     };
     await applyFlowReactivation(updateWait, demandId, keep);
-    const { error } = await supabase.from("demands").update(updateWait).eq("id", demandId);
-    if (error) return { success: false, message: "Erro ao atualizar etapa." };
+    const commit = await commitFlowTransition({
+      demandId,
+      payload: updateWait,
+      expectedFunctionKey: currentFunctionKey || null,
+      expectedAssignee: previous,
+    });
+    if (commit.status === "stale") return staleResult(demandId);
+    if (commit.status === "error") return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: previous, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
     await recordStageTouchpoint(tenantId, demandId, target.function_key);
@@ -789,7 +795,8 @@ export async function jumpToFunction({
       previous,
       ...(await fetchExtraAssignees(demandId)),
     ]);
-    return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
+    return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.`, flowState: commit.flowState };
+
   }
 
 
