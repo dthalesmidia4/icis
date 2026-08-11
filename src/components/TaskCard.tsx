@@ -596,9 +596,9 @@ export default function TaskCard({
     }
   };
 
-  /** Prévia da próxima etapa + candidatos elegíveis (menu do botão Prosseguir). */
+  /** Prévia da próxima etapa + candidatos elegíveis (alimenta o botão Prosseguir). */
   const loadRoutingPreview = async () => {
-    if (!card?.demand_type_key) return;
+    if (!card?.demand_type_key || !card?.tenant_id || isDraft) return;
     setRoutingLoading(true);
     try {
       const preview = await previewNextStageRouting({
