@@ -289,7 +289,7 @@ export async function applyReassign(input: ApplyReassignInput): Promise<ApplyRea
   const commit = await commitFlowTransition({
     demandId: card.id,
     payload: update,
-    expectedAssignedTo: card.assigned_to ?? null,
+    expectedAssignee: card.assigned_to ?? null,
     expectedFunctionKey: card.current_function_key ?? null,
   });
 
