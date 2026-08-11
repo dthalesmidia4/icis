@@ -897,7 +897,11 @@ export async function jumpToFunction({
   if (!picked && isBackward) {
     const completions = await getStageCompletions(tenantId, demandId);
     const historic = lastUserOfStage(completions, target.function_key);
-    if (historic) {
+    // Executor histórico só volta a receber se AINDA possuir a função na área.
+    const historicHolds = historic
+      ? await userHasFunction(tenantId, historic, target.function_key, jumpArea as any)
+      : false;
+    if (historic && historicHolds) {
       const { data: prof } = await supabase
         .from("profiles")
         .select("full_name")
@@ -976,8 +980,10 @@ export interface NextStageRoutingPreview {
   reason?: string;
   functionKey?: string;
   functionName?: string;
-  /** Etapa de cliente: o responsável é herdado, não escolhido. */
+  /** Etapa de cliente: o responsável é definido pelo motor, não escolhido. */
   inherited?: boolean;
+  /** Nome de quem ficará com a etapa herdada (quando resolvido). */
+  inheritedName?: string | null;
   suggestedUserId?: string | null;
   suggestedName?: string | null;
   candidates: StageRoutingCandidate[];
@@ -1032,11 +1038,26 @@ export async function previewNextStageRouting({
   }
   const fn = resolved.fn;
   if (fn.function_key === "aguardando_cliente") {
+    // Mesma resolução que o motor usa — o preview não pode afirmar
+    // "mantém o responsável atual" quando há preferência de cliente válida.
+    const owner = await resolveClientWaitOwner(tenantId, previousAssignee, meta.workArea, meta.clientId);
+    let ownerName: string | null = null;
+    if (owner?.userId) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", owner.userId)
+        .maybeSingle();
+      ownerName = (prof as any)?.full_name || "Colaborador";
+    }
     return {
       available: true,
       functionKey: fn.function_key,
       functionName: fn.name,
       inherited: true,
+      inheritedName: ownerName,
+      suggestedUserId: owner?.userId || null,
+      suggestedName: ownerName,
       candidates: [],
     };
   }
