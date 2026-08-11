@@ -628,14 +628,14 @@ async function resolveClientWaitOwner(
   previousAssignee: string | null,
   workArea?: "midia" | "sistemas" | null,
   clientId?: string | null,
-): Promise<string | null> {
+): Promise<{ userId: string; source: RoutingSource } | null> {
   try {
     const picked = await pickAssigneeForFunction(tenantId, "aguardando_cliente", "Aguardando cliente", {
       preferUserIds: previousAssignee ? [previousAssignee] : [],
       workArea: workArea ?? "midia",
       clientId: clientId ?? null,
     });
-    if (picked.success && picked.userId) return picked.userId;
+    if (picked.success && picked.userId) return { userId: picked.userId, source: picked.source || "automatic_load" };
   } catch (e) {
     console.warn("[proceedDemand] resolveClientWaitOwner error:", e);
   }
@@ -829,7 +829,8 @@ export async function jumpToFunction({
   if (target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const previous = (cur as any)?.assigned_to || null;
-    const keep = await resolveClientWaitOwner(tenantId, previous, jumpArea);
+    const keepOwner = await resolveClientWaitOwner(tenantId, previous, jumpArea, jumpMeta.clientId);
+    const keep = keepOwner?.userId || null;
 
     if (!keep) return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
     const updateWait: any = {
@@ -1031,7 +1032,8 @@ export async function proceedDemand({
 
   // Entrada em "Aguardando clientes": dono da espera sempre vem da função atribuída.
   if (nextFn.function_key === "aguardando_cliente") {
-    const keepAssignee = await resolveClientWaitOwner(tenantId, previousAssignee, flowArea, flowMeta.clientId);
+    const waitOwner = await resolveClientWaitOwner(tenantId, previousAssignee, flowArea, flowMeta.clientId);
+    const keepAssignee = waitOwner?.userId || null;
 
     if (!keepAssignee) {
       return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
@@ -1059,7 +1061,7 @@ export async function proceedDemand({
       toUserId: keepAssignee,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
-      metadata: skipMeta as any,
+      metadata: { ...(skipMeta || {}), routing: waitOwner?.source || "automatic_load" } as any,
     });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
     await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
