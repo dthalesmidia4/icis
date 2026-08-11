@@ -1895,6 +1895,41 @@ export default function TaskCard({
                           ? "Enviado ao cliente"
                           : (next?.name || "Prosseguir");
 
+                    /**
+                     * PROSSEGUIR INTELIGENTE
+                     * O rótulo da ação principal deixa de ser o nome da etapa e passa a
+                     * dizer PARA QUEM o card vai. Quando há mais de um elegível e nenhum
+                     * preferencial, o clique NÃO move o card: abre o seletor.
+                     */
+                    const rp = routingPreview;
+                    const previewPending = routingLoading && !rp;
+                    const routeCandidates = rp?.available && !rp.inherited ? rp.candidates : [];
+                    const preferredCandidate = routeCandidates.find((c) => c.preferred) || null;
+                    const directCandidate =
+                      routeCandidates.length === 1 ? routeCandidates[0] : preferredCandidate;
+                    const needsManualChoice =
+                      !!rp?.available && !rp.inherited && routeCandidates.length > 1 && !preferredCandidate;
+                    const showRoutingArrow = routeCandidates.length > 1;
+                    const firstName = (n?: string | null) => (n || "").trim().split(/\s+/)[0] || "";
+                    const proceedActionLabel = isEnviarCliente
+                      ? nextLabel
+                      : rp?.inherited
+                        ? nextLabel
+                        : directCandidate
+                          ? `Prosseguir → ${firstName(directCandidate.fullName)}`
+                          : "Prosseguir";
+                    const proceedTitle = !card.demand_type_key
+                      ? "Defina o tipo da demanda antes de prosseguir"
+                      : isEnviarCliente
+                        ? "Marcar como enviado ao cliente"
+                        : rp?.inherited
+                          ? `A etapa ${rp.functionName} será atribuída a ${rp.inheritedName || "quem já responde pelo card"}`
+                          : needsManualChoice
+                            ? `Escolha quem recebe a etapa ${rp?.functionName || ""}`
+                            : directCandidate
+                              ? `Enviar ${rp?.functionName || nextLabel} para ${directCandidate.fullName}${directCandidate.preferred ? " (preferencial para este cliente)" : ""}`
+                              : `Enviar para ${nextLabel}`;
+
                     const doJump = async (key: string, skippedKeys: string[] = []) => {
                       if (!card.tenant_id || !card.demand_type_key || jumpingStep) return;
                       setJumpingStep(true);
@@ -2147,81 +2182,101 @@ export default function TaskCard({
                                 </PopoverContent>
                               </Popover>
                             )}
-                            <div className="flex items-center">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10 rounded-r-none"
-                                onClick={() => handleProceed()}
-                                disabled={proceeding || !card.demand_type_key}
-                                title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
-                              >
-                                <span className="max-w-[140px] truncate">{nextLabel}</span>
-                                {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                              </Button>
-                              <Popover
-                                open={routingOpen}
-                                onOpenChange={(v) => {
-                                  setRoutingOpen(v);
-                                  if (v) loadRoutingPreview();
-                                }}
-                              >
-                                <PopoverTrigger asChild>
+                            <Popover open={routingOpen} onOpenChange={setRoutingOpen}>
+                              <div className="flex items-center">
+                                {needsManualChoice ? (
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                                      disabled={proceeding || !card.demand_type_key}
+                                      title={proceedTitle}
+                                    >
+                                      <span className="max-w-[160px] truncate">Prosseguir</span>
+                                      {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                    </Button>
+                                  </PopoverTrigger>
+                                ) : (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 w-6 px-0 text-primary hover:text-primary hover:bg-primary/10 rounded-l-none border-l border-primary/20"
-                                    disabled={proceeding || !card.demand_type_key}
-                                    title="Escolher para quem enviar"
+                                    className={cn(
+                                      "h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10",
+                                      showRoutingArrow && "rounded-r-none",
+                                    )}
+                                    onClick={() => handleProceed(directCandidate?.userId)}
+                                    disabled={proceeding || previewPending || !card.demand_type_key}
+                                    title={proceedTitle}
                                   >
-                                    <ChevronDown className="h-3.5 w-3.5" />
+                                    <span className="max-w-[180px] truncate">
+                                      {previewPending ? "Prosseguir" : proceedActionLabel}
+                                    </span>
+                                    {proceeding || previewPending ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <ArrowRight className="h-3.5 w-3.5" />
+                                    )}
                                   </Button>
-                                </PopoverTrigger>
-                                <PopoverContent align="end" className="w-72 p-2">
-                                  {routingLoading ? (
-                                    <div className="p-3 flex justify-center">
-                                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                    </div>
-                                  ) : !routingPreview?.available ? (
-                                    <p className="p-2 text-xs text-muted-foreground">
-                                      {routingPreview?.reason || "Não há próxima etapa disponível."}
+                                )}
+                                {showRoutingArrow && !needsManualChoice && (
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-6 px-0 text-primary hover:text-primary hover:bg-primary/10 rounded-l-none border-l border-primary/20"
+                                      disabled={proceeding || !card.demand_type_key}
+                                      title="Escolher outro responsável para a próxima etapa"
+                                    >
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                )}
+                              </div>
+                              <PopoverContent align="end" className="w-72 p-2">
+                                {routingLoading && !rp ? (
+                                  <div className="p-3 flex justify-center">
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  </div>
+                                ) : !rp?.available ? (
+                                  <p className="p-2 text-xs text-muted-foreground">
+                                    {rp?.reason || "Não há próxima etapa disponível."}
+                                  </p>
+                                ) : rp.inherited ? (
+                                  <p className="p-2 text-xs text-muted-foreground">
+                                    A etapa "{rp.functionName}" será atribuída a{" "}
+                                    <strong>{rp.inheritedName || "quem já responde pelo card"}</strong>.
+                                  </p>
+                                ) : rp.candidates.length === 0 ? (
+                                  <p className="p-2 text-xs text-muted-foreground">
+                                    Nenhum colaborador tem a função "{rp.functionName}" habilitada nesta área.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <p className="px-2 pb-1 text-[10px] uppercase font-semibold text-muted-foreground">
+                                      Próxima etapa: {rp.functionName}
                                     </p>
-                                  ) : routingPreview.inherited ? (
-                                    <p className="p-2 text-xs text-muted-foreground">
-                                      A etapa "{routingPreview.functionName}" mantém o responsável atual — não há escolha de destino.
-                                    </p>
-                                  ) : routingPreview.candidates.length === 0 ? (
-                                    <p className="p-2 text-xs text-muted-foreground">
-                                      Nenhum colaborador tem a função "{routingPreview.functionName}" habilitada nesta área.
-                                    </p>
-                                  ) : (
-                                    <div className="space-y-1">
-                                      <p className="px-2 pb-1 text-[10px] uppercase font-semibold text-muted-foreground">
-                                        Enviar "{routingPreview.functionName}" para
-                                      </p>
-                                      {routingPreview.candidates.map((c) => (
-                                        <button
-                                          key={c.userId}
-                                          onClick={() => handleProceed(c.userId)}
-                                          disabled={proceeding}
-                                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left disabled:opacity-50"
-                                        >
-                                          <span className="truncate flex-1">{c.fullName}</span>
-                                          {c.preferred && (
-                                            <span className="text-[9px] font-semibold uppercase text-primary shrink-0">
-                                              preferencial
-                                            </span>
-                                          )}
-                                          {c.userId === routingPreview.suggestedUserId && (
-                                            <span className="text-[9px] text-muted-foreground shrink-0">sugerido</span>
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </PopoverContent>
-                              </Popover>
-                            </div>
+                                    {rp.candidates.map((c) => (
+                                      <button
+                                        key={c.userId}
+                                        onClick={() => handleProceed(c.userId)}
+                                        disabled={proceeding}
+                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left disabled:opacity-50"
+                                      >
+                                        <span className="truncate flex-1">{c.fullName}</span>
+                                        {c.preferred ? (
+                                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-primary/40 text-primary shrink-0">
+                                            Preferencial
+                                          </Badge>
+                                        ) : c.userId === rp.suggestedUserId ? (
+                                          <span className="text-[9px] text-muted-foreground shrink-0">sugerido</span>
+                                        ) : null}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </PopoverContent>
+                            </Popover>
                           </>
                         )}
                       </div>
