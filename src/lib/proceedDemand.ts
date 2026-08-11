@@ -1094,6 +1094,7 @@ export async function proceedDemand({
     message: samePerson
       ? `Demanda avançou para ${nextFn.name} e continua com ${picked.name}.${skipNote}`
       : `Demanda enviada para ${picked.name} na função ${nextFn.name}.${skipNote}`,
+    flowState: proceedCommit.flowState,
   };
 
 
