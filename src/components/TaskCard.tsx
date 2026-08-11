@@ -919,6 +919,81 @@ export default function TaskCard({
     }
   }, [card, onCardChange, onReorderAttachments]);
 
+  // ===== Upload por arrastar/soltar e colar (reutiliza o onFileUpload dos pais) =====
+  const uploadDisabled = readOnly || isDraft || uploading;
+
+  const uploadFilesThroughExistingHandler = useCallback(async (files: File[]) => {
+    if (!files.length || uploadDisabled) return;
+    const syntheticTarget = { files: files as unknown as FileList, value: "" } as HTMLInputElement;
+    const syntheticEvent = {
+      target: syntheticTarget,
+      currentTarget: syntheticTarget,
+    } as React.ChangeEvent<HTMLInputElement>;
+    await onFileUpload(syntheticEvent);
+  }, [onFileUpload, uploadDisabled]);
+
+  const hasDraggedFiles = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer?.types || []).includes('Files');
+
+  const handleFilesDragEnter = useCallback((e: React.DragEvent) => {
+    if (uploadDisabled || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fileDragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  }, [uploadDisabled]);
+
+  const handleFilesDragOver = useCallback((e: React.DragEvent) => {
+    if (uploadDisabled || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, [uploadDisabled]);
+
+  const handleFilesDragLeave = useCallback((e: React.DragEvent) => {
+    if (uploadDisabled || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fileDragDepthRef.current = Math.max(0, fileDragDepthRef.current - 1);
+    if (fileDragDepthRef.current === 0) setIsDraggingFiles(false);
+  }, [uploadDisabled]);
+
+  const handleFilesDrop = useCallback((e: React.DragEvent) => {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fileDragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    if (uploadDisabled) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length) void uploadFilesThroughExistingHandler(files);
+  }, [uploadDisabled, uploadFilesThroughExistingHandler]);
+
+  // Colar arquivos/mídia enquanto a aba Anexos está ativa
+  useEffect(() => {
+    if (!open || activeSection !== 'anexos' || uploadDisabled) return;
+    const handler = (event: ClipboardEvent) => {
+      const el = event.target as HTMLElement | null;
+      const tag = el?.tagName?.toUpperCase();
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!el?.isContentEditable;
+      if (isTyping) return;
+      const files = normalizePastedFiles(extractClipboardFiles(event.clipboardData));
+      if (!files.length) return;
+      event.preventDefault();
+      void uploadFilesThroughExistingHandler(files);
+    };
+    document.addEventListener('paste', handler);
+    return () => document.removeEventListener('paste', handler);
+  }, [open, activeSection, uploadDisabled, uploadFilesThroughExistingHandler]);
+
+  // Limpeza do highlight quando a aba muda ou o card fecha
+  useEffect(() => {
+    if (open && activeSection === 'anexos') return;
+    fileDragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+  }, [open, activeSection]);
+
+
   // Handle ESC key to close modal
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape' && open) {
