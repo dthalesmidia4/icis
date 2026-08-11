@@ -25,6 +25,7 @@ import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
+import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { DailyCardSection } from "@/components/DailyCardSection";
@@ -489,6 +490,7 @@ export default function TaskCard({
   const [routingOpen, setRoutingOpen] = useState(false);
   const [routingLoading, setRoutingLoading] = useState(false);
   const [routingPreview, setRoutingPreview] = useState<NextStageRoutingPreview | null>(null);
+  const [routingRefreshKey, setRoutingRefreshKey] = useState(0);
   const [regressing, setRegressing] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
   const [pipelineSequence, setPipelineSequence] = useState<{ function_key: string; name: string }[]>([]);
@@ -529,6 +531,47 @@ export default function TaskCard({
       .catch(() => { if (!cancelled) setPipelineSequence([]); });
     return () => { cancelled = true; };
   }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key, (card as any)?.work_area, (card as any)?.origin]);
+
+  /**
+   * Prévia do roteamento carregada PROATIVAMENTE: o botão "Prosseguir" precisa
+   * saber o destino antes do clique (mostrar o nome / abrir seletor).
+   * Rascunho não tem fluxo real, então nunca consulta.
+   */
+  useEffect(() => {
+    if (!open || isDraft) { setRoutingPreview(null); return; }
+    if (!card?.tenant_id || !card?.demand_type_key) { setRoutingPreview(null); return; }
+    let cancelled = false;
+    setRoutingLoading(true);
+    previewNextStageRouting({
+      demandId: card.id,
+      tenantId: card.tenant_id,
+      demandTypeKey: card.demand_type_key,
+      currentFunctionKey: card.current_function_key,
+    })
+      .then((p) => { if (!cancelled) setRoutingPreview(p); })
+      .catch(() => { if (!cancelled) setRoutingPreview(null); })
+      .finally(() => { if (!cancelled) setRoutingLoading(false); });
+    return () => { cancelled = true; };
+  }, [
+    open,
+    isDraft,
+    card?.id,
+    card?.tenant_id,
+    card?.assigned_to,
+    card?.current_function_key,
+    card?.demand_type_key,
+    (card as any)?.work_area,
+    (card as any)?.origin,
+    card?.clientId,
+    routingRefreshKey,
+  ]);
+
+  /** Mudança de funções/atribuições/preferências revalida a prévia sem F5. */
+  useRealtimeFlowConfig({
+    tenantId: card?.tenant_id ?? null,
+    enabled: !!open && !isDraft && !!card?.tenant_id,
+    onChange: () => setRoutingRefreshKey((k) => k + 1),
+  });
 
 
   /**
@@ -596,22 +639,9 @@ export default function TaskCard({
     }
   };
 
-  /** Prévia da próxima etapa + candidatos elegíveis (menu do botão Prosseguir). */
-  const loadRoutingPreview = async () => {
-    if (!card?.demand_type_key) return;
-    setRoutingLoading(true);
-    try {
-      const preview = await previewNextStageRouting({
-        demandId: card.id,
-        tenantId: card.tenant_id,
-        demandTypeKey: card.demand_type_key,
-        currentFunctionKey: card.current_function_key,
-      });
-      setRoutingPreview(preview);
-    } finally {
-      setRoutingLoading(false);
-    }
-  };
+  // A prévia da próxima etapa é carregada proativamente pelo efeito acima
+  // (o botão "Prosseguir" precisa do destino antes do clique).
+
 
   const handleDeliverMyPart = async (targetUserId?: string) => {
     if (!card || deliveringPart) return;
@@ -918,6 +948,38 @@ export default function TaskCard({
   const assigneeOptions = eligibleAssignees
     ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
     : collaborators;
+
+  /**
+   * RASCUNHO — completude.
+   * "Salvar Demanda" só habilita quando o card tem o mínimo para entrar no fluxo:
+   * cliente, tipo, responsável, título e alguma data de produção/publicação.
+   */
+  const draftMissingFields: string[] = isDraft
+    ? [
+        !card?.clientId ? "cliente" : null,
+        !(card as any)?.demand_type_key ? "tipo de demanda" : null,
+        !card?.assigned_to ? "responsável" : null,
+        !card?.title?.trim() ? "título" : null,
+        !card?.due_date && !card?.delivery_date && !card?.publish_date && !card?.is_daily_card
+          ? "datas"
+          : null,
+      ].filter(Boolean) as string[]
+    : [];
+  const draftReady = isDraft && draftMissingFields.length === 0;
+
+  /**
+   * RASCUNHO — revalidação do responsável.
+   * Trocar área / tipo / cliente pode invalidar a etapa de quem estava escolhido.
+   * Nesse caso limpamos o responsável em vez de salvar um vínculo impossível.
+   */
+  useEffect(() => {
+    if (!isDraft || !card?.assigned_to || !eligibleAssignees) return;
+    if (eligibleAssignees.has(card.assigned_to)) return;
+    const nome = collaborators.find((c) => c.id === card.assigned_to)?.name || "O responsável";
+    onCardChange({ ...card, assigned_to: null, current_function_key: null } as any);
+    toast.info(`${nome} não tem etapa compatível com esta configuração — escolha outro responsável.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDraft, eligibleAssignees, card?.assigned_to, (card as any)?.demand_type_key, (card as any)?.work_area, card?.clientId]);
 
 
 
@@ -1257,6 +1319,11 @@ export default function TaskCard({
 
   const handleLinkPeriod = async (periodPlanId: string) => {
     if (!card) return;
+    // Rascunho: apenas estado local — nada é gravado antes de "Salvar Demanda".
+    if (isDraft) {
+      onCardChange({ ...card, period_plan_id: periodPlanId });
+      return;
+    }
     try {
       const { error } = await supabase
         .from("demands")
@@ -1572,8 +1639,9 @@ export default function TaskCard({
       ...card,
       publish_date: dateStr
     });
-    await onSave('publish_date', dateStr);
     setIsDatePickerOpen(false);
+    if (isDraft) return;
+    await onSave('publish_date', dateStr);
     // Sync existing active dispatch (does NOT create a new one)
     const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: dateStr, publishTime: card.publish_time });
     if (res.pastDate && res.cancelled) {
@@ -1591,6 +1659,7 @@ export default function TaskCard({
       ...card,
       publish_time: time
     });
+    if (isDraft) return;
     await onSave('publish_time', time);
     const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: card.publish_date, publishTime: time });
     if (res.pastDate && res.cancelled) {
@@ -1614,6 +1683,7 @@ export default function TaskCard({
     }
     const updated = [...additionalDates, dateStr].sort();
     onCardChange({ ...card, additional_publish_dates: updated });
+    if (isDraft) { setIsAdditionalDatePickerOpen(false); return; }
     try {
       await supabase.from("demands").update({ additional_publish_dates: updated }).eq("id", card.id);
     } catch (e) {
@@ -1627,6 +1697,7 @@ export default function TaskCard({
     if (!card) return;
     const updated = additionalDates.filter(d => d !== dateStr);
     onCardChange({ ...card, additional_publish_dates: updated });
+    if (isDraft) return;
     try {
       await supabase.from("demands").update({ additional_publish_dates: updated }).eq("id", card.id);
     } catch (e) {
@@ -1791,12 +1862,16 @@ export default function TaskCard({
                       size="sm"
                       className="h-11 gap-2 shrink-0"
                       onClick={() => {
-                        if (savingDraft) return;
+                        if (savingDraft || !draftReady) return;
                         onDraftSave?.();
                       }}
-                      disabled={savingDraft}
+                      disabled={savingDraft || !draftReady}
                       aria-label="Salvar demanda"
-                      title="Salvar e enviar para o Kanban"
+                      title={
+                        draftReady
+                          ? "Salvar e enviar para o Kanban"
+                          : `Falta definir: ${draftMissingFields.join(", ")}`
+                      }
                     >
                       {savingDraft ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1805,6 +1880,11 @@ export default function TaskCard({
                       )}
                       <span>{savingDraft ? "Salvando…" : "Salvar Demanda"}</span>
                     </Button>
+                    {!draftReady && (
+                      <span className="text-[11px] text-muted-foreground shrink-0 max-w-[220px] leading-tight">
+                        Falta definir: {draftMissingFields.join(", ")}
+                      </span>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1851,6 +1931,41 @@ export default function TaskCard({
                         : isEnviarCliente
                           ? "Enviado ao cliente"
                           : (next?.name || "Prosseguir");
+
+                    /**
+                     * PROSSEGUIR INTELIGENTE
+                     * O rótulo da ação principal deixa de ser o nome da etapa e passa a
+                     * dizer PARA QUEM o card vai. Quando há mais de um elegível e nenhum
+                     * preferencial, o clique NÃO move o card: abre o seletor.
+                     */
+                    const rp = routingPreview;
+                    const previewPending = routingLoading && !rp;
+                    const routeCandidates = rp?.available && !rp.inherited ? rp.candidates : [];
+                    const preferredCandidate = routeCandidates.find((c) => c.preferred) || null;
+                    const directCandidate =
+                      routeCandidates.length === 1 ? routeCandidates[0] : preferredCandidate;
+                    const needsManualChoice =
+                      !!rp?.available && !rp.inherited && routeCandidates.length > 1 && !preferredCandidate;
+                    const showRoutingArrow = routeCandidates.length > 1;
+                    const firstName = (n?: string | null) => (n || "").trim().split(/\s+/)[0] || "";
+                    const proceedActionLabel = isEnviarCliente
+                      ? nextLabel
+                      : rp?.inherited
+                        ? nextLabel
+                        : directCandidate
+                          ? `Prosseguir → ${firstName(directCandidate.fullName)}`
+                          : "Prosseguir";
+                    const proceedTitle = !card.demand_type_key
+                      ? "Defina o tipo da demanda antes de prosseguir"
+                      : isEnviarCliente
+                        ? "Marcar como enviado ao cliente"
+                        : rp?.inherited
+                          ? `A etapa ${rp.functionName} será atribuída a ${rp.inheritedName || "quem já responde pelo card"}`
+                          : needsManualChoice
+                            ? `Escolha quem recebe a etapa ${rp?.functionName || ""}`
+                            : directCandidate
+                              ? `Enviar ${rp?.functionName || nextLabel} para ${directCandidate.fullName}${directCandidate.preferred ? " (preferencial para este cliente)" : ""}`
+                              : `Enviar para ${nextLabel}`;
 
                     const doJump = async (key: string, skippedKeys: string[] = []) => {
                       if (!card.tenant_id || !card.demand_type_key || jumpingStep) return;
@@ -2104,81 +2219,101 @@ export default function TaskCard({
                                 </PopoverContent>
                               </Popover>
                             )}
-                            <div className="flex items-center">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10 rounded-r-none"
-                                onClick={() => handleProceed()}
-                                disabled={proceeding || !card.demand_type_key}
-                                title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
-                              >
-                                <span className="max-w-[140px] truncate">{nextLabel}</span>
-                                {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                              </Button>
-                              <Popover
-                                open={routingOpen}
-                                onOpenChange={(v) => {
-                                  setRoutingOpen(v);
-                                  if (v) loadRoutingPreview();
-                                }}
-                              >
-                                <PopoverTrigger asChild>
+                            <Popover open={routingOpen} onOpenChange={setRoutingOpen}>
+                              <div className="flex items-center">
+                                {needsManualChoice ? (
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                                      disabled={proceeding || !card.demand_type_key}
+                                      title={proceedTitle}
+                                    >
+                                      <span className="max-w-[160px] truncate">Prosseguir</span>
+                                      {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                    </Button>
+                                  </PopoverTrigger>
+                                ) : (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 w-6 px-0 text-primary hover:text-primary hover:bg-primary/10 rounded-l-none border-l border-primary/20"
-                                    disabled={proceeding || !card.demand_type_key}
-                                    title="Escolher para quem enviar"
+                                    className={cn(
+                                      "h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10",
+                                      showRoutingArrow && "rounded-r-none",
+                                    )}
+                                    onClick={() => handleProceed(directCandidate?.userId)}
+                                    disabled={proceeding || previewPending || !card.demand_type_key}
+                                    title={proceedTitle}
                                   >
-                                    <ChevronDown className="h-3.5 w-3.5" />
+                                    <span className="max-w-[180px] truncate">
+                                      {previewPending ? "Prosseguir" : proceedActionLabel}
+                                    </span>
+                                    {proceeding || previewPending ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <ArrowRight className="h-3.5 w-3.5" />
+                                    )}
                                   </Button>
-                                </PopoverTrigger>
-                                <PopoverContent align="end" className="w-72 p-2">
-                                  {routingLoading ? (
-                                    <div className="p-3 flex justify-center">
-                                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                    </div>
-                                  ) : !routingPreview?.available ? (
-                                    <p className="p-2 text-xs text-muted-foreground">
-                                      {routingPreview?.reason || "Não há próxima etapa disponível."}
+                                )}
+                                {showRoutingArrow && !needsManualChoice && (
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-6 px-0 text-primary hover:text-primary hover:bg-primary/10 rounded-l-none border-l border-primary/20"
+                                      disabled={proceeding || !card.demand_type_key}
+                                      title="Escolher outro responsável para a próxima etapa"
+                                    >
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                )}
+                              </div>
+                              <PopoverContent align="end" className="w-72 p-2">
+                                {routingLoading && !rp ? (
+                                  <div className="p-3 flex justify-center">
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  </div>
+                                ) : !rp?.available ? (
+                                  <p className="p-2 text-xs text-muted-foreground">
+                                    {rp?.reason || "Não há próxima etapa disponível."}
+                                  </p>
+                                ) : rp.inherited ? (
+                                  <p className="p-2 text-xs text-muted-foreground">
+                                    A etapa "{rp.functionName}" será atribuída a{" "}
+                                    <strong>{rp.inheritedName || "quem já responde pelo card"}</strong>.
+                                  </p>
+                                ) : rp.candidates.length === 0 ? (
+                                  <p className="p-2 text-xs text-muted-foreground">
+                                    Nenhum colaborador tem a função "{rp.functionName}" habilitada nesta área.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <p className="px-2 pb-1 text-[10px] uppercase font-semibold text-muted-foreground">
+                                      Próxima etapa: {rp.functionName}
                                     </p>
-                                  ) : routingPreview.inherited ? (
-                                    <p className="p-2 text-xs text-muted-foreground">
-                                      A etapa "{routingPreview.functionName}" mantém o responsável atual — não há escolha de destino.
-                                    </p>
-                                  ) : routingPreview.candidates.length === 0 ? (
-                                    <p className="p-2 text-xs text-muted-foreground">
-                                      Nenhum colaborador tem a função "{routingPreview.functionName}" habilitada nesta área.
-                                    </p>
-                                  ) : (
-                                    <div className="space-y-1">
-                                      <p className="px-2 pb-1 text-[10px] uppercase font-semibold text-muted-foreground">
-                                        Enviar "{routingPreview.functionName}" para
-                                      </p>
-                                      {routingPreview.candidates.map((c) => (
-                                        <button
-                                          key={c.userId}
-                                          onClick={() => handleProceed(c.userId)}
-                                          disabled={proceeding}
-                                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left disabled:opacity-50"
-                                        >
-                                          <span className="truncate flex-1">{c.fullName}</span>
-                                          {c.preferred && (
-                                            <span className="text-[9px] font-semibold uppercase text-primary shrink-0">
-                                              preferencial
-                                            </span>
-                                          )}
-                                          {c.userId === routingPreview.suggestedUserId && (
-                                            <span className="text-[9px] text-muted-foreground shrink-0">sugerido</span>
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </PopoverContent>
-                              </Popover>
-                            </div>
+                                    {rp.candidates.map((c) => (
+                                      <button
+                                        key={c.userId}
+                                        onClick={() => handleProceed(c.userId)}
+                                        disabled={proceeding}
+                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left disabled:opacity-50"
+                                      >
+                                        <span className="truncate flex-1">{c.fullName}</span>
+                                        {c.preferred ? (
+                                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-primary/40 text-primary shrink-0">
+                                            Preferencial
+                                          </Badge>
+                                        ) : c.userId === rp.suggestedUserId ? (
+                                          <span className="text-[9px] text-muted-foreground shrink-0">sugerido</span>
+                                        ) : null}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </PopoverContent>
+                            </Popover>
                           </>
                         )}
                       </div>
@@ -2428,12 +2563,26 @@ export default function TaskCard({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">Sem responsável</SelectItem>
-                        {assigneeOptions.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                        {assigneeOptions.length === 0 && (
+                        {/*
+                          Colaboradores incompatíveis continuam visíveis, mas desabilitados
+                          com o motivo — esconder gerava a dúvida "onde foi meu colega?".
+                        */}
+                        {collaborators.map((c) => {
+                          const eligible = !eligibleAssignees || eligibleAssignees.has(c.id) || c.id === card?.assigned_to;
+                          return (
+                            <SelectItem key={c.id} value={c.id} disabled={!eligible}>
+                              <span className="flex items-center gap-2">
+                                <span className={cn(!eligible && "text-muted-foreground")}>{c.name}</span>
+                                {!eligible && (
+                                  <span className="text-[10px] text-muted-foreground">Sem etapa compatível</span>
+                                )}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                        {collaborators.length === 0 && (
                           <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                            Nenhum colaborador com etapa compatível
+                            Nenhum colaborador cadastrado
                           </div>
                         )}
                       </SelectContent>
@@ -2857,6 +3006,7 @@ export default function TaskCard({
                           const dateStr = v.date || '';
                           const timeStr = v.time || (dateStr ? '09:00' : '');
                           onCardChange({ ...card, publish_date: dateStr, publish_time: timeStr });
+                          if (isDraft) return;
                           await onSave('publish_date', dateStr);
                           await onSave('publish_time', timeStr);
                           if (!dateStr) {
