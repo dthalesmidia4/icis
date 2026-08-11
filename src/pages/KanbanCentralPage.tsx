@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from "react";
+import { draftClientChangePatch } from "@/lib/draftDemand";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
@@ -1926,8 +1927,19 @@ const KanbanCentralPage = () => {
 
   // Called by TaskCard when user picks a client inline (draft mode).
   const handleDraftClientChange = (clientId: string, clientName: string) => {
-    setSelectedCard((prev) => (prev ? { ...prev, clientId, clientName } as CentralKanbanCard : prev));
+    // Período e subclientes pertencem ao cliente anterior: precisam cair junto.
+    setSelectedCard((prev) =>
+      prev
+        ? ({
+            ...prev,
+            clientId,
+            clientName,
+            ...draftClientChangePatch(),
+          } as CentralKanbanCard)
+        : prev,
+    );
   };
+
 
   const handleDraftSave = async () => {
     if (savingDraftRef.current) return;
