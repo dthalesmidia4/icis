@@ -61,7 +61,7 @@ import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
-import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
+import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
