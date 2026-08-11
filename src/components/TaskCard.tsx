@@ -874,6 +874,96 @@ export default function TaskCard({
       setSettingType(false);
     }
   };
+  /* ===================== RASCUNHO — handlers locais (zero write) ===================== */
+
+  /** Resolve a etapa de um responsável na configuração informada (só leitura). */
+  const resolveDraftStage = async (
+    userId: string,
+    typeKey: string | null,
+    area: WorkArea,
+    origin: string | null,
+  ): Promise<string | null> => {
+    if (!card?.tenant_id || !typeKey) return null;
+    try {
+      return await resolveFunctionForAssignee(card.tenant_id, userId, typeKey, null, null, {
+        workArea: area,
+        origin,
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  /** Troca de área no rascunho: revalida tipo e responsável, sem tocar no banco. */
+  const handleDraftAreaChange = async (newArea: WorkArea) => {
+    if (!card) return;
+    const { patch, typeCleared, needsAssigneeRecheck } = draftAreaChangePatch(
+      { demand_type_key: (card as any).demand_type_key, assigned_to: card.assigned_to },
+      newArea,
+      demandTypesForArea(newArea).map((t) => t.key),
+    );
+    if (typeCleared) {
+      onCardChange({ ...card, ...patch } as any);
+      toast.info("Tipo e responsável foram limpos: selecione um tipo da nova área.");
+      return;
+    }
+    if (!needsAssigneeRecheck || !card.assigned_to) {
+      onCardChange({ ...card, ...patch } as any);
+      return;
+    }
+    const nextOrigin = newArea === "midia" ? "interno" : ((card as any).origin ?? "interno");
+    const stage = await resolveDraftStage(card.assigned_to, (card as any).demand_type_key, newArea, nextOrigin);
+    if (stage) {
+      onCardChange({ ...card, ...patch, current_function_key: stage } as any);
+      return;
+    }
+    const nome = collaborators.find((c) => c.id === card.assigned_to)?.name || "O responsável";
+    onCardChange({ ...card, ...patch, assigned_to: null, current_function_key: null } as any);
+    toast.info(`${nome} não tem etapa compatível na área ${AREA_LABEL[newArea]}. Escolha outro responsável.`);
+  };
+
+  /** Troca de origem no rascunho: origem interna pula etapas de cliente e pode invalidar o owner. */
+  const handleDraftOriginChange = async (newOrigin: DemandOrigin) => {
+    if (!card) return;
+    const area: WorkArea = ((card as any).work_area === "sistemas" ? "sistemas" : "midia");
+    if (!card.assigned_to || !(card as any).demand_type_key) {
+      onCardChange({ ...card, origin: newOrigin } as any);
+      return;
+    }
+    const stage = await resolveDraftStage(card.assigned_to, (card as any).demand_type_key, area, newOrigin);
+    if (stage) {
+      onCardChange({ ...card, origin: newOrigin, current_function_key: stage } as any);
+      return;
+    }
+    const nome = collaborators.find((c) => c.id === card.assigned_to)?.name || "O responsável";
+    onCardChange({ ...card, origin: newOrigin, assigned_to: null, current_function_key: null } as any);
+    toast.info(`${nome} não tem etapa compatível com esta origem. Escolha outro responsável.`);
+  };
+
+  /** Troca de responsável no rascunho: a etapa passa a ser a etapa DELE. */
+  const handleDraftAssigneeChange = async (userId: string) => {
+    if (!card) return;
+    if (!userId) {
+      onCardChange({ ...card, assigned_to: null, current_function_key: null } as any);
+      return;
+    }
+    const area: WorkArea = ((card as any).work_area === "sistemas" ? "sistemas" : "midia");
+    const nome = collaborators.find((c) => c.id === userId)?.name || "Este colaborador";
+    const stage = await resolveDraftStage(userId, (card as any).demand_type_key, area, (card as any).origin ?? null);
+    if (!stage) {
+      toast.error(`${nome} não possui nenhuma etapa compatível com este tipo de demanda.`);
+      return;
+    }
+    onCardChange({ ...card, assigned_to: userId, current_function_key: stage } as any);
+  };
+
+  /** Troca de cliente no rascunho: período e subclientes do cliente anterior caem. */
+  const handleDraftClientSelect = (clientId: string, clientName: string) => {
+    onDraftClientChange?.(clientId, clientName);
+    setPeriodTitle(null);
+    if (card) onCardChange({ ...card, ...draftClientChangePatch(), clientId, clientName } as any);
+  };
+
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [selectedAiModel, setSelectedAiModel] = useState<"gpt2" | "nanobanana3" | "nanobanana25">("gpt2");
   // Proporção da arte para geração manual — 4:5 é o padrão do sistema.
