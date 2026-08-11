@@ -227,9 +227,48 @@ export interface ApplyReassignInput {
 }
 
 
-/** Grava a transferência (já validada) e registra o histórico. */
-export async function applyReassign(input: ApplyReassignInput): Promise<{ error: unknown | null }> {
+export type ApplyReassignResult =
+  | { status: "ok"; error: null }
+  | { status: "stale"; error: null }
+  | { status: "conflict"; error: null; hard: AssignmentConflict[]; message: string }
+  | { status: "error"; error: unknown };
+
+/**
+ * Grava a transferência com compare-and-set: só efetiva se o card ainda estiver
+ * no responsável/etapa que a UI leu. Antes de gravar, reconfere o slot — entre a
+ * avaliação e o clique de confirmação outra pessoa pode ter ocupado o horário.
+ */
+export async function applyReassign(input: ApplyReassignInput): Promise<ApplyReassignResult> {
   const { tenantId, card, newAssignedTo, nextFunctionKey, reschedule } = input;
+
+  // Reconferência de agenda com a janela final (já com eventual reagendamento).
+  if (newAssignedTo) {
+    const probeCard: ReassignCard = reschedule
+      ? {
+          ...card,
+          due_date: reschedule.due_date,
+          due_time: reschedule.due_time,
+          delivery_date: reschedule.delivery_date,
+          delivery_time: reschedule.delivery_time,
+        }
+      : card;
+    const recheck = await checkAssignmentConflicts({
+      tenantId,
+      userId: newAssignedTo,
+      card: probeCard,
+      targetStage: nextFunctionKey,
+      area: (card.work_area as WorkArea) ?? null,
+    });
+    if (recheck.hard.length > 0) {
+      return {
+        status: "conflict",
+        error: null,
+        hard: recheck.hard,
+        message: "O horário foi ocupado por outra demanda enquanto você decidia.",
+      };
+    }
+  }
+
   const update: Record<string, any> = {
     assigned_to: newAssignedTo,
     updated_at: new Date().toISOString(),
@@ -245,8 +284,16 @@ export async function applyReassign(input: ApplyReassignInput): Promise<{ error:
   }
 
   await applyFlowReactivation(update, card.id, newAssignedTo);
-  const { error } = await supabase.from("demands").update(update).eq("id", card.id);
-  if (error) return { error };
+
+  const commit = await commitFlowTransition({
+    demandId: card.id,
+    payload: update,
+    expectedAssignedTo: card.assigned_to ?? null,
+    expectedFunctionKey: card.current_function_key ?? null,
+  });
+
+  if (commit.status === "error") return { status: "error", error: commit.error };
+  if (commit.status === "stale") return { status: "stale", error: null };
 
   if (tenantId) {
     await recordFlowHistory({
@@ -264,5 +311,6 @@ export async function applyReassign(input: ApplyReassignInput): Promise<{ error:
       },
     });
   }
-  return { error: null };
+  return { status: "ok", error: null };
 }
+
