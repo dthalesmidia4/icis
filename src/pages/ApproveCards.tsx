@@ -18,8 +18,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
-import { assignInitialResponsible } from "@/lib/initialFlowFunction";
+import { approvePlanCard, updatePlanCard } from "@/lib/evaluatePlanCard";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  IMAGE_ASPECT_OPTIONS,
+  isAspectConfigurableType,
+  resolveCardAspect,
+  type ImageAspectRatio,
+} from "@/lib/imageAspect";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface PeriodData {
@@ -48,6 +54,9 @@ const ApproveCards = () => {
   const [cardsByPeriod, setCardsByPeriod] = useState<Record<string, CardItem[]>>({});
   const [approvedKeys, setApprovedKeys] = useState<Set<string>>(new Set()); // `${periodId}::${title}`
   const [approvingUid, setApprovingUid] = useState<string | null>(null);
+  // Proporção da arte por card do plano (uid → ratio); padrão 4:5 para peças sociais.
+  const [aspectByUid, setAspectByUid] = useState<Record<string, ImageAspectRatio>>({});
+  const [savingAspectUid, setSavingAspectUid] = useState<string | null>(null);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
 
@@ -192,126 +201,88 @@ const ApproveCards = () => {
     enabled: !!tenantId && !!selectedClient?.id,
   });
 
-  const triggerAutoGenerate = useCallback((demandTitle: string, demandType: string | null, demandId: string) => {
+  /**
+   * A auto-geração agora é disparada dentro de `approvePlanCard`.
+   * Aqui apenas avisamos o usuário de que a arte está sendo gerada.
+   */
+  const notifyAutoGenerate = useCallback((demandTitle: string, demandType: string | null, _demandId: string) => {
     const tipo = (demandType || '').toLowerCase();
     const isStaticPost = tipo.includes('post');
     const isCarousel = tipo.includes('carrossel') || tipo.includes('carousel');
     if (!isStaticPost && !isCarousel) return;
-
-    const functionName = isCarousel ? 'auto-generate-carousel' : 'auto-generate-post';
     const label = isCarousel ? 'carrossel' : 'imagem';
-
     toast.info(`Gerando ${label} automaticamente para "${demandTitle}"...`, { duration: 5000 });
-
-    supabase.functions.invoke(functionName, {
-      body: { demandId, source: 'planned', minimalText: true },
-    }).then(({ data, error }) => {
-      if (error) {
-        toast.error(`Erro na geração automática de "${demandTitle}"`);
-        return;
-      }
-      if (data?.skipped) return;
-      if (data?.success) {
-        const msg = isCarousel
-          ? `${data.totalGenerated} slides gerados e anexados a "${demandTitle}"!`
-          : `Imagem gerada e anexada a "${demandTitle}"!`;
-        toast.success(msg);
-      }
-    }).catch(err => console.error('[AutoGen] Exception:', err));
   }, []);
+
+  const cardAspect = useCallback(
+    (card: CardItem): ImageAspectRatio => aspectByUid[card._uid] ?? resolveCardAspect(card),
+    [aspectByUid],
+  );
+
+  const isCardAspectConfigurable = (card: CardItem) =>
+    isAspectConfigurableType(
+      (card as any).demand_type_key ?? (card as any).type_key ?? null,
+      (card as any).tipo ?? (card as any).tipo_conteudo ?? (card as any).type ?? null,
+    );
+
+  /** Salva a proporção escolhida no card do plano antes da aprovação. */
+  const handleChangeAspect = useCallback(async (card: CardItem, next: ImageAspectRatio) => {
+    setAspectByUid((prev) => ({ ...prev, [card._uid]: next }));
+    const period = periods.find((p) => p.id === card._periodId);
+    if (!period) return;
+    setSavingAspectUid(card._uid);
+    try {
+      await updatePlanCard({
+        periodId: period.id,
+        source: card._source,
+        indexInPlan: card._indexInPlan,
+        currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
+        currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
+        patch: { aspect_ratio: next },
+      });
+    } catch (err) {
+      console.error('Error saving aspect ratio:', err);
+      toast.error('Erro ao salvar a proporção');
+    } finally {
+      setSavingAspectUid(null);
+    }
+  }, [periods]);
 
   const handleApprove = useCallback(async (card: CardItem) => {
     if (!selectedClient || !tenantId || !pipelineId || !initialStatusId) return;
 
     setApprovingUid(card._uid);
     try {
-      const c: any = card;
-      const pick = (...vals: any[]) => {
-        for (const v of vals) {
-          if (v === null || v === undefined) continue;
-          const s = typeof v === 'string' ? v.trim() : v;
-          if (s !== '' && s !== null && s !== undefined) return s;
-        }
-        return null;
-      };
+      const title = String((card as any).titulo ?? (card as any).title ?? '').trim() || 'Sem título';
+      const tipo = (card as any).tipo ?? (card as any).tipo_conteudo ?? (card as any).type ?? null;
 
-      const title = pick(c.titulo, c.title) || 'Sem título';
-      const tipo = pick(c.tipo, c.tipo_conteudo, c.type, c.formato);
-      const channel = pick(c.canal, c.channel, c.plataforma);
-      const objetivo = pick(c.objetivo, c.objective, c.goal);
-      const conteudo = pick(
-        c.conteudo, c.texto_da_peca, c.descricao_da_tarefa,
-        c.descricao, c.description, c.content, c.copy, c.copy_sugerida
-      );
-      const instrucoes = pick(
-        c.instrucoes_de_producao, c.instrucoes, c.instructions,
-        c.production_instructions, c.briefing
-      );
-      const cta = pick(c.cta_recomendado, c.cta, c.call_to_action);
-      const caption = pick(c.legenda, c.caption, c.post_caption);
-      const dateStr = pick(c.data_sugerida, c.suggested_date, c.date, c.publish_date, c.data_publicacao);
-      const racional = pick(c.racional_estrategico, c.rationale, c.strategic_rationale, c.racional);
-      const conceitoUltra = pick(c.conceito_ultra, c.ultra_concept, c.conceito);
-      const hook = pick(c.hook, c.gancho);
-      const tomDeVoz = pick(c.tom_de_voz, c.tone_of_voice);
-      const observacoesExtra = pick(c.observacoes, c.observations, c.notas, c.notes);
+      // Materialização unificada (mesma lógica do modal de avaliação).
+      const cardForApproval = isCardAspectConfigurable(card)
+        ? { ...(card as any), aspect_ratio: cardAspect(card) }
+        : (card as any);
 
-      const instructionParts = [
-        instrucoes,
-        cta ? `CTA: ${cta}` : '',
-        hook ? `Hook: ${hook}` : '',
-        tomDeVoz ? `Tom de voz: ${tomDeVoz}` : '',
-      ].filter(Boolean);
-
-      const observationsParts = [
-        racional ? `Racional estratégico:\n${racional}` : '',
-        conceitoUltra ? `Conceito ultra:\n${conceitoUltra}` : '',
-        caption ? `Legenda sugerida:\n${caption}` : '',
-        observacoesExtra ? `Observações:\n${observacoesExtra}` : '',
-      ].filter(Boolean);
-
-      const explicitKey = coerceDemandTypeKey(c.demand_type_key || c.type_key);
-      const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
-
-      const payload: any = {
-        tenant_id: tenantId,
-        client_id: selectedClient.id,
-        pipeline_id: pipelineId,
-        status_id: initialStatusId,
-        period_plan_id: card._periodId,
-        title,
-        source: card._source === 'ultra' ? 'ultra_card' : 'card',
-      };
-      if (objetivo) payload.objective = objetivo;
-      if (conteudo) payload.description = conteudo;
-      if (instructionParts.length) payload.instructions = instructionParts.join('\n\n');
-      if (dateStr) payload.publish_date = dateStr;
-      if (channel) payload.channel = channel;
-      if (tipo) payload.demand_type = tipo;
-      if (demandTypeKey) payload.demand_type_key = demandTypeKey;
-      if (observationsParts.length) payload.observations = observationsParts.join('\n\n');
-
-      const { data: insertedData, error } = await supabase.from('demands').insert(payload).select('id').single();
-      if (error) throw error;
+      const demandId = await approvePlanCard({
+        card: cardForApproval,
+        source: card._source,
+        tenantId,
+        clientId: selectedClient.id,
+        periodId: card._periodId,
+        pipelineId,
+        initialStatusId,
+      });
 
       setApprovedKeys(prev => new Set([...prev, approvedKey(card._periodId, title)]));
       toast.success(`"${title}" aprovado e enviado ao Kanban!`);
 
-      if (insertedData?.id) {
-        await assignInitialResponsible(insertedData.id, tenantId, demandTypeKey, {
-          metadataSource: card._source === 'ultra' ? 'ultra_card' : 'card',
-          workArea: 'midia',
-        });
-
-        triggerAutoGenerate(title, tipo, insertedData.id);
-      }
+      // approvePlanCard já dispara a auto-geração; aqui apenas informamos o usuário.
+      notifyAutoGenerate(title, tipo, demandId);
     } catch (error) {
       console.error('Error approving card:', error);
       toast.error("Erro ao aprovar card");
     } finally {
       setApprovingUid(null);
     }
-  }, [selectedClient, tenantId, pipelineId, initialStatusId, triggerAutoGenerate]);
+  }, [selectedClient, tenantId, pipelineId, initialStatusId, notifyAutoGenerate, cardAspect]);
 
   const handleApproveAll = async () => {
     const pending: CardItem[] = [];
