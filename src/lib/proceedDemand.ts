@@ -890,7 +890,7 @@ export async function jumpToFunction({
         .select("full_name")
         .eq("id", prevUser)
         .maybeSingle();
-      picked = { success: true, userId: prevUser, name: (prof as any)?.full_name || "Colaborador" };
+      picked = { success: true, userId: prevUser, name: (prof as any)?.full_name || "Colaborador", source: "sticky" };
     }
   }
 
@@ -903,7 +903,7 @@ export async function jumpToFunction({
         .select("full_name")
         .eq("id", historic)
         .maybeSingle();
-      picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
+      picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador", source: "historic_return" };
     }
   }
 
@@ -913,15 +913,20 @@ export async function jumpToFunction({
       preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
       excludeUserIds: isReviewTarget && !isBackward ? jumpExecutors : [],
       workArea: jumpArea,
+      clientId: jumpMeta.clientId,
     });
   }
   if (isReviewTarget && (!picked.success || !picked.userId)) {
     // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
-    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea });
+    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea, clientId: jumpMeta.clientId });
   }
 
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
   const jumpAction = isBackward ? "moved_back" : "proceeded";
+  const jumpMetaOut: Record<string, unknown> = {
+    ...(jumpHistoryMeta || {}),
+    routing: picked.source || "automatic_load",
+  };
 
 
   const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
@@ -947,7 +952,7 @@ export async function jumpToFunction({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta },
+      { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpMetaOut as any },
       [prevUser, ...captarExtras],
     );
   } else {
@@ -955,7 +960,7 @@ export async function jumpToFunction({
     if (!isBackward && currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
       await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
     }
-    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta });
+    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpMetaOut as any });
   }
   // Regressão não conclui a etapa atual: só avanços registram entrega.
   if (!isBackward) {
@@ -1237,6 +1242,8 @@ export async function regressDemand({
     const picked = await pickAssigneeForFunction(tenantId, "enviar_cliente", prevFn.name, {
       preferUserIds: waitAssignee ? [waitAssignee] : [],
       workArea: backArea,
+      clientId: backMeta.clientId,
+      clientPreferenceOrder: "after",
     });
 
     if (!picked.success || !picked.userId) {
@@ -1267,6 +1274,7 @@ export async function regressDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: prevFn.function_key,
+      metadata: { routing: picked.source || "automatic_load" } as any,
     });
     return {
       success: true,
@@ -1288,19 +1296,26 @@ export async function regressDemand({
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
 
-  // Ao voltar, o responsável natural é quem já executou aquela etapa.
+  // Ao voltar, o responsável natural é quem já executou aquela etapa — um
+  // executor histórico ainda elegível nunca é substituído pelo preferencial.
   let picked = await (async (): Promise<PickAssigneeResult> => {
     const completions = await getStageCompletions(tenantId, demandId);
     const historic = lastUserOfStage(completions, prevFn.function_key);
     if (historic) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", historic)
-        .maybeSingle();
-      return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
+      const stillEligible = await userHasFunction(tenantId, historic, prevFn.function_key, backArea);
+      if (stillEligible) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", historic)
+          .maybeSingle();
+        return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador", source: "historic_return" };
+      }
     }
-    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name, { workArea: backArea });
+    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name, {
+      workArea: backArea,
+      clientId: backMeta.clientId,
+    });
   })();
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
@@ -1327,7 +1342,7 @@ export async function regressDemand({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key },
+      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: { routing: picked.source || "automatic_load" } as any },
       [previousAssignee, ...captarExtras],
     );
   } else {
@@ -1339,6 +1354,7 @@ export async function regressDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: prevFn.function_key,
+      metadata: { routing: picked.source || "automatic_load" } as any,
     });
   }
   return {
