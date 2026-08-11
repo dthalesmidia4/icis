@@ -1926,8 +1926,19 @@ const KanbanCentralPage = () => {
 
   // Called by TaskCard when user picks a client inline (draft mode).
   const handleDraftClientChange = (clientId: string, clientName: string) => {
-    setSelectedCard((prev) => (prev ? { ...prev, clientId, clientName } as CentralKanbanCard : prev));
+    // Período e subclientes pertencem ao cliente anterior: precisam cair junto.
+    setSelectedCard((prev) =>
+      prev
+        ? ({
+            ...prev,
+            clientId,
+            clientName,
+            ...draftClientChangePatch(),
+          } as CentralKanbanCard)
+        : prev,
+    );
   };
+
 
   const handleDraftSave = async () => {
     if (savingDraftRef.current) return;
