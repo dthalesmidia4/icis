@@ -238,7 +238,9 @@ const CollaboratorDemands = () => {
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
 
   const sortedCards = useMemo(() => {
-    const arr = [...cards].filter((c) => !activeDispatchIds.has(c.id));
+    const arr = [...cards].filter(
+      (c) => !activeDispatchIds.has(c.id) && isOperationallyReleased(c, releaseConfig),
+    );
     const getVal = (c: KanbanCardData): string => {
       switch (sortKey) {
         case "title": return (c.title || "").toLowerCase();
