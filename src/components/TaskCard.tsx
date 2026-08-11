@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { isClientStageKey, userHasFunction } from "@/lib/clientStageAssignments";
 import { IMAGE_ASPECT_OPTIONS, DEFAULT_SOCIAL_ASPECT, isImageAspectRatio, type ImageAspectRatio } from "@/lib/imageAspect";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { extractClipboardFiles, normalizePastedFiles } from "@/lib/pastedFiles";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -473,7 +474,10 @@ export default function TaskCard({
   const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos'>(
     presentation === 'drawer' && (card as any)?.content_brief ? 'briefing' : 'description'
   );
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const fileDragDepthRef = useRef(0);
   const [datesOpen, setDatesOpen] = useState(false);
+
   const [publishOpen, setPublishOpen] = useState(false);
   const [objectiveOpen, setObjectiveOpen] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
@@ -918,6 +922,81 @@ export default function TaskCard({
       await onReorderAttachments(newAttachments);
     }
   }, [card, onCardChange, onReorderAttachments]);
+
+  // ===== Upload por arrastar/soltar e colar (reutiliza o onFileUpload dos pais) =====
+  const uploadDisabled = readOnly || isDraft || uploading;
+
+  const uploadFilesThroughExistingHandler = useCallback(async (files: File[]) => {
+    if (!files.length || uploadDisabled) return;
+    const syntheticTarget = { files: files as unknown as FileList, value: "" } as HTMLInputElement;
+    const syntheticEvent = {
+      target: syntheticTarget,
+      currentTarget: syntheticTarget,
+    } as React.ChangeEvent<HTMLInputElement>;
+    await onFileUpload(syntheticEvent);
+  }, [onFileUpload, uploadDisabled]);
+
+  const hasDraggedFiles = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer?.types || []).includes('Files');
+
+  const handleFilesDragEnter = useCallback((e: React.DragEvent) => {
+    if (uploadDisabled || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fileDragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  }, [uploadDisabled]);
+
+  const handleFilesDragOver = useCallback((e: React.DragEvent) => {
+    if (uploadDisabled || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, [uploadDisabled]);
+
+  const handleFilesDragLeave = useCallback((e: React.DragEvent) => {
+    if (uploadDisabled || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fileDragDepthRef.current = Math.max(0, fileDragDepthRef.current - 1);
+    if (fileDragDepthRef.current === 0) setIsDraggingFiles(false);
+  }, [uploadDisabled]);
+
+  const handleFilesDrop = useCallback((e: React.DragEvent) => {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fileDragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    if (uploadDisabled) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length) void uploadFilesThroughExistingHandler(files);
+  }, [uploadDisabled, uploadFilesThroughExistingHandler]);
+
+  // Colar arquivos/mídia enquanto a aba Anexos está ativa
+  useEffect(() => {
+    if (!open || activeSection !== 'anexos' || uploadDisabled) return;
+    const handler = (event: ClipboardEvent) => {
+      const el = event.target as HTMLElement | null;
+      const tag = el?.tagName?.toUpperCase();
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!el?.isContentEditable;
+      if (isTyping) return;
+      const files = normalizePastedFiles(extractClipboardFiles(event.clipboardData));
+      if (!files.length) return;
+      event.preventDefault();
+      void uploadFilesThroughExistingHandler(files);
+    };
+    document.addEventListener('paste', handler);
+    return () => document.removeEventListener('paste', handler);
+  }, [open, activeSection, uploadDisabled, uploadFilesThroughExistingHandler]);
+
+  // Limpeza do highlight quando a aba muda ou o card fecha
+  useEffect(() => {
+    if (open && activeSection === 'anexos') return;
+    fileDragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+  }, [open, activeSection]);
+
 
   // Handle ESC key to close modal
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -2953,8 +3032,22 @@ export default function TaskCard({
             {activeSection === 'anexos' && (
             <div className="px-6 pb-6">
               <Card>
-                <CardContent className="p-5">
+                <CardContent
+                  className="p-5 relative"
+                  onDragEnter={handleFilesDragEnter}
+                  onDragOver={handleFilesDragOver}
+                  onDragLeave={handleFilesDragLeave}
+                  onDrop={handleFilesDrop}
+                >
+                  {isDraggingFiles && (
+                    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/10 backdrop-blur-sm">
+                      <Upload className="h-8 w-8 text-primary" />
+                      <p className="text-sm font-semibold text-primary">Solte os arquivos para anexar</p>
+                      <p className="text-xs text-primary/80">Você pode enviar vários arquivos de uma vez</p>
+                    </div>
+                  )}
                   {/* Header dos Anexos */}
+
                   <div className="flex items-center justify-between mb-4">
                     <button 
                       type="button"
@@ -3173,11 +3266,19 @@ export default function TaskCard({
                           ) : (
                             <Upload className="h-5 w-5 text-muted-foreground" />
                           )}
-                          <span className="text-sm text-muted-foreground">
-                            {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
-                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm text-muted-foreground">
+                              {uploading ? 'Fazendo upload...' : 'Clique, arraste ou cole arquivos aqui'}
+                            </p>
+                            {!uploading && (
+                              <p className="text-[11px] text-muted-foreground/70">
+                                Ctrl+V / Cmd+V • vários arquivos • máx. 50MB por arquivo
+                              </p>
+                            )}
+                          </div>
                         </label>
                       )}
+
 
                     </>
                   )}
