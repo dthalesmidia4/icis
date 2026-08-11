@@ -2734,11 +2734,12 @@ const KanbanCentralPage = () => {
 
             const allColumnCardsRaw = isHistoryMode ? historyColumnCards : activeColumnCards;
 
-            // Fila de liberação: separa as demandas ainda não liberadas (só o gestor chega aqui).
-            const queuedCards = !isHistoryMode
+            // Fila de liberação: só separa "não liberadas" quando a fila está ATIVA.
+            // Com a fila desativada, `released_at` é histórico e todo card é operacional.
+            const queuedCards = !isHistoryMode && queueActive
               ? allColumnCardsRaw.filter((c) => (c as any).released_at == null)
               : [];
-            const allColumnCards = !isHistoryMode
+            const allColumnCards = !isHistoryMode && queueActive
               ? allColumnCardsRaw.filter((c) => (c as any).released_at != null)
               : allColumnCardsRaw;
 
