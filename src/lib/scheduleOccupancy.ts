@@ -18,6 +18,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { estimateDurationMinutes } from "@/lib/reorderSequence";
 import { isClientFacingFunction } from "@/lib/flowFunctions";
 import { findScheduleAreaConflict, AREA_LABEL, type WorkArea } from "@/lib/areaConflicts";
+import {
+  buildDayWindows,
+  firstFreeStart,
+  fromMin,
+  toMin,
+  DEFAULT_WORK_WINDOWS,
+} from "@/lib/freeSlot";
 
 export type { WorkArea };
 export { AREA_LABEL };
