@@ -2526,25 +2526,7 @@ export default function TaskCard({
 
             {/* Linha 2: Cliente + Status */}
             <div className="flex items-center gap-4 mt-2 flex-wrap">
-              {isDraft ? (
-                <Select
-                  value={card.clientId || ""}
-                  onValueChange={(v) => {
-                    const c = draftClients.find((d) => d.id === v);
-                    onDraftClientChange?.(v, c?.name || "Cliente");
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-auto min-w-[200px] text-xs font-medium">
-                    <SelectValue placeholder="Selecione o cliente *" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50 max-h-[320px]">
-                    {draftClients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : null}
-              {isDraft && <div className="h-4 w-px bg-border" />}
+              {/* Cliente do rascunho vive no bloco "Configuração da demanda" (ordem de dependência). */}
 
               {/* Status oculto visualmente (mantido no DOM para preservar comportamento) */}
               <div className="hidden">
@@ -2649,7 +2631,10 @@ export default function TaskCard({
                         <>
               {/* === CONTROLES INTEGRADOS (barra fina, popovers locais) === */}
               <div className="space-y-4">
-                {/* Barra única: Responsável · Tipo   ·   Datas   Objetivo */}
+                {/* Barra única operacional (card já salvo): Responsável · Tipo · Datas.
+                    No RASCUNHO ela é substituída pelo bloco "Configuração da demanda"
+                    abaixo, para não duplicar os mesmos campos fora da ordem correta. */}
+                {!isDraft && (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-2 py-1.5 rounded-lg bg-muted/30">
                   {/* Responsável */}
                   <div className="flex items-center gap-1 min-w-0">
@@ -3125,7 +3110,7 @@ export default function TaskCard({
                         dueTime={card.due_time}
                         deliveryDate={card.delivery_date}
                         deliveryTime={card.delivery_time}
-                        disabled={readOnly || (isDraft && !(card as any).demand_type_key)}
+                        disabled={readOnly || (isDraft && !card.assigned_to)}
                         onSave={async (v) => {
                           const patch: any = {
                             ...card,
@@ -3267,6 +3252,12 @@ export default function TaskCard({
                             className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
                             onClick={async () => {
                               if (!card) return;
+                              // RASCUNHO: o card não existe no banco — só memória.
+                              if (isDraft) {
+                                onCardChange({ ...card, period_plan_id: null } as any);
+                                setPeriodTitle(null);
+                                return;
+                              }
                               try {
                                 const { error } = await supabase
                                   .from("demands")
@@ -3313,6 +3304,12 @@ export default function TaskCard({
                     )}
                   </div>
                 </div>
+                )}
+
+                {/* ===== RASCUNHO: bloco de configuração na ordem de dependência ===== */}
+                {isDraft && (
+                  <DraftConfigBlock />
+                )}
 
 
                 {/* Card Diário (recorrência) — bloco separado quando ativo */}
