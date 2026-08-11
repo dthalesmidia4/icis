@@ -962,6 +962,38 @@ export default function TaskCard({
     ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
     : collaborators;
 
+  /**
+   * RASCUNHO — completude.
+   * "Salvar Demanda" só habilita quando o card tem o mínimo para entrar no fluxo:
+   * cliente, tipo, responsável, título e alguma data de produção/publicação.
+   */
+  const draftMissingFields: string[] = isDraft
+    ? [
+        !card?.clientId ? "cliente" : null,
+        !(card as any)?.demand_type_key ? "tipo de demanda" : null,
+        !card?.assigned_to ? "responsável" : null,
+        !card?.title?.trim() ? "título" : null,
+        !card?.due_date && !card?.delivery_date && !card?.publish_date && !card?.is_daily_card
+          ? "datas"
+          : null,
+      ].filter(Boolean) as string[]
+    : [];
+  const draftReady = isDraft && draftMissingFields.length === 0;
+
+  /**
+   * RASCUNHO — revalidação do responsável.
+   * Trocar área / tipo / cliente pode invalidar a etapa de quem estava escolhido.
+   * Nesse caso limpamos o responsável em vez de salvar um vínculo impossível.
+   */
+  useEffect(() => {
+    if (!isDraft || !card?.assigned_to || !eligibleAssignees) return;
+    if (eligibleAssignees.has(card.assigned_to)) return;
+    const nome = collaborators.find((c) => c.id === card.assigned_to)?.name || "O responsável";
+    onCardChange({ ...card, assigned_to: null, current_function_key: null } as any);
+    toast.info(`${nome} não tem etapa compatível com esta configuração — escolha outro responsável.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDraft, eligibleAssignees, card?.assigned_to, (card as any)?.demand_type_key, (card as any)?.work_area, card?.clientId]);
+
 
 
   // Opções de "Voltar demanda" (etapas anteriores + quem executou cada uma)
@@ -2535,12 +2567,26 @@ export default function TaskCard({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">Sem responsável</SelectItem>
-                        {assigneeOptions.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                        {assigneeOptions.length === 0 && (
+                        {/*
+                          Colaboradores incompatíveis continuam visíveis, mas desabilitados
+                          com o motivo — esconder gerava a dúvida "onde foi meu colega?".
+                        */}
+                        {collaborators.map((c) => {
+                          const eligible = !eligibleAssignees || eligibleAssignees.has(c.id) || c.id === card?.assigned_to;
+                          return (
+                            <SelectItem key={c.id} value={c.id} disabled={!eligible}>
+                              <span className="flex items-center gap-2">
+                                <span className={cn(!eligible && "text-muted-foreground")}>{c.name}</span>
+                                {!eligible && (
+                                  <span className="text-[10px] text-muted-foreground">Sem etapa compatível</span>
+                                )}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                        {collaborators.length === 0 && (
                           <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                            Nenhum colaborador com etapa compatível
+                            Nenhum colaborador cadastrado
                           </div>
                         )}
                       </SelectContent>
