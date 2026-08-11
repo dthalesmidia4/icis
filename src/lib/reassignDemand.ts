@@ -14,6 +14,7 @@ import { userHasFunction } from "@/lib/clientStageAssignments";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
+import { commitFlowTransition } from "@/lib/flowTransition";
 import {
   checkAssignmentConflicts,
   suggestFreeSlot,
