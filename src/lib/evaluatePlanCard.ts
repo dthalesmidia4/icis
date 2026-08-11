@@ -76,6 +76,13 @@ export async function approvePlanCard(ctx: PlanCardContext): Promise<string> {
   const explicitKey = coerceDemandTypeKey(c.demand_type_key || c.type_key);
   const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
 
+  // Proporção da arte: escolha explícita do card prevalece; peças sociais
+  // estáticas/carrossel caem em 4:5 (padrão do sistema).
+  const aspectConfigurable = isAspectConfigurableType(demandTypeKey, tipo);
+  const aspectRatio = aspectConfigurable
+    ? resolveCardAspect(c, { demandTypeKey, demandType: tipo })
+    : null;
+
   const payload: any = {
     tenant_id: ctx.tenantId,
     client_id: ctx.clientId,
@@ -93,6 +100,7 @@ export async function approvePlanCard(ctx: PlanCardContext): Promise<string> {
   if (tipo) payload.demand_type = tipo;
   if (demandTypeKey) payload.demand_type_key = demandTypeKey;
   if (observationsParts.length) payload.observations = observationsParts.join("\n\n");
+  if (aspectRatio) payload.image_aspect_ratio = aspectRatio;
 
   const { data: inserted, error } = await supabase
     .from("demands")
@@ -123,9 +131,18 @@ export async function approvePlanCard(ctx: PlanCardContext): Promise<string> {
   if (isStatic || isCarousel) {
     const fn = isCarousel ? "auto-generate-carousel" : "auto-generate-post";
     supabase.functions
-      .invoke(fn, { body: { demandId, source: "planned", minimalText: true, aiModel: "gpt2" } })
+      .invoke(fn, {
+        body: {
+          demandId,
+          source: "planned",
+          minimalText: true,
+          aiModel: "gpt2",
+          aspectRatio: aspectRatio ?? undefined,
+        },
+      })
       .catch((err) => console.warn(`[approvePlanCard] auto-gen (${fn}) failed`, err));
   }
+
 
   return demandId;
 }
