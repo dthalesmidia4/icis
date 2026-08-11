@@ -196,12 +196,12 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
 
   const handleDownload = useCallback(async () => {
     try {
-      const response = await fetch(fileUrl);
+      const response = await fetch(activeUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = fileName;
+      a.download = activeName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -210,22 +210,22 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
     } catch (error) {
       toast.error("Erro ao baixar arquivo");
     }
-  }, [fileUrl, fileName]);
+  }, [activeUrl, activeName]);
 
   const handleOpenInNewTab = useCallback(() => {
-    window.open(fileUrl, "_blank");
-  }, [fileUrl]);
+    window.open(activeUrl, "_blank");
+  }, [activeUrl]);
 
   const handleCopyUrl = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(fileUrl);
+      await navigator.clipboard.writeText(activeUrl);
       setCopied(true);
       toast.success("URL copiada");
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast.error("Erro ao copiar URL");
     }
-  }, [fileUrl]);
+  }, [activeUrl]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => !prev);
@@ -260,8 +260,8 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
         return (
           <div className="flex items-center justify-center w-full h-full overflow-auto p-4">
             <img
-              src={fileUrl}
-              alt={fileName}
+              src={activeUrl}
+              alt={activeName}
               className="max-w-full max-h-full object-contain transition-transform duration-200"
               style={zoomStyle}
             />
@@ -272,7 +272,7 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
         return (
           <div className="flex items-center justify-center w-full h-full p-4">
             <video
-              src={fileUrl}
+              src={activeUrl}
               controls
               className="max-w-full max-h-full rounded-lg"
               style={{ maxHeight: "calc(100% - 2rem)" }}
@@ -288,8 +288,8 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
             <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center">
               <FileAudio className="w-16 h-16 text-primary" />
             </div>
-            <p className="text-foreground font-medium text-lg">{fileName}</p>
-            <audio src={fileUrl} controls className="w-full max-w-md">
+            <p className="text-foreground font-medium text-lg">{activeName}</p>
+            <audio src={activeUrl} controls className="w-full max-w-md">
               Seu navegador não suporta a reprodução de áudio.
             </audio>
           </div>
@@ -299,9 +299,9 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
         return (
           <div className="w-full h-full overflow-auto">
             <iframe
-              src={`https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`}
+              src={`https://docs.google.com/gview?url=${encodeURIComponent(activeUrl)}&embedded=true`}
               className="w-full h-full border-0"
-              title={fileName}
+              title={activeName}
             />
           </div>
         );
@@ -313,7 +313,7 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
               <FileIcon className="w-16 h-16 text-muted-foreground" />
             </div>
             <div className="text-center space-y-2">
-              <p className="text-foreground font-medium text-lg">{fileName}</p>
+              <p className="text-foreground font-medium text-lg">{activeName}</p>
               <p className="text-muted-foreground text-sm">
                 Pré-visualização não disponível para este tipo de arquivo
               </p>
@@ -346,7 +346,7 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
             <div className="flex items-center gap-3 min-w-0">
               <FileIcon className="w-5 h-5 text-muted-foreground shrink-0" />
               <span className="text-sm font-medium text-foreground truncate">
-                {fileName}
+                {activeName}
               </span>
             </div>
             <Button
@@ -486,7 +486,7 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir anexo</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir "{fileName}"? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir "{activeName}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
