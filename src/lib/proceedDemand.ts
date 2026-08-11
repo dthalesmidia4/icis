@@ -1015,8 +1015,9 @@ export async function proceedDemand({
       functionKey: nextFn.function_key,
       functionName: nextFn.name,
       message: `Demanda marcada como enviada — aguardando retorno do cliente.${skipNote}`,
+      flowState: waitCommit.flowState,
     };
-  }
+
 
   const picked = resolved.picked;
   if (!picked || !picked.success || !picked.userId) {
