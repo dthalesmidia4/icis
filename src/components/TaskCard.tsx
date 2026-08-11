@@ -3214,6 +3214,25 @@ export default function TaskCard({
                 <SelectItem value="nanobanana25">Nanobanana 2.5 (Gemini Flash)</SelectItem>
               </SelectContent>
             </Select>
+            <div className="space-y-2 pt-1">
+              <label className="text-xs font-medium text-muted-foreground">Proporção da arte</label>
+              <Select
+                value={generationAspect}
+                onValueChange={(v) => setGenerationAspect(v as ImageAspectRatio)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMAGE_ASPECT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                A proporção escolhida será salva nesta demanda e usada também nas regenerações.
+              </p>
+            </div>
             <p className="text-[11px] text-muted-foreground">
               {selectedAiModel === "gpt2" && "openai · gpt-image-2"}
               {selectedAiModel === "nanobanana3" && "google · gemini-3-pro-image-preview"}
