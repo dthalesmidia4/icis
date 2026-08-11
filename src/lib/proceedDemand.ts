@@ -902,7 +902,7 @@ export async function jumpToFunction({
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [prevUser, ...stageExtras]);
   }
   await recordStageTouchpoint(tenantId, demandId, target.function_key);
-  return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.` };
+  return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.`, flowState: jumpCommit.flowState };
 }
 
 export async function proceedDemand({
