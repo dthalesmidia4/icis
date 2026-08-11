@@ -1165,11 +1165,14 @@ export async function regressDemand({
       client_wait_started_at: null,
     };
     await applyFlowReactivation(resendPayload, demandId, picked.userId);
-    const { error: upErr } = await supabase
-      .from("demands")
-      .update(resendPayload)
-      .eq("id", demandId);
-    if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    const resendCommit = await commitFlowTransition({
+      demandId,
+      payload: resendPayload,
+      expectedFunctionKey: currentFunctionKey || null,
+      expectedAssignee: waitAssignee,
+    });
+    if (resendCommit.status === "stale") return staleResult(demandId);
+    if (resendCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
     await recordFlowHistory({
       tenantId,
       demandId,
@@ -1186,7 +1189,9 @@ export async function regressDemand({
       functionKey: prevFn.function_key,
       functionName: prevFn.name,
       message: `Demanda devolvida para "Enviar cliente" com ${picked.name}.`,
+      flowState: resendCommit.flowState,
     };
+
   }
 
   const { data: currentDemand } = await supabase
