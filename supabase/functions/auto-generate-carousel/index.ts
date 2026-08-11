@@ -5,6 +5,7 @@ import { loadVisualIdentity } from "../_shared/visual-identity.ts";
 import { getCarouselPrompt } from "../_shared/system-prompts.ts";
 import { fetchInlineImage } from "../_shared/fetch-image.ts";
 import { generateCarouselSlideImages, type SlideRunResult } from "../_shared/carousel-image-runner.ts";
+import { normalizeAspectRatio, aspectPromptLabel } from "../_shared/aspect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -153,7 +154,7 @@ Deno.serve(async (req) => {
     const startedAt = Date.now();
     const elapsedMs = () => Date.now() - startedAt;
 
-    const { demandId, source, minimalText, forceRegenerate } = await req.json();
+    const { demandId, source, minimalText, forceRegenerate, aspectRatio } = await req.json();
     const isPlanned = source === 'planned' || minimalText === true;
 
     if (!demandId) {
@@ -221,6 +222,11 @@ Deno.serve(async (req) => {
 
     // 4. Carousel prompt (canonical → legacy custom → empty)
     const { content: basePrompt, key: promptKey } = await getCarouselPrompt(supabase, demand.tenant_id);
+
+    // Proporção autoritativa do carrossel: request > campo da demand > 4:5.
+    // Todos os slides do mesmo carrossel usam a mesma proporção.
+    const ratio = normalizeAspectRatio(aspectRatio || demand.image_aspect_ratio || "4:5");
+    const authoritativeAspectRule = `\n\nFORMATO DE SAÍDA AUTORITATIVO: ${aspectPromptLabel(ratio)}. A proporção selecionada na interface prevalece sobre qualquer dimensão ou proporção diferente mencionada em textos antigos de planejamento/instruções. Não mude o canvas para seguir referências legadas.`;
     console.log(`📋 Carrossel usando prompt: ${promptKey || "FALLBACK_HARDCODED"}`);
 
     // 5. Strategy snippet (short)
@@ -540,8 +546,9 @@ REGRAS:
         openaiApiKey: OPENAI_API_KEY,
         aiModel: DEFAULT_IMAGE_MODEL,
         vi,
-        basePrompt,
+        basePrompt: (basePrompt || "") + authoritativeAspectRule,
         strategySnippet,
+        aspectLabel: ratio,
         slides: batch,
         allSlides: slides,
         batchOffset: range.startIndex,

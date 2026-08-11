@@ -13,6 +13,13 @@ import { approvePlanCard, rejectPlanCard, replacePlanCard, updatePlanCard } from
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import type { PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  IMAGE_ASPECT_OPTIONS,
+  isAspectConfigurableType,
+  resolveCardAspect,
+  type ImageAspectRatio,
+} from "@/lib/imageAspect";
 
 interface Props {
   open: boolean;
@@ -45,6 +52,10 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
   // Reject form
   const [rejectReason, setRejectReason] = useState("");
 
+  // Proporção da arte (padrão 4:5) — escolhida ANTES de aprovar.
+  const [aspect, setAspect] = useState<ImageAspectRatio>("4:5");
+  const [savingAspect, setSavingAspect] = useState(false);
+
   // Content requirements diff modal (learning proposal after reject/reevaluate)
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffSaving, setDiffSaving] = useState(false);
@@ -64,6 +75,7 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
     setMode("view");
     setRejectReason("");
     setLocalCard(card?.card ?? null);
+    setAspect(resolveCardAspect(card?.card ?? {}));
     setPendingAction(null);
   }, [open, card]);
 
@@ -109,6 +121,37 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
       observacoes: pick(raw.observacoes, raw.observations, raw.notas, raw.notes),
     };
   }, [raw, card]);
+
+  const aspectConfigurable = isAspectConfigurableType(
+    raw.demand_type_key ?? raw.type_key ?? null,
+    fields.tipo,
+  );
+
+  /** Persiste a proporção escolhida no card do plano (aspect_ratio). */
+  const persistAspect = async (next: ImageAspectRatio) => {
+    setAspect(next);
+    if (!card) return;
+    setSavingAspect(true);
+    try {
+      const { data: period, error } = await supabase
+        .from("period_plans").select("default_plan, ultra_plan").eq("id", card.periodId).single();
+      if (error || !period) throw error;
+      const updated = await updatePlanCard({
+        periodId: card.periodId,
+        source: card.source,
+        indexInPlan: card.indexInPlan,
+        currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
+        currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
+        patch: { aspect_ratio: next },
+      });
+      if (updated) setLocalCard(updated);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao salvar a proporção");
+    } finally {
+      setSavingAspect(false);
+    }
+  };
 
   if (!card) return null;
 
@@ -173,8 +216,12 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
         onOpenChange(false);
         return;
       }
+      const cardForApproval = {
+        ...(localCard ?? card.card),
+        ...(aspectConfigurable ? { aspect_ratio: aspect } : {}),
+      };
       await approvePlanCard({
-        card: localCard ?? card.card,
+        card: cardForApproval,
         source: card.source,
         tenantId,
         clientId: card.clientId,
@@ -461,6 +508,28 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
               {fields.conceitoUltra && <Section title="Conceito ultra">{fields.conceitoUltra}</Section>}
               {fields.legenda && <Section title="Legenda sugerida">{fields.legenda}</Section>}
               {fields.observacoes && <Section title="Observações">{fields.observacoes}</Section>}
+
+              {aspectConfigurable && (
+                <section className="rounded-md border border-border bg-muted/30 p-3 space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Proporção da arte
+                  </Label>
+                  <Select value={aspect} onValueChange={(v) => persistAspect(v as ImageAspectRatio)}>
+                    <SelectTrigger disabled={!!busy || savingAspect}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {IMAGE_ASPECT_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    A proporção escolhida aqui é usada na geração da arte e prevalece sobre dimensões
+                    citadas em textos antigos do planejamento.
+                  </p>
+                </section>
+              )}
             </div>
 
             <DialogFooter className="gap-2 flex-wrap sm:justify-between">

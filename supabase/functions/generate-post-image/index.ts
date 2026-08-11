@@ -6,7 +6,7 @@ import { loadVisualIdentity } from "../_shared/visual-identity.ts";
 import { buildStaticPostPrompt } from "../_shared/image-prompts.ts";
 import { fetchInlineImage, fetchInlineImages } from "../_shared/fetch-image.ts";
 import { generateImageWithModel } from "../_shared/image-generation.ts";
-import { aspectFromDemandType, aspectPromptLabel } from "../_shared/aspect.ts";
+import { aspectFromDemandType, aspectPromptLabel, normalizeAspectRatio } from "../_shared/aspect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { demandId, slideNumber, replaceSlide, aiModel: aiModelInput } = await req.json();
+    const { demandId, slideNumber, replaceSlide, aiModel: aiModelInput, aspectRatio } = await req.json();
 
     if (!demandId) {
       return new Response(JSON.stringify({ error: "demandId é obrigatório" }), {
@@ -253,7 +253,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const aspectLabel = getAspectLabel(demand.demand_type);
+    // Proporção autoritativa: request > campo persistido na demand > default do tipo.
+    const ratio = normalizeAspectRatio(
+      aspectRatio || demand.image_aspect_ratio || aspectFromDemandType(demand.demand_type),
+    );
+    const aspectLabel = aspectPromptLabel(ratio);
+    const authoritativeAspectRule = `FORMATO DE SAÍDA AUTORITATIVO: ${aspectLabel}. A proporção selecionada na interface prevalece sobre qualquer dimensão ou proporção diferente mencionada em textos antigos de planejamento/instruções. Não mude o canvas para seguir referências legadas.`;
     const totalSlidesForPrompt = slideNumber ? Math.max(allSlides.length, slideNumber) : allSlides.length;
     const generatedAttachments: any[] = [];
     const existingAttachments = demand.attachments || [];
@@ -310,7 +315,7 @@ Deno.serve(async (req) => {
         vi,
         basePrompt,
         strategySnippet,
-        contentSection,
+        contentSection: contentSection + "\n\n" + authoritativeAspectRule,
         hasMascotReference: mascotInline.length > 0,
         aspectLabel,
       });
@@ -323,7 +328,7 @@ Deno.serve(async (req) => {
           prompt: imagePrompt,
           mascotInline,
           logoInline,
-          aspectLabel,
+          aspectLabel: ratio,
           googleApiKey: GOOGLE_API_KEY,
           openaiApiKey: OPENAI_API_KEY,
         });

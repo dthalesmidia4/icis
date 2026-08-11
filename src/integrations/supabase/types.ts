@@ -795,6 +795,7 @@ export type Database = {
           due_date: string | null
           due_time: string | null
           id: string
+          image_aspect_ratio: string | null
           instructions: string | null
           is_daily_card: boolean
           is_draft: boolean
@@ -855,6 +856,7 @@ export type Database = {
           due_date?: string | null
           due_time?: string | null
           id?: string
+          image_aspect_ratio?: string | null
           instructions?: string | null
           is_daily_card?: boolean
           is_draft?: boolean
@@ -915,6 +917,7 @@ export type Database = {
           due_date?: string | null
           due_time?: string | null
           id?: string
+          image_aspect_ratio?: string | null
           instructions?: string | null
           is_daily_card?: boolean
           is_draft?: boolean
