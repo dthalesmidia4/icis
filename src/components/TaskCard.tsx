@@ -1208,7 +1208,15 @@ export default function TaskCard({
     setRegeneratingSlide(slideNumber);
     try {
       const { data, error } = await supabase.functions.invoke("generate-post-image", {
-        body: { demandId: card.id, slideNumber, replaceSlide: false, aiModel: "gpt2" },
+        body: {
+          demandId: card.id,
+          slideNumber,
+          replaceSlide: false,
+          aiModel: "gpt2",
+          aspectRatio: isImageAspectRatio(card.image_aspect_ratio)
+            ? card.image_aspect_ratio
+            : DEFAULT_SOCIAL_ASPECT,
+        },
       });
       if (error) throw error;
       if (data?.error) {
