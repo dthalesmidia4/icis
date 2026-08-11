@@ -106,19 +106,58 @@ const getFileIcon = (fileType: FileType) => {
   }
 };
 
+const isTypingTarget = (target: EventTarget | null): boolean => {
+  const el = target as HTMLElement | null;
+  if (!el || !el.tagName) return false;
+  const tag = el.tagName.toUpperCase();
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return !!el.isContentEditable;
+};
+
 export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
   isOpen,
   onClose,
   fileUrl,
   fileName,
   onDelete,
+  items,
+  initialIndex = 0,
+  onIndexChange,
 }) => {
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const fileType = getFileType(fileName, fileUrl);
+  const hasItems = Array.isArray(items) && items.length > 0;
+  const clamp = useCallback(
+    (i: number) => (hasItems ? Math.max(0, Math.min(i, items!.length - 1)) : 0),
+    [hasItems, items],
+  );
+  const [currentIndex, setCurrentIndex] = useState(() => clamp(initialIndex));
+
+  // Sincroniza índice ao (re)abrir ou quando a lista/índice inicial muda.
+  useEffect(() => {
+    if (isOpen) setCurrentIndex(clamp(initialIndex));
+  }, [isOpen, initialIndex, clamp]);
+
+  const activeUrl = hasItems ? items![currentIndex]?.url ?? fileUrl : fileUrl;
+  const activeName = hasItems ? items![currentIndex]?.name ?? fileName : fileName;
+  const total = hasItems ? items!.length : 1;
+  const canPrev = hasItems && currentIndex > 0;
+  const canNext = hasItems && currentIndex < total - 1;
+
+  const goTo = useCallback(
+    (next: number) => {
+      const idx = clamp(next);
+      setCurrentIndex(idx);
+      setZoom(100);
+      onIndexChange?.(idx);
+    },
+    [clamp, onIndexChange],
+  );
+
+  const fileType = getFileType(activeName, activeUrl);
   const FileIcon = getFileIcon(fileType);
 
   // Reset zoom when modal opens
@@ -129,21 +168,31 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
     }
   }, [isOpen]);
 
-  // Handle ESC key
+  // Teclado: ESC fecha, setas navegam entre itens (quando houver mais de um).
   useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        if (isFullscreen) {
-          setIsFullscreen(false);
-        } else {
-          onClose();
-        }
+      if (e.key === "Escape") {
+        if (isFullscreen) setIsFullscreen(false);
+        else onClose();
+        return;
+      }
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (isTypingTarget(e.target)) return;
+      if (total <= 1) return;
+      if (e.key === "ArrowLeft" && canPrev) {
+        e.preventDefault();
+        goTo(currentIndex - 1);
+      } else if (e.key === "ArrowRight" && canNext) {
+        e.preventDefault();
+        goTo(currentIndex + 1);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isFullscreen, onClose]);
+  }, [isOpen, isFullscreen, onClose, total, canPrev, canNext, currentIndex, goTo]);
+
 
   const handleDownload = useCallback(async () => {
     try {
