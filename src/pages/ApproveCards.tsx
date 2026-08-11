@@ -614,6 +614,26 @@ const ApproveCards = () => {
                                   <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
                                     <Pencil className="w-4 h-4" />
                                   </Button>
+                                  {!isApproved && isCardAspectConfigurable(card) && (
+                                    <Select
+                                      value={cardAspect(card)}
+                                      onValueChange={(v) => handleChangeAspect(card, v as ImageAspectRatio)}
+                                    >
+                                      <SelectTrigger
+                                        className="h-9 text-xs"
+                                        disabled={isApproving || savingAspectUid === card._uid}
+                                      >
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {IMAGE_ASPECT_OPTIONS.map((o) => (
+                                          <SelectItem key={o.value} value={o.value} className="text-xs">
+                                            {o.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
                                   {isApproved ? (
                                     <Badge variant="default" className="bg-green-600 text-sm py-1 px-3 flex items-center justify-center flex-1 md:flex-none">
                                       <Check className="w-3.5 h-3.5 mr-1.5" />
@@ -665,6 +685,26 @@ const ApproveCards = () => {
                                   <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
                                     <Pencil className="w-4 h-4" />
                                   </Button>
+                                  {!isApproved && isCardAspectConfigurable(card) && (
+                                    <Select
+                                      value={cardAspect(card)}
+                                      onValueChange={(v) => handleChangeAspect(card, v as ImageAspectRatio)}
+                                    >
+                                      <SelectTrigger
+                                        className="h-9 text-xs"
+                                        disabled={isApproving || savingAspectUid === card._uid}
+                                      >
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {IMAGE_ASPECT_OPTIONS.map((o) => (
+                                          <SelectItem key={o.value} value={o.value} className="text-xs">
+                                            {o.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
                                   {isApproved ? (
                                     <Badge variant="default" className="bg-green-600 text-sm py-1 px-3 flex items-center justify-center flex-1 md:flex-none">
                                       <Check className="w-3.5 h-3.5 mr-1.5" />
