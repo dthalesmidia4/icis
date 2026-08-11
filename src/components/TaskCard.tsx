@@ -1300,6 +1300,11 @@ export default function TaskCard({
 
   const handleLinkPeriod = async (periodPlanId: string) => {
     if (!card) return;
+    // Rascunho: apenas estado local — nada é gravado antes de "Salvar Demanda".
+    if (isDraft) {
+      onCardChange({ ...card, period_plan_id: periodPlanId });
+      return;
+    }
     try {
       const { error } = await supabase
         .from("demands")
