@@ -259,7 +259,7 @@ const CollaboratorDemands = () => {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
-  }, [cards, sortKey, sortDir, collaboratorName, activeDispatchIds]);
+  }, [cards, sortKey, sortDir, collaboratorName, activeDispatchIds, releaseConfig]);
 
   const totalCards = sortedCards.length;
 
