@@ -63,6 +63,21 @@ const CollaboratorDemands = () => {
   const [collaboratorName, setCollaboratorName] = useState<string>("");
   const [collaboratorRole, setCollaboratorRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [releaseConfig, setReleaseConfig] = useState<ReleaseQueueConfig>(DEFAULT_RELEASE_QUEUE);
+
+  // Mesma regra da Visão Geral: com a fila desativada, `released_at` é histórico
+  // e não pode esconder demanda alguma.
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    loadReleaseQueueConfig(tenantId).then((cfg) => {
+      if (alive) setReleaseConfig(cfg);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
 
   useBreadcrumbOverride("collaboratorName", collaboratorName);
 
