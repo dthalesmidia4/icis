@@ -323,9 +323,17 @@ export interface FreeSlotSuggestion {
 }
 
 /**
- * Primeiro slot livre do responsável, a partir da data/hora atual do card,
- * respeitando expediente simples (09:00–18:00, almoço 12:00–13:30) e pulando
- * fins de semana. Procura até 14 dias à frente.
+ * Primeiro slot livre do responsável, a partir da data/hora atual do card.
+ *
+ * Respeita, nesta ordem:
+ *  1. o expediente configurado do usuário POR ÁREA (`user_area_schedules`);
+ *     dias sem nenhuma faixa caem no expediente padrão, e dias que só têm
+ *     faixas de OUTRA área são pulados;
+ *  2. a agenda já ocupada do usuário (qualquer área);
+ *  3. uma reconferência final via `checkAssignmentConflicts` — a sugestão só
+ *     é devolvida quando de fato não gera conflito duro.
+ *
+ * Procura até 30 dias à frente.
  */
 export async function suggestFreeSlot(params: {
   tenantId: string;
@@ -333,41 +341,46 @@ export async function suggestFreeSlot(params: {
   card: OccupancyCardInput;
   targetStage?: string | null;
   area?: WorkArea | null;
-  workHours?: { start: string; end: string; lunchStart: string; lunchEnd: string };
 }): Promise<FreeSlotSuggestion | null> {
-  const wh = params.workHours || {
-    start: "09:00",
-    end: "18:00",
-    lunchStart: "12:00",
-    lunchEnd: "13:30",
-  };
   const stage = params.targetStage ?? params.card.current_function_key ?? null;
   if (isUntimedStage(stage)) return null;
   const area = params.area ?? areaOf(params.card.work_area);
   const probe: OccupancyCardInput = { ...params.card, current_function_key: stage, work_area: area };
   const dur = durationMinutesOf(probe);
 
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const toMin = (hm: string) => {
-    const [h, m] = hm.split(":").map((x) => parseInt(x, 10) || 0);
-    return h * 60 + m;
-  };
-  const fromMin = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-
   const baseDate = params.card.due_date || params.card.publish_date;
   if (!baseDate) return null;
   const [by, bm, bd] = baseDate.split("-").map(Number);
   const cursor = new Date(by, (bm || 1) - 1, bd || 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
 
-  const dayStart = toMin(wh.start);
-  const dayEnd = toMin(wh.end);
-  const lunchS = toMin(wh.lunchStart);
-  const lunchE = toMin(wh.lunchEnd);
+  // Expediente configurado do usuário (todas as áreas, todos os dias da semana).
+  let scheduleRows: Array<{ work_area: string; weekday: number; start_time: string; end_time: string }> = [];
+  try {
+    const { data } = await (supabase as any)
+      .from("user_area_schedules")
+      .select("work_area, weekday, start_time, end_time")
+      .eq("tenant_id", params.tenantId)
+      .eq("user_id", params.userId);
+    scheduleRows = (data as any[]) || [];
+  } catch {
+    scheduleRows = [];
+  }
+  const hasSchedule = scheduleRows.length > 0;
 
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 30; i++) {
     const dateStr = `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}-${pad(cursor.getDate())}`;
     const dow = cursor.getDay();
-    if (dow !== 0 && dow !== 6) {
+
+    const dayRows = scheduleRows.filter((r) => r.weekday === dow);
+    // Sem nenhuma configuração no sistema: expediente padrão, pulando fim de semana.
+    const windows = hasSchedule
+      ? buildDayWindows(dayRows, area)
+      : dow === 0 || dow === 6
+        ? []
+        : DEFAULT_WORK_WINDOWS;
+
+    if (windows.length > 0) {
       const busy = await getBusyIntervals({
         tenantId: params.tenantId,
         userId: params.userId,
@@ -380,20 +393,40 @@ export async function suggestFreeSlot(params: {
         s: Math.max(0, Math.round((b.start - dayZero) / 60_000)),
         e: Math.min(24 * 60, Math.round((b.end - dayZero) / 60_000)),
       }));
-      blocks.push({ s: lunchS, e: lunchE });
-      blocks.sort((a, b) => a.s - b.s);
 
-      let candidate = i === 0 && params.card.due_time ? Math.max(dayStart, toMin(params.card.due_time.slice(0, 5))) : dayStart;
-      let guard = 0;
-      while (candidate + dur <= dayEnd && guard++ < 300) {
-        const clash = blocks.find((b) => candidate < b.e && b.s < candidate + dur);
-        if (!clash) {
-          return { date: dateStr, startTime: fromMin(candidate), endTime: fromMin(candidate + dur) };
+      const earliest =
+        i === 0 && params.card.due_time ? toMin(params.card.due_time.slice(0, 5)) : 0;
+
+      const rejected: number[] = [];
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const start = firstFreeStart({ windows, busy: blocks, duration: dur, earliest, rejected });
+        if (start === null) break;
+        const startTime = fromMin(start);
+        const endTime = fromMin(start + dur);
+
+        // Reconferência final: a sugestão precisa passar pelo mesmo motor
+        // que bloqueia a gravação.
+        const verify = await checkAssignmentConflicts({
+          tenantId: params.tenantId,
+          userId: params.userId,
+          card: {
+            ...probe,
+            due_date: dateStr,
+            due_time: startTime,
+            delivery_date: dateStr,
+            delivery_time: endTime,
+          },
+          targetStage: stage,
+          area,
+        });
+        if (verify.hard.length === 0) {
+          return { date: dateStr, startTime, endTime };
         }
-        candidate = clash.e;
+        rejected.push(start);
       }
     }
     cursor.setDate(cursor.getDate() + 1);
   }
   return null;
 }
+
