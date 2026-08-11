@@ -2704,7 +2704,7 @@ export default function TaskCard({
                         dueTime={card.due_time}
                         deliveryDate={card.delivery_date}
                         deliveryTime={card.delivery_time}
-                        disabled={readOnly}
+                        disabled={readOnly || (isDraft && !(card as any).demand_type_key)}
                         onSave={async (v) => {
                           const patch: any = {
                             ...card,
@@ -2714,6 +2714,8 @@ export default function TaskCard({
                             delivery_time: v.delivery_time || '',
                           };
                           onCardChange(patch);
+                          // RASCUNHO: só memória — nada é gravado antes de "Salvar Demanda".
+                          if (isDraft) return;
                           await onSave('due_date', patch.due_date);
                           await onSave('due_time', patch.due_time);
                           await onSave('delivery_date', patch.delivery_date);
