@@ -37,8 +37,15 @@ import {
   File,
   Image as ImageIcon,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+
+export interface AttachmentPreviewItem {
+  url: string;
+  name: string;
+}
 
 interface AttachmentPreviewModalProps {
   isOpen: boolean;
@@ -46,7 +53,12 @@ interface AttachmentPreviewModalProps {
   fileUrl: string;
   fileName: string;
   onDelete?: () => void;
+  /** Opcional: viewer de múltiplos arquivos (ex.: slides de um carrossel). */
+  items?: AttachmentPreviewItem[];
+  initialIndex?: number;
+  onIndexChange?: (index: number) => void;
 }
+
 
 type FileType = "image" | "video" | "audio" | "pdf" | "unsupported";
 
