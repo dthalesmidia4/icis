@@ -1875,12 +1875,16 @@ export default function TaskCard({
                       size="sm"
                       className="h-11 gap-2 shrink-0"
                       onClick={() => {
-                        if (savingDraft) return;
+                        if (savingDraft || !draftReady) return;
                         onDraftSave?.();
                       }}
-                      disabled={savingDraft}
+                      disabled={savingDraft || !draftReady}
                       aria-label="Salvar demanda"
-                      title="Salvar e enviar para o Kanban"
+                      title={
+                        draftReady
+                          ? "Salvar e enviar para o Kanban"
+                          : `Falta definir: ${draftMissingFields.join(", ")}`
+                      }
                     >
                       {savingDraft ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1889,6 +1893,11 @@ export default function TaskCard({
                       )}
                       <span>{savingDraft ? "Salvando…" : "Salvar Demanda"}</span>
                     </Button>
+                    {!draftReady && (
+                      <span className="text-[11px] text-muted-foreground shrink-0 max-w-[220px] leading-tight">
+                        Falta definir: {draftMissingFields.join(", ")}
+                      </span>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
