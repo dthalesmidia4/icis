@@ -639,22 +639,9 @@ export default function TaskCard({
     }
   };
 
-  /** Prévia da próxima etapa + candidatos elegíveis (alimenta o botão Prosseguir). */
-  const loadRoutingPreview = async () => {
-    if (!card?.demand_type_key || !card?.tenant_id || isDraft) return;
-    setRoutingLoading(true);
-    try {
-      const preview = await previewNextStageRouting({
-        demandId: card.id,
-        tenantId: card.tenant_id,
-        demandTypeKey: card.demand_type_key,
-        currentFunctionKey: card.current_function_key,
-      });
-      setRoutingPreview(preview);
-    } finally {
-      setRoutingLoading(false);
-    }
-  };
+  // A prévia da próxima etapa é carregada proativamente pelo efeito acima
+  // (o botão "Prosseguir" precisa do destino antes do clique).
+
 
   const handleDeliverMyPart = async (targetUserId?: string) => {
     if (!card || deliveringPart) return;
