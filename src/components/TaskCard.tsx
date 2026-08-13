@@ -998,6 +998,9 @@ export default function TaskCard({
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
+  const [showRemoveAllAttachments, setShowRemoveAllAttachments] = useState(false);
+  const [removingAllAttachments, setRemovingAllAttachments] = useState(false);
+
   const [periodTitle, setPeriodTitle] = useState<string | null>(null);
   const [collaborators, setCollaborators] = useState<{ id: string; name: string }[]>([]);
 
