@@ -1725,6 +1725,40 @@ const KanbanCentralPage = () => {
     }
   };
 
+  /** Exclusão em massa SOMENTE dos anexos finais. Referências não são tocadas. */
+  const handleRemoveAllAttachments = async () => {
+    if (!selectedCard) return;
+    const finalAttachments = selectedCard.attachments || [];
+    if (finalAttachments.length === 0) return;
+
+    try {
+      const storagePaths = collectAttachmentStoragePaths(finalAttachments);
+      if (storagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('card-attachments')
+          .remove(storagePaths);
+        if (storageError) throw storageError;
+      }
+
+      const { error } = await supabase
+        .from('demands')
+        .update({ attachments: [] as unknown as any, updated_at: new Date().toISOString() })
+        .eq('id', selectedCard.id);
+      if (error) throw error;
+
+      setSelectedCard(prev => prev ? { ...prev, attachments: [] } : null);
+      setCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, attachments: [] } : c));
+      setArchivedCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, attachments: [] } : c));
+      sonnerToast.success("Todos os anexos finais foram removidos.");
+    } catch (error) {
+      console.error("[KanbanCentral] remove all attachments error:", error);
+      sonnerToast.error("Não foi possível remover todos os anexos.");
+      throw error;
+    }
+  };
+
+
+
   const handleReorderAttachments = async (attachments: Attachment[]) => {
     if (!selectedCard) return;
 
