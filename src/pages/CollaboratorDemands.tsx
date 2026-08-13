@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
+import { buildAttachmentStoragePath } from "@/lib/referenceAttachments";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollaborators } from "@/hooks/useCollaborators";
@@ -237,6 +238,7 @@ const CollaboratorDemands = () => {
     [evalByAssignee, userId],
   );
   const [evaluateOpen, setEvaluateOpen] = useState(false);
+  const [referenceUploading, setReferenceUploading] = useState(false);
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
 
   const sortedCards = useMemo(() => {
@@ -836,6 +838,10 @@ const CollaboratorDemands = () => {
         onFileUpload={handleFileUpload}
         onRemoveAttachment={handleRemoveAttachment}
         onReorderAttachments={handleReorderAttachments}
+        onReferenceFileUpload={handleReferenceFileUpload}
+        onRemoveReferenceAttachment={handleRemoveReferenceAttachment}
+        onReorderReferenceAttachments={persistReferences}
+        referenceUploading={referenceUploading}
         onDelete={handleDelete}
         pipelineStatuses={pipelineStatuses}
       />
