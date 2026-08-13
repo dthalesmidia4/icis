@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import TaskCard, { type Attachment, type KanbanCardData, type PipelineStatus } from "@/components/TaskCard";
+import { buildAttachmentStoragePath } from "@/lib/referenceAttachments";
 
 interface DemandDrawerProps {
   demandId: string | null;
@@ -21,6 +22,7 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
   const [card, setCard] = useState<KanbanCardData | null>(null);
   const [pipelineStatuses, setPipelineStatuses] = useState<PipelineStatus[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [referenceUploading, setReferenceUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -74,6 +76,9 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
       observations: d.observations || "",
       post_caption: d.post_caption || "",
       attachments: Array.isArray(d.attachments) ? (d.attachments as Attachment[]) : [],
+      reference_attachments: Array.isArray(d.reference_attachments)
+        ? (d.reference_attachments as Attachment[])
+        : [],
       additional_publish_dates: Array.isArray(d.additional_publish_dates)
         ? (d.additional_publish_dates as string[])
         : [],
@@ -144,6 +149,82 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
     onPersisted?.();
   };
 
+  const persistReferences = async (list: Attachment[]) => {
+    if (!card) return;
+    const { error } = await supabase
+      .from("demands")
+      .update({ reference_attachments: list as unknown as any, updated_at: new Date().toISOString() })
+      .eq("id", card.id);
+    if (error) throw error;
+    setCard((prev) => (prev ? { ...prev, reference_attachments: list } : prev));
+    onPersisted?.();
+  };
+
+  const uploadFiles = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    collection: "final" | "reference"
+  ) => {
+    if (!card || !event.target.files?.length) return;
+    const files = Array.from(event.target.files);
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    if (files.some((f) => f.size > MAX_FILE_SIZE)) {
+      toast.error("Arquivo muito grande. Limite de 50MB.");
+      event.target.value = "";
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Usuário não autenticado.");
+      return;
+    }
+    const setBusy = collection === "reference" ? setReferenceUploading : setUploading;
+    setBusy(true);
+    try {
+      const uploaded = await Promise.all(
+        files.map(async (file) => {
+          const storagePath = buildAttachmentStoragePath({
+            tenantId: card.tenant_id,
+            clientId: card.clientId,
+            periodPlanId: card.period_plan_id,
+            cardId: card.id,
+            fileName: file.name,
+            collection,
+          });
+          const { error } = await supabase.storage.from("card-attachments").upload(storagePath, file);
+          if (error) throw error;
+          const { data: urlData } = supabase.storage.from("card-attachments").getPublicUrl(storagePath);
+          const attachment: Attachment = {
+            url: urlData.publicUrl,
+            name: file.name,
+            type: file.type || "application/octet-stream",
+            size: file.size,
+            storagePath,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: { id: user.id, email: user.email || "" },
+            cardId: card.id,
+            tenantId: card.tenant_id,
+            clientId: card.clientId,
+            periodPlanId: card.period_plan_id || undefined,
+          };
+          return attachment;
+        })
+      );
+      if (collection === "reference") {
+        await persistReferences([...(card.reference_attachments || []), ...uploaded]);
+        toast.success(`${uploaded.length} referência(s) adicionada(s)`);
+      } else {
+        await persistAttachments([...(card.attachments || []), ...uploaded]);
+        toast.success(`${uploaded.length} arquivo(s) anexado(s)`);
+      }
+    } catch (err) {
+      console.error("[DemandDrawer] upload error", err);
+      toast.error("Erro ao fazer upload");
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  };
+
   const handleSave = async (field: string, value: string) => {
     if (!card) return;
     try {
@@ -165,54 +246,21 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!card || !event.target.files?.length) return;
-    const files = Array.from(event.target.files);
-    const MAX_FILE_SIZE = 50 * 1024 * 1024;
-    if (files.some((f) => f.size > MAX_FILE_SIZE)) {
-      toast.error("Arquivo muito grande. Limite de 50MB.");
-      event.target.value = "";
-      return;
-    }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error("Usuário não autenticado.");
-      return;
-    }
-    setUploading(true);
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => uploadFiles(event, "final");
+  const handleReferenceFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => uploadFiles(event, "reference");
+
+  const handleRemoveReferenceAttachment = async (url: string) => {
+    if (!card) return;
     try {
-      const uploaded = await Promise.all(
-        files.map(async (file) => {
-          const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
-          const uniqueId = Math.random().toString(36).substring(2, 9);
-          const storagePath = `${card.tenant_id}/${card.clientId}/${card.period_plan_id || "sem-periodo"}/${card.id}/${Date.now()}-${uniqueId}.${fileExt}`;
-          const { error } = await supabase.storage.from("card-attachments").upload(storagePath, file);
-          if (error) throw error;
-          const { data: urlData } = supabase.storage.from("card-attachments").getPublicUrl(storagePath);
-          const attachment: Attachment = {
-            url: urlData.publicUrl,
-            name: file.name,
-            type: file.type || "application/octet-stream",
-            size: file.size,
-            storagePath,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: { id: user.id, email: user.email || "" },
-            cardId: card.id,
-            tenantId: card.tenant_id,
-            clientId: card.clientId,
-            periodPlanId: card.period_plan_id || undefined,
-          };
-          return attachment;
-        })
-      );
-      await persistAttachments([...(card.attachments || []), ...uploaded]);
-      toast.success(`${uploaded.length} arquivo(s) anexado(s)`);
+      const attachment = (card.reference_attachments || []).find((a) => a.url === url);
+      if (attachment?.storagePath) {
+        await supabase.storage.from("card-attachments").remove([attachment.storagePath]);
+      }
+      await persistReferences((card.reference_attachments || []).filter((a) => a.url !== url));
+      toast.success("Referência removida");
     } catch (err) {
-      console.error("[DemandDrawer] upload error", err);
-      toast.error("Erro ao fazer upload");
-    } finally {
-      setUploading(false);
-      event.target.value = "";
+      console.error("[DemandDrawer] remove reference error", err);
+      toast.error("Erro ao remover referência");
     }
   };
 
@@ -299,6 +347,17 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
         }
       }}
       uploading={uploading}
+      onReferenceFileUpload={handleReferenceFileUpload}
+      onRemoveReferenceAttachment={handleRemoveReferenceAttachment}
+      onReorderReferenceAttachments={async (list) => {
+        try {
+          await persistReferences(list);
+        } catch (err) {
+          console.error("[DemandDrawer] reorder references error", err);
+          toast.error("Erro ao reordenar referências");
+        }
+      }}
+      referenceUploading={referenceUploading}
       pipelineStatuses={pipelineStatuses}
     />
   );

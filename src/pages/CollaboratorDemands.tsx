@@ -156,6 +156,7 @@ const CollaboratorDemands = () => {
           observations: d.observations || "",
           post_caption: d.post_caption || "",
           attachments: Array.isArray(d.attachments) ? d.attachments as Attachment[] : [],
+          reference_attachments: Array.isArray((d as any).reference_attachments) ? (d as any).reference_attachments as Attachment[] : [],
           additional_publish_dates: Array.isArray(d.additional_publish_dates) ? d.additional_publish_dates as string[] : [],
           source: d.source || "manual",
           delivery_date: d.delivery_date || "",
@@ -480,6 +481,59 @@ const CollaboratorDemands = () => {
     await supabase.from("demands").update({ attachments: attachments as any }).eq("id", selectedCard.id);
     setCards((prev) => prev.map((c) => c.id === selectedCard.id ? { ...c, attachments } : c));
     setSelectedCard((prev) => prev ? { ...prev, attachments } : prev);
+  };
+
+  // ===== Referências (materiais de apoio, nunca publicados) =====
+  const persistReferences = async (list: Attachment[]) => {
+    if (!selectedCard) return;
+    await supabase.from("demands").update({ reference_attachments: list as any }).eq("id", selectedCard.id);
+    setCards((prev) => prev.map((c) => c.id === selectedCard.id ? { ...c, reference_attachments: list } : c));
+    setSelectedCard((prev) => prev ? { ...prev, reference_attachments: list } : prev);
+  };
+
+  const handleReferenceFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedCard || !event.target.files?.length) return;
+    const files = Array.from(event.target.files);
+    setReferenceUploading(true);
+    try {
+      const uploaded: Attachment[] = [];
+      for (const file of files) {
+        const storagePath = buildAttachmentStoragePath({
+          tenantId: tenantId || "",
+          clientId: selectedCard.clientId,
+          periodPlanId: selectedCard.period_plan_id,
+          cardId: selectedCard.id,
+          fileName: file.name,
+          collection: "reference",
+        });
+        const { error: upErr } = await supabase.storage.from("card-attachments").upload(storagePath, file);
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from("card-attachments").getPublicUrl(storagePath);
+        uploaded.push({
+          name: file.name, url: urlData.publicUrl, type: file.type || "application/octet-stream", size: file.size,
+          storagePath, uploadedAt: new Date().toISOString(),
+          uploadedBy: { id: "", email: "" }, cardId: selectedCard.id, tenantId: tenantId || "",
+        } as Attachment);
+      }
+      await persistReferences([...(selectedCard.reference_attachments || []), ...uploaded]);
+      sonnerToast.success(`${uploaded.length} referência(s) adicionada(s)`);
+    } catch (err) {
+      console.error("[CollaboratorDemands] reference upload error", err);
+      sonnerToast.error("Erro ao enviar referências");
+    } finally {
+      setReferenceUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleRemoveReferenceAttachment = async (url: string) => {
+    if (!selectedCard) return;
+    const attachment = (selectedCard.reference_attachments || []).find((a) => a.url === url);
+    if (attachment?.storagePath) {
+      await supabase.storage.from("card-attachments").remove([attachment.storagePath]);
+    }
+    await persistReferences((selectedCard.reference_attachments || []).filter((a) => a.url !== url));
+    sonnerToast.success("Referência removida");
   };
 
   const handleDelete = async () => {

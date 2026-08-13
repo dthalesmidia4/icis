@@ -6,6 +6,7 @@ import { isClientStageKey, userHasFunction } from "@/lib/clientStageAssignments"
 import { IMAGE_ASPECT_OPTIONS, DEFAULT_SOCIAL_ASPECT, isImageAspectRatio, type ImageAspectRatio } from "@/lib/imageAspect";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { extractClipboardFiles, normalizePastedFiles } from "@/lib/pastedFiles";
+import { resolveUploadCollection } from "@/lib/referenceAttachments";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag, Images } from "lucide-react";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, demandTypesForArea, DEMAND_ORIGINS, DEMAND_ORIGIN_LABEL, isClientOrigin, type DemandOrigin, getPipelineSequence, jumpToFunction, getRegressOptions, type RegressOption, type DemandTypeKey, previewNextStageRouting, type NextStageRoutingPreview } from "@/lib/proceedDemand";
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
@@ -123,6 +124,11 @@ export interface KanbanCardData {
   created_at: string;
   updated_at: string;
   attachments: Attachment[] | null;
+  /**
+   * Coleção INDEPENDENTE de materiais de apoio (nunca publicada, nunca usada
+   * por IA/agendamento). Os arquivos finais continuam em `attachments`.
+   */
+  reference_attachments?: Attachment[] | null;
   publish_date: string | null;
   publish_time: string | null;
   delivery_date?: string | null;
@@ -196,6 +202,11 @@ interface TaskCardProps {
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onRemoveAttachment: (url: string) => Promise<void>;
   onReorderAttachments?: (attachments: Attachment[]) => Promise<void>;
+  /** Upload/remoção/reordenação da coleção de referências (opcional por tela). */
+  onReferenceFileUpload?: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  onRemoveReferenceAttachment?: (url: string) => Promise<void>;
+  onReorderReferenceAttachments?: (attachments: Attachment[]) => Promise<void>;
+  referenceUploading?: boolean;
   onDelete: () => void;
   onArchive?: (archived: boolean) => Promise<void>;
   saving?: boolean;
@@ -430,6 +441,10 @@ export default function TaskCard({
   onFileUpload,
   onRemoveAttachment,
   onReorderAttachments,
+  onReferenceFileUpload,
+  onRemoveReferenceAttachment,
+  onReorderReferenceAttachments,
+  referenceUploading = false,
   onDelete,
   onArchive,
   saving = false,
@@ -474,9 +489,10 @@ export default function TaskCard({
   const [isAdditionalDatePickerOpen, setIsAdditionalDatePickerOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
+  const [referenceToRemove, setReferenceToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
-  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos'>(
+  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos' | 'referencias'>(
     presentation === 'drawer' && (card as any)?.content_brief ? 'briefing' : 'description'
   );
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
@@ -1293,8 +1309,33 @@ export default function TaskCard({
     }
   }, [card, onCardChange, onReorderAttachments]);
 
-  // ===== Upload por arrastar/soltar e colar (reutiliza o onFileUpload dos pais) =====
-  const uploadDisabled = readOnly || isDraft || uploading;
+  // Reordenação da coleção de referências (independente dos anexos finais)
+  const referenceAttachments = (card?.reference_attachments || []) as Attachment[];
+
+  const handleReferenceDragEnd = useCallback(async (result: DropResult) => {
+    if (!result.destination || !card) return;
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+    if (sourceIndex === destIndex) return;
+
+    const list = Array.from((card.reference_attachments || []) as Attachment[]);
+    const [removed] = list.splice(sourceIndex, 1);
+    list.splice(destIndex, 0, removed);
+
+    onCardChange({ ...card, reference_attachments: list });
+    if (onReorderReferenceAttachments) {
+      await onReorderReferenceAttachments(list);
+    }
+  }, [card, onCardChange, onReorderReferenceAttachments]);
+
+  // ===== Upload por arrastar/soltar e colar (reutiliza os handlers dos pais) =====
+  const uploadBlocked = readOnly || isDraft;
+  const finalUploadDisabled = uploadBlocked || uploading;
+  const referenceUploadDisabled = uploadBlocked || referenceUploading || !onReferenceFileUpload;
+  const activeCollection = resolveUploadCollection(activeSection);
+  const isReferenceSection = activeCollection === 'reference';
+  const uploadDisabled = isReferenceSection ? referenceUploadDisabled : finalUploadDisabled;
+  const dropZoneSection = activeSection === 'anexos' || activeSection === 'referencias';
 
   const uploadFilesThroughExistingHandler = useCallback(async (files: File[]) => {
     if (!files.length || uploadDisabled) return;
@@ -1303,8 +1344,12 @@ export default function TaskCard({
       target: syntheticTarget,
       currentTarget: syntheticTarget,
     } as React.ChangeEvent<HTMLInputElement>;
+    if (isReferenceSection) {
+      await onReferenceFileUpload?.(syntheticEvent);
+      return;
+    }
     await onFileUpload(syntheticEvent);
-  }, [onFileUpload, uploadDisabled]);
+  }, [onFileUpload, onReferenceFileUpload, isReferenceSection, uploadDisabled]);
 
   const hasDraggedFiles = (e: React.DragEvent) =>
     Array.from(e.dataTransfer?.types || []).includes('Files');
@@ -1343,9 +1388,9 @@ export default function TaskCard({
     if (files.length) void uploadFilesThroughExistingHandler(files);
   }, [uploadDisabled, uploadFilesThroughExistingHandler]);
 
-  // Colar arquivos/mídia enquanto a aba Anexos está ativa
+  // Colar arquivos/mídia enquanto a aba Anexos ou Referências está ativa
   useEffect(() => {
-    if (!open || activeSection !== 'anexos' || uploadDisabled) return;
+    if (!open || !dropZoneSection || uploadDisabled) return;
     const handler = (event: ClipboardEvent) => {
       const el = event.target as HTMLElement | null;
       const tag = el?.tagName?.toUpperCase();
@@ -1358,14 +1403,14 @@ export default function TaskCard({
     };
     document.addEventListener('paste', handler);
     return () => document.removeEventListener('paste', handler);
-  }, [open, activeSection, uploadDisabled, uploadFilesThroughExistingHandler]);
+  }, [open, dropZoneSection, uploadDisabled, uploadFilesThroughExistingHandler]);
 
   // Limpeza do highlight quando a aba muda ou o card fecha
   useEffect(() => {
-    if (open && activeSection === 'anexos') return;
+    if (open && dropZoneSection) return;
     fileDragDepthRef.current = 0;
     setIsDraggingFiles(false);
-  }, [open, activeSection]);
+  }, [open, dropZoneSection]);
 
 
   // Handle ESC key to close modal
@@ -3649,6 +3694,7 @@ export default function TaskCard({
                                 ? [{ id: 'anuncio' as const, label: 'Anúncio', icon: Megaphone, savingKey: 'ad_plan' }]
                                 : []),
                               { id: 'anexos' as const, label: 'Anexos', icon: Paperclip, savingKey: 'attachments' },
+                              { id: 'referencias' as const, label: 'Referências', icon: Images, savingKey: 'reference_attachments' },
                             ];
 
                             return (
@@ -3680,7 +3726,7 @@ export default function TaskCard({
                           })()}
 
                           {/* Painel do botão ativo */}
-                          {activeSection !== 'anexos' && (
+                          {activeSection !== 'anexos' && activeSection !== 'referencias' && (
                           <section className="rounded-lg border border-border bg-card/40 p-4">
                             {activeSection === 'briefing' && contentBrief && (
                               <StructuredContentBrief
@@ -4129,6 +4175,149 @@ export default function TaskCard({
               </Card>
             </div>
             )}
+
+            {/* ===== REFERÊNCIAS - coleção independente de materiais de apoio ===== */}
+            {activeSection === 'referencias' && (
+            <div className="px-6 pb-6">
+              <Card>
+                <CardContent
+                  className="p-5 relative"
+                  onDragEnter={handleFilesDragEnter}
+                  onDragOver={handleFilesDragOver}
+                  onDragLeave={handleFilesDragLeave}
+                  onDrop={handleFilesDrop}
+                >
+                  {isDraggingFiles && (
+                    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/10 backdrop-blur-sm">
+                      <Upload className="h-8 w-8 text-primary" />
+                      <p className="text-sm font-semibold text-primary">Solte os arquivos de referência</p>
+                      <p className="text-xs text-primary/80">Materiais de apoio — não entram na publicação</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-primary/10 rounded-md">
+                        <Images className="h-4 w-4 text-primary" />
+                      </div>
+                      <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Referências</h3>
+                      {referenceAttachments.length > 0 && (
+                        <Badge variant="secondary" className="ml-1 text-xs">{referenceAttachments.length}</Badge>
+                      )}
+                    </div>
+                    {referenceUploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                  </div>
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    Materiais de apoio para orientar a execução. Não são publicados, não entram no agendamento e não são usados pela IA.
+                  </p>
+
+                  {referenceAttachments.length > 0 && (
+                    <DragDropContext onDragEnd={handleReferenceDragEnd}>
+                      <Droppable droppableId="reference-attachments-list" direction="horizontal">
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className="flex gap-3 mb-4 overflow-x-auto pb-2 scrollbar-thin"
+                          >
+                            {referenceAttachments.map((attachment, idx) => (
+                              <Draggable
+                                key={`reference-${idx}-${attachment.url}`}
+                                draggableId={`reference-${idx}-${attachment.url}`}
+                                index={idx}
+                              >
+                                {(dragProvided, snapshot) => (
+                                  <div
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    {...dragProvided.dragHandleProps}
+                                    className={cn(
+                                      "group relative flex flex-col items-center gap-1 p-1.5 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/50 transition-colors w-[110px] flex-shrink-0 cursor-grab active:cursor-grabbing select-none",
+                                      snapshot.isDragging && "shadow-xl ring-2 ring-primary/50 z-50 bg-background scale-105 rotate-1"
+                                    )}
+                                  >
+                                    {!readOnly && onRemoveReferenceAttachment && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute -top-2 -right-2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive/90 text-destructive-foreground hover:bg-destructive rounded-full z-10"
+                                        onClick={(e) => { e.stopPropagation(); setReferenceToRemove(attachment); }}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    )}
+
+                                    <div
+                                      className="relative h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                                      onClick={(e) => { e.stopPropagation(); setPreviewAttachment(attachment); }}
+                                    >
+                                      {isImageFile(attachment.type) ? (
+                                        <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
+                                      ) : (
+                                        <File className="h-8 w-8 text-muted-foreground" />
+                                      )}
+                                    </div>
+
+                                    <div className="w-full text-center cursor-pointer" onClick={(e) => { e.stopPropagation(); setPreviewAttachment(attachment); }}>
+                                      <p className="text-[10px] font-medium truncate text-foreground">{attachment.name}</p>
+                                      <p className="text-[9px] text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
+                  )}
+
+                  {!readOnly && isDraft && (
+                    <div className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                      <Images className="h-4 w-4" />
+                      Salve a demanda para anexar referências.
+                    </div>
+                  )}
+                  {!readOnly && !isDraft && !onReferenceFileUpload && (
+                    <div className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                      <Images className="h-4 w-4" />
+                      Referências indisponíveis nesta tela.
+                    </div>
+                  )}
+                  {!readOnly && !isDraft && onReferenceFileUpload && (
+                    <label className={cn(
+                      "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
+                      referenceUploading && "opacity-50 cursor-not-allowed"
+                    )}>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={onReferenceFileUpload}
+                        disabled={referenceUploading}
+                      />
+                      {referenceUploading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      ) : (
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm text-muted-foreground">
+                          {referenceUploading ? 'Enviando referências...' : 'Clique, arraste ou cole referências aqui'}
+                        </p>
+                        {!referenceUploading && (
+                          <p className="text-[11px] text-muted-foreground/70">
+                            Ctrl+V / Cmd+V • vários arquivos • máx. 50MB por arquivo
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+            )}
           </div>
         </div>
       </div>
@@ -4158,6 +4347,32 @@ export default function TaskCard({
                 if (attachmentToRemove) {
                   onRemoveAttachment(attachmentToRemove.url);
                   setAttachmentToRemove(null);
+                }
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for Reference Removal */}
+      <AlertDialog open={!!referenceToRemove} onOpenChange={(open) => !open && setReferenceToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover referência?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O material de apoio "{referenceToRemove?.name}" será removido permanentemente. Os anexos finais não são afetados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (referenceToRemove) {
+                  void onRemoveReferenceAttachment?.(referenceToRemove.url);
+                  setReferenceToRemove(null);
                 }
               }}
             >

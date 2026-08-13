@@ -862,6 +862,7 @@ export type Database = {
           post_caption: string | null
           publish_date: string | null
           publish_time: string | null
+          reference_attachments: Json
           rejected_attachments: Json
           released_at: string | null
           released_by: string | null
@@ -923,6 +924,7 @@ export type Database = {
           post_caption?: string | null
           publish_date?: string | null
           publish_time?: string | null
+          reference_attachments?: Json
           rejected_attachments?: Json
           released_at?: string | null
           released_by?: string | null
@@ -984,6 +986,7 @@ export type Database = {
           post_caption?: string | null
           publish_date?: string | null
           publish_time?: string | null
+          reference_attachments?: Json
           rejected_attachments?: Json
           released_at?: string | null
           released_by?: string | null
