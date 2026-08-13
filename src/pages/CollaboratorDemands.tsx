@@ -488,7 +488,10 @@ const CollaboratorDemands = () => {
   // ===== Referências (materiais de apoio, nunca publicados) =====
   const persistReferences = async (list: Attachment[]) => {
     if (!selectedCard) return;
-    await supabase.from("demands").update({ reference_attachments: list as any }).eq("id", selectedCard.id);
+    await supabase
+      .from("demands")
+      .update({ reference_attachments: list as any, updated_at: new Date().toISOString() })
+      .eq("id", selectedCard.id);
     setCards((prev) => prev.map((c) => c.id === selectedCard.id ? { ...c, reference_attachments: list } : c));
     setSelectedCard((prev) => prev ? { ...prev, reference_attachments: list } : prev);
   };
@@ -496,6 +499,18 @@ const CollaboratorDemands = () => {
   const handleReferenceFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedCard || !event.target.files?.length) return;
     const files = Array.from(event.target.files);
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    if (files.some((f) => f.size > MAX_FILE_SIZE)) {
+      sonnerToast.error("Arquivo muito grande. Limite de 50MB.");
+      event.target.value = "";
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      sonnerToast.error("Usuário não autenticado.");
+      event.target.value = "";
+      return;
+    }
     setReferenceUploading(true);
     try {
       const uploaded: Attachment[] = [];
@@ -514,7 +529,10 @@ const CollaboratorDemands = () => {
         uploaded.push({
           name: file.name, url: urlData.publicUrl, type: file.type || "application/octet-stream", size: file.size,
           storagePath, uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "", email: "" }, cardId: selectedCard.id, tenantId: tenantId || "",
+          uploadedBy: { id: user.id, email: user.email || "" },
+          cardId: selectedCard.id, tenantId: tenantId || "",
+          clientId: selectedCard.clientId,
+          periodPlanId: selectedCard.period_plan_id || undefined,
         } as Attachment);
       }
       await persistReferences([...(selectedCard.reference_attachments || []), ...uploaded]);
