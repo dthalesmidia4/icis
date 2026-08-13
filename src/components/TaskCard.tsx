@@ -4008,8 +4008,59 @@ export default function TaskCard({
                                   : 'Regenerar estático'}
                             </Button>
                           )}
+
+                          {/* Exclusão em massa — SOMENTE anexos finais */}
+                          {!isDraft && onRemoveAllAttachments && canBulkRemoveAttachments(card.attachments) && (
+                            <AlertDialog open={showRemoveAllAttachments} onOpenChange={(o) => { if (!removingAllAttachments) setShowRemoveAllAttachments(o); }}>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={removingAllAttachments || uploading || generatingImages || regeneratingAll || regeneratingSlide !== null}
+                                  className="gap-2 border-destructive/30 text-destructive hover:bg-destructive/10"
+                                >
+                                  {removingAllAttachments ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                  {removingAllAttachments ? 'Removendo...' : 'Excluir todos'}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Remover todos os arquivos finais?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Os {card.attachments?.length ?? 0} arquivos finais serão removidos permanentemente desta demanda. Essa ação não pode ser desfeita. As referências não serão afetadas.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel disabled={removingAllAttachments}>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    disabled={removingAllAttachments}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={async (e) => {
+                                      e.preventDefault();
+                                      setRemovingAllAttachments(true);
+                                      try {
+                                        await onRemoveAllAttachments();
+                                        setShowRemoveAllAttachments(false);
+                                      } catch (err) {
+                                        console.error('[TaskCard] remove all attachments error', err);
+                                      } finally {
+                                        setRemovingAllAttachments(false);
+                                      }
+                                    }}
+                                  >
+                                    {removingAllAttachments ? 'Removendo...' : 'Remover todos'}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </>
                       )}
+
                     </div>
                   </div>
 
