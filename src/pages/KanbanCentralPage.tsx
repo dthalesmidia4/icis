@@ -79,6 +79,7 @@ import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { ClipboardCheck } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Input } from "@/components/ui/input";
+import { buildAttachmentStoragePath } from "@/lib/referenceAttachments";
 import {
   loadClientReturnConfigs,
   describeNextReturn,
@@ -464,6 +465,7 @@ const KanbanCentralPage = () => {
   const [saving, setSaving] = useState(false);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [referenceUploading, setReferenceUploading] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("active");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("all");
@@ -760,6 +762,9 @@ const KanbanCentralPage = () => {
 
       const applyPayload = <T extends KanbanCardData>(card: T): T => ({
         ...card,
+        reference_attachments: payload.reference_attachments !== undefined
+          ? ((payload.reference_attachments as Attachment[] | null) || [])
+          : card.reference_attachments,
         status: newStatusName ?? card.status,
         title: payload.title ?? card.title,
         demand_type: payload.demand_type ?? card.demand_type,
@@ -841,6 +846,7 @@ const KanbanCentralPage = () => {
         due_date: data.due_date || data.publish_date || new Date().toISOString().split('T')[0],
         channel: data.channel || null,
         attachments: (data.attachments as unknown as Attachment[] | null) || [],
+        reference_attachments: ((data as any).reference_attachments as unknown as Attachment[] | null) || [],
         publish_date: data.publish_date || null,
         publish_time: data.publish_time || null,
         tenant_id: data.tenant_id,
@@ -1107,6 +1113,7 @@ const KanbanCentralPage = () => {
           due_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
           channel: demand.channel || null,
           attachments: (demand.attachments as unknown as Attachment[] | null) || [],
+          reference_attachments: (demand.reference_attachments as unknown as Attachment[] | null) || [],
           publish_date: demand.publish_date || null,
           publish_time: demand.publish_time || null,
           tenant_id: demand.tenant_id,
@@ -1741,6 +1748,99 @@ const KanbanCentralPage = () => {
     }
   };
 
+  // ===== Referências (coleção independente, jamais publicada) =====
+  const persistReferenceAttachments = async (list: Attachment[]) => {
+    if (!selectedCard) return;
+    const { error } = await supabase
+      .from('demands')
+      .update({
+        reference_attachments: list as unknown as any,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', selectedCard.id);
+    if (error) throw error;
+    setSelectedCard(prev => prev ? { ...prev, reference_attachments: list } : null);
+    setCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, reference_attachments: list } : c));
+  };
+
+  const handleReferenceFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedCard || !event.target.files || event.target.files.length === 0) return;
+    const files = Array.from(event.target.files);
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    if (files.some(file => file.size > MAX_FILE_SIZE)) {
+      sonnerToast.error("Arquivo muito grande. Limite de 50MB.");
+      event.target.value = '';
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      sonnerToast.error("Usuário não autenticado.");
+      return;
+    }
+    setReferenceUploading(true);
+    try {
+      const uploaded = await Promise.all(files.map(async file => {
+        const storagePath = buildAttachmentStoragePath({
+          tenantId: tenantId || '',
+          clientId: selectedCard.clientId,
+          periodPlanId: selectedCard.periodPlanId,
+          cardId: selectedCard.id,
+          fileName: file.name,
+          collection: 'reference',
+        });
+        const { error } = await supabase.storage.from('card-attachments').upload(storagePath, file);
+        if (error) throw error;
+        const { data: urlData } = supabase.storage.from('card-attachments').getPublicUrl(storagePath);
+        const attachment: Attachment = {
+          url: urlData.publicUrl,
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          storagePath,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: { id: user.id, email: user.email || '' },
+          cardId: selectedCard.id,
+          tenantId: tenantId || '',
+          clientId: selectedCard.clientId,
+          periodPlanId: selectedCard.periodPlanId || undefined,
+        };
+        return attachment;
+      }));
+      await persistReferenceAttachments([...(selectedCard.reference_attachments || []), ...uploaded]);
+      sonnerToast.success(`${uploaded.length} referência(s) adicionada(s)`);
+    } catch (error) {
+      console.error("Error uploading references:", error);
+      sonnerToast.error("Erro ao enviar referências");
+    } finally {
+      setReferenceUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveReferenceAttachment = async (url: string) => {
+    if (!selectedCard) return;
+    const attachment = (selectedCard.reference_attachments || []).find(a => a.url === url);
+    try {
+      if (attachment?.storagePath) {
+        await supabase.storage.from('card-attachments').remove([attachment.storagePath]);
+      }
+      await persistReferenceAttachments((selectedCard.reference_attachments || []).filter(a => a.url !== url));
+      sonnerToast.success("Referência removida");
+    } catch (error) {
+      console.error("Error removing reference:", error);
+      sonnerToast.error("Erro ao remover referência");
+    }
+  };
+
+  const handleReorderReferenceAttachments = async (list: Attachment[]) => {
+    try {
+      await persistReferenceAttachments(list);
+    } catch (error) {
+      console.error("Error reordering references:", error);
+      sonnerToast.error("Erro ao reordenar referências");
+    }
+  };
+
   const handleDelete = async () => {
     if (!selectedCard) return;
     try {
@@ -1886,6 +1986,7 @@ const KanbanCentralPage = () => {
       due_date: todayStr,
       channel: null,
       attachments: [],
+      reference_attachments: [],
       publish_date: null,
       publish_time: null,
       tenant_id: tenantId,
@@ -3663,6 +3764,10 @@ const KanbanCentralPage = () => {
         onFileUpload={handleFileUpload}
         onRemoveAttachment={handleRemoveAttachment}
         onReorderAttachments={handleReorderAttachments}
+        onReferenceFileUpload={handleReferenceFileUpload}
+        onRemoveReferenceAttachment={handleRemoveReferenceAttachment}
+        onReorderReferenceAttachments={handleReorderReferenceAttachments}
+        referenceUploading={referenceUploading}
         onDelete={handleDelete}
         onArchive={async (archive: boolean) => {
           if (!selectedCard) return;
