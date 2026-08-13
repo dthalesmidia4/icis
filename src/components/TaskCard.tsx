@@ -4005,6 +4005,12 @@ export default function TaskCard({
                     </div>
                   </div>
 
+                  <p className="-mt-3 mb-4 text-xs text-muted-foreground">
+                    Arquivos usados na entrega, geração de descrição, agendamento e publicação.
+                  </p>
+
+
+
                   {!collapsedSections.anexos && (
                     <>
                       {/* Attachments List with Drag and Drop */}
