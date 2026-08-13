@@ -444,6 +444,8 @@ export default function TaskCard({
   onFileUpload,
   onRemoveAttachment,
   onReorderAttachments,
+  onRemoveAllAttachments,
+
   onReferenceFileUpload,
   onRemoveReferenceAttachment,
   onReorderReferenceAttachments,
