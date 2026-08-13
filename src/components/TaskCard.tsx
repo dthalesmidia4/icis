@@ -7,6 +7,8 @@ import { IMAGE_ASPECT_OPTIONS, DEFAULT_SOCIAL_ASPECT, isImageAspectRatio, type I
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { extractClipboardFiles, normalizePastedFiles } from "@/lib/pastedFiles";
 import { resolveUploadCollection } from "@/lib/referenceAttachments";
+import { canBulkRemoveAttachments } from "@/lib/bulkAttachments";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
