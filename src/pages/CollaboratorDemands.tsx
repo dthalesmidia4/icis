@@ -9,6 +9,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { buildAttachmentStoragePath } from "@/lib/referenceAttachments";
+import { collectAttachmentStoragePaths } from "@/lib/bulkAttachments";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollaborators } from "@/hooks/useCollaborators";
@@ -885,6 +886,7 @@ const CollaboratorDemands = () => {
         onSave={handleSave}
         onFileUpload={handleFileUpload}
         onRemoveAttachment={handleRemoveAttachment}
+        onRemoveAllAttachments={handleRemoveAllAttachments}
         onReorderAttachments={handleReorderAttachments}
         onReferenceFileUpload={handleReferenceFileUpload}
         onRemoveReferenceAttachment={handleRemoveReferenceAttachment}
