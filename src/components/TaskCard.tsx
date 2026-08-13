@@ -3947,7 +3947,7 @@ export default function TaskCard({
                       <div className="p-1.5 bg-primary/10 rounded-md">
                         <Paperclip className="h-4 w-4 text-primary" />
                       </div>
-                      <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Anexos</h3>
+                      <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Arquivos finais</h3>
                       {card.attachments && card.attachments.length > 0 && (
                         <Badge variant="secondary" className="ml-1 text-xs">{card.attachments.length}</Badge>
                       )}
@@ -4004,6 +4004,12 @@ export default function TaskCard({
                       )}
                     </div>
                   </div>
+
+                  <p className="-mt-3 mb-4 text-xs text-muted-foreground">
+                    Arquivos usados na entrega, geração de descrição, agendamento e publicação.
+                  </p>
+
+
 
                   {!collapsedSections.anexos && (
                     <>
