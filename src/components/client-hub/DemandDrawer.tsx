@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import TaskCard, { type Attachment, type KanbanCardData, type PipelineStatus } from "@/components/TaskCard";
 import { buildAttachmentStoragePath } from "@/lib/referenceAttachments";
+import { collectAttachmentStoragePaths } from "@/lib/bulkAttachments";
 
 interface DemandDrawerProps {
   demandId: string | null;
@@ -246,6 +247,28 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
     }
   };
 
+  /** Exclusão em massa SOMENTE dos anexos finais. */
+  const handleRemoveAllAttachments = async () => {
+    if (!card) return;
+    const finalAttachments = card.attachments || [];
+    if (finalAttachments.length === 0) return;
+    try {
+      const storagePaths = collectAttachmentStoragePaths(finalAttachments);
+      if (storagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from("card-attachments")
+          .remove(storagePaths);
+        if (storageError) throw storageError;
+      }
+      await persistAttachments([]);
+      toast.success("Todos os anexos finais foram removidos.");
+    } catch (err) {
+      console.error("[DemandDrawer] remove all attachments error", err);
+      toast.error("Não foi possível remover todos os anexos.");
+      throw err;
+    }
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => uploadFiles(event, "final");
   const handleReferenceFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => uploadFiles(event, "reference");
 
@@ -327,6 +350,7 @@ export default function DemandDrawer({ demandId, tenantId, onClose, onPersisted 
       onSave={handleSave}
       onFileUpload={handleFileUpload}
       onRemoveAttachment={handleRemoveAttachment}
+      onRemoveAllAttachments={handleRemoveAllAttachments}
       onReorderAttachments={async (attachments) => {
         try {
           await persistAttachments(attachments);

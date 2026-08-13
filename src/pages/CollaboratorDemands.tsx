@@ -9,6 +9,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { buildAttachmentStoragePath } from "@/lib/referenceAttachments";
+import { collectAttachmentStoragePaths } from "@/lib/bulkAttachments";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollaborators } from "@/hooks/useCollaborators";
@@ -478,6 +479,36 @@ const CollaboratorDemands = () => {
     setSelectedCard((prev) => prev ? { ...prev, attachments: updated } : prev);
   };
 
+  /** Exclusão em massa SOMENTE dos anexos finais. Referências permanecem intactas. */
+  const handleRemoveAllAttachments = async () => {
+    if (!selectedCard) return;
+    const finalAttachments = selectedCard.attachments || [];
+    if (finalAttachments.length === 0) return;
+    try {
+      const storagePaths = collectAttachmentStoragePaths(finalAttachments);
+      if (storagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from("card-attachments")
+          .remove(storagePaths);
+        if (storageError) throw storageError;
+      }
+      const { error } = await supabase
+        .from("demands")
+        .update({ attachments: [] as any, updated_at: new Date().toISOString() })
+        .eq("id", selectedCard.id);
+      if (error) throw error;
+      setCards((prev) => prev.map((c) => c.id === selectedCard.id ? { ...c, attachments: [] } : c));
+      setSelectedCard((prev) => prev ? { ...prev, attachments: [] } : prev);
+      sonnerToast.success("Todos os anexos finais foram removidos.");
+    } catch (err) {
+      console.error("[CollaboratorDemands] remove all attachments error", err);
+      sonnerToast.error("Não foi possível remover todos os anexos.");
+      throw err;
+    }
+  };
+
+
+
   const handleReorderAttachments = async (attachments: Attachment[]) => {
     if (!selectedCard) return;
     await supabase.from("demands").update({ attachments: attachments as any }).eq("id", selectedCard.id);
@@ -855,6 +886,7 @@ const CollaboratorDemands = () => {
         onSave={handleSave}
         onFileUpload={handleFileUpload}
         onRemoveAttachment={handleRemoveAttachment}
+        onRemoveAllAttachments={handleRemoveAllAttachments}
         onReorderAttachments={handleReorderAttachments}
         onReferenceFileUpload={handleReferenceFileUpload}
         onRemoveReferenceAttachment={handleRemoveReferenceAttachment}
