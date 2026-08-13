@@ -202,6 +202,9 @@ interface TaskCardProps {
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onRemoveAttachment: (url: string) => Promise<void>;
   onReorderAttachments?: (attachments: Attachment[]) => Promise<void>;
+  /** Exclusão em massa SOMENTE dos anexos finais (`demands.attachments`). */
+  onRemoveAllAttachments?: () => Promise<void>;
+
   /** Upload/remoção/reordenação da coleção de referências (opcional por tela). */
   onReferenceFileUpload?: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onRemoveReferenceAttachment?: (url: string) => Promise<void>;
