@@ -80,6 +80,7 @@ import { ClipboardCheck } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Input } from "@/components/ui/input";
 import { buildAttachmentStoragePath } from "@/lib/referenceAttachments";
+import { collectAttachmentStoragePaths } from "@/lib/bulkAttachments";
 import {
   loadClientReturnConfigs,
   describeNextReturn,
@@ -3797,6 +3798,7 @@ const KanbanCentralPage = () => {
         onSave={handleSave}
         onFileUpload={handleFileUpload}
         onRemoveAttachment={handleRemoveAttachment}
+        onRemoveAllAttachments={handleRemoveAllAttachments}
         onReorderAttachments={handleReorderAttachments}
         onReferenceFileUpload={handleReferenceFileUpload}
         onRemoveReferenceAttachment={handleRemoveReferenceAttachment}
