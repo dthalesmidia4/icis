@@ -767,6 +767,28 @@ export default function TaskCard({
     }
   };
 
+  /** Exclui uma solicitação (ativa ou histórica) sem tocar em etapa/responsável. */
+  const handleDeleteChangeRequest = async (requestId: string) => {
+    if (readOnly) return;
+    setDeletingChangeRequestId(requestId);
+    try {
+      await deleteChangeRequest(requestId);
+      setChangeRequests((prev) => ({
+        active: prev.active?.id === requestId ? null : prev.active,
+        history: prev.history.filter((r) => r.id !== requestId),
+      }));
+      toast.success("Solicitação excluída.");
+      await refreshChangeRequests();
+    } catch (err) {
+      console.error("[TaskCard] delete change request", err);
+      toast.error("Não foi possível excluir a solicitação.");
+      await refreshChangeRequests();
+    } finally {
+      setDeletingChangeRequestId(null);
+    }
+  };
+
+
   /**
    * Ajuda o executor quando há alterações pendentes, mas NUNCA bloqueia:
    * o usuário pode continuar mesmo assim.
