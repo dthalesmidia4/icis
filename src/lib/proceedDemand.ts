@@ -799,6 +799,59 @@ export async function getPipelineSequence(
     .map((f) => ({ function_key: f.function_key, name: f.name }));
 }
 
+export interface CompatibleReturnTarget {
+  stage: PipelineStage;
+  userId: string;
+  userName: string;
+  /** true quando a etapa aplicada difere da originalmente pedida. */
+  reconfigured: boolean;
+  routing: ReturnRoutingSource;
+}
+
+/**
+ * RETORNO COM RECONFIGURAÇÃO AUTOMÁTICA DE ETAPA.
+ *
+ * Recebe o usuário-alvo do retorno (histórico da etapa ou escolha explícita) e
+ * devolve a etapa ANTERIOR compatível com as funções que ele realmente possui na
+ * área da demanda. Nunca devolve combinação usuário/função inválida; devolve
+ * `null` quando não há usuário-alvo utilizável ou ele não possui nenhuma etapa
+ * anterior válida (o chamador então cai no roteamento automático da etapa pedida).
+ *
+ * Centraliza a regra para `regressDemand` e `jumpToFunction` (salto para trás).
+ */
+export async function resolveCompatibleReturnTarget(args: {
+  tenantId: string;
+  workArea?: "midia" | "sistemas" | null;
+  sequence: PipelineStage[];
+  currentIndex: number;
+  requestedFunctionKey: string;
+  preferredUserId?: string | null;
+}): Promise<CompatibleReturnTarget | null> {
+  const { tenantId, sequence, currentIndex, requestedFunctionKey } = args;
+  const preferredUserId = args.preferredUserId || null;
+  if (!preferredUserId || currentIndex <= 0) return null;
+
+  const allowed = await fetchUserAllowedFunctionKeys(tenantId, preferredUserId, args.workArea);
+  const pick = pickCompatibleReturnStage(sequence, currentIndex, requestedFunctionKey, allowed);
+  if (!pick) return null;
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", preferredUserId)
+    .maybeSingle();
+
+  return {
+    stage: pick.stage,
+    userId: preferredUserId,
+    userName: (prof as any)?.full_name || "Colaborador",
+    reconfigured: pick.reconfigured,
+    routing: pick.routing,
+  };
+}
+
+
+
 
 /**
  * Pula diretamente a demanda para uma função específica do pipeline configurado.
