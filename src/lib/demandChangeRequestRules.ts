@@ -92,6 +92,26 @@ export function isEmptyChangeRequestDraft(notes: string, itemTexts: string[]): b
   return (notes ?? "").trim().length === 0 && normalizeDraftItems(itemTexts).length === 0;
 }
 
+/**
+ * REGRA CANÔNICA: toda solicitação ativa precisa de pelo menos 1 item de
+ * checklist. Se o usuário não informou itens manuais, o próprio texto de
+ * `notes` se torna o primeiro (e único) item.
+ */
+export function normalizeChangeRequestDraft(
+  notes: string,
+  itemTexts: string[],
+): { notes: string | null; items: { text: string; position: number }[] } {
+  const normalizedNotes = (notes ?? "").trim();
+  const manualItems = normalizeDraftItems(itemTexts);
+  const items =
+    manualItems.length > 0
+      ? manualItems
+      : normalizedNotes.length > 0
+        ? [{ text: normalizedNotes, position: 0 }]
+        : [];
+  return { notes: normalizedNotes || null, items };
+}
+
 
 /* ===================== MODO DO MODAL / VISIBILIDADE ===================== */
 

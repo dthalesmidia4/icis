@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
  */
 
 export * from "./demandChangeRequestRules";
-import { normalizeDraftItems, type ChangeRequest, type ChangeRequestItem, type ChangeRequestWithItems } from "./demandChangeRequestRules";
+import { normalizeChangeRequestDraft, type ChangeRequest, type ChangeRequestItem, type ChangeRequestWithItems } from "./demandChangeRequestRules";
 
 /* ============================ PERSISTÊNCIA ============================ */
 
@@ -44,9 +44,37 @@ export async function loadChangeRequests(demandId: string): Promise<{
     items: items.filter((i) => i.request_id === r.id),
   }));
 
-  const active = withItems.find((r) => r.status === "active") ?? null;
+  let active = withItems.find((r) => r.status === "active") ?? null;
+  // Correção de dados legados: request ATIVA com notes e sem checklist fica
+  // impossível de concluir. Cria 1 item pendente derivado de notes.
+  if (active && active.items.length === 0 && (active.notes ?? "").trim().length > 0) {
+    active = (await ensureActiveRequestChecklist(active)) ?? active;
+  }
   const history = withItems.filter((r) => r.id !== active?.id);
   return { active, history };
+}
+
+/** Backfill idempotente de 1 item derivado de `notes` (apenas request ativa). */
+async function ensureActiveRequestChecklist(
+  request: ChangeRequestWithItems,
+): Promise<ChangeRequestWithItems | null> {
+  const text = (request.notes ?? "").trim();
+  if (!text) return null;
+  const { data, error } = await supabase
+    .from(ITEMS)
+    .insert({
+      request_id: request.id,
+      tenant_id: request.tenant_id,
+      text,
+      position: 0,
+    } as any)
+    .select("*")
+    .single();
+  if (error || !data) {
+    console.warn("[changeRequests] backfill item error", error);
+    return null;
+  }
+  return { ...request, items: [data as unknown as ChangeRequestItem] };
 }
 
 /**
@@ -61,7 +89,7 @@ export async function createChangeRequest(input: {
   sourceFunctionKey?: string | null;
   targetFunctionKey?: string | null;
 }): Promise<{ requestId: string; itemCount: number }> {
-  const items = normalizeDraftItems(input.itemTexts);
+  const { notes, items } = normalizeChangeRequestDraft(input.notes, input.itemTexts);
   const { data: userRes } = await supabase.auth.getUser();
   const requestedBy = userRes?.user?.id ?? null;
 
@@ -79,7 +107,7 @@ export async function createChangeRequest(input: {
       requested_by: requestedBy,
       source_function_key: input.sourceFunctionKey ?? null,
       target_function_key: input.targetFunctionKey ?? null,
-      notes: (input.notes ?? "").trim() || null,
+      notes,
       status: "active",
     } as any)
     .select("id")
