@@ -80,6 +80,8 @@ export default function ChangeRequestPanel({
 
   return (
     <div className="space-y-5">
+      {requestButton && <div className="flex justify-end">{requestButton}</div>}
+
       {active && (
         <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
           <div className="flex flex-wrap items-center gap-2">
