@@ -5,27 +5,30 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2, Plus, RotateCcw, X } from "lucide-react";
-import { isEmptyChangeRequestDraft, normalizeDraftItems } from "@/lib/demandChangeRequests";
+import { canConfirmChangeRequest, normalizeDraftItems, type ChangeRequestMode } from "@/lib/demandChangeRequests";
 
 export interface RequestChangesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 'regress' = card volta de etapa; 'standalone' = solicitação avulsa pela aba. */
+  mode?: ChangeRequestMode;
   /** Nome da etapa de destino (para onde o card vai voltar). */
   targetStageName?: string | null;
   /** Nome de quem vai receber a demanda de volta, quando conhecido. */
   targetUserName?: string | null;
   loading?: boolean;
-  /** Executa a volta do card. `notes`/`items` já normalizados pelo modal. */
+  /** Executa a ação. `notes`/`items` já normalizados pelo modal. */
   onConfirm: (payload: { notes: string; itemTexts: string[] }) => void | Promise<void>;
 }
 
 /**
- * Modal obrigatório ao VOLTAR uma demanda: registra o que precisa ser alterado
- * (texto livre + checklist opcional) na aba "Alterações".
+ * Modal de registro de alterações. Em `regress` acompanha a volta do card
+ * (registro opcional); em `standalone` cria a solicitação sem mover o card.
  */
 export default function RequestChangesModal({
   open,
   onOpenChange,
+  mode = "regress",
   targetStageName,
   targetUserName,
   loading = false,
@@ -42,11 +45,12 @@ export default function RequestChangesModal({
   }, [open]);
 
   const normalized = normalizeDraftItems(items);
-  const isEmpty = isEmptyChangeRequestDraft(notes, items);
+  const canConfirm = canConfirmChangeRequest(mode, notes, items);
 
   const updateItem = (index: number, value: string) => {
     setItems((prev) => prev.map((it, i) => (i === index ? value : it)));
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!loading ? onOpenChange(v) : undefined)}>
