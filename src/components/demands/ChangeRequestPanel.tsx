@@ -260,7 +260,9 @@ export default function ChangeRequestPanel({
                     <span>· {userNames[req.requested_by]}</span>
                   )}
                   {p.total > 0 && <span>· {p.done}/{p.total} itens</span>}
+                  <span className="ml-auto">{deleteButton(req.id)}</span>
                 </div>
+
                 {req.notes && (
                   <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">{req.notes}</p>
                 )}
