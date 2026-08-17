@@ -135,10 +135,15 @@ export async function createChangeRequest(input: {
   return { requestId, itemCount: items.length };
 }
 
-/** Rollback lógico usado quando o movimento do card falha após criar a request. */
+/**
+ * Exclui uma solicitação (ativa ou histórica). Os itens de checklist saem por
+ * ON DELETE CASCADE. Não toca em `demands` nem em outras solicitações.
+ */
 export async function deleteChangeRequest(requestId: string): Promise<void> {
-  await supabase.from(REQ).delete().eq("id", requestId);
+  const { error } = await supabase.from(REQ).delete().eq("id", requestId);
+  if (error) throw error;
 }
+
 
 /** Marca/desmarca um item. */
 export async function setItemCompleted(
