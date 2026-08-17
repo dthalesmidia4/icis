@@ -4,7 +4,13 @@ import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory"
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
 import { isReviewFunction } from "@/lib/flowFunctions";
-import { userHasFunction } from "@/lib/clientStageAssignments";
+import { userHasFunction, fetchUserAllowedFunctionKeys } from "@/lib/clientStageAssignments";
+import {
+  pickCompatibleReturnStage,
+  type PipelineStage,
+  type ReturnRoutingSource,
+} from "@/lib/returnTargetResolution";
+
 import {
   getEligibleStageCandidates,
   getPreferredStageAssignee,
@@ -793,6 +799,59 @@ export async function getPipelineSequence(
     .map((f) => ({ function_key: f.function_key, name: f.name }));
 }
 
+export interface CompatibleReturnTarget {
+  stage: PipelineStage;
+  userId: string;
+  userName: string;
+  /** true quando a etapa aplicada difere da originalmente pedida. */
+  reconfigured: boolean;
+  routing: ReturnRoutingSource;
+}
+
+/**
+ * RETORNO COM RECONFIGURAÇÃO AUTOMÁTICA DE ETAPA.
+ *
+ * Recebe o usuário-alvo do retorno (histórico da etapa ou escolha explícita) e
+ * devolve a etapa ANTERIOR compatível com as funções que ele realmente possui na
+ * área da demanda. Nunca devolve combinação usuário/função inválida; devolve
+ * `null` quando não há usuário-alvo utilizável ou ele não possui nenhuma etapa
+ * anterior válida (o chamador então cai no roteamento automático da etapa pedida).
+ *
+ * Centraliza a regra para `regressDemand` e `jumpToFunction` (salto para trás).
+ */
+export async function resolveCompatibleReturnTarget(args: {
+  tenantId: string;
+  workArea?: "midia" | "sistemas" | null;
+  sequence: PipelineStage[];
+  currentIndex: number;
+  requestedFunctionKey: string;
+  preferredUserId?: string | null;
+}): Promise<CompatibleReturnTarget | null> {
+  const { tenantId, sequence, currentIndex, requestedFunctionKey } = args;
+  const preferredUserId = args.preferredUserId || null;
+  if (!preferredUserId || currentIndex <= 0) return null;
+
+  const allowed = await fetchUserAllowedFunctionKeys(tenantId, preferredUserId, args.workArea);
+  const pick = pickCompatibleReturnStage(sequence, currentIndex, requestedFunctionKey, allowed);
+  if (!pick) return null;
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", preferredUserId)
+    .maybeSingle();
+
+  return {
+    stage: pick.stage,
+    userId: preferredUserId,
+    userName: (prof as any)?.full_name || "Colaborador",
+    reconfigured: pick.reconfigured,
+    routing: pick.routing,
+  };
+}
+
+
+
 
 /**
  * Pula diretamente a demanda para uma função específica do pipeline configurado.
@@ -821,7 +880,7 @@ export async function jumpToFunction({
   const jumpMeta = await getDemandFlowMeta(demandId);
   const jumpArea = jumpMeta.workArea;
   const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId, workArea: jumpArea, origin: jumpMeta.origin });
-  const target = seq.find((f) => f.function_key === targetFunctionKey);
+  let target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
   // Entrada em "Aguardando clientes": prioriza quem tem a função atribuída;
@@ -894,20 +953,30 @@ export async function jumpToFunction({
     }
   }
 
+  // Salto para trás: preserva o destinatário histórico e, se ele não possuir mais
+  // a função pedida, RECONFIGURA a etapa para uma função válida dele (mesma regra
+  // centralizada usada por `regressDemand`).
+  const jumpRequestedFunctionKey = target.function_key;
+  let jumpRequestedUserId: string | null = null;
+  let jumpReconfigured = false;
   if (!picked && isBackward) {
     const completions = await getStageCompletions(tenantId, demandId);
     const historic = lastUserOfStage(completions, target.function_key);
-    // Executor histórico só volta a receber se AINDA possuir a função na área.
-    const historicHolds = historic
-      ? await userHasFunction(tenantId, historic, target.function_key, jumpArea as any)
-      : false;
-    if (historic && historicHolds) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", historic)
-        .maybeSingle();
-      picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador", source: "historic_return" };
+    jumpRequestedUserId = historic || null;
+    if (historic) {
+      const resolved = await resolveCompatibleReturnTarget({
+        tenantId,
+        workArea: jumpArea,
+        sequence: seq,
+        currentIndex: curIdx,
+        requestedFunctionKey: target.function_key,
+        preferredUserId: historic,
+      });
+      if (resolved) {
+        target = resolved.stage;
+        jumpReconfigured = resolved.reconfigured;
+        picked = { success: true, userId: resolved.userId, name: resolved.userName, source: "historic_return" };
+      }
     }
   }
 
@@ -929,7 +998,16 @@ export async function jumpToFunction({
   const jumpAction = isBackward ? "moved_back" : "proceeded";
   const jumpMetaOut: Record<string, unknown> = {
     ...(jumpHistoryMeta || {}),
-    routing: picked.source || "automatic_load",
+    routing: jumpReconfigured ? "compatible_stage_return" : picked.source || "automatic_load",
+    ...(isBackward
+      ? {
+          requested_target_function_key: jumpRequestedFunctionKey,
+          resolved_target_function_key: target.function_key,
+          requested_user_id: jumpRequestedUserId,
+          resolved_user_id: picked.userId,
+          stage_reconfigured: jumpReconfigured,
+        }
+      : {}),
   };
 
 
@@ -1309,7 +1387,13 @@ export async function regressDemand({
   demandTypeKey,
   currentFunctionKey,
   targetFunctionKey,
-}: ProceedInput & { targetFunctionKey?: string | null }): Promise<ProceedResult> {
+  targetUserId,
+}: ProceedInput & {
+  targetFunctionKey?: string | null;
+  /** Destinatário desejado do retorno (histórico da etapa escolhida no menu). */
+  targetUserId?: string | null;
+}): Promise<ProceedResult> {
+
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
     return { success: false, needsTypeKey: true, message: "Defina o tipo da demanda antes de voltar." };
@@ -1404,22 +1488,41 @@ export async function regressDemand({
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
 
-  // Ao voltar, o responsável natural é quem já executou aquela etapa — um
-  // executor histórico ainda elegível nunca é substituído pelo preferencial.
+  // Ao voltar, o destinatário desejado (escolha explícita ou executor histórico)
+  // é preservado: se ele não possui mais a função da etapa pedida, a ETAPA é
+  // reconfigurada para uma função válida dele — nunca o contrário.
+  const requestedFunctionKeyApplied = prevFn.function_key;
+  let requestedUserId: string | null = targetUserId || null;
+  let reconfigured = false;
+
   let picked = await (async (): Promise<PickAssigneeResult> => {
     const completions = await getStageCompletions(tenantId, demandId);
     const historic = lastUserOfStage(completions, prevFn.function_key);
-    if (historic) {
-      const stillEligible = await userHasFunction(tenantId, historic, prevFn.function_key, backArea);
-      if (stillEligible) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", historic)
-          .maybeSingle();
-        return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador", source: "historic_return" };
+    const preferredUserId = requestedUserId || historic || null;
+    requestedUserId = preferredUserId;
+
+    if (preferredUserId) {
+      const resolved = await resolveCompatibleReturnTarget({
+        tenantId,
+        workArea: backArea,
+        sequence,
+        currentIndex: idx,
+        requestedFunctionKey: prevFn.function_key,
+        preferredUserId,
+      });
+      if (resolved) {
+        prevFn = resolved.stage;
+        reconfigured = resolved.reconfigured;
+        return {
+          success: true,
+          userId: resolved.userId,
+          name: resolved.userName,
+          source: "historic_return",
+        };
       }
     }
+    // Sem usuário-alvo utilizável (ou sem etapa compatível): roteamento automático
+    // da etapa originalmente pedida.
     return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name, {
       workArea: backArea,
       clientId: backMeta.clientId,
@@ -1428,6 +1531,15 @@ export async function regressDemand({
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
   }
+  const regressRoutingMeta: Record<string, unknown> = {
+    routing: reconfigured ? "compatible_stage_return" : picked.source || "automatic_load",
+    requested_target_function_key: requestedFunctionKeyApplied,
+    resolved_target_function_key: prevFn.function_key,
+    requested_user_id: requestedUserId,
+    resolved_user_id: picked.userId,
+    stage_reconfigured: reconfigured,
+  };
+
   const regressPayload: any = { assigned_to: picked.userId, current_function_key: prevFn.function_key };
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key !== "enviar_cliente") {
     regressPayload.client_wait_started_at = null;
@@ -1450,7 +1562,7 @@ export async function regressDemand({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: { routing: picked.source || "automatic_load" } as any },
+      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: regressRoutingMeta as any },
       [previousAssignee, ...captarExtras],
     );
   } else {
@@ -1462,7 +1574,7 @@ export async function regressDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: prevFn.function_key,
-      metadata: { routing: picked.source || "automatic_load" } as any,
+      metadata: regressRoutingMeta as any,
     });
   }
   return {

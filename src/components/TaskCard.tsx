@@ -656,6 +656,7 @@ export default function TaskCard({
     targetFunctionKey: string | null;
     targetStageName: string | null;
     targetUserName: string | null;
+    targetUserId: string | null;
   } | null>(null);
   const [creatingChangeRequest, setCreatingChangeRequest] = useState(false);
   const [pendingGuardAction, setPendingGuardAction] = useState<{
@@ -852,7 +853,10 @@ export default function TaskCard({
     }
   };
 
-  const executeRegress = async (targetFunctionKey?: string | null): Promise<boolean> => {
+  const executeRegress = async (
+    targetFunctionKey?: string | null,
+    targetUserId?: string | null,
+  ): Promise<boolean> => {
     if (!card || regressing) return false;
     if (!card.demand_type_key) {
       toast.error("Defina o tipo da demanda antes de voltar.");
@@ -866,6 +870,7 @@ export default function TaskCard({
         demandTypeKey: card.demand_type_key,
         currentFunctionKey: card.current_function_key,
         targetFunctionKey: targetFunctionKey ?? null,
+        targetUserId: targetUserId ?? null,
       });
       if (result.success) {
         toast.success(result.message);
@@ -902,6 +907,7 @@ export default function TaskCard({
     targetFunctionKey?: string | null,
     targetStageName?: string | null,
     targetUserName?: string | null,
+    targetUserId?: string | null,
   ) => {
     if (!card || regressing) return;
     if (!card.demand_type_key) {
@@ -913,6 +919,7 @@ export default function TaskCard({
       targetFunctionKey: targetFunctionKey ?? null,
       targetStageName: targetStageName ?? null,
       targetUserName: targetUserName ?? null,
+      targetUserId: targetUserId ?? null,
     });
   };
 
@@ -924,6 +931,7 @@ export default function TaskCard({
       targetFunctionKey: null,
       targetStageName: null,
       targetUserName: null,
+      targetUserId: null,
     });
   };
 
@@ -934,7 +942,7 @@ export default function TaskCard({
 
     // Regressão sem conteúdo: só volta o card, sem criar solicitação vazia.
     if (mode === "regress" && empty) {
-      const moved = await executeRegress(changeRequestModal.targetFunctionKey);
+      const moved = await executeRegress(changeRequestModal.targetFunctionKey, changeRequestModal.targetUserId);
       if (moved) setChangeRequestModal(null);
       return;
     }
@@ -953,7 +961,7 @@ export default function TaskCard({
       createdId = created.requestId;
 
       if (mode === "regress") {
-        const moved = await executeRegress(changeRequestModal.targetFunctionKey);
+        const moved = await executeRegress(changeRequestModal.targetFunctionKey, changeRequestModal.targetUserId);
         if (!moved) {
           // O card não se moveu: não deixa solicitação órfã.
           await deleteChangeRequest(createdId);
@@ -2818,7 +2826,7 @@ export default function TaskCard({
                                       key={opt.functionKey}
                                       type="button"
                                       disabled={regressing}
-                                      onClick={() => handleRegress(opt.functionKey, opt.functionName, opt.lastUserName)}
+                                      onClick={() => handleRegress(opt.functionKey, opt.functionName, opt.lastUserName, opt.lastUserId)}
                                       className="w-full text-left px-2 py-1.5 rounded hover:bg-muted flex items-start gap-2"
                                     >
                                       <ArrowLeft className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
