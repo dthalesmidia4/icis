@@ -1,8 +1,19 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, Clock, Loader2, Plus, RotateCcw } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CheckCircle2, Clock, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import {
   computeProgress,
   countPendingItems,
@@ -20,8 +31,11 @@ export interface ChangeRequestPanelProps {
   onCompleteAll?: () => void | Promise<void>;
   /** Abre o modal de solicitação avulsa (não move o card). */
   onRequestChange?: () => void;
+  /** Exclui a solicitação (ativa ou histórica) e seus itens. */
+  onDeleteRequest?: (requestId: string) => void | Promise<void>;
   busyItemId?: string | null;
   completingAll?: boolean;
+  deletingRequestId?: string | null;
 }
 
 const fmt = (iso: string | null | undefined) =>
@@ -44,11 +58,60 @@ export default function ChangeRequestPanel({
   onToggleItem,
   onCompleteAll,
   onRequestChange,
+  onDeleteRequest,
   busyItemId = null,
   completingAll = false,
+  deletingRequestId = null,
 }: ChangeRequestPanelProps) {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const progress = computeProgress(active);
   const pending = countPendingItems(active);
+
+  const canDelete = !readOnly && !!onDeleteRequest;
+
+  const deleteButton = (requestId: string) =>
+    canDelete ? (
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        aria-label="Excluir solicitação de alteração"
+        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+        disabled={deletingRequestId === requestId}
+        onClick={() => setConfirmDeleteId(requestId)}
+      >
+        {deletingRequestId === requestId ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Trash2 className="h-3.5 w-3.5" />
+        )}
+      </Button>
+    ) : null;
+
+  const confirmDialog = (
+    <AlertDialog open={!!confirmDeleteId} onOpenChange={(v) => { if (!v) setConfirmDeleteId(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir solicitação de alteração?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação removerá esta solicitação e seus itens de checklist.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              const id = confirmDeleteId;
+              setConfirmDeleteId(null);
+              if (id && onDeleteRequest) void onDeleteRequest(id);
+            }}
+          >
+            Excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 
   const requestButton = !readOnly && onRequestChange ? (
     <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={onRequestChange}>
@@ -56,6 +119,7 @@ export default function ChangeRequestPanel({
       Solicitar alteração
     </Button>
   ) : null;
+
 
   if (loading) {
     return (
