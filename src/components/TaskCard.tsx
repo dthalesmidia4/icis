@@ -42,6 +42,22 @@ import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea,
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
 import { checkAssignmentConflicts, type AssignmentConflict, type FreeSlotSuggestion } from "@/lib/scheduleOccupancy";
 import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
+import ChangeRequestPanel from "@/components/demands/ChangeRequestPanel";
+import RequestChangesModal from "@/components/demands/RequestChangesModal";
+import {
+  loadChangeRequests,
+  createChangeRequest,
+  deleteChangeRequest,
+  setItemCompleted,
+  completeAllPendingItems,
+  resolveChangeRequest,
+  countPendingItems,
+  hasAnyChangeRequest,
+  shouldAutoResolve,
+  shouldOpenAlterationsTab,
+  type ChangeRequestWithItems,
+} from "@/lib/demandChangeRequests";
+import { useRealtimeDemandChangeRequests } from "@/hooks/realtime";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
@@ -499,7 +515,7 @@ export default function TaskCard({
   const [referenceToRemove, setReferenceToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
-  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos' | 'referencias'>(
+  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos' | 'referencias' | 'alteracoes'>(
     presentation === 'drawer' && (card as any)?.content_brief ? 'briefing' : 'description'
   );
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
@@ -623,7 +639,140 @@ export default function TaskCard({
     } as any);
   };
 
-  const handleProceed = async (forcedAssigneeId?: string | null) => {
+  /* ===================== ALTERAÇÕES SOLICITADAS ===================== */
+
+  const [changeRequests, setChangeRequests] = useState<{
+    active: ChangeRequestWithItems | null;
+    history: ChangeRequestWithItems[];
+  }>({ active: null, history: [] });
+  const [changeRequestsLoading, setChangeRequestsLoading] = useState(false);
+  const [busyChangeItemId, setBusyChangeItemId] = useState<string | null>(null);
+  const [completingAllChanges, setCompletingAllChanges] = useState(false);
+  const [changeRequestModal, setChangeRequestModal] = useState<{
+    targetFunctionKey: string | null;
+    targetStageName: string | null;
+    targetUserName: string | null;
+  } | null>(null);
+  const [creatingChangeRequest, setCreatingChangeRequest] = useState(false);
+  const [pendingGuardAction, setPendingGuardAction] = useState<{
+    label: string;
+    run: () => Promise<void> | void;
+  } | null>(null);
+  const alterationsAutoOpenedRef = useRef<string | null>(null);
+
+  const activeChangeRequest = changeRequests.active;
+  const pendingChangeItems = countPendingItems(activeChangeRequest);
+  const hasChangeRequests = hasAnyChangeRequest(activeChangeRequest, changeRequests.history);
+
+  const refreshChangeRequests = useCallback(async () => {
+    if (!card?.id || isDraft) {
+      setChangeRequests({ active: null, history: [] });
+      return;
+    }
+    const data = await loadChangeRequests(card.id);
+    setChangeRequests(data);
+  }, [card?.id, isDraft]);
+
+  useEffect(() => {
+    if (!open || isDraft || !card?.id) {
+      setChangeRequests({ active: null, history: [] });
+      return;
+    }
+    let cancelled = false;
+    setChangeRequestsLoading(true);
+    loadChangeRequests(card.id)
+      .then((data) => {
+        if (cancelled) return;
+        setChangeRequests(data);
+        // Abre direto em "Alterações" quando há checklist pendente.
+        if (
+          shouldOpenAlterationsTab(data.active, { isDraft }) &&
+          alterationsAutoOpenedRef.current !== card.id
+        ) {
+          alterationsAutoOpenedRef.current = card.id;
+          setActiveSection('alteracoes');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setChangeRequestsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [open, isDraft, card?.id]);
+
+  useEffect(() => {
+    if (!open) alterationsAutoOpenedRef.current = null;
+  }, [open]);
+
+  /** Dois usuários com o mesmo card aberto veem o checklist em tempo real. */
+  useRealtimeDemandChangeRequests({
+    tenantId: card?.tenant_id ?? null,
+    demandId: card?.id ?? null,
+    enabled: !!open && !isDraft,
+    onChange: () => { void refreshChangeRequests(); },
+  });
+
+  const handleToggleChangeItem = async (itemId: string, completed: boolean) => {
+    if (!activeChangeRequest) return;
+    setBusyChangeItemId(itemId);
+    try {
+      await setItemCompleted(itemId, completed, currentUserId);
+      const nextActive: ChangeRequestWithItems = {
+        ...activeChangeRequest,
+        items: activeChangeRequest.items.map((i) =>
+          i.id === itemId
+            ? {
+                ...i,
+                is_completed: completed,
+                completed_by: completed ? currentUserId : null,
+                completed_at: completed ? new Date().toISOString() : null,
+              }
+            : i,
+        ),
+      };
+      setChangeRequests((prev) => ({ ...prev, active: nextActive }));
+      if (shouldAutoResolve(nextActive)) {
+        await resolveChangeRequest(nextActive.id);
+        toast.success("Todas as alterações foram concluídas.");
+        await refreshChangeRequests();
+      }
+    } catch (err) {
+      console.error("[TaskCard] toggle change item", err);
+      toast.error("Não foi possível atualizar o item.");
+      await refreshChangeRequests();
+    } finally {
+      setBusyChangeItemId(null);
+    }
+  };
+
+  const handleCompleteAllChanges = async () => {
+    if (!activeChangeRequest) return;
+    setCompletingAllChanges(true);
+    try {
+      await completeAllPendingItems(activeChangeRequest.id, currentUserId);
+      await resolveChangeRequest(activeChangeRequest.id);
+      await refreshChangeRequests();
+      toast.success("Alterações marcadas como concluídas.");
+    } catch (err) {
+      console.error("[TaskCard] complete all changes", err);
+      toast.error("Não foi possível marcar as alterações.");
+    } finally {
+      setCompletingAllChanges(false);
+    }
+  };
+
+  /**
+   * Ajuda o executor quando há alterações pendentes, mas NUNCA bloqueia:
+   * o usuário pode continuar mesmo assim.
+   */
+  const runWithPendingChangesGuard = (label: string, run: () => Promise<void> | void) => {
+    if (pendingChangeItems > 0) {
+      setPendingGuardAction({ label, run });
+      return;
+    }
+    void run();
+  };
+
+  const executeProceed = async (forcedAssigneeId?: string | null) => {
     if (!card || proceeding) return;
     if (!card.demand_type_key) {
       toast.error("Defina o tipo da demanda antes de prosseguir.");
@@ -667,7 +816,7 @@ export default function TaskCard({
   // (o botão "Prosseguir" precisa do destino antes do clique).
 
 
-  const handleDeliverMyPart = async (targetUserId?: string) => {
+  const executeDeliverMyPart = async (targetUserId?: string) => {
     if (!card || deliveringPart) return;
     const uid = targetUserId || currentUserId;
     if (!uid) return;
@@ -697,7 +846,7 @@ export default function TaskCard({
     }
   };
 
-  const handleRegress = async (targetFunctionKey?: string | null) => {
+  const executeRegress = async (targetFunctionKey?: string | null) => {
     if (!card || regressing) return;
     if (!card.demand_type_key) {
       toast.error("Defina o tipo da demanda antes de voltar.");
