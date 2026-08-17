@@ -58,14 +58,17 @@ export default function RequestChangesModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RotateCcw className="h-4 w-4 text-primary" />
-            Solicitar alterações
+            {mode === "standalone" ? "Solicitar alteração" : "Solicitar alterações"}
           </DialogTitle>
           <DialogDescription>
-            {targetStageName
+            {mode === "regress" && targetStageName
               ? <>A demanda voltará para <strong>{targetStageName}</strong>{targetUserName ? <> ({targetUserName})</> : null}. Descreva exatamente o que precisa ser alterado.</>
-              : "Descreva exatamente o que precisa ser alterado."}
+              : mode === "standalone"
+                ? "Registre o que precisa ser alterado. A demanda permanece na etapa atual."
+                : "Descreva exatamente o que precisa ser alterado (opcional)."}
           </DialogDescription>
         </DialogHeader>
+
 
         <div className="space-y-4">
           <div className="space-y-1.5">
