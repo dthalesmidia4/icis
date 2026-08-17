@@ -8,7 +8,7 @@ import {
   normalizeDraftItems,
   isEmptyChangeRequestDraft,
   type ChangeRequestWithItems,
-} from "./demandChangeRequests";
+} from "./demandChangeRequestRules";
 
 const makeRequest = (
   overrides: Partial<ChangeRequestWithItems> = {},
