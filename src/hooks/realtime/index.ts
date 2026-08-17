@@ -17,3 +17,5 @@ export type { UseRealtimeStrategiesOptions } from "./useRealtimeStrategies";
 export { useRealtimeVisualIdentity } from "./useRealtimeVisualIdentity";
 export type { UseRealtimeVisualIdentityOptions } from "./useRealtimeVisualIdentity";
 export { useDebouncedCallback } from "./_shared";
+export { useRealtimeDemandChangeRequests } from "./useRealtimeDemandChangeRequests";
+export type { UseRealtimeDemandChangeRequestsOptions } from "./useRealtimeDemandChangeRequests";

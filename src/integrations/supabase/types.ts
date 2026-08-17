@@ -564,6 +564,110 @@ export type Database = {
           },
         ]
       }
+      demand_change_request_items: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          is_completed: boolean
+          position: number
+          request_id: string
+          tenant_id: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          position?: number
+          request_id: string
+          tenant_id: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          position?: number
+          request_id?: string
+          tenant_id?: string
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_change_request_items_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "demand_change_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_change_requests: {
+        Row: {
+          created_at: string
+          demand_id: string
+          id: string
+          notes: string | null
+          requested_by: string | null
+          resolved_at: string | null
+          source_function_key: string | null
+          status: string
+          target_function_key: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          demand_id: string
+          id?: string
+          notes?: string | null
+          requested_by?: string | null
+          resolved_at?: string | null
+          source_function_key?: string | null
+          status?: string
+          target_function_key?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          demand_id?: string
+          id?: string
+          notes?: string | null
+          requested_by?: string | null
+          resolved_at?: string | null
+          source_function_key?: string | null
+          status?: string
+          target_function_key?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_change_requests_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_change_requests_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
+          },
+        ]
+      }
       demand_feedback_events: {
         Row: {
           channel: string | null
