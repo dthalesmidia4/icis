@@ -79,7 +79,7 @@ export async function createChangeRequest(input: {
       requested_by: requestedBy,
       source_function_key: input.sourceFunctionKey ?? null,
       target_function_key: input.targetFunctionKey ?? null,
-      notes: (input.notes ?? "").trim() || null,
+      notes,
       status: "active",
     } as any)
     .select("id")
