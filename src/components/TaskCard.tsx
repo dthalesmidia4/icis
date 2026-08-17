@@ -3917,6 +3917,9 @@ export default function TaskCard({
                                 ? [{ id: 'briefing' as const, label: 'Briefing', icon: FileText, savingKey: 'content_brief' }]
                                 : []),
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
+                              ...(showAlterationsTab
+                                ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
+                                : []),
                               { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
                               { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
                               ...(isAnuncio
@@ -3924,10 +3927,8 @@ export default function TaskCard({
                                 : []),
                               { id: 'anexos' as const, label: 'Anexos', icon: Paperclip, savingKey: 'attachments' },
                               { id: 'referencias' as const, label: 'Referências', icon: Images, savingKey: 'reference_attachments' },
-                              ...(hasChangeRequests
-                                ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
-                                : []),
                             ];
+
 
                             return (
                               <div className="flex flex-wrap gap-2">
