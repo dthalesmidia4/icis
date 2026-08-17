@@ -659,6 +659,8 @@ export default function TaskCard({
     targetUserId: string | null;
   } | null>(null);
   const [creatingChangeRequest, setCreatingChangeRequest] = useState(false);
+  const [deletingChangeRequestId, setDeletingChangeRequestId] = useState<string | null>(null);
+
   const [pendingGuardAction, setPendingGuardAction] = useState<{
     label: string;
     run: () => Promise<void> | void;
@@ -766,6 +768,28 @@ export default function TaskCard({
       setCompletingAllChanges(false);
     }
   };
+
+  /** Exclui uma solicitação (ativa ou histórica) sem tocar em etapa/responsável. */
+  const handleDeleteChangeRequest = async (requestId: string) => {
+    if (readOnly) return;
+    setDeletingChangeRequestId(requestId);
+    try {
+      await deleteChangeRequest(requestId);
+      setChangeRequests((prev) => ({
+        active: prev.active?.id === requestId ? null : prev.active,
+        history: prev.history.filter((r) => r.id !== requestId),
+      }));
+      toast.success("Solicitação excluída.");
+      await refreshChangeRequests();
+    } catch (err) {
+      console.error("[TaskCard] delete change request", err);
+      toast.error("Não foi possível excluir a solicitação.");
+      await refreshChangeRequests();
+    } finally {
+      setDeletingChangeRequestId(null);
+    }
+  };
+
 
   /**
    * Ajuda o executor quando há alterações pendentes, mas NUNCA bloqueia:
@@ -977,7 +1001,7 @@ export default function TaskCard({
     } catch (err) {
       console.error("[TaskCard] change request", err);
       toast.error("Não foi possível registrar as alterações.");
-      if (createdId) await deleteChangeRequest(createdId);
+      if (createdId) await deleteChangeRequest(createdId).catch(() => {});
     } finally {
       setCreatingChangeRequest(false);
     }
@@ -4139,6 +4163,9 @@ export default function TaskCard({
                                 onToggleItem={handleToggleChangeItem}
                                 onCompleteAll={handleCompleteAllChanges}
                                 onRequestChange={handleOpenStandaloneChangeRequest}
+                                onDeleteRequest={handleDeleteChangeRequest}
+                                deletingRequestId={deletingChangeRequestId}
+
 
                                 busyItemId={busyChangeItemId}
                                 completingAll={completingAllChanges}
