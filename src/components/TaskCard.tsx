@@ -4081,12 +4081,86 @@ export default function TaskCard({
                               />
                             )}
 
+                            {activeSection === 'alteracoes' && (
+                              <ChangeRequestPanel
+                                active={changeRequests.active}
+                                history={changeRequests.history}
+                                loading={changeRequestsLoading}
+                                readOnly={readOnly}
+                                userNames={Object.fromEntries(collaborators.map((c) => [c.id, c.name]))}
+                                onToggleItem={handleToggleChangeItem}
+                                onCompleteAll={handleCompleteAllChanges}
+                                busyItemId={busyChangeItemId}
+                                completingAll={completingAllChanges}
+                              />
+                            )}
+
                           </section>
                           )}
                         </>
 
                       );
                     })()}
+
+                    {/* Registro de alterações ao voltar demanda */}
+                    <RequestChangesModal
+                      open={!!changeRequestModal}
+                      onOpenChange={(v) => { if (!v) setChangeRequestModal(null); }}
+                      targetStageName={changeRequestModal?.targetStageName ?? null}
+                      targetUserName={changeRequestModal?.targetUserName ?? null}
+                      loading={creatingChangeRequest || regressing}
+                      onConfirm={handleConfirmChangeRequest}
+                    />
+
+                    {/* Auxílio (não bloqueio) quando há alterações pendentes */}
+                    <AlertDialog
+                      open={!!pendingGuardAction}
+                      onOpenChange={(v) => { if (!v) setPendingGuardAction(null); }}
+                    >
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Alterações pendentes</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta demanda tem {pendingChangeItems} alteração(ões) solicitada(s) que ainda não
+                            foram marcadas como concluídas. Você pode continuar mesmo assim.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setPendingGuardAction(null);
+                              setActiveSection('alteracoes');
+                            }}
+                          >
+                            Ver alterações
+                          </Button>
+                          <Button
+                            variant="outline"
+                            disabled={completingAllChanges}
+                            onClick={async () => {
+                              const action = pendingGuardAction;
+                              setPendingGuardAction(null);
+                              await handleCompleteAllChanges();
+                              await action?.run();
+                            }}
+                          >
+                            Marcar tudo e continuar
+                          </Button>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              const action = pendingGuardAction;
+                              setPendingGuardAction(null);
+                              await action?.run();
+                            }}
+                          >
+                            {pendingGuardAction?.label ?? "Continuar"} mesmo assim
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
 
                     {/* Ações: Arquivar + Excluir — ícones ao lado */}
                     {!readOnly && (
