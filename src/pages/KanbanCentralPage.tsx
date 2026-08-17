@@ -1507,9 +1507,10 @@ const KanbanCentralPage = () => {
       demand_type: updatedCard.demand_type ?? selectedCard?.demand_type ?? null,
       demand_type_key: updatedCard.demand_type_key ?? selectedCard?.demand_type_key ?? null,
       current_function_key: (updatedCard as any).current_function_key ?? (selectedCard as any)?.current_function_key ?? null,
-      clientName: selectedCard?.clientName || "Cliente",
-      clientId: selectedCard?.clientId || "",
-      periodPlanId: selectedCard?.periodPlanId || "",
+      clientName: (updatedCard as any).clientName ?? selectedCard?.clientName ?? "Cliente",
+      clientId: (updatedCard as any).clientId ?? selectedCard?.clientId ?? "",
+      periodPlanId: (updatedCard as any).periodPlanId ?? selectedCard?.periodPlanId ?? "",
+
       isArchived: nowArchived || selectedCard?.isArchived || false,
     } as CentralKanbanCard;
     setSelectedCard(updatedCentralCard);
