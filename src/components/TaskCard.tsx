@@ -982,10 +982,17 @@ export default function TaskCard({
 
   /** Troca de cliente no rascunho: período e subclientes do cliente anterior caem. */
   const handleDraftClientSelect = (clientId: string, clientName: string) => {
-    onDraftClientChange?.(clientId, clientName);
     setPeriodTitle(null);
+    // No rascunho, `onDraftClientChange` já grava cliente + limpeza de período/
+    // subclientes. Chamar também `onCardChange` criava uma corrida que
+    // sobrescrevia o cliente recém-escolhido com o valor anterior (vazio).
+    if (onDraftClientChange) {
+      onDraftClientChange(clientId, clientName);
+      return;
+    }
     if (card) onCardChange({ ...card, ...draftClientChangePatch(), clientId, clientName } as any);
   };
+
 
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [selectedAiModel, setSelectedAiModel] = useState<"gpt2" | "nanobanana3" | "nanobanana25">("gpt2");
