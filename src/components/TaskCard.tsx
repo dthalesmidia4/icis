@@ -892,8 +892,8 @@ export default function TaskCard({
   };
 
   /**
-   * Voltar demanda passa OBRIGATORIAMENTE pelo registro de alterações:
-   * o modal cria a solicitação e só então o card retorna de etapa.
+   * Voltar demanda abre o modal para registrar alterações, mas o registro é
+   * OPCIONAL: vazio, apenas regressa o card.
    */
   const handleRegress = (
     targetFunctionKey?: string | null,
@@ -906,14 +906,36 @@ export default function TaskCard({
       return;
     }
     setChangeRequestModal({
+      mode: "regress",
       targetFunctionKey: targetFunctionKey ?? null,
       targetStageName: targetStageName ?? null,
       targetUserName: targetUserName ?? null,
     });
   };
 
+  /** Solicitação avulsa: registra alterações sem mover o card nem trocar responsável. */
+  const handleOpenStandaloneChangeRequest = () => {
+    if (!card || isDraft || readOnly) return;
+    setChangeRequestModal({
+      mode: "standalone",
+      targetFunctionKey: null,
+      targetStageName: null,
+      targetUserName: null,
+    });
+  };
+
   const handleConfirmChangeRequest = async ({ notes, itemTexts }: { notes: string; itemTexts: string[] }) => {
     if (!card || !changeRequestModal || creatingChangeRequest) return;
+    const mode = changeRequestModal.mode;
+    const empty = isEmptyChangeRequestDraft(notes, itemTexts);
+
+    // Regressão sem conteúdo: só volta o card, sem criar solicitação vazia.
+    if (mode === "regress" && empty) {
+      const moved = await executeRegress(changeRequestModal.targetFunctionKey);
+      if (moved) setChangeRequestModal(null);
+      return;
+    }
+
     setCreatingChangeRequest(true);
     let createdId: string | null = null;
     try {
@@ -923,15 +945,21 @@ export default function TaskCard({
         notes,
         itemTexts,
         sourceFunctionKey: card.current_function_key ?? null,
-        targetFunctionKey: changeRequestModal.targetFunctionKey,
+        targetFunctionKey: mode === "standalone" ? null : changeRequestModal.targetFunctionKey,
       });
       createdId = created.requestId;
-      const moved = await executeRegress(changeRequestModal.targetFunctionKey);
-      if (!moved) {
-        // O card não se moveu: não deixa solicitação órfã.
-        await deleteChangeRequest(createdId);
-        createdId = null;
-        return;
+
+      if (mode === "regress") {
+        const moved = await executeRegress(changeRequestModal.targetFunctionKey);
+        if (!moved) {
+          // O card não se moveu: não deixa solicitação órfã.
+          await deleteChangeRequest(createdId);
+          createdId = null;
+          return;
+        }
+      } else {
+        toast.success("Alteração solicitada.");
+        setActiveSection('alteracoes');
       }
       setChangeRequestModal(null);
       await refreshChangeRequests();
@@ -943,6 +971,7 @@ export default function TaskCard({
       setCreatingChangeRequest(false);
     }
   };
+
 
   /* Ações de avanço com auxílio (nunca bloqueio) de alterações pendentes. */
   const handleProceed = (forcedAssigneeId?: string | null) =>
