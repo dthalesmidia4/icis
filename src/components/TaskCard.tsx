@@ -4163,6 +4163,9 @@ export default function TaskCard({
                                 onToggleItem={handleToggleChangeItem}
                                 onCompleteAll={handleCompleteAllChanges}
                                 onRequestChange={handleOpenStandaloneChangeRequest}
+                                onDeleteRequest={handleDeleteChangeRequest}
+                                deletingRequestId={deletingChangeRequestId}
+
 
                                 busyItemId={busyChangeItemId}
                                 completingAll={completingAllChanges}
