@@ -2779,7 +2779,7 @@ export default function TaskCard({
                                       key={opt.functionKey}
                                       type="button"
                                       disabled={regressing}
-                                      onClick={() => handleRegress(opt.functionKey)}
+                                      onClick={() => handleRegress(opt.functionKey, opt.functionName, opt.lastUserName)}
                                       className="w-full text-left px-2 py-1.5 rounded hover:bg-muted flex items-start gap-2"
                                     >
                                       <ArrowLeft className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
