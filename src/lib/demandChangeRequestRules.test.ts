@@ -7,6 +7,8 @@ import {
   shouldAutoResolve,
   normalizeDraftItems,
   isEmptyChangeRequestDraft,
+  shouldShowAlterationsTab,
+  canConfirmChangeRequest,
   type ChangeRequestWithItems,
 } from "./demandChangeRequestRules";
 
@@ -92,5 +94,45 @@ describe("demandChangeRequests", () => {
     expect(isEmptyChangeRequestDraft("   ", ["", "  "])).toBe(true);
     expect(isEmptyChangeRequestDraft("ajustar", [])).toBe(false);
     expect(isEmptyChangeRequestDraft("", ["item"])).toBe(false);
+  });
+});
+
+describe("visibilidade da aba e modos do modal", () => {
+  it("aba Alterações existe em card salvo sem qualquer solicitação", () => {
+    expect(shouldShowAlterationsTab({ isDraft: false })).toBe(true);
+    expect(shouldShowAlterationsTab()).toBe(true);
+  });
+
+  it("rascunho não mostra a aba", () => {
+    expect(shouldShowAlterationsTab({ isDraft: true })).toBe(false);
+  });
+
+  it("aba permanece visível depois de solicitação resolvida/histórica", () => {
+    const resolved = makeRequest({ status: "resolved", items: [item("i1", true)] });
+    expect(shouldShowAlterationsTab({ isDraft: false })).toBe(true);
+    expect(hasAnyChangeRequest(null, [resolved])).toBe(true);
+    expect(shouldOpenAlterationsTab(resolved)).toBe(false);
+  });
+
+  it("regressão vazia pode ser confirmada (sem criar request)", () => {
+    expect(canConfirmChangeRequest("regress", "", [""])).toBe(true);
+    expect(isEmptyChangeRequestDraft("", [""])).toBe(true);
+  });
+
+  it("solicitação avulsa exige texto ou pelo menos um item", () => {
+    expect(canConfirmChangeRequest("standalone", "", [""])).toBe(false);
+    expect(canConfirmChangeRequest("standalone", "trocar cor", [""])).toBe(true);
+    expect(canConfirmChangeRequest("standalone", "", ["ajustar slide 2"])).toBe(true);
+  });
+
+  it("checkbox pendente torna Alterações a aba inicial; texto puro não", () => {
+    expect(shouldOpenAlterationsTab(makeRequest({ items: [item("i1", false)] }))).toBe(true);
+    expect(shouldOpenAlterationsTab(makeRequest({ notes: "revisar tudo" }))).toBe(false);
+  });
+
+  it("solicitação avulsa não carrega etapa de destino", () => {
+    const standalone = makeRequest({ target_function_key: null, items: [item("i1", false)] });
+    expect(standalone.target_function_key).toBeNull();
+    expect(countPendingItems(standalone)).toBe(1);
   });
 });
