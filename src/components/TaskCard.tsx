@@ -649,6 +649,7 @@ export default function TaskCard({
   const [busyChangeItemId, setBusyChangeItemId] = useState<string | null>(null);
   const [completingAllChanges, setCompletingAllChanges] = useState(false);
   const [changeRequestModal, setChangeRequestModal] = useState<{
+    mode: ChangeRequestMode;
     targetFunctionKey: string | null;
     targetStageName: string | null;
     targetUserName: string | null;
@@ -662,7 +663,9 @@ export default function TaskCard({
 
   const activeChangeRequest = changeRequests.active;
   const pendingChangeItems = countPendingItems(activeChangeRequest);
-  const hasChangeRequests = hasAnyChangeRequest(activeChangeRequest, changeRequests.history);
+  /** A aba existe em todo card salvo, mesmo sem nenhuma solicitação. */
+  const showAlterationsTab = shouldShowAlterationsTab({ isDraft });
+
 
   const refreshChangeRequests = useCallback(async () => {
     if (!card?.id || isDraft) {
