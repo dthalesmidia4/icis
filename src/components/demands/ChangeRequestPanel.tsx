@@ -144,6 +144,7 @@ export default function ChangeRequestPanel({
 
   return (
     <div className="space-y-5">
+      {confirmDialog}
       {requestButton && <div className="flex justify-end">{requestButton}</div>}
 
       {active && (
@@ -164,6 +165,8 @@ export default function ChangeRequestPanel({
                 ? ` · ${userNames[active.requested_by]}`
                 : ""}
             </span>
+            {deleteButton(active.id)}
+
           </div>
 
           {active.notes && (
