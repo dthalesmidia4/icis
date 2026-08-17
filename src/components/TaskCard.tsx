@@ -3924,6 +3924,9 @@ export default function TaskCard({
                                 : []),
                               { id: 'anexos' as const, label: 'Anexos', icon: Paperclip, savingKey: 'attachments' },
                               { id: 'referencias' as const, label: 'Referências', icon: Images, savingKey: 'reference_attachments' },
+                              ...(hasChangeRequests
+                                ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
+                                : []),
                             ];
 
                             return (
@@ -3931,6 +3934,7 @@ export default function TaskCard({
                                 {sectionButtons.map(({ id, label, icon: Icon, savingKey }) => {
                                   const isActive = activeSection === id;
                                   const isSaving = saving && savingField === savingKey;
+                                  const showPendingBadge = id === 'alteracoes' && pendingChangeItems > 0;
                                   return (
                                     <button
                                       key={id}
@@ -3940,12 +3944,21 @@ export default function TaskCard({
                                         "inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all",
                                         isActive
                                           ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                                          : "bg-background text-foreground border-border hover:bg-muted hover:border-primary/40"
+                                          : "bg-background text-foreground border-border hover:bg-muted hover:border-primary/40",
+                                        !isActive && showPendingBadge && "border-amber-500/60 text-amber-700 dark:text-amber-400"
                                       )}
                                       aria-pressed={isActive}
                                     >
                                       <Icon className="h-4 w-4" />
                                       <span>{label}</span>
+                                      {showPendingBadge && (
+                                        <span className={cn(
+                                          "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold",
+                                          isActive ? "bg-primary-foreground/20" : "bg-amber-500 text-white"
+                                        )}>
+                                          {pendingChangeItems}
+                                        </span>
+                                      )}
                                       {isSaving && <Loader2 className="h-3 w-3 animate-spin" />}
                                     </button>
                                   );
