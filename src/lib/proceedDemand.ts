@@ -880,7 +880,7 @@ export async function jumpToFunction({
   const jumpMeta = await getDemandFlowMeta(demandId);
   const jumpArea = jumpMeta.workArea;
   const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId, workArea: jumpArea, origin: jumpMeta.origin });
-  const target = seq.find((f) => f.function_key === targetFunctionKey);
+  let target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
   // Entrada em "Aguardando clientes": prioriza quem tem a função atribuída;
@@ -953,20 +953,30 @@ export async function jumpToFunction({
     }
   }
 
+  // Salto para trás: preserva o destinatário histórico e, se ele não possuir mais
+  // a função pedida, RECONFIGURA a etapa para uma função válida dele (mesma regra
+  // centralizada usada por `regressDemand`).
+  const jumpRequestedFunctionKey = target.function_key;
+  let jumpRequestedUserId: string | null = null;
+  let jumpReconfigured = false;
   if (!picked && isBackward) {
     const completions = await getStageCompletions(tenantId, demandId);
     const historic = lastUserOfStage(completions, target.function_key);
-    // Executor histórico só volta a receber se AINDA possuir a função na área.
-    const historicHolds = historic
-      ? await userHasFunction(tenantId, historic, target.function_key, jumpArea as any)
-      : false;
-    if (historic && historicHolds) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", historic)
-        .maybeSingle();
-      picked = { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador", source: "historic_return" };
+    jumpRequestedUserId = historic || null;
+    if (historic) {
+      const resolved = await resolveCompatibleReturnTarget({
+        tenantId,
+        workArea: jumpArea,
+        sequence: seq,
+        currentIndex: curIdx,
+        requestedFunctionKey: target.function_key,
+        preferredUserId: historic,
+      });
+      if (resolved) {
+        target = resolved.stage;
+        jumpReconfigured = resolved.reconfigured;
+        picked = { success: true, userId: resolved.userId, name: resolved.userName, source: "historic_return" };
+      }
     }
   }
 
@@ -988,7 +998,16 @@ export async function jumpToFunction({
   const jumpAction = isBackward ? "moved_back" : "proceeded";
   const jumpMetaOut: Record<string, unknown> = {
     ...(jumpHistoryMeta || {}),
-    routing: picked.source || "automatic_load",
+    routing: jumpReconfigured ? "compatible_stage_return" : picked.source || "automatic_load",
+    ...(isBackward
+      ? {
+          requested_target_function_key: jumpRequestedFunctionKey,
+          resolved_target_function_key: target.function_key,
+          requested_user_id: jumpRequestedUserId,
+          resolved_user_id: picked.userId,
+          stage_reconfigured: jumpReconfigured,
+        }
+      : {}),
   };
 
 
