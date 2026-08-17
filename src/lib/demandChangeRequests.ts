@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
  */
 
 export * from "./demandChangeRequestRules";
-import type { ChangeRequest, ChangeRequestItem, ChangeRequestWithItems } from "./demandChangeRequestRules";
+import { normalizeDraftItems, type ChangeRequest, type ChangeRequestItem, type ChangeRequestWithItems } from "./demandChangeRequestRules";
 
 /* ============================ PERSISTÊNCIA ============================ */
 
