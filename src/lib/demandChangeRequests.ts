@@ -61,7 +61,7 @@ export async function createChangeRequest(input: {
   sourceFunctionKey?: string | null;
   targetFunctionKey?: string | null;
 }): Promise<{ requestId: string; itemCount: number }> {
-  const items = normalizeDraftItems(input.itemTexts);
+  const { notes, items } = normalizeChangeRequestDraft(input.notes, input.itemTexts);
   const { data: userRes } = await supabase.auth.getUser();
   const requestedBy = userRes?.user?.id ?? null;
 
