@@ -55,7 +55,11 @@ import {
   hasAnyChangeRequest,
   shouldAutoResolve,
   shouldOpenAlterationsTab,
+  shouldShowAlterationsTab,
+  isEmptyChangeRequestDraft,
+  type ChangeRequestMode,
   type ChangeRequestWithItems,
+
 } from "@/lib/demandChangeRequests";
 import { useRealtimeDemandChangeRequests } from "@/hooks/realtime";
 import { CalendarClock } from "lucide-react";
