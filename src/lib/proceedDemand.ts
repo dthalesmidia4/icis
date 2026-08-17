@@ -1469,22 +1469,41 @@ export async function regressDemand({
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
 
-  // Ao voltar, o responsável natural é quem já executou aquela etapa — um
-  // executor histórico ainda elegível nunca é substituído pelo preferencial.
+  // Ao voltar, o destinatário desejado (escolha explícita ou executor histórico)
+  // é preservado: se ele não possui mais a função da etapa pedida, a ETAPA é
+  // reconfigurada para uma função válida dele — nunca o contrário.
+  const requestedFunctionKeyApplied = prevFn.function_key;
+  let requestedUserId: string | null = targetUserId || null;
+  let reconfigured = false;
+
   let picked = await (async (): Promise<PickAssigneeResult> => {
     const completions = await getStageCompletions(tenantId, demandId);
     const historic = lastUserOfStage(completions, prevFn.function_key);
-    if (historic) {
-      const stillEligible = await userHasFunction(tenantId, historic, prevFn.function_key, backArea);
-      if (stillEligible) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", historic)
-          .maybeSingle();
-        return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador", source: "historic_return" };
+    const preferredUserId = requestedUserId || historic || null;
+    requestedUserId = preferredUserId;
+
+    if (preferredUserId) {
+      const resolved = await resolveCompatibleReturnTarget({
+        tenantId,
+        workArea: backArea,
+        sequence,
+        currentIndex: idx,
+        requestedFunctionKey: prevFn.function_key,
+        preferredUserId,
+      });
+      if (resolved) {
+        prevFn = resolved.stage;
+        reconfigured = resolved.reconfigured;
+        return {
+          success: true,
+          userId: resolved.userId,
+          name: resolved.userName,
+          source: "historic_return",
+        };
       }
     }
+    // Sem usuário-alvo utilizável (ou sem etapa compatível): roteamento automático
+    // da etapa originalmente pedida.
     return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name, {
       workArea: backArea,
       clientId: backMeta.clientId,
@@ -1493,6 +1512,15 @@ export async function regressDemand({
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
   }
+  const regressRoutingMeta: Record<string, unknown> = {
+    routing: reconfigured ? "compatible_stage_return" : picked.source || "automatic_load",
+    requested_target_function_key: requestedFunctionKeyApplied,
+    resolved_target_function_key: prevFn.function_key,
+    requested_user_id: requestedUserId,
+    resolved_user_id: picked.userId,
+    stage_reconfigured: reconfigured,
+  };
+
   const regressPayload: any = { assigned_to: picked.userId, current_function_key: prevFn.function_key };
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key !== "enviar_cliente") {
     regressPayload.client_wait_started_at = null;
