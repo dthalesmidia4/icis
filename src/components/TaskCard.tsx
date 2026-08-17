@@ -52,10 +52,13 @@ import {
   completeAllPendingItems,
   resolveChangeRequest,
   countPendingItems,
-  hasAnyChangeRequest,
   shouldAutoResolve,
   shouldOpenAlterationsTab,
+  shouldShowAlterationsTab,
+  isEmptyChangeRequestDraft,
+  type ChangeRequestMode,
   type ChangeRequestWithItems,
+
 } from "@/lib/demandChangeRequests";
 import { useRealtimeDemandChangeRequests } from "@/hooks/realtime";
 import { CalendarClock } from "lucide-react";
@@ -649,6 +652,7 @@ export default function TaskCard({
   const [busyChangeItemId, setBusyChangeItemId] = useState<string | null>(null);
   const [completingAllChanges, setCompletingAllChanges] = useState(false);
   const [changeRequestModal, setChangeRequestModal] = useState<{
+    mode: ChangeRequestMode;
     targetFunctionKey: string | null;
     targetStageName: string | null;
     targetUserName: string | null;
@@ -662,7 +666,9 @@ export default function TaskCard({
 
   const activeChangeRequest = changeRequests.active;
   const pendingChangeItems = countPendingItems(activeChangeRequest);
-  const hasChangeRequests = hasAnyChangeRequest(activeChangeRequest, changeRequests.history);
+  /** A aba existe em todo card salvo, mesmo sem nenhuma solicitação. */
+  const showAlterationsTab = shouldShowAlterationsTab({ isDraft });
+
 
   const refreshChangeRequests = useCallback(async () => {
     if (!card?.id || isDraft) {
@@ -889,8 +895,8 @@ export default function TaskCard({
   };
 
   /**
-   * Voltar demanda passa OBRIGATORIAMENTE pelo registro de alterações:
-   * o modal cria a solicitação e só então o card retorna de etapa.
+   * Voltar demanda abre o modal para registrar alterações, mas o registro é
+   * OPCIONAL: vazio, apenas regressa o card.
    */
   const handleRegress = (
     targetFunctionKey?: string | null,
@@ -903,14 +909,36 @@ export default function TaskCard({
       return;
     }
     setChangeRequestModal({
+      mode: "regress",
       targetFunctionKey: targetFunctionKey ?? null,
       targetStageName: targetStageName ?? null,
       targetUserName: targetUserName ?? null,
     });
   };
 
+  /** Solicitação avulsa: registra alterações sem mover o card nem trocar responsável. */
+  const handleOpenStandaloneChangeRequest = () => {
+    if (!card || isDraft || readOnly) return;
+    setChangeRequestModal({
+      mode: "standalone",
+      targetFunctionKey: null,
+      targetStageName: null,
+      targetUserName: null,
+    });
+  };
+
   const handleConfirmChangeRequest = async ({ notes, itemTexts }: { notes: string; itemTexts: string[] }) => {
     if (!card || !changeRequestModal || creatingChangeRequest) return;
+    const mode = changeRequestModal.mode;
+    const empty = isEmptyChangeRequestDraft(notes, itemTexts);
+
+    // Regressão sem conteúdo: só volta o card, sem criar solicitação vazia.
+    if (mode === "regress" && empty) {
+      const moved = await executeRegress(changeRequestModal.targetFunctionKey);
+      if (moved) setChangeRequestModal(null);
+      return;
+    }
+
     setCreatingChangeRequest(true);
     let createdId: string | null = null;
     try {
@@ -920,15 +948,21 @@ export default function TaskCard({
         notes,
         itemTexts,
         sourceFunctionKey: card.current_function_key ?? null,
-        targetFunctionKey: changeRequestModal.targetFunctionKey,
+        targetFunctionKey: mode === "standalone" ? null : changeRequestModal.targetFunctionKey,
       });
       createdId = created.requestId;
-      const moved = await executeRegress(changeRequestModal.targetFunctionKey);
-      if (!moved) {
-        // O card não se moveu: não deixa solicitação órfã.
-        await deleteChangeRequest(createdId);
-        createdId = null;
-        return;
+
+      if (mode === "regress") {
+        const moved = await executeRegress(changeRequestModal.targetFunctionKey);
+        if (!moved) {
+          // O card não se moveu: não deixa solicitação órfã.
+          await deleteChangeRequest(createdId);
+          createdId = null;
+          return;
+        }
+      } else {
+        toast.success("Alteração solicitada.");
+        setActiveSection('alteracoes');
       }
       setChangeRequestModal(null);
       await refreshChangeRequests();
@@ -940,6 +974,7 @@ export default function TaskCard({
       setCreatingChangeRequest(false);
     }
   };
+
 
   /* Ações de avanço com auxílio (nunca bloqueio) de alterações pendentes. */
   const handleProceed = (forcedAssigneeId?: string | null) =>
@@ -2735,17 +2770,21 @@ export default function TaskCard({
                     /** Salto que ignora 2+ etapas obrigatórias pede confirmação. */
                     const requestJump = (target: { function_key: string; name: string }, targetIdx: number) => {
                       const between = curIdx >= 0 && targetIdx > curIdx + 1 ? seq.slice(curIdx + 1, targetIdx) : [];
-                      if (between.length >= 2) {
-                        setPendingJump({
-                          key: target.function_key,
-                          name: target.name,
-                          skippedKeys: between.map((s) => s.function_key),
-                          skippedNames: between.map((s) => s.name),
-                        });
-                        return;
-                      }
-                      doJump(target.function_key, between.map((s) => s.function_key));
+                      // Mudança manual de etapa também passa pelo auxílio de pendências.
+                      runWithPendingChangesGuard("Mudar etapa", () => {
+                        if (between.length >= 2) {
+                          setPendingJump({
+                            key: target.function_key,
+                            name: target.name,
+                            skippedKeys: between.map((s) => s.function_key),
+                            skippedNames: between.map((s) => s.name),
+                          });
+                          return;
+                        }
+                        return doJump(target.function_key, between.map((s) => s.function_key));
+                      });
                     };
+
 
                     return (
                       <div className="flex items-center gap-0 shrink-0 rounded-md bg-muted/30 px-0.5 py-0.5">
@@ -3917,6 +3956,9 @@ export default function TaskCard({
                                 ? [{ id: 'briefing' as const, label: 'Briefing', icon: FileText, savingKey: 'content_brief' }]
                                 : []),
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
+                              ...(showAlterationsTab
+                                ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
+                                : []),
                               { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
                               { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
                               ...(isAnuncio
@@ -3924,10 +3966,8 @@ export default function TaskCard({
                                 : []),
                               { id: 'anexos' as const, label: 'Anexos', icon: Paperclip, savingKey: 'attachments' },
                               { id: 'referencias' as const, label: 'Referências', icon: Images, savingKey: 'reference_attachments' },
-                              ...(hasChangeRequests
-                                ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
-                                : []),
                             ];
+
 
                             return (
                               <div className="flex flex-wrap gap-2">
@@ -4090,6 +4130,8 @@ export default function TaskCard({
                                 userNames={Object.fromEntries(collaborators.map((c) => [c.id, c.name]))}
                                 onToggleItem={handleToggleChangeItem}
                                 onCompleteAll={handleCompleteAllChanges}
+                                onRequestChange={handleOpenStandaloneChangeRequest}
+
                                 busyItemId={busyChangeItemId}
                                 completingAll={completingAllChanges}
                               />
@@ -4106,6 +4148,7 @@ export default function TaskCard({
                     <RequestChangesModal
                       open={!!changeRequestModal}
                       onOpenChange={(v) => { if (!v) setChangeRequestModal(null); }}
+                      mode={changeRequestModal?.mode ?? "regress"}
                       targetStageName={changeRequestModal?.targetStageName ?? null}
                       targetUserName={changeRequestModal?.targetUserName ?? null}
                       loading={creatingChangeRequest || regressing}
@@ -4119,16 +4162,17 @@ export default function TaskCard({
                     >
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Alterações pendentes</AlertDialogTitle>
+                          <AlertDialogTitle>Existem alterações pendentes</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Esta demanda tem {pendingChangeItems} alteração(ões) solicitada(s) que ainda não
-                            foram marcadas como concluídas. Você pode continuar mesmo assim.
+                            Há itens solicitados nesta alteração que ainda não foram marcados como
+                            concluídos. Deseja marcar todos como concluídos antes de continuar ou
+                            deixar como estão?
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             onClick={() => {
                               setPendingGuardAction(null);
                               setActiveSection('alteracoes');
@@ -4155,11 +4199,13 @@ export default function TaskCard({
                               await action?.run();
                             }}
                           >
-                            {pendingGuardAction?.label ?? "Continuar"} mesmo assim
+                            Continuar sem marcar
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+
+
 
 
                     {/* Ações: Arquivar + Excluir — ícones ao lado */}

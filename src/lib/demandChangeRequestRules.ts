@@ -92,3 +92,30 @@ export function isEmptyChangeRequestDraft(notes: string, itemTexts: string[]): b
   return (notes ?? "").trim().length === 0 && normalizeDraftItems(itemTexts).length === 0;
 }
 
+
+/* ===================== MODO DO MODAL / VISIBILIDADE ===================== */
+
+/** Contexto de criação da solicitação. */
+export type ChangeRequestMode = "regress" | "standalone";
+
+/**
+ * A aba "Alterações" é SEMPRE visível em card já salvo — independente de
+ * existir solicitação, de a demanda ter voltado de etapa ou da etapa atual.
+ * Rascunho não salvo é a única exceção.
+ */
+export function shouldShowAlterationsTab(opts: { isDraft?: boolean } = {}): boolean {
+  return !opts.isDraft;
+}
+
+/**
+ * Regressão pode ser confirmada vazia (só volta o card, sem criar request).
+ * Solicitação avulsa exige texto OU pelo menos um item válido.
+ */
+export function canConfirmChangeRequest(
+  mode: ChangeRequestMode,
+  notes: string,
+  itemTexts: string[],
+): boolean {
+  if (mode === "regress") return true;
+  return !isEmptyChangeRequestDraft(notes, itemTexts);
+}

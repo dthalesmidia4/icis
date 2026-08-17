@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, Clock, Loader2, RotateCcw } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Plus, RotateCcw } from "lucide-react";
 import {
   computeProgress,
   countPendingItems,
@@ -18,6 +18,8 @@ export interface ChangeRequestPanelProps {
   userNames?: Record<string, string>;
   onToggleItem: (itemId: string, completed: boolean) => void | Promise<void>;
   onCompleteAll?: () => void | Promise<void>;
+  /** Abre o modal de solicitação avulsa (não move o card). */
+  onRequestChange?: () => void;
   busyItemId?: string | null;
   completingAll?: boolean;
 }
@@ -32,7 +34,7 @@ const fmt = (iso: string | null | undefined) =>
       })
     : "";
 
-/** Aba "Alterações": o que foi solicitado quando o card voltou de etapa. */
+/** Aba "Alterações": o que foi solicitado, e ponto de ação para novas solicitações. */
 export default function ChangeRequestPanel({
   active,
   history,
@@ -41,9 +43,20 @@ export default function ChangeRequestPanel({
   userNames = {},
   onToggleItem,
   onCompleteAll,
+  onRequestChange,
   busyItemId = null,
   completingAll = false,
 }: ChangeRequestPanelProps) {
+  const progress = computeProgress(active);
+  const pending = countPendingItems(active);
+
+  const requestButton = !readOnly && onRequestChange ? (
+    <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={onRequestChange}>
+      <Plus className="h-3.5 w-3.5" />
+      Solicitar alteração
+    </Button>
+  ) : null;
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -54,17 +67,21 @@ export default function ChangeRequestPanel({
 
   if (!active && history.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Nenhuma alteração solicitada para esta demanda.
-      </p>
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Nenhuma alteração solicitada para esta demanda.
+        </p>
+        {requestButton}
+      </div>
     );
   }
 
-  const progress = computeProgress(active);
-  const pending = countPendingItems(active);
+
 
   return (
     <div className="space-y-5">
+      {requestButton && <div className="flex justify-end">{requestButton}</div>}
+
       {active && (
         <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
           <div className="flex flex-wrap items-center gap-2">
