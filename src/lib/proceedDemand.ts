@@ -1368,7 +1368,13 @@ export async function regressDemand({
   demandTypeKey,
   currentFunctionKey,
   targetFunctionKey,
-}: ProceedInput & { targetFunctionKey?: string | null }): Promise<ProceedResult> {
+  targetUserId,
+}: ProceedInput & {
+  targetFunctionKey?: string | null;
+  /** Destinatário desejado do retorno (histórico da etapa escolhida no menu). */
+  targetUserId?: string | null;
+}): Promise<ProceedResult> {
+
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
     return { success: false, needsTypeKey: true, message: "Defina o tipo da demanda antes de voltar." };
