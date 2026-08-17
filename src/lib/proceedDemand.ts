@@ -1543,7 +1543,7 @@ export async function regressDemand({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: { routing: picked.source || "automatic_load" } as any },
+      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: regressRoutingMeta as any },
       [previousAssignee, ...captarExtras],
     );
   } else {
@@ -1555,7 +1555,7 @@ export async function regressDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: prevFn.function_key,
-      metadata: { routing: picked.source || "automatic_load" } as any,
+      metadata: regressRoutingMeta as any,
     });
   }
   return {
