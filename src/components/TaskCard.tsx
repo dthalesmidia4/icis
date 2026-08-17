@@ -4131,6 +4131,8 @@ export default function TaskCard({
                                 userNames={Object.fromEntries(collaborators.map((c) => [c.id, c.name]))}
                                 onToggleItem={handleToggleChangeItem}
                                 onCompleteAll={handleCompleteAllChanges}
+                                onRequestChange={handleOpenStandaloneChangeRequest}
+
                                 busyItemId={busyChangeItemId}
                                 completingAll={completingAllChanges}
                               />
