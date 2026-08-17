@@ -52,7 +52,6 @@ import {
   completeAllPendingItems,
   resolveChangeRequest,
   countPendingItems,
-  hasAnyChangeRequest,
   shouldAutoResolve,
   shouldOpenAlterationsTab,
   shouldShowAlterationsTab,
