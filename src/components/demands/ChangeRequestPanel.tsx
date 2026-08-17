@@ -169,9 +169,17 @@ export default function ChangeRequestPanel({
 
           </div>
 
-          {active.notes && (
+          {active.notes &&
+            !(active.items.length === 1 && active.items[0].text.trim() === active.notes.trim()) && (
             <p className="whitespace-pre-wrap text-sm leading-relaxed">{active.notes}</p>
           )}
+
+          {active.items.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Esta solicitação não possui itens de checklist e não conta como pendência. Você pode excluí-la.
+            </p>
+          )}
+
 
           {active.items.length > 0 && (
             <div className="space-y-1.5">
