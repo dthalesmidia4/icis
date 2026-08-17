@@ -846,11 +846,11 @@ export default function TaskCard({
     }
   };
 
-  const executeRegress = async (targetFunctionKey?: string | null) => {
-    if (!card || regressing) return;
+  const executeRegress = async (targetFunctionKey?: string | null): Promise<boolean> => {
+    if (!card || regressing) return false;
     if (!card.demand_type_key) {
       toast.error("Defina o tipo da demanda antes de voltar.");
-      return;
+      return false;
     }
     setRegressing(true);
     try {
@@ -873,19 +873,82 @@ export default function TaskCard({
             current_function_key: result.functionKey || null,
           });
         }
+        return true;
       } else if (result.stale) {
         toast.warning(result.message);
         setRegressOpen(false);
         reconcileFlowResult(result);
+        return false;
       } else {
         toast.error(result.message);
+        return false;
       }
     } finally {
       setRegressing(false);
     }
   };
 
-  const handleDeliver = async () => {
+  /**
+   * Voltar demanda passa OBRIGATORIAMENTE pelo registro de alterações:
+   * o modal cria a solicitação e só então o card retorna de etapa.
+   */
+  const handleRegress = (
+    targetFunctionKey?: string | null,
+    targetStageName?: string | null,
+    targetUserName?: string | null,
+  ) => {
+    if (!card || regressing) return;
+    if (!card.demand_type_key) {
+      toast.error("Defina o tipo da demanda antes de voltar.");
+      return;
+    }
+    setChangeRequestModal({
+      targetFunctionKey: targetFunctionKey ?? null,
+      targetStageName: targetStageName ?? null,
+      targetUserName: targetUserName ?? null,
+    });
+  };
+
+  const handleConfirmChangeRequest = async ({ notes, itemTexts }: { notes: string; itemTexts: string[] }) => {
+    if (!card || !changeRequestModal || creatingChangeRequest) return;
+    setCreatingChangeRequest(true);
+    let createdId: string | null = null;
+    try {
+      const created = await createChangeRequest({
+        tenantId: card.tenant_id,
+        demandId: card.id,
+        notes,
+        itemTexts,
+        sourceFunctionKey: card.current_function_key ?? null,
+        targetFunctionKey: changeRequestModal.targetFunctionKey,
+      });
+      createdId = created.requestId;
+      const moved = await executeRegress(changeRequestModal.targetFunctionKey);
+      if (!moved) {
+        // O card não se moveu: não deixa solicitação órfã.
+        await deleteChangeRequest(createdId);
+        createdId = null;
+        return;
+      }
+      setChangeRequestModal(null);
+      await refreshChangeRequests();
+    } catch (err) {
+      console.error("[TaskCard] change request", err);
+      toast.error("Não foi possível registrar as alterações.");
+      if (createdId) await deleteChangeRequest(createdId);
+    } finally {
+      setCreatingChangeRequest(false);
+    }
+  };
+
+  /* Ações de avanço com auxílio (nunca bloqueio) de alterações pendentes. */
+  const handleProceed = (forcedAssigneeId?: string | null) =>
+    runWithPendingChangesGuard("Prosseguir", () => executeProceed(forcedAssigneeId));
+  const handleDeliverMyPart = (targetUserId?: string) =>
+    runWithPendingChangesGuard("Entregar minha parte", () => executeDeliverMyPart(targetUserId));
+  const handleDeliver = () => runWithPendingChangesGuard("Entregar", () => executeDeliver());
+
+  const executeDeliver = async () => {
     if (!card || delivering) return;
     const pipelineId = pipelineStatuses[0]?.pipeline_id;
     if (!pipelineId) {
