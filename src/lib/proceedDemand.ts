@@ -4,7 +4,13 @@ import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory"
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
 import { isReviewFunction } from "@/lib/flowFunctions";
-import { userHasFunction } from "@/lib/clientStageAssignments";
+import { userHasFunction, fetchUserAllowedFunctionKeys } from "@/lib/clientStageAssignments";
+import {
+  pickCompatibleReturnStage,
+  type PipelineStage,
+  type ReturnRoutingSource,
+} from "@/lib/returnTargetResolution";
+
 import {
   getEligibleStageCandidates,
   getPreferredStageAssignee,
