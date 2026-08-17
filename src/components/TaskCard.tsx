@@ -659,6 +659,8 @@ export default function TaskCard({
     targetUserId: string | null;
   } | null>(null);
   const [creatingChangeRequest, setCreatingChangeRequest] = useState(false);
+  const [deletingChangeRequestId, setDeletingChangeRequestId] = useState<string | null>(null);
+
   const [pendingGuardAction, setPendingGuardAction] = useState<{
     label: string;
     run: () => Promise<void> | void;
