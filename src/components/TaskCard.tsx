@@ -4204,9 +4204,7 @@ export default function TaskCard({
                       </AlertDialogContent>
                     </AlertDialog>
 
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+
 
 
                     {/* Ações: Arquivar + Excluir — ícones ao lado */}
