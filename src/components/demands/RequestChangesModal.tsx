@@ -139,12 +139,13 @@ export default function RequestChangesModal({
           </Button>
           <Button
             onClick={() => onConfirm({ notes, itemTexts: items })}
-            disabled={loading || isEmpty}
+            disabled={loading || !canConfirm}
             className="gap-2"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Voltar demanda
+            {mode === "standalone" ? "Solicitar alteração" : "Voltar demanda"}
           </Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
