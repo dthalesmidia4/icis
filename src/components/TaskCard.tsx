@@ -2771,17 +2771,21 @@ export default function TaskCard({
                     /** Salto que ignora 2+ etapas obrigatórias pede confirmação. */
                     const requestJump = (target: { function_key: string; name: string }, targetIdx: number) => {
                       const between = curIdx >= 0 && targetIdx > curIdx + 1 ? seq.slice(curIdx + 1, targetIdx) : [];
-                      if (between.length >= 2) {
-                        setPendingJump({
-                          key: target.function_key,
-                          name: target.name,
-                          skippedKeys: between.map((s) => s.function_key),
-                          skippedNames: between.map((s) => s.name),
-                        });
-                        return;
-                      }
-                      doJump(target.function_key, between.map((s) => s.function_key));
+                      // Mudança manual de etapa também passa pelo auxílio de pendências.
+                      runWithPendingChangesGuard("Mudar etapa", () => {
+                        if (between.length >= 2) {
+                          setPendingJump({
+                            key: target.function_key,
+                            name: target.name,
+                            skippedKeys: between.map((s) => s.function_key),
+                            skippedNames: between.map((s) => s.name),
+                          });
+                          return;
+                        }
+                        return doJump(target.function_key, between.map((s) => s.function_key));
+                      });
                     };
+
 
                     return (
                       <div className="flex items-center gap-0 shrink-0 rounded-md bg-muted/30 px-0.5 py-0.5">
