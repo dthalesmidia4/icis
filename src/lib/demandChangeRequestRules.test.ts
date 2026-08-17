@@ -178,3 +178,55 @@ describe("normalizeChangeRequestDraft (garantia de 1 item)", () => {
     expect(shouldAutoResolve(done)).toBe(true);
   });
 });
+
+describe("gestão de solicitações (exclusão e conclusão)", () => {
+  it("notes sem checklist manual gera exatamente 1 item", () => {
+    const draft = normalizeChangeRequestDraft("Trocar a cor do fundo", ["", "  "]);
+    expect(draft.items).toEqual([{ text: "Trocar a cor do fundo", position: 0 }]);
+    expect(draft.notes).toBe("Trocar a cor do fundo");
+  });
+
+  it("o item derivado de notes conta como pendência e permite auto-resolve", () => {
+    const draft = normalizeChangeRequestDraft("Ajustar título", []);
+    const pendingReq = makeRequest({
+      notes: draft.notes,
+      items: [item("gen", false)],
+    });
+    expect(countPendingItems(pendingReq)).toBe(1);
+    expect(shouldAutoResolve(pendingReq)).toBe(false);
+
+    const doneReq = { ...pendingReq, items: [item("gen", true)] };
+    expect(countPendingItems(doneReq)).toBe(0);
+    expect(shouldAutoResolve(doneReq)).toBe(true);
+  });
+
+  it("notes + checklist manual não duplica notes como item", () => {
+    const draft = normalizeChangeRequestDraft("Contexto geral", ["Item A", "Item B"]);
+    expect(draft.items.map((i) => i.text)).toEqual(["Item A", "Item B"]);
+    expect(draft.notes).toBe("Contexto geral");
+  });
+
+  it("request ativa vazia (sem notes e sem items) não gera pendência", () => {
+    const empty = makeRequest({ notes: null, items: [] });
+    expect(countPendingItems(empty)).toBe(0);
+    expect(shouldOpenAlterationsTab(empty)).toBe(false);
+    expect(shouldAutoResolve(empty)).toBe(false);
+    expect(normalizeChangeRequestDraft("", []).items).toEqual([]);
+  });
+
+  it("aba continua visível após excluir a última solicitação", () => {
+    expect(shouldShowAlterationsTab({})).toBe(true);
+    expect(hasAnyChangeRequest(null, [])).toBe(false);
+  });
+
+  it("excluir uma histórica não altera as demais requests", () => {
+    const a = makeRequest({ id: "h1", status: "resolved" });
+    const b = makeRequest({ id: "h2", status: "superseded" });
+    const active = makeRequest({ id: "act", items: [item("i", false)] });
+    const historyAfter = [a, b].filter((r) => r.id !== "h1");
+    expect(historyAfter.map((r) => r.id)).toEqual(["h2"]);
+    expect(historyAfter[0].status).toBe("superseded");
+    expect(active.status).toBe("active");
+    expect(countPendingItems(active)).toBe(1);
+  });
+});
