@@ -4147,6 +4147,7 @@ export default function TaskCard({
                     <RequestChangesModal
                       open={!!changeRequestModal}
                       onOpenChange={(v) => { if (!v) setChangeRequestModal(null); }}
+                      mode={changeRequestModal?.mode ?? "regress"}
                       targetStageName={changeRequestModal?.targetStageName ?? null}
                       targetUserName={changeRequestModal?.targetUserName ?? null}
                       loading={creatingChangeRequest || regressing}
@@ -4160,16 +4161,17 @@ export default function TaskCard({
                     >
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Alterações pendentes</AlertDialogTitle>
+                          <AlertDialogTitle>Existem alterações pendentes</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Esta demanda tem {pendingChangeItems} alteração(ões) solicitada(s) que ainda não
-                            foram marcadas como concluídas. Você pode continuar mesmo assim.
+                            Há itens solicitados nesta alteração que ainda não foram marcados como
+                            concluídos. Deseja marcar todos como concluídos antes de continuar ou
+                            deixar como estão?
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             onClick={() => {
                               setPendingGuardAction(null);
                               setActiveSection('alteracoes');
@@ -4196,8 +4198,12 @@ export default function TaskCard({
                               await action?.run();
                             }}
                           >
-                            {pendingGuardAction?.label ?? "Continuar"} mesmo assim
+                            Continuar sem marcar
                           </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
