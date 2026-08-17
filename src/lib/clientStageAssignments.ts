@@ -35,6 +35,26 @@ export async function fetchAllowedUsersForFunction(
   return new Set(((data || []) as any[]).map((r) => r.user_id).filter(Boolean));
 }
 
+/**
+ * Todas as funções `allowed = true` de um colaborador NA ÁREA informada.
+ * Usada na reconfiguração automática de etapa em retornos.
+ */
+export async function fetchUserAllowedFunctionKeys(
+  tenantId: string,
+  userId: string,
+  workArea?: WorkArea | string | null,
+): Promise<Set<string>> {
+  const area = normalizeWorkArea(typeof workArea === "string" ? workArea : workArea ?? undefined);
+  const { data } = await (supabase
+    .from("collaborator_function_assignments") as any)
+    .select("function_key")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .eq("work_area", area)
+    .eq("allowed", true);
+  return new Set(((data || []) as any[]).map((r) => r.function_key).filter(Boolean));
+}
+
 export async function userHasFunction(
   tenantId: string,
   userId: string,
