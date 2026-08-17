@@ -977,7 +977,7 @@ export default function TaskCard({
     } catch (err) {
       console.error("[TaskCard] change request", err);
       toast.error("Não foi possível registrar as alterações.");
-      if (createdId) await deleteChangeRequest(createdId);
+      if (createdId) await deleteChangeRequest(createdId).catch(() => {});
     } finally {
       setCreatingChangeRequest(false);
     }
