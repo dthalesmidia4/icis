@@ -9,6 +9,7 @@ import {
   isEmptyChangeRequestDraft,
   shouldShowAlterationsTab,
   canConfirmChangeRequest,
+  normalizeChangeRequestDraft,
   type ChangeRequestWithItems,
 } from "./demandChangeRequestRules";
 
@@ -134,5 +135,46 @@ describe("visibilidade da aba e modos do modal", () => {
     const standalone = makeRequest({ target_function_key: null, items: [item("i1", false)] });
     expect(standalone.target_function_key).toBeNull();
     expect(countPendingItems(standalone)).toBe(1);
+  });
+});
+
+describe("normalizeChangeRequestDraft (garantia de 1 item)", () => {
+  it("notes sem checklist → 1 item derivado do próprio texto", () => {
+    const r = normalizeChangeRequestDraft("Trocar o título para X", ["", "  "]);
+    expect(r.notes).toBe("Trocar o título para X");
+    expect(r.items).toEqual([{ text: "Trocar o título para X", position: 0 }]);
+  });
+
+  it("notes + 2 itens manuais → apenas os 2 manuais", () => {
+    const r = normalizeChangeRequestDraft("contexto geral", ["ajustar slide 2", " trocar cor "]);
+    expect(r.notes).toBe("contexto geral");
+    expect(r.items).toEqual([
+      { text: "ajustar slide 2", position: 0 },
+      { text: "trocar cor", position: 1 },
+    ]);
+  });
+
+  it("checklist manual sem notes → notes null e itens preservados", () => {
+    const r = normalizeChangeRequestDraft("", ["item unico"]);
+    expect(r.notes).toBeNull();
+    expect(r.items).toEqual([{ text: "item unico", position: 0 }]);
+  });
+
+  it("draft totalmente vazio → nada a persistir", () => {
+    const r = normalizeChangeRequestDraft("   ", [""]);
+    expect(r.notes).toBeNull();
+    expect(r.items).toEqual([]);
+    expect(canConfirmChangeRequest("standalone", "   ", [""])).toBe(false);
+    expect(canConfirmChangeRequest("regress", "   ", [""])).toBe(true);
+  });
+
+  it("item derivado de notes se comporta como checklist normal", () => {
+    const { items } = normalizeChangeRequestDraft("Trocar título", []);
+    const pending = makeRequest({ items: [item("gen", false)] });
+    expect(items).toHaveLength(1);
+    expect(countPendingItems(pending)).toBe(1);
+    expect(shouldOpenAlterationsTab(pending)).toBe(true);
+    const done = makeRequest({ items: [item("gen", true)] });
+    expect(shouldAutoResolve(done)).toBe(true);
   });
 });
