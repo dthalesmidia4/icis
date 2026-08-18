@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { pickAssigneeForFunction } from "@/lib/proceedDemand";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
-import { isReviewFunction, normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
+import { isClientFacingFunction, isReviewFunction, normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
 import { isClientOrigin } from "@/lib/proceedDemand";
 
 
@@ -10,6 +10,14 @@ import { isClientOrigin } from "@/lib/proceedDemand";
 export interface FlowAreaContext {
   workArea?: string | null;
   origin?: string | null;
+  /**
+   * `flow` (default) = transição real de processo (Prosseguir/Enviar/Entregar).
+   * `administrative_reassign` = apenas troca de responsável (reatribuição,
+   * alocação em massa, atribuição manual): NUNCA pode escolher uma etapa
+   * client-facing (aguardando/enviar/entregar/feedback do cliente) só para
+   * encaixar o colaborador — isso exige evento real de processo.
+   */
+  mode?: "flow" | "administrative_reassign";
 }
 
 export interface InitialFunction {
@@ -133,8 +141,12 @@ export async function resolveFunctionForAssignee(
 
   // Etapas que este usuário já concluiu neste card nunca são reatribuídas a ele.
   const completions = demandId ? await getStageCompletions(tenantId, demandId) : null;
+  const administrative = ctx?.mode === "administrative_reassign";
   const usable = (k: string) => {
     if (!allowedKeys.has(k)) return false;
+    // Reatribuição administrativa nunca AVANÇA/VOLTA o card para etapa de
+    // cliente: só etapas operacionais podem ser escolhidas automaticamente.
+    if (administrative && k !== currentFunctionKey && isClientFacingFunction(k)) return false;
     if (completions && hasUserCompletedStage(completions, k, assigneeUserId)) return false;
     // Auto-revisão: ninguém revisa a etapa que ele mesmo executou.
     if (completions && isReviewFunction(k)) {
@@ -161,7 +173,11 @@ export async function resolveFunctionForAssignee(
 
 
   const firstUsable = allowedSeq.find(usable);
-  return firstUsable ?? allowedSeq[0];
+  if (firstUsable) return firstUsable;
+  // Administrativo: sem etapa OPERACIONAL compatível o card é rejeitado —
+  // nunca cai numa etapa client-facing só para encaixar o colaborador.
+  return administrative ? null : allowedSeq[0];
+
 }
 
 /**

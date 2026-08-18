@@ -548,3 +548,108 @@ describe("guardas de UI", () => {
     expect(signaturesMatch(base, signatureOf(row({ due_time: "10:00" })))).toBe(false);
   });
 });
+
+// ------------------------------------------------------------------
+// Frescor da agenda: nada no passado, nada herdando início alheio
+// ------------------------------------------------------------------
+
+describe("planBulkAllocation — nunca sugere horário vencido", () => {
+  it("card transferido de outro responsável não herda o início histórico", async () => {
+    const h = harness({
+      cards: [
+        row({
+          id: "c1",
+          assigned_to: OTHER,
+          due_date: "2026-08-01",
+          due_time: "15:55",
+          delivery_date: "2026-08-01",
+          delivery_time: "16:10",
+        }),
+      ],
+    });
+    const p = await plan(h, ["c1"]);
+    const a = p.assignments[0];
+    expect(a.dueDate).not.toBe("2026-08-01");
+    expect(a.dueDate! >= "2026-08-05").toBe(true);
+    expect(a.untimed).toBe(false);
+  });
+
+  it("card de vários dias atrás também recebe slot novo >= agora", async () => {
+    const h = harness({
+      cards: [
+        row({ id: "c1", due_date: "2026-07-20", due_time: "14:30", delivery_date: "2026-07-20", delivery_time: "14:35" }),
+      ],
+    });
+    const p = await plan(h, ["c1"]);
+    expect(p.assignments[0].dueDate! >= "2026-08-05").toBe(true);
+  });
+
+  it("card que JÁ é do destinatário e está em andamento preserva o início histórico", async () => {
+    const h = harness({
+      cards: [
+        row({
+          id: "c1",
+          assigned_to: TARGET,
+          due_date: "2026-08-05",
+          due_time: "08:30",
+          delivery_date: "2026-08-05",
+          delivery_time: "10:00",
+        }),
+      ],
+    });
+    const p = await plan(h, ["c1"]);
+    const a = p.assignments[0];
+    expect(a.dueDate).toBe("2026-08-05");
+    expect(a.dueTime).toBe("08:30");
+  });
+
+  it("etapa aguardando_cliente não consome agenda e não exibe janela histórica", async () => {
+    const h = harness({
+      cards: [
+        row({
+          id: "c1",
+          current_function_key: "aguardando_cliente",
+          due_date: "2026-08-01",
+          due_time: "15:55",
+          delivery_date: "2026-08-01",
+          delivery_time: "16:10",
+        }),
+      ],
+      evaluate: () => ({
+        status: "ok",
+        nextFunctionKey: "aguardando_cliente",
+        direction: "same",
+        softMessages: [],
+      }),
+    });
+    const p = await plan(h, ["c1"]);
+    const a = p.assignments[0];
+    expect(a.untimed).toBe(true);
+    expect(a.untimedReason).toBe("awaiting_client");
+    expect(a.dueDate).toBeNull();
+    expect(a.deliveryDate).toBeNull();
+    // nunca "0min" acompanhado de janela antiga
+    expect(a.durationMin).toBeNull();
+  });
+
+  it("expõe o próximo horário disponível coerente com a primeira janela da fila", async () => {
+    const h = harness({ cards: [row({ id: "c1" }), row({ id: "c2" })] });
+    const p = await plan(h, ["c1", "c2"]);
+    expect(p.nextAvailable).not.toBeNull();
+    expect(p.nextAvailable!.date >= "2026-08-05").toBe(true);
+    const timed = p.assignments.filter((a) => !a.untimed && a.dueDate);
+    const first = timed
+      .slice()
+      .sort((a, b) => `${a.dueDate}${a.dueTime}`.localeCompare(`${b.dueDate}${b.dueTime}`))[0];
+    expect(`${p.nextAvailable!.date} ${p.nextAvailable!.time}`).toBe(`${first.dueDate} ${first.dueTime}`);
+  });
+
+  it("sem card com agenda operacional, nextAvailable é nulo", async () => {
+    const h = harness({
+      cards: [row({ id: "c1", current_function_key: "aguardando_cliente" })],
+      evaluate: () => ({ status: "ok", nextFunctionKey: "aguardando_cliente", direction: "same", softMessages: [] }),
+    });
+    const p = await plan(h, ["c1"]);
+    expect(p.nextAvailable).toBeNull();
+  });
+});

@@ -27,7 +27,9 @@ import {
   type ReorderCardInput,
   type ReorderProposal,
   type WorkHoursConfig,
+  zonedWallclockKey,
 } from "@/lib/reorderSequence";
+
 import { getCachedDurationsByArea, type StageDurations } from "@/lib/flowDurations";
 import {
   loadReorderPriority,
@@ -106,10 +108,12 @@ export interface BulkAssignment {
   /** Horário atual (antes da alocação) — para exibir "de → para". */
   currentDueDate: string | null;
   currentDueTime: string | null;
-  /** Card fixo no motor (captar / card diário): horário preservado. */
+  /** Card com horário REALMENTE fixo (captar / card diário): preservado. */
   fixed: boolean;
-  /** Etapa sem tempo operacional (aguardando cliente) ou dispatch ativo. */
+  /** Etapa sem agenda operacional (aguardando cliente) ou dispatch ativo. */
   untimed: boolean;
+  /** Motivo de o card não receber horário novo. */
+  untimedReason: "awaiting_client" | "active_dispatch" | null;
   scheduleChanged: boolean;
   warnings: string[];
 }
@@ -147,6 +151,11 @@ export interface BulkAllocationPlan {
   assignments: BulkAssignment[];
   queueReschedules: BulkQueueReschedule[];
   rejected: BulkRejected[];
+  /**
+   * Próximo horário operacional REAL do colaborador, derivado da mesma agenda
+   * consolidada da prévia (primeiro slot efetivamente usado pela fila).
+   */
+  nextAvailable: { date: string; time: string; cardId: string; area: string | null } | null;
   signatures: Record<string, BulkCardSignature>;
   /** Snapshot interno usado pelo apply (não renderizar). */
   cards: Record<string, BulkCardRow>;
@@ -554,8 +563,13 @@ export async function planBulkAllocation(
     ...queueRows.map((r) => toReorderInput(r, { stage_started_at: stageStarts[r.id] ?? null })),
   ];
 
+  // Cards que estão CHEGANDO de outro responsável nunca preservam o início
+  // histórico do responsável anterior.
+  const transferredIds = new Set(eligible.filter((e) => !e.sameAssignee).map((e) => e.row.id));
+
   const proposals = await computeReorder(combined, {
     startFrom: deps.now(),
+    transferredIds,
     workHours,
     durations,
     areaSchedule,
@@ -571,6 +585,17 @@ export async function planBulkAllocation(
     const p = proposalById.get(e.row.id);
     const warnings = [...e.warnings];
     if (p?.warning) warnings.push(p.warning);
+    // Sem agenda operacional: etapa aguardando cliente (skipKind=awaiting) ou
+    // dispatch ativo (card não entra na fila). Nesses casos a prévia NÃO pode
+    // apresentar a janela histórica como se fosse a proposta nova.
+    const untimed = !p || p.skipKind === "awaiting";
+    const fixed = !!p && (p.skipKind === "captar" || p.skipKind === "daily");
+    const untimedReason: BulkAssignment["untimedReason"] = untimed
+      ? p?.skipKind === "awaiting"
+        ? "awaiting_client"
+        : "active_dispatch"
+      : null;
+    const hasNewSchedule = !!p && !p.skipped;
     return {
       cardId: e.row.id,
       title: e.row.title || "Sem título",
@@ -581,18 +606,19 @@ export async function planBulkAllocation(
       resolvedFunctionKey: e.resolvedFunctionKey,
       direction: e.direction,
       sameAssignee: e.sameAssignee,
-      durationMin: p?.durationMin ?? null,
+      durationMin: hasNewSchedule ? p!.durationMin : null,
       publishDate: e.row.publish_date ?? null,
       publishTime: e.row.publish_time ? e.row.publish_time.slice(0, 5) : null,
-      dueDate: p ? p.startISO : e.row.due_date ?? null,
-      dueTime: p ? p.startTime : (e.row.due_time || "").slice(0, 5) || null,
-      deliveryDate: p ? p.endISO : e.row.delivery_date ?? null,
-      deliveryTime: p ? p.endTime : (e.row.delivery_time || "").slice(0, 5) || null,
+      dueDate: hasNewSchedule ? p!.startISO : fixed ? e.row.due_date ?? null : null,
+      dueTime: hasNewSchedule ? p!.startTime : fixed ? (e.row.due_time || "").slice(0, 5) || null : null,
+      deliveryDate: hasNewSchedule ? p!.endISO : fixed ? e.row.delivery_date ?? null : null,
+      deliveryTime: hasNewSchedule ? p!.endTime : fixed ? (e.row.delivery_time || "").slice(0, 5) || null : null,
       currentDueDate: e.row.due_date ?? null,
       currentDueTime: e.row.due_time ? e.row.due_time.slice(0, 5) : null,
-      fixed: !!p?.skipped,
-      untimed: !p,
-      scheduleChanged: !!p && !p.skipped && scheduleDiffers(e.row, p),
+      fixed,
+      untimed,
+      untimedReason,
+      scheduleChanged: hasNewSchedule && scheduleDiffers(e.row, p!),
       warnings,
     };
   });
@@ -632,6 +658,21 @@ export async function planBulkAllocation(
     cards[row.id] = row;
   }
 
+  // Próximo horário operacional: primeiro slot realmente usado pela fila
+  // proposta (mesma agenda consolidada), nunca no passado.
+  const nowKey = zonedWallclockKey(deps.now(), workHours.tz || "America/Sao_Paulo");
+
+  let nextAvailable: BulkAllocationPlan["nextAvailable"] = null;
+  for (const p of proposals) {
+    if (p.skipped) continue;
+    if (p.keepStart) continue; // início histórico do próprio colaborador
+    const key = `${p.startISO}T${p.startTime}`;
+    if (key < nowKey) continue;
+    if (!nextAvailable || key < `${nextAvailable.date}T${nextAvailable.time}`) {
+      nextAvailable = { date: p.startISO, time: p.startTime, cardId: p.id, area: p.workArea ?? null };
+    }
+  }
+
   const proposalsMap: Record<string, ReorderProposal> = {};
   for (const p of proposals) {
     if (signatures[p.id]) proposalsMap[p.id] = p;
@@ -647,6 +688,7 @@ export async function planBulkAllocation(
     assignments,
     queueReschedules,
     rejected,
+    nextAvailable,
     signatures,
     cards,
     proposals: proposalsMap,

@@ -69,6 +69,11 @@ export interface ReorderProposal {
   warning?: string;
   changed: boolean;
   skipped?: boolean;
+  /**
+   * Motivo do `skipped`: horário realmente FIXO (captar/card diário) versus
+   * etapa SEM agenda operacional (aguardando cliente).
+   */
+  skipKind?: "captar" | "daily" | "awaiting" | null;
   spansDays?: number;
   slackApplied?: boolean;
   pinned?: boolean;
@@ -254,6 +259,19 @@ function toZonedVirtualUtc(source: Date, tz: string): Date {
 function spNowVirtualUtc(tz: string): Date {
   return toZonedVirtualUtc(new Date(), tz);
 }
+
+/**
+ * Chave "YYYY-MM-DDTHH:MM" do relógio de parede na timezone informada.
+ * Usada para comparar sugestões de agenda com o "agora" real do expediente.
+ */
+export function zonedWallclockKey(source: Date, tz: string): string {
+  const v = toZonedVirtualUtc(source, tz);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${v.getUTCFullYear()}-${pad(v.getUTCMonth() + 1)}-${pad(v.getUTCDate())}T${pad(
+    v.getUTCHours(),
+  )}:${pad(v.getUTCMinutes())}`;
+}
+
 
 function toVirtualUtc(dateISO: string, timeHM: string): Date {
   const [y, mo, d] = dateISO.split("-").map((x) => parseInt(x, 10));
@@ -826,8 +844,14 @@ export function sortForReorder(
 
     /** Base de duração da etapa atual (mesma usada pela alocação). */
     estimateMin?: (c: ReorderCardInput) => number;
+    /**
+     * Cards que estão CHEGANDO de outro responsável. Nunca podem ocupar a
+     * posição de "card em andamento" (que preserva início histórico).
+     */
+    transferredIds?: Set<string>;
   },
 ): ReorderCardInput[] {
+
   if (cards.length === 0) return [];
 
   const riskOf = (c: ReorderCardInput) =>
@@ -845,8 +869,13 @@ export function sortForReorder(
       const cmp = dueKey(a.c).localeCompare(dueKey(b.c));
       return cmp !== 0 ? cmp : a.i - b.i;
     });
-    const inProgress = byDue[0];
-    let rest = byDue.slice(1);
+    // O card "em andamento" (posição fixa no topo, com início histórico
+    // preservado) só pode ser um card que JÁ pertence ao responsável.
+    const transferred = opts?.transferredIds;
+    const headIdx = transferred?.size ? byDue.findIndex((x) => !transferred.has(x.c.id)) : 0;
+    const inProgress = headIdx >= 0 ? byDue[headIdx] : null;
+    let rest = byDue.filter((_, i) => i !== headIdx);
+
     if (opts?.prioritizePublishDate) {
       rest.sort((a, b) => {
         const cmp = pubKey(a.c).localeCompare(pubKey(b.c));
@@ -876,7 +905,8 @@ export function sortForReorder(
     });
 
     rest = [...risk, ...normal, ...recent];
-    return [inProgress, ...rest];
+    return inProgress ? [inProgress, ...rest] : rest;
+
   };
 
   const indexed = cards.map((c, i) => ({ c, i }));
@@ -910,6 +940,12 @@ export async function computeReorder(
     durations?: StageDurationOverrides;
     areaSchedule?: AreaScheduleMap;
     scheduledPublishIds?: Set<string>;
+    /**
+     * Cards que estão sendo TRANSFERIDOS de outro responsável para o dono desta
+     * fila. Nunca preservam início histórico: recebem um slot novo >= agora.
+     */
+    transferredIds?: Set<string>;
+
     manualOverrides?: Record<string, ReorderManualOverride>;
     /**
      * Janela de risco / carência de entrada. Pode vir por área
@@ -969,11 +1005,14 @@ export async function computeReorder(
   // A ordenação usa exatamente a mesma base de duração da alocação (com os
   // ajustes de duração configurados), para que o badge de risco no modal
   // sempre explique a posição real na fila.
+  const transferredIds = opts?.transferredIds || new Set<string>();
   const ordered = sortForReorder(active, {
     prioritizePublishDate: opts?.prioritizePublishDate,
     priority: { ...((opts?.priority as any) || {}), now },
     estimateMin: (c) => estimateDurationBase(c, ctx, opts?.durations),
+    transferredIds,
   });
+
 
 
 
@@ -1041,7 +1080,11 @@ export async function computeReorder(
     // futuro. Isso evita descartar o prazo vigente e reiniciar toda a duração.
     const hasInvertedActiveWindow = !!origStart && !!origEnd && origStart >= origEnd && origEnd > now;
     // Fixar o TÉRMINO não descaracteriza o card em execução — apenas fixar o início.
-    const inProgressFirst = isFirstActive && !manualStart && !!origStart && (origStart <= now || hasInvertedActiveWindow);
+    // Card transferido de OUTRO responsável nunca herda o início histórico dele.
+    const isTransferred = transferredIds.has(card.id);
+    const inProgressFirst =
+      isFirstActive && !isTransferred && !manualStart && !!origStart && (origStart <= now || hasInvertedActiveWindow);
+
 
     let treatAsStuck = false;
     if (inProgressFirst && origEnd && origEnd < now) treatAsStuck = true;
@@ -1254,6 +1297,7 @@ export async function computeReorder(
       publishDeadline: null,
       changed: false,
       skipped: true,
+      skipKind: "awaiting",
       warning: "Cliente — não reagendado.",
       stageKey: c.current_function_key ?? null,
       demandTypeKey: c.demand_type_key ?? null,
@@ -1273,6 +1317,7 @@ export async function computeReorder(
       publishDeadline: null,
       changed: false,
       skipped: true,
+      skipKind: "captar",
       warning: "Captar — horário fixo, não reagendado.",
       stageKey: c.current_function_key ?? null,
       demandTypeKey: c.demand_type_key ?? null,
@@ -1292,6 +1337,7 @@ export async function computeReorder(
       publishDeadline: null,
       changed: false,
       skipped: true,
+      skipKind: "daily",
       warning: "Card diário — ciclo próprio, não reagendado.",
       stageKey: c.current_function_key ?? null,
       demandTypeKey: c.demand_type_key ?? null,
