@@ -260,6 +260,19 @@ function spNowVirtualUtc(tz: string): Date {
   return toZonedVirtualUtc(new Date(), tz);
 }
 
+/**
+ * Chave "YYYY-MM-DDTHH:MM" do relógio de parede na timezone informada.
+ * Usada para comparar sugestões de agenda com o "agora" real do expediente.
+ */
+export function zonedWallclockKey(source: Date, tz: string): string {
+  const v = toZonedVirtualUtc(source, tz);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${v.getUTCFullYear()}-${pad(v.getUTCMonth() + 1)}-${pad(v.getUTCDate())}T${pad(
+    v.getUTCHours(),
+  )}:${pad(v.getUTCMinutes())}`;
+}
+
+
 function toVirtualUtc(dateISO: string, timeHM: string): Date {
   const [y, mo, d] = dateISO.split("-").map((x) => parseInt(x, 10));
   const { h, m } = parseHM(timeHM);
