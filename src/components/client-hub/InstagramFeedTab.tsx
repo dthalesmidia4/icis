@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Layers, Play, Image as ImageIcon, ChevronLeft, ChevronRight, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTenant } from "@/hooks/useTenant";
+import { useTenant } from "@/contexts/TenantContext";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import BulkAllocationModal from "@/components/kanban/BulkAllocationModal";
 import { canBulkAllocate } from "@/lib/bulkAllocation";
