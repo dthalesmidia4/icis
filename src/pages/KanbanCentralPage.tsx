@@ -26,6 +26,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
 import BulkAllocationModal from "@/components/kanban/BulkAllocationModal";
+import { canBulkAllocate, isDragEnabled } from "@/lib/bulkAllocation";
 import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
 
 import { useTenant } from "@/contexts/TenantContext";
@@ -3374,7 +3375,7 @@ const KanbanCentralPage = () => {
                                      key={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
                                      draggableId={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
                                      index={index}
-                                     isDragDisabled={isHistoryMode || selectionMode}
+                                     isDragDisabled={!isDragEnabled({ selectionMode, historyMode: isHistoryMode })}
                                    >
                                     {(provided, snapshot) => {
                                       const isHistory = isHistoryMode;

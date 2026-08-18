@@ -7,7 +7,7 @@ import BulkAllocationModal from "@/components/kanban/BulkAllocationModal";
 import { cn } from "@/lib/utils";
 import { AttachmentPreviewModal, type AttachmentPreviewItem } from "@/components/AttachmentPreviewModal";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
-import { buildInstagramFeed, feedHasMedia, type FeedEntry, type FeedMediaItem } from "@/lib/instagramFeed";
+import { buildInstagramFeed, feedHasMedia, isFeedEntrySelectable, type FeedEntry, type FeedMediaItem } from "@/lib/instagramFeed";
 
 const MONTHS_SHORT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
