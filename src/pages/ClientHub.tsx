@@ -1956,6 +1956,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 planItems={workspace.planItems}
                 demands={workspace.demands}
                 onOpenDemand={(id) => setDrawerDemandId(id)}
+                onReload={workspace.reload}
               />
             </TabsContent>
 
