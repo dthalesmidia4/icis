@@ -218,7 +218,7 @@ const KanbanCentralPage = () => {
     setSelectionMode(false);
     setSelectedCardIds([]);
   }, []);
-  useEffect(() => () => { /* saindo da tela: nada persiste */ }, []);
+
 
   /**
    * Configuração da fila de liberação. Com a fila DESATIVADA, `released_at`
@@ -626,6 +626,13 @@ const KanbanCentralPage = () => {
     Map<string, Array<{ demandId: string; lastSeenAt: string; deliveredStage?: string | null }>>
   >(new Map());
   const [columnHistoryLoading, setColumnHistoryLoading] = useState<Set<string>>(new Set());
+
+  // Registro de entregas não permite seleção: ao abrir qualquer histórico a
+  // seleção é limpa para não existir ação sobre cards invisíveis.
+  useEffect(() => {
+    if (columnHistory.size > 0) exitSelection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnHistory]);
   const [historyPopoverOpen, setHistoryPopoverOpen] = useState<string | null>(null);
   const [globalHistoryFilter, setGlobalHistoryFilter] = useState<ColumnHistoryFilter | null>(null);
   const [globalHistoryPopoverOpen, setGlobalHistoryPopoverOpen] = useState(false);
