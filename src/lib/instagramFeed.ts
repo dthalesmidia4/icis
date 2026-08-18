@@ -176,57 +176,11 @@ export function buildInstagramFeed({
     const kind = resolveFeedKind({ typeKey: d.demand_type_key, typeLabel: d.demand_type });
     if (!kind) return;
 
-    const attachments = normalizeAttachments(d.attachments);
-    const images = attachments.filter(isImageAttachment);
-    const videos = attachments.filter(isVideoAttachment);
-
-    let previewKind: FeedPreviewKind = "none";
-    let previewUrl: string | null = null;
-    let mediaCount = 0;
-    let media: FeedMediaItem[] = [];
-
-    const toMedia = (list: FeedAttachment[], kind: Exclude<FeedPreviewKind, "none">) =>
-      list.map((a) => ({ url: a.url, kind, name: a.name ?? null }));
-
-    if (kind === "carousel") {
-      mediaCount = images.length;
-      if (images.length) {
-        previewKind = "image";
-        previewUrl = images[0].url;
-        media = toMedia(images, "image");
-      } else if (videos.length) {
-        previewKind = "video-file";
-        previewUrl = videos[0].url;
-        mediaCount = videos.length;
-        media = toMedia(videos, "video-file");
-      }
-    } else if (kind === "video") {
-      // Capa: qualquer imagem vence o mp4 (vídeo pode ainda não estar anexado).
-      if (images.length) {
-        previewKind = "image";
-        previewUrl = images[0].url;
-        mediaCount = 1;
-        media = toMedia(images.slice(0, 1), "image");
-      } else if (videos.length) {
-        previewKind = "video-file";
-        previewUrl = videos[0].url;
-        mediaCount = 1;
-        media = toMedia(videos.slice(0, 1), "video-file");
-      }
-    } else {
-      // Estático = uma peça = uma imagem, mesmo com múltiplos anexos legados.
-      if (images.length) {
-        previewKind = "image";
-        previewUrl = images[0].url;
-        mediaCount = 1;
-        media = toMedia(images.slice(0, 1), "image");
-      } else if (videos.length) {
-        previewKind = "video-file";
-        previewUrl = videos[0].url;
-        mediaCount = 1;
-        media = toMedia(videos.slice(0, 1), "video-file");
-      }
-    }
+    const resolved = resolveFeedMedia({
+      kind,
+      attachments: d.attachments,
+      referenceAttachments: d.reference_attachments,
+    });
 
     const stageLabel =
       (d.current_function_key ? stageNames[d.current_function_key] : undefined) ||
@@ -242,14 +196,16 @@ export function buildInstagramFeed({
       kind,
       date: d.publish_date,
       time: d.publish_time ? d.publish_time.slice(0, 5) : null,
-      previewKind,
-      previewUrl,
-      mediaCount,
-      media,
+      previewKind: resolved.previewKind,
+      previewUrl: resolved.previewUrl,
+      mediaCount: resolved.mediaCount,
+      media: resolved.media,
+      mediaSource: resolved.mediaSource,
       stageLabel,
       caption: d.post_caption ?? null,
     });
   });
+
 
   // Snapshot histórico entra somente sem demand viva equivalente.
   dedupeSnapshotAgainstLive(
