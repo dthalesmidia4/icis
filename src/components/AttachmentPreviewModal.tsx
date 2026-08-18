@@ -57,7 +57,10 @@ interface AttachmentPreviewModalProps {
   items?: AttachmentPreviewItem[];
   initialIndex?: number;
   onIndexChange?: (index: number) => void;
+  /** Selo neutro exibido no header (ex.: "Referência" no Feed Simulado). */
+  badgeLabel?: string;
 }
+
 
 
 type FileType = "image" | "video" | "audio" | "pdf" | "unsupported";
