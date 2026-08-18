@@ -41,6 +41,7 @@ interface PreviewState {
   items: AttachmentPreviewItem[];
   initialIndex: number;
   entryKey: string;
+  isReference: boolean;
 }
 
 interface InstagramFeedTabProps {
@@ -160,6 +161,7 @@ export default function InstagramFeedTab({
                   items: items.map((it) => ({ url: it.url, name: mediaFileName(it) })),
                   initialIndex,
                   entryKey: entry.key,
+                  isReference: entry.mediaSource === "reference",
                 })
               }
             />
@@ -176,6 +178,7 @@ export default function InstagramFeedTab({
           items={preview.items}
           initialIndex={preview.initialIndex}
           onIndexChange={(idx) => setSlide(preview.entryKey, idx)}
+          badgeLabel={preview.isReference ? "Referência" : undefined}
         />
       )}
     </div>
@@ -279,6 +282,12 @@ function FeedCell({
             </span>
           </div>
         </div>
+      )}
+
+      {entry.mediaSource === "reference" && (
+        <span className="absolute left-2 top-2 z-10 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-amber-600 backdrop-blur dark:text-amber-300">
+          Referência
+        </span>
       )}
 
       {/* Marcações de formato */}

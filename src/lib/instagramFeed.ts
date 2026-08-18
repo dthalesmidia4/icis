@@ -20,6 +20,7 @@ export interface FeedAttachment {
 
 export type FeedContentKind = "static" | "carousel" | "video";
 export type FeedPreviewKind = "image" | "video-file" | "none";
+export type FeedMediaSource = "attachment" | "reference" | null;
 
 export interface FeedDemandInput {
   id: string;
@@ -30,10 +31,13 @@ export interface FeedDemandInput {
   publish_date?: string | null;
   publish_time?: string | null;
   attachments?: unknown;
+  /** Fallback VISUAL exclusivo do Feed Simulado — nunca fonte canônica. */
+  reference_attachments?: unknown;
   post_caption?: string | null;
   current_function_key?: string | null;
   status_id?: string | null;
 }
+
 
 export interface FeedPlanItemInput {
   titulo: string;
@@ -63,9 +67,12 @@ export interface FeedEntry {
   mediaCount: number;
   /** Todas as peças navegáveis da célula, na ordem persistida. media[0] === preview. */
   media: FeedMediaItem[];
+  /** Origem da mídia exibida: anexo final, referência (fallback visual) ou nenhuma. */
+  mediaSource: FeedMediaSource;
   stageLabel: string;
   caption: string | null;
 }
+
 
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|m4v)(\?|#|$)/i;
@@ -149,12 +156,103 @@ export const resolveFeedKind = (params: {
 
 const timeValue = (time?: string | null) => String(time || "00:00").slice(0, 5);
 
+const toMedia = (list: FeedAttachment[], kind: Exclude<FeedPreviewKind, "none">): FeedMediaItem[] =>
+  list.map((a) => ({ url: a.url, kind, name: a.name ?? null }));
+
+export interface ResolvedFeedMedia {
+  previewKind: FeedPreviewKind;
+  previewUrl: string | null;
+  mediaCount: number;
+  media: FeedMediaItem[];
+  mediaSource: FeedMediaSource;
+}
+
+const EMPTY_MEDIA: ResolvedFeedMedia = {
+  previewKind: "none",
+  previewUrl: null,
+  mediaCount: 0,
+  media: [],
+  mediaSource: null,
+};
+
+/** Seleção de mídia de UMA fonte, com as regras por formato do feed. */
+const selectFromSource = (
+  kind: FeedContentKind,
+  raw: unknown,
+  source: Exclude<FeedMediaSource, null>
+): ResolvedFeedMedia => {
+  const attachments = normalizeAttachments(raw);
+  const images = attachments.filter(isImageAttachment);
+  const videos = attachments.filter(isVideoAttachment);
+
+  if (kind === "carousel") {
+    if (images.length) {
+      return {
+        previewKind: "image",
+        previewUrl: images[0].url,
+        mediaCount: images.length,
+        media: toMedia(images, "image"),
+        mediaSource: source,
+      };
+    }
+    if (videos.length) {
+      return {
+        previewKind: "video-file",
+        previewUrl: videos[0].url,
+        mediaCount: videos.length,
+        media: toMedia(videos, "video-file"),
+        mediaSource: source,
+      };
+    }
+    return EMPTY_MEDIA;
+  }
+
+  // Vídeo e estático: uma única peça (imagem vence o mp4 como capa).
+  if (images.length) {
+    return {
+      previewKind: "image",
+      previewUrl: images[0].url,
+      mediaCount: 1,
+      media: toMedia(images.slice(0, 1), "image"),
+      mediaSource: source,
+    };
+  }
+  if (videos.length) {
+    return {
+      previewKind: "video-file",
+      previewUrl: videos[0].url,
+      mediaCount: 1,
+      media: toMedia(videos.slice(0, 1), "video-file"),
+      mediaSource: source,
+    };
+  }
+  return EMPTY_MEDIA;
+};
+
+/**
+ * Prioridade determinística: `attachments` > `reference_attachments` > sem mídia.
+ * Referências são apenas fallback VISUAL do Feed Simulado.
+ */
+export function resolveFeedMedia(params: {
+  kind: FeedContentKind;
+  attachments?: unknown;
+  referenceAttachments?: unknown;
+}): ResolvedFeedMedia {
+  const primary = selectFromSource(params.kind, params.attachments, "attachment");
+  if (primary.mediaSource) return primary;
+  const fallback = selectFromSource(params.kind, params.referenceAttachments, "reference");
+  if (fallback.mediaSource) return fallback;
+  return EMPTY_MEDIA;
+}
+
 interface BuildFeedParams {
   demands: FeedDemandInput[];
   planItems: FeedPlanItemInput[];
   stageNames?: Record<string, string>;
   statusNames?: Record<string, { name: string; isFinal: boolean }>;
 }
+
+
 
 export function buildInstagramFeed({
   demands,
@@ -170,57 +268,11 @@ export function buildInstagramFeed({
     const kind = resolveFeedKind({ typeKey: d.demand_type_key, typeLabel: d.demand_type });
     if (!kind) return;
 
-    const attachments = normalizeAttachments(d.attachments);
-    const images = attachments.filter(isImageAttachment);
-    const videos = attachments.filter(isVideoAttachment);
-
-    let previewKind: FeedPreviewKind = "none";
-    let previewUrl: string | null = null;
-    let mediaCount = 0;
-    let media: FeedMediaItem[] = [];
-
-    const toMedia = (list: FeedAttachment[], kind: Exclude<FeedPreviewKind, "none">) =>
-      list.map((a) => ({ url: a.url, kind, name: a.name ?? null }));
-
-    if (kind === "carousel") {
-      mediaCount = images.length;
-      if (images.length) {
-        previewKind = "image";
-        previewUrl = images[0].url;
-        media = toMedia(images, "image");
-      } else if (videos.length) {
-        previewKind = "video-file";
-        previewUrl = videos[0].url;
-        mediaCount = videos.length;
-        media = toMedia(videos, "video-file");
-      }
-    } else if (kind === "video") {
-      // Capa: qualquer imagem vence o mp4 (vídeo pode ainda não estar anexado).
-      if (images.length) {
-        previewKind = "image";
-        previewUrl = images[0].url;
-        mediaCount = 1;
-        media = toMedia(images.slice(0, 1), "image");
-      } else if (videos.length) {
-        previewKind = "video-file";
-        previewUrl = videos[0].url;
-        mediaCount = 1;
-        media = toMedia(videos.slice(0, 1), "video-file");
-      }
-    } else {
-      // Estático = uma peça = uma imagem, mesmo com múltiplos anexos legados.
-      if (images.length) {
-        previewKind = "image";
-        previewUrl = images[0].url;
-        mediaCount = 1;
-        media = toMedia(images.slice(0, 1), "image");
-      } else if (videos.length) {
-        previewKind = "video-file";
-        previewUrl = videos[0].url;
-        mediaCount = 1;
-        media = toMedia(videos.slice(0, 1), "video-file");
-      }
-    }
+    const resolved = resolveFeedMedia({
+      kind,
+      attachments: d.attachments,
+      referenceAttachments: d.reference_attachments,
+    });
 
     const stageLabel =
       (d.current_function_key ? stageNames[d.current_function_key] : undefined) ||
@@ -236,14 +288,16 @@ export function buildInstagramFeed({
       kind,
       date: d.publish_date,
       time: d.publish_time ? d.publish_time.slice(0, 5) : null,
-      previewKind,
-      previewUrl,
-      mediaCount,
-      media,
+      previewKind: resolved.previewKind,
+      previewUrl: resolved.previewUrl,
+      mediaCount: resolved.mediaCount,
+      media: resolved.media,
+      mediaSource: resolved.mediaSource,
       stageLabel,
       caption: d.post_caption ?? null,
     });
   });
+
 
   // Snapshot histórico entra somente sem demand viva equivalente.
   dedupeSnapshotAgainstLive(
@@ -267,6 +321,7 @@ export function buildInstagramFeed({
       previewUrl: null,
       mediaCount: 0,
       media: [],
+      mediaSource: null,
       stageLabel: "Planejado · produção não iniciada",
       caption: null,
     });

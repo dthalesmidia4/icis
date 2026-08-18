@@ -57,7 +57,10 @@ interface AttachmentPreviewModalProps {
   items?: AttachmentPreviewItem[];
   initialIndex?: number;
   onIndexChange?: (index: number) => void;
+  /** Selo neutro exibido no header (ex.: "Referência" no Feed Simulado). */
+  badgeLabel?: string;
 }
+
 
 
 type FileType = "image" | "video" | "audio" | "pdf" | "unsupported";
@@ -123,7 +126,9 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
   items,
   initialIndex = 0,
   onIndexChange,
+  badgeLabel,
 }) => {
+
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -348,11 +353,17 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
               <span className="text-sm font-medium text-foreground truncate">
                 {activeName}
               </span>
+              {badgeLabel && (
+                <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                  {badgeLabel}
+                </span>
+              )}
               {total > 1 && (
                 <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                   {currentIndex + 1} / {total}
                 </span>
               )}
+
             </div>
             <Button
               variant="ghost"
