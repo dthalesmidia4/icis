@@ -206,6 +206,18 @@ const KanbanCentralPage = () => {
   /** Gestor operacional / admin da agência / super admin: vê a fila não liberada e pode liberar. */
   const canManageQueue = isSuperAdmin || isAgencyManager || isAgencyAdmin;
 
+  /** Seleção múltipla → alocação em massa (somente gestor operacional / super admin). */
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const toggleCardSelection = useCallback((id: string) => {
+    setSelectedCardIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedCardIds([]);
+  }, []);
+
   /**
    * Configuração da fila de liberação. Com a fila DESATIVADA, `released_at`
    * é apenas histórico: não esconde card do colaborador nem gera o
@@ -2534,6 +2546,17 @@ const KanbanCentralPage = () => {
                   </Badge>
                 )}
               </Button>
+              {canReorder && (
+                <Button
+                  variant={selectionMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => (selectionMode ? exitSelection() : setSelectionMode(true))}
+                  className="gap-2"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  {selectionMode ? "Cancelar seleção" : "Selecionar"}
+                </Button>
+              )}
             </div>
 
             {activeCount > 0 && (
@@ -3342,7 +3365,7 @@ const KanbanCentralPage = () => {
                                      key={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
                                      draggableId={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
                                      index={index}
-                                     isDragDisabled={isHistoryMode}
+                                     isDragDisabled={isHistoryMode || selectionMode}
                                    >
                                     {(provided, snapshot) => {
                                       const isHistory = isHistoryMode;
@@ -3403,6 +3426,9 @@ const KanbanCentralPage = () => {
                                                   captarTitle: (card as any).reorder_meta.pausedByCaptar.captarTitle,
                                                 }
                                               : syntheticPausedByCaptar}
+                                            selectable={selectionMode && !isHistory}
+                                            selected={selectedCardIds.includes(card.id)}
+                                            onToggleSelect={() => toggleCardSelection(card.id)}
                                             onClick={() => handleCardClick(card, column.id)}
                                             onDatesChange={isHistory ? undefined : (changes) => handleInlineDatesChange(card.id, changes)}
                                           />
@@ -4019,6 +4045,45 @@ const KanbanCentralPage = () => {
         />
       )}
 
+
+      {canReorder && selectionMode && selectedCardIds.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-xl backdrop-blur">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="font-bold text-foreground">{selectedCardIds.length} selecionados</span>
+            <Button size="sm" onClick={() => setBulkModalOpen(true)}>
+              Alocar para colaborador
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedCardIds([])}>
+              Limpar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={exitSelection}>
+              Sair da seleção
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {canReorder && (
+        <BulkAllocationModal
+          open={bulkModalOpen}
+          onOpenChange={(o) => setBulkModalOpen(o)}
+          tenantId={tenantId}
+          cardIds={selectedCardIds}
+          sourceScreen="overview"
+          selectedAreas={Array.from(
+            new Set(
+              cards
+                .filter((c) => selectedCardIds.includes(c.id))
+                .map((c) => ((c as any).work_area === "sistemas" ? "sistemas" : "midia")),
+            ),
+          )}
+          activeDispatchIds={activeDispatchIds}
+          onApplied={() => {
+            exitSelection();
+            fetchAllCards?.();
+          }}
+        />
+      )}
 
       <ScheduleConflictModal
         open={!!scheduleConflict}
