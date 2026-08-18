@@ -44,6 +44,8 @@ export interface WorkspaceDemand {
   channel: string | null;
   post_caption: string | null;
   attachments: WorkspaceAttachment[] | null;
+  /** Fallback visual do Feed Simulado — nunca fonte canônica de publicação. */
+  reference_attachments: WorkspaceAttachment[] | null;
 }
 
 const normalizePlanItem = (raw: any, source: "normal" | "ultra"): WorkspacePlanItem => ({
@@ -131,7 +133,7 @@ export function useClientPeriodWorkspace(params: {
         let demandQuery = supabase
           .from("demands")
           .select(
-            "id, title, demand_type, demand_type_key, publish_date, publish_time, due_date, delivery_date, current_function_key, status_id, assigned_to, archived_at, released_at, classifications, ad_plan, channel, post_caption, attachments"
+            "id, title, demand_type, demand_type_key, publish_date, publish_time, due_date, delivery_date, current_function_key, status_id, assigned_to, archived_at, released_at, classifications, ad_plan, channel, post_caption, attachments, reference_attachments"
           )
           .eq("tenant_id", tenantId)
           .eq("client_id", clientId)
