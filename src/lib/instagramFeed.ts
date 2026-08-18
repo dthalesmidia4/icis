@@ -30,10 +30,13 @@ export interface FeedDemandInput {
   publish_date?: string | null;
   publish_time?: string | null;
   attachments?: unknown;
+  /** Fallback VISUAL exclusivo do Feed Simulado — nunca fonte canônica. */
+  reference_attachments?: unknown;
   post_caption?: string | null;
   current_function_key?: string | null;
   status_id?: string | null;
 }
+
 
 export interface FeedPlanItemInput {
   titulo: string;
