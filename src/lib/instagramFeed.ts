@@ -66,9 +66,12 @@ export interface FeedEntry {
   mediaCount: number;
   /** Todas as peças navegáveis da célula, na ordem persistida. media[0] === preview. */
   media: FeedMediaItem[];
+  /** Origem da mídia exibida: anexo final, referência (fallback visual) ou nenhuma. */
+  mediaSource: FeedMediaSource;
   stageLabel: string;
   caption: string | null;
 }
+
 
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|m4v)(\?|#|$)/i;
