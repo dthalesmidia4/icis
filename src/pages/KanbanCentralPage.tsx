@@ -25,6 +25,7 @@ import {
 , HeartPulse, Building2, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
+import BulkAllocationModal from "@/components/kanban/BulkAllocationModal";
 import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
 
 import { useTenant } from "@/contexts/TenantContext";
@@ -76,7 +77,7 @@ import { useNowTick } from "@/hooks/useNowTick";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, CheckSquare } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Input } from "@/components/ui/input";
 import { buildAttachmentStoragePath } from "@/lib/referenceAttachments";
@@ -217,6 +218,7 @@ const KanbanCentralPage = () => {
     setSelectionMode(false);
     setSelectedCardIds([]);
   }, []);
+  useEffect(() => () => { /* saindo da tela: nada persiste */ }, []);
 
   /**
    * Configuração da fila de liberação. Com a fila DESATIVADA, `released_at`
