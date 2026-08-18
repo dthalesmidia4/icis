@@ -62,6 +62,12 @@ export async function evaluateReassign(params: {
   functionLabel?: string;
   /** Quando true, não busca sugestão de slot livre (economiza consultas). */
   skipSuggestion?: boolean;
+  /**
+   * `administrative` (default) = só troca de responsável: a etapa nunca pode
+   * pular automaticamente para uma etapa client-facing. Use `flow` apenas em
+   * transições reais de processo.
+   */
+  mode?: "flow" | "administrative_reassign";
 }): Promise<ReassignEvaluation> {
   const { tenantId, card, newAssignedTo } = params;
   const currentKey = card.current_function_key ?? null;
@@ -109,7 +115,11 @@ export async function evaluateReassign(params: {
           card.demand_type_key ?? null,
           currentKey,
           card.id,
-          { workArea: (card.work_area as any) ?? undefined, origin: (card.origin as any) ?? undefined },
+          {
+            workArea: (card.work_area as any) ?? undefined,
+            origin: (card.origin as any) ?? undefined,
+            mode: params.mode ?? "administrative_reassign",
+          },
         );
       } catch {
         resolved = null;
@@ -125,7 +135,7 @@ export async function evaluateReassign(params: {
           ...base,
           allowed: false,
           blockedBy: "function",
-          message: `${nome} não tem nenhuma etapa habilitada compatível com "${stageLabel}" na área ${areaLabel}`,
+          message: `${nome} não tem etapa OPERACIONAL habilitada compatível com "${stageLabel}" na área ${areaLabel}`,
         };
       }
 

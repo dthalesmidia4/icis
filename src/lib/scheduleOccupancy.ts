@@ -339,7 +339,7 @@ export interface FreeSlotSuggestion {
 }
 
 /**
- * Primeiro slot livre do responsável, a partir da data/hora atual do card.
+ * Primeiro slot livre do responsável, a partir de `max(data/hora do card, AGORA)`.
  *
  * Respeita, nesta ordem:
  *  1. o expediente configurado do usuário POR ÁREA (`user_area_schedules`);
@@ -348,6 +348,9 @@ export interface FreeSlotSuggestion {
  *  2. a agenda já ocupada do usuário (qualquer área);
  *  3. uma reconferência final via `checkAssignmentConflicts` — a sugestão só
  *     é devolvida quando de fato não gera conflito duro.
+ *
+ * NUNCA devolve horário no passado: o `due_date/due_time` vencido do card serve
+ * apenas como histórico, jamais como base mínima de busca.
  *
  * Procura até 30 dias à frente.
  */
@@ -358,6 +361,8 @@ export async function suggestFreeSlot(params: {
   targetStage?: string | null;
   area?: WorkArea | null;
   durations?: StageDurations;
+  /** Instante de referência (default: agora). Injetável nos testes. */
+  now?: Date;
 }): Promise<FreeSlotSuggestion | null> {
   const stage = params.targetStage ?? params.card.current_function_key ?? null;
   if (isUntimedStage(stage)) return null;
@@ -366,11 +371,19 @@ export async function suggestFreeSlot(params: {
   const probe: OccupancyCardInput = { ...params.card, current_function_key: stage, work_area: area };
   const dur = durationMinutesOf(probe, durations);
 
-  const baseDate = params.card.due_date || params.card.publish_date;
-  if (!baseDate) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const nowRef = params.now ?? new Date();
+  const todayISO = `${nowRef.getFullYear()}-${pad(nowRef.getMonth() + 1)}-${pad(nowRef.getDate())}`;
+  // Minuto atual arredondado para cima na grade de 5 minutos do sistema.
+  const nowMinRaw = nowRef.getHours() * 60 + nowRef.getMinutes();
+  const nowMin = nowMinRaw % 5 === 0 ? nowMinRaw : nowMinRaw + (5 - (nowMinRaw % 5));
+
+  const cardDate = params.card.due_date || params.card.publish_date || null;
+  // Base = max(data do card, hoje). Data vencida nunca puxa a busca para o passado.
+  const baseDate = cardDate && cardDate > todayISO ? cardDate : todayISO;
   const [by, bm, bd] = baseDate.split("-").map(Number);
   const cursor = new Date(by, (bm || 1) - 1, bd || 1);
-  const pad = (n: number) => String(n).padStart(2, "0");
+
 
   // Expediente configurado do usuário (todas as áreas, todos os dias da semana).
   let scheduleRows: Array<{ work_area: string; weekday: number; start_time: string; end_time: string }> = [];
@@ -413,8 +426,14 @@ export async function suggestFreeSlot(params: {
         e: Math.min(24 * 60, Math.round((b.end - dayZero) / 60_000)),
       }));
 
-      const earliest =
-        i === 0 && params.card.due_time ? toMin(params.card.due_time.slice(0, 5)) : 0;
+      // Hoje: nunca antes do minuto atual. Dias futuros: início da janela.
+      // O horário do card só é respeitado quando ainda está no futuro.
+      const cardMin =
+        dateStr === (cardDate || "") && params.card.due_time
+          ? toMin(params.card.due_time.slice(0, 5))
+          : 0;
+      const earliest = dateStr === todayISO ? Math.max(nowMin, cardMin) : cardMin;
+
 
       const rejected: number[] = [];
       for (let attempt = 0; attempt < 6; attempt++) {

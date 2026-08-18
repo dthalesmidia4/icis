@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, Loader2, RotateCcw, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, Loader2, RotateCcw, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -40,6 +40,17 @@ const fmtDate = (iso?: string | null) =>
   iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "—";
 
 const stageLabel = (key?: string | null) => (key ? key.replace(/_/g, " ") : "sem etapa");
+
+const todayISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** "Hoje às 17:25" / "19/08 às 09:00" */
+const fmtNextAvailable = (next: { date: string; time: string } | null): string | null => {
+  if (!next) return null;
+  const isToday = next.date === todayISO(new Date());
+  return `${isToday ? "Hoje" : fmtDate(next.date)} às ${next.time}`;
+};
+
 
 export default function BulkAllocationModal({
   open,
@@ -202,6 +213,15 @@ export default function BulkAllocationModal({
           {plan && !loading && (
             <ScrollArea className="max-h-[52vh] pr-3">
               <div className="space-y-4">
+                <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                  <p className="text-[11px] font-black uppercase tracking-[0.12em] text-primary">
+                    <Clock className="mr-1 inline h-3.5 w-3.5" />
+                    {plan.nextAvailable
+                      ? `Próximo horário operacional de ${plan.targetUserName}: ${fmtNextAvailable(plan.nextAvailable)}`
+                      : `Nenhum horário operacional novo será usado para ${plan.targetUserName}`}
+                  </p>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em]">
                   <Badge variant="secondary">{plan.summary.eligible} alocáveis</Badge>
                   {plan.summary.rejected > 0 && (
@@ -211,6 +231,7 @@ export default function BulkAllocationModal({
                     <Badge variant="outline">{plan.summary.rescheduledExisting} reagendados</Badge>
                   )}
                 </div>
+
 
                 <section className="space-y-1.5">
                   {plan.assignments.length === 0 && (
@@ -233,7 +254,11 @@ export default function BulkAllocationModal({
                           {a.direction === "forward" && <Badge variant="secondary">avançou etapa</Badge>}
                           {a.direction === "backward" && <Badge variant="destructive">voltou etapa</Badge>}
                           {a.fixed && <Badge variant="outline">horário fixo</Badge>}
-                          {a.untimed && <Badge variant="outline">sem agenda</Badge>}
+                          {a.untimed && (
+                            <Badge variant="outline">
+                              {a.untimedReason === "awaiting_client" ? "aguardando cliente" : "publicação agendada"}
+                            </Badge>
+                          )}
                         </div>
                       </div>
 
@@ -244,17 +269,29 @@ export default function BulkAllocationModal({
                         <span className="inline-flex items-center gap-1">
                           {stageLabel(a.originalFunctionKey)} <ArrowRight className="h-3 w-3" /> {stageLabel(a.resolvedFunctionKey)}
                         </span>
-                        {a.durationMin != null && <span>{fmtMinutes(a.durationMin)}</span>}
+                        {!a.untimed && a.durationMin != null && <span>{fmtMinutes(a.durationMin)}</span>}
                         {a.publishDate && (
                           <span>
                             publica {fmtDate(a.publishDate)}
                             {a.publishTime ? ` ${a.publishTime}` : ""}
                           </span>
                         )}
-                        <span className="font-bold text-foreground">
-                          {fmtDate(a.dueDate)} {a.dueTime || "--:--"} → {fmtDate(a.deliveryDate)} {a.deliveryTime || "--:--"}
-                        </span>
+                        {a.untimed ? (
+                          <span className="font-bold text-foreground">
+                            Sem agenda operacional
+                            {a.untimedReason === "awaiting_client" ? " — aguardando cliente" : ""}
+                          </span>
+                        ) : a.dueDate ? (
+                          <span className="font-bold text-foreground">
+                            {fmtDate(a.dueDate)} {a.dueTime || "--:--"} → {fmtDate(a.deliveryDate)}{" "}
+                            {a.deliveryTime || "--:--"}
+                            {a.fixed ? " (horário fixo)" : ""}
+                          </span>
+                        ) : (
+                          <span className="font-bold text-foreground">Horário não alterado</span>
+                        )}
                       </div>
+
 
                       {a.warnings.length > 0 && (
                         <div className="mt-1.5 space-y-0.5">
