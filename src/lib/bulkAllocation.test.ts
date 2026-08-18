@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Feriados injetados no motor de reorganização (mutável entre testes). */
+const HOLIDAYS: string[] = [];
+
 vi.mock("@/lib/dailyCards", () => ({
   fetchHolidaysInRange: vi.fn(async () => new Set<string>(HOLIDAYS)),
 }));
@@ -28,10 +31,7 @@ import {
 } from "@/lib/bulkAllocation";
 import { isFeedEntrySelectable } from "@/lib/instagramFeed";
 
-/** Feriados injetados no motor (mutável entre testes). */
-const HOLIDAYS: string[] = [];
-
-const NOW = new Date("2026-08-05T12:00:00.000Z"); // quarta, 09:00 em São Paulo
+const NOW = new Date("2026-08-05T12:00:00.000Z"); // quarta-feira, 09:00 em São Paulo
 const TENANT = "tenant-1";
 const TARGET = "user-target";
 const OTHER = "user-other";
@@ -148,7 +148,10 @@ function harness(opts: {
 }
 
 const plan = (h: Harness, cardIds: string[], extra: any = {}) =>
-  planBulkAllocation({ tenantId: TENANT, cardIds, targetUserId: TARGET, sourceScreen: "overview", ...extra }, h.deps);
+  planBulkAllocation(
+    { tenantId: TENANT, cardIds, targetUserId: TARGET, sourceScreen: "overview", ...extra },
+    h.deps,
+  );
 
 beforeEach(() => {
   HOLIDAYS.length = 0;
@@ -210,7 +213,9 @@ describe("planBulkAllocation — descoberta de etapa", () => {
   });
 
   it("delega a decisão de etapa passando o card íntegro (área, tipo e origem)", async () => {
-    const h = harness({ cards: [row({ work_area: "sistemas", origin: "cliente", demand_type_key: "desenvolvimento" })] });
+    const h = harness({
+      cards: [row({ work_area: "sistemas", origin: "cliente", demand_type_key: "desenvolvimento" })],
+    });
     await plan(h, ["c1"]);
     expect(h.evaluateCalls[0]).toMatchObject({
       work_area: "sistemas",
@@ -263,13 +268,10 @@ describe("planBulkAllocation — sequenciamento", () => {
   it("não sobrepõe cards selecionados entre si", async () => {
     const h = harness({ cards: [row({ id: "a" }), row({ id: "b" })] });
     const p = await plan(h, ["a", "b"]);
-    const first = p.assignments.find((x) => x.cardId === "a")!;
-    const second = p.assignments.find((x) => x.cardId === "b")!;
-    const end = `${first.deliveryDate}T${first.deliveryTime}`;
-    const start = `${second.dueDate}T${second.dueTime}`;
-    expect(start >= end || `${second.deliveryDate}T${second.deliveryTime}` <= `${first.dueDate}T${first.dueTime}`).toBe(
-      true,
-    );
+    const windows = p.assignments
+      .map((a) => ({ s: `${a.dueDate}T${a.dueTime}`, e: `${a.deliveryDate}T${a.deliveryTime}` }))
+      .sort((x, y) => x.s.localeCompare(y.s));
+    expect(windows[1].s >= windows[0].e).toBe(true);
   });
 
   it("considera a fila atual do destinatário ao encaixar os novos cards", async () => {
@@ -288,16 +290,12 @@ describe("planBulkAllocation — sequenciamento", () => {
     const a = p.assignments[0];
     const q = p.queueReschedules.find((x) => x.cardId === "q1");
     const qStart = q ? `${q.dueDate}T${q.dueTime}` : "2026-08-05T09:00";
-    const aStart = `${a.dueDate}T${a.dueTime}`;
-    expect(aStart).not.toBe(qStart);
+    expect(`${a.dueDate}T${a.dueTime}`).not.toBe(qStart);
   });
 
   it("prioriza data de publicação mais próxima", async () => {
     const h = harness({
-      cards: [
-        row({ id: "late", publish_date: "2026-09-30" }),
-        row({ id: "soon", publish_date: "2026-08-07" }),
-      ],
+      cards: [row({ id: "late", publish_date: "2026-09-30" }), row({ id: "soon", publish_date: "2026-08-07" })],
     });
     const p = await plan(h, ["late", "soon"]);
     const soon = p.assignments.find((x) => x.cardId === "soon")!;
@@ -323,12 +321,12 @@ describe("planBulkAllocation — sequenciamento", () => {
     const p = await plan(h, ["a", "b", "c", "d", "e"]);
     for (const a of p.assignments) {
       expect(["2026-08-06", "2026-08-07"]).not.toContain(a.dueDate);
-      const d = new Date(`${a.dueDate}T12:00:00Z`).getUTCDay();
-      expect(d === 0 || d === 6).toBe(false);
+      const weekday = new Date(`${a.dueDate}T12:00:00Z`).getUTCDay();
+      expect(weekday === 0 || weekday === 6).toBe(false);
     }
   });
 
-  it("preserva o horário de cards fixos (captar / card diário)", async () => {
+  it("preserva o horário de cards fixos (card diário)", async () => {
     const h = harness({
       cards: [
         row({
@@ -343,9 +341,9 @@ describe("planBulkAllocation — sequenciamento", () => {
     });
     const p = await plan(h, ["daily"]);
     const a = p.assignments[0];
-    expect(a.fixed || a.dueDate === "2026-08-10").toBe(true);
     expect(a.dueDate).toBe("2026-08-10");
     expect(a.dueTime).toBe("08:00");
+    expect(a.scheduleChanged).toBe(false);
   });
 
   it("não consome tempo operacional com dispatch de publicação ativo", async () => {
@@ -353,6 +351,7 @@ describe("planBulkAllocation — sequenciamento", () => {
     const p = await plan(h, ["pub"]);
     const a = p.assignments[0];
     expect(a.fixed || a.untimed).toBe(true);
+    expect(a.scheduleChanged).toBe(false);
   });
 
   it("lista os cards antigos do destinatário que precisaram ser reagendados", async () => {
@@ -394,7 +393,7 @@ describe("elegibilidade", () => {
     expect(p.rejected).toHaveLength(1);
   });
 
-  it("filtro grosseiro de colaborador respeita áreas selecionadas", () => {
+  it("filtro grosseiro de colaborador respeita as áreas selecionadas", () => {
     const areas = { u1: new Set(["midia"]), u2: new Set(["sistemas"]) };
     expect(collaboratorMayReceive(areas, "u1", new Set(["midia"]))).toBe(true);
     expect(collaboratorMayReceive(areas, "u1", new Set(["sistemas"]))).toBe(false);
@@ -456,9 +455,12 @@ describe("applyBulkAllocation", () => {
       for (const key of forbidden) expect(Object.keys(call.payload)).not.toContain(key);
     }
     for (const call of h.reassignCalls) {
-      expect(Object.keys(call.reschedule || {}).sort()).toEqual(
-        ["delivery_date", "delivery_time", "due_date", "due_time"],
-      );
+      expect(Object.keys(call.reschedule || {}).sort()).toEqual([
+        "delivery_date",
+        "delivery_time",
+        "due_date",
+        "due_time",
+      ]);
     }
   });
 
@@ -467,7 +469,6 @@ describe("applyBulkAllocation", () => {
     const p = await plan(h, ["c1"]);
     await applyBulkAllocation(p, h.deps);
     expect(h.reassignCalls).toHaveLength(0);
-    expect(h.scheduleCalls.length).toBeGreaterThanOrEqual(0);
   });
 
   it("retorna parcial e para na primeira falha de transferência", async () => {
