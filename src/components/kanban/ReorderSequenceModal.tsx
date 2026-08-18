@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { loadStageDurationOverrides, overrideKey } from "@/lib/durationOverrides";
 import { buildReorderScheduleUpdate, computeReorder, fmtMinutes, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type ReorderManualOverride, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
 import { loadReorderPriority, DEFAULT_REORDER_PRIORITY_BY_AREA, type ReorderPriorityByArea } from "@/lib/reorderPriority";
 
@@ -209,6 +210,37 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     }
   }, [prioritizeByPublish, storageKey]);
 
+  /**
+   * Tempos operacionais definidos manualmente pelo gestor (por card+etapa) na
+   * alocação em massa. Eles são a BASE do cálculo aqui: ajustes feitos dentro
+   * deste modal continuam vencendo sobre o valor gravado.
+   */
+  const [storedDurations, setStoredDurations] = useState<Record<string, number>>({});
+  const cardIdsSignature = useMemo(() => cards.map((c) => c.id).join(","), [cards]);
+  useEffect(() => {
+    if (!open || !tenantId) return;
+    let cancelled = false;
+    loadStageDurationOverrides(tenantId, cards.map((c) => c.id))
+      .then((rows) => { if (!cancelled) setStoredDurations(rows); })
+      .catch(() => { if (!cancelled) setStoredDurations({}); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, tenantId, cardIdsSignature]);
+
+  const effectiveOverrides = useMemo(() => {
+    const merged: Record<string, ReorderManualOverride> = {};
+    cards.forEach((c) => {
+      const key = (c as any).current_function_key as string | null | undefined;
+      const stored = key ? storedDurations[overrideKey(c.id, key)] : undefined;
+      if (stored) merged[c.id] = { durationMin: stored };
+    });
+    Object.entries(manualOverrides).forEach(([id, ov]) => {
+      merged[id] = { ...(merged[id] || {}), ...ov };
+    });
+    return merged;
+  }, [cards, storedDurations, manualOverrides]);
+  const effectiveOverridesSignature = useMemo(() => JSON.stringify(effectiveOverrides), [effectiveOverrides]);
+
   const stageStartsSignature = useMemo(() => JSON.stringify(stageStarts), [stageStarts]);
 
   useEffect(() => {
@@ -216,7 +248,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     let cancelled = false;
     setLoading(true);
     const enriched = cards.map((c) => ({ ...c, stage_started_at: stageStarts[c.id] ?? null }));
-    computeReorder(enriched, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, priority, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(enriched, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides: effectiveOverrides, priority, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -231,7 +263,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, startFrom, cardsSignature, stageStartsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides, priority]);
+  }, [open, startFrom, cardsSignature, stageStartsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, effectiveOverridesSignature, priority]);
 
 
   // Limpa ajustes manuais ao fechar o modal
