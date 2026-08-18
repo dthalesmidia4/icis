@@ -204,7 +204,7 @@ const KanbanCentralPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { isSuperAdmin, isAgencyManager, isAgencyAdmin, isLoading: roleLoading } = useAgencyRole();
-  const canReorder = isSuperAdmin || isAgencyManager;
+  const canReorder = canBulkAllocate({ isSuperAdmin, isAgencyManager });
   /** Gestor operacional / admin da agência / super admin: vê a fila não liberada e pode liberar. */
   const canManageQueue = isSuperAdmin || isAgencyManager || isAgencyAdmin;
 

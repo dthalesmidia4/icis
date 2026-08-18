@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTenant } from "@/hooks/useTenant";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import BulkAllocationModal from "@/components/kanban/BulkAllocationModal";
+import { canBulkAllocate } from "@/lib/bulkAllocation";
 import { cn } from "@/lib/utils";
 import { AttachmentPreviewModal, type AttachmentPreviewItem } from "@/components/AttachmentPreviewModal";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
@@ -74,7 +75,7 @@ export default function InstagramFeedTab({
   // Mesmo gate da Visão Geral: gestor operacional / super admin.
   const { tenantId } = useTenant();
   const { isSuperAdmin, isAgencyManager } = useAgencyRole();
-  const canAllocate = isSuperAdmin || isAgencyManager;
+  const canAllocate = canBulkAllocate({ isSuperAdmin, isAgencyManager });
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);
