@@ -251,10 +251,7 @@ interface BuildFeedParams {
   statusNames?: Record<string, { name: string; isFinal: boolean }>;
 }
 
-  planItems: FeedPlanItemInput[];
-  stageNames?: Record<string, string>;
-  statusNames?: Record<string, { name: string; isFinal: boolean }>;
-}
+
 
 export function buildInstagramFeed({
   demands,
