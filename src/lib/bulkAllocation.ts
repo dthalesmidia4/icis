@@ -23,8 +23,10 @@ import {
   buildReorderScheduleUpdate,
   computeReorder,
   DEFAULT_WORK_HOURS,
+  estimateDurationMinutesWithOverrides,
   type AreaScheduleMap,
   type ReorderCardInput,
+  type ReorderManualOverride,
   type ReorderProposal,
   type WorkHoursConfig,
   zonedWallclockKey,
@@ -43,6 +45,19 @@ import {
   type ApplyReassignResult,
   type ReassignEvaluation,
 } from "@/lib/reassignDemand";
+import {
+  loadStageOptionsForAssignee,
+  stageChoiceError,
+  type LoadStageOptionsResult,
+  type StageOption,
+} from "@/lib/stageOptions";
+import {
+  loadStageDurationOverrides,
+  normalizeDurationInput,
+  overrideKey,
+  saveStageDurationOverrides,
+} from "@/lib/durationOverrides";
+
 
 export const STALE_BULK_MESSAGE = "A fila mudou desde a prévia. Recalcule antes de aplicar.";
 
@@ -98,7 +113,15 @@ export interface BulkAssignment {
   direction: "same" | "forward" | "backward";
   /** Já era do destinatário: só o horário pode mudar. */
   sameAssignee: boolean;
+  /** De onde veio a etapa de destino exibida na prévia. */
+  stageSource: "current" | "suggested" | "manual";
+  /** Etapas do fluxo deste card, com válidas/inválidas e motivo (seletor da UI). */
+  stageOptions: StageOption[];
+  /** Duração aplicada na prévia (override manual quando existir). */
   durationMin: number | null;
+  /** Duração padrão da etapa/tipo (para o gestor comparar antes de editar). */
+  defaultDurationMin: number | null;
+  durationSource: "default" | "manual";
   publishDate: string | null;
   publishTime: string | null;
   dueDate: string | null;
@@ -160,12 +183,20 @@ export interface BulkAllocationPlan {
   /** Snapshot interno usado pelo apply (não renderizar). */
   cards: Record<string, BulkCardRow>;
   proposals: Record<string, ReorderProposal>;
+  /** Etapas escolhidas manualmente pelo gestor (eco para recálculo). */
+  stageOverrides: Record<string, string>;
+  /** Durações escolhidas manualmente (minutos), por card. */
+  durationOverrides: Record<string, number>;
   summary: {
     selected: number;
     eligible: number;
     rejected: number;
     reassigned: number;
     rescheduledExisting: number;
+    /** Soma do tempo operacional dos cards selecionados que consomem agenda. */
+    totalOperationalMin: number;
+    stageChanged: number;
+    durationCustomized: number;
   };
 }
 
@@ -285,6 +316,19 @@ export interface BulkAllocationDeps {
     newAssignedTo: string;
     collaboratorName?: string;
   }): Promise<ReassignEvaluation>;
+  /** Etapas possíveis do card para o destinatário (com motivo de bloqueio). */
+  loadStageOptions(params: {
+    tenantId: string;
+    card: BulkCardRow;
+    userId: string;
+  }): Promise<LoadStageOptionsResult>;
+  /** Durações personalizadas já gravadas para estes cards. */
+  loadDurationOverrides(tenantId: string, ids: string[]): Promise<Record<string, number>>;
+  /** Persiste as durações personalizadas escolhidas na alocação. */
+  saveDurationOverrides(
+    tenantId: string,
+    rows: Array<{ demandId: string; functionKey: string; durationMin: number }>,
+  ): Promise<void>;
   applyReassign(input: ApplyReassignInput): Promise<ApplyReassignResult>;
   updateSchedule(
     cardId: string,
@@ -396,6 +440,30 @@ export const defaultBulkDeps: BulkAllocationDeps = {
     return out;
   },
 
+  loadStageOptions({ tenantId, card, userId }) {
+    return loadStageOptionsForAssignee({
+      tenantId,
+      card: {
+        id: card.id,
+        demand_type_key: card.demand_type_key ?? null,
+        work_area: card.work_area ?? null,
+        origin: card.origin ?? null,
+        current_function_key: card.current_function_key ?? null,
+      },
+      userId,
+      administrative: true,
+    });
+  },
+
+  loadDurationOverrides(tenantId, ids) {
+    return loadStageDurationOverrides(tenantId, ids);
+  },
+
+  saveDurationOverrides(tenantId, rows) {
+    return saveStageDurationOverrides(tenantId, rows);
+  },
+
+
   evaluate({ tenantId, card, newAssignedTo, collaboratorName }) {
     return evaluateReassignReal({
       tenantId,
@@ -454,7 +522,39 @@ export interface PlanBulkAllocationParams {
   sourceScreen: BulkSourceScreen;
   /** Dispatches ativos já conhecidos pela tela (evita nova consulta). */
   activeDispatchIds?: Set<string> | string[];
+  /**
+   * Etapa escolhida EXPLICITAMENTE pelo gestor por card (`cardId -> functionKey`).
+   * Só é aceita quando é válida para o destinatário — caso contrário o card é
+   * rejeitado com o motivo, nunca gravado com etapa inválida.
+   */
+  stageOverrides?: Record<string, string>;
+  /** Tempo operacional (minutos) escolhido pelo gestor por card. */
+  durationOverrides?: Record<string, number>;
 }
+
+interface EligibleEntry {
+  row: BulkCardRow;
+  resolvedFunctionKey: string | null;
+  direction: "same" | "forward" | "backward";
+  sameAssignee: boolean;
+  stageSource: "current" | "suggested" | "manual";
+  stageOptions: StageOption[];
+  warnings: string[];
+}
+
+/** Sentido do movimento de etapa dentro da sequência do card. */
+function directionBetween(
+  options: StageOption[],
+  fromKey: string | null | undefined,
+  toKey: string | null | undefined,
+): "same" | "forward" | "backward" {
+  if (!fromKey || !toKey || fromKey === toKey) return "same";
+  const from = options.findIndex((o) => o.functionKey === fromKey);
+  const to = options.findIndex((o) => o.functionKey === toKey);
+  if (from < 0 || to < 0) return "forward";
+  return to < from ? "backward" : "forward";
+}
+
 
 export async function planBulkAllocation(
   params: PlanBulkAllocationParams,
@@ -471,7 +571,8 @@ export async function planBulkAllocation(
   const byId = new Map(rows.map((r) => [r.id, r]));
 
   const rejected: BulkRejected[] = [];
-  const eligible: Array<{ row: BulkCardRow; resolvedFunctionKey: string | null; direction: "same" | "forward" | "backward"; sameAssignee: boolean; warnings: string[] }> = [];
+  const eligible: EligibleEntry[] = [];
+  const stageOverridesIn = params.stageOverrides || {};
 
   for (const id of cardIds) {
     const row = byId.get(id);
@@ -481,12 +582,47 @@ export async function planBulkAllocation(
       continue;
     }
 
-    if ((row.assigned_to ?? null) === targetUserId) {
+    const sameAssignee = (row.assigned_to ?? null) === targetUserId;
+    const manualStage = (stageOverridesIn[id] || "").trim() || null;
+
+    // Etapas possíveis do card para o destinatário: alimenta o seletor da UI e
+    // valida a escolha manual do gestor.
+    let stageOptions: StageOption[] = [];
+    try {
+      const loaded = await deps.loadStageOptions({ tenantId, card: row, userId: targetUserId });
+      stageOptions = loaded.options;
+    } catch (err) {
+      console.warn("[bulkAllocation] loadStageOptions error", id, err);
+    }
+
+    // 1) Escolha MANUAL do gestor tem precedência absoluta — desde que válida.
+    if (manualStage) {
+      const err = stageOptions.length > 0 ? stageChoiceError(stageOptions, manualStage) : null;
+      if (err) {
+        rejected.push({ cardId: id, title: row.title || "Card", reason: `${targetUserName}: ${err}` });
+        continue;
+      }
+      eligible.push({
+        row,
+        resolvedFunctionKey: manualStage,
+        direction: directionBetween(stageOptions, row.current_function_key, manualStage),
+        sameAssignee,
+        stageSource: "manual",
+        stageOptions,
+        warnings: [],
+      });
+      continue;
+    }
+
+    // 2) Já era do destinatário e o gestor não mudou a etapa: nada de etapa muda.
+    if (sameAssignee) {
       eligible.push({
         row,
         resolvedFunctionKey: row.current_function_key ?? null,
         direction: "same",
         sameAssignee: true,
+        stageSource: "current",
+        stageOptions,
         warnings: [],
       });
       continue;
@@ -521,9 +657,13 @@ export async function planBulkAllocation(
       resolvedFunctionKey: evaluation.nextFunctionKey,
       direction: evaluation.direction || "same",
       sameAssignee: false,
+      stageSource:
+        (evaluation.nextFunctionKey ?? null) === (row.current_function_key ?? null) ? "current" : "suggested",
+      stageOptions,
       warnings,
     });
   }
+
 
   const eligibleIds = eligible.map((e) => e.row.id);
 
@@ -538,19 +678,41 @@ export async function planBulkAllocation(
   for (const e of eligible) stageByCard[e.row.id] = (e.resolvedFunctionKey || "").trim();
   for (const r of queueRows) stageByCard[r.id] = (r.current_function_key || "").trim();
 
-  const [workHours, areaSchedule, durations, priority, stageStarts, dispatchIds, fromNames] = await Promise.all([
-    deps.loadWorkHours(tenantId),
-    deps.loadAreaSchedule(tenantId, targetUserId),
-    deps.loadDurations(tenantId),
-    deps.loadPriority(tenantId),
-    deps.loadStageStarts(allIds, stageByCard),
-    params.activeDispatchIds
-      ? Promise.resolve(new Set(Array.from(params.activeDispatchIds as any)) as Set<string>)
-      : deps.loadActiveDispatchIds(tenantId, allIds),
-    deps.loadUserNames(
-      Array.from(new Set(eligible.map((e) => e.row.assigned_to).filter(Boolean) as string[])),
-    ),
-  ]);
+  const [workHours, areaSchedule, durations, priority, stageStarts, dispatchIds, fromNames, storedDurations] =
+    await Promise.all([
+      deps.loadWorkHours(tenantId),
+      deps.loadAreaSchedule(tenantId, targetUserId),
+      deps.loadDurations(tenantId),
+      deps.loadPriority(tenantId),
+      deps.loadStageStarts(allIds, stageByCard),
+      params.activeDispatchIds
+        ? Promise.resolve(new Set(Array.from(params.activeDispatchIds as any)) as Set<string>)
+        : deps.loadActiveDispatchIds(tenantId, allIds),
+      deps.loadUserNames(
+        Array.from(new Set(eligible.map((e) => e.row.assigned_to).filter(Boolean) as string[])),
+      ),
+      deps.loadDurationOverrides(tenantId, allIds).catch(() => ({}) as Record<string, number>),
+    ]);
+
+  // 3b. Duração efetiva por card: escolha desta sessão > override já gravado >
+  //     padrão da etapa/tipo. Um único lugar decide, e é o mesmo valor usado
+  //     pela reorganização, pela prévia e pelo total exibido.
+  const durationOverridesIn = params.durationOverrides || {};
+  const effectiveDuration: Record<string, number> = {};
+  const durationIsManual: Record<string, boolean> = {};
+  for (const [cardId, stage] of Object.entries(stageByCard)) {
+    const fromSession = normalizeDurationInput(durationOverridesIn[cardId]);
+    const stored = stage ? storedDurations[overrideKey(cardId, stage)] : undefined;
+    const chosen = fromSession ?? normalizeDurationInput(stored);
+    if (chosen) {
+      effectiveDuration[cardId] = chosen;
+      durationIsManual[cardId] = true;
+    }
+  }
+  const manualOverrides: Record<string, ReorderManualOverride> = {};
+  for (const [cardId, durationMin] of Object.entries(effectiveDuration)) {
+    manualOverrides[cardId] = { durationMin };
+  }
 
   // 4. Fila combinada: selecionados já simulados no destinatário + fila atual.
   const combined: ReorderCardInput[] = [
@@ -575,10 +737,24 @@ export async function planBulkAllocation(
     areaSchedule,
     scheduledPublishIds: dispatchIds,
     priority,
+    manualOverrides,
     // Nesta funcionalidade a prioridade por publicação é SEMPRE ativa.
     prioritizePublishDate: true,
   });
   const proposalById = new Map(proposals.map((p) => [p.id, p]));
+
+  /** Duração padrão (sem override) da etapa resolvida — referência para a UI. */
+  const defaultDurationOf = (row: BulkCardRow, stage: string | null): number | null => {
+    try {
+      return estimateDurationMinutesWithOverrides(
+        toReorderInput(row, { current_function_key: stage }),
+        durations,
+      );
+    } catch {
+      return null;
+    }
+  };
+
 
   // 5. Prévia.
   const assignments: BulkAssignment[] = eligible.map((e) => {
@@ -596,6 +772,7 @@ export async function planBulkAllocation(
         : "active_dispatch"
       : null;
     const hasNewSchedule = !!p && !p.skipped;
+    const manualDuration = effectiveDuration[e.row.id] ?? null;
     return {
       cardId: e.row.id,
       title: e.row.title || "Sem título",
@@ -606,7 +783,11 @@ export async function planBulkAllocation(
       resolvedFunctionKey: e.resolvedFunctionKey,
       direction: e.direction,
       sameAssignee: e.sameAssignee,
-      durationMin: hasNewSchedule ? p!.durationMin : null,
+      stageSource: e.stageSource,
+      stageOptions: e.stageOptions,
+      durationMin: hasNewSchedule ? p!.durationMin : manualDuration,
+      defaultDurationMin: defaultDurationOf(e.row, e.resolvedFunctionKey),
+      durationSource: durationIsManual[e.row.id] ? "manual" : "default",
       publishDate: e.row.publish_date ?? null,
       publishTime: e.row.publish_time ? e.row.publish_time.slice(0, 5) : null,
       dueDate: hasNewSchedule ? p!.startISO : fixed ? e.row.due_date ?? null : null,
@@ -692,12 +873,26 @@ export async function planBulkAllocation(
     signatures,
     cards,
     proposals: proposalsMap,
+    stageOverrides: Object.fromEntries(
+      assignments
+        .filter((a) => a.stageSource === "manual" && a.resolvedFunctionKey)
+        .map((a) => [a.cardId, a.resolvedFunctionKey as string]),
+    ),
+    durationOverrides: { ...effectiveDuration },
     summary: {
       selected: cardIds.length,
       eligible: assignments.length,
       rejected: rejected.length,
       reassigned: assignments.filter((a) => !a.sameAssignee).length,
       rescheduledExisting: queueReschedules.length,
+      totalOperationalMin: assignments.reduce(
+        (sum, a) => sum + (a.untimed ? 0 : a.durationMin || 0),
+        0,
+      ),
+      stageChanged: assignments.filter(
+        (a) => (a.resolvedFunctionKey ?? null) !== (a.originalFunctionKey ?? null),
+      ).length,
+      durationCustomized: assignments.filter((a) => a.durationSource === "manual").length,
     },
   };
 }
@@ -844,6 +1039,10 @@ export async function applyBulkAllocation(
     return partial(appliedIds, failed);
   }
 
+  // Tempos personalizados sobrevivem à alocação: futuras reorganizações usam o
+  // mesmo tempo que o gestor definiu aqui.
+  await persistDurationOverrides(plan, appliedIds, deps);
+
   if (appliedIds.length === 0) {
     return { status: "nothing", message: "Nada mudou — a fila já estava organizada.", appliedIds, failed };
   }
@@ -853,6 +1052,28 @@ export async function applyBulkAllocation(
     appliedIds,
     failed,
   };
+}
+
+async function persistDurationOverrides(
+  plan: BulkAllocationPlan,
+  appliedIds: string[],
+  deps: BulkAllocationDeps,
+): Promise<void> {
+  const applied = new Set(appliedIds);
+  const rows = plan.assignments
+    .filter((a) => applied.has(a.cardId) && a.durationSource === "manual" && a.resolvedFunctionKey)
+    .map((a) => ({
+      demandId: a.cardId,
+      functionKey: a.resolvedFunctionKey as string,
+      durationMin: plan.durationOverrides[a.cardId],
+    }))
+    .filter((r) => !!r.durationMin);
+  if (rows.length === 0) return;
+  try {
+    await deps.saveDurationOverrides(plan.tenantId, rows);
+  } catch (err) {
+    console.warn("[bulkAllocation] persist duration overrides failed", err);
+  }
 }
 
 function partial(appliedIds: string[], failed: Array<{ cardId: string; reason: string }>): BulkApplyResult {

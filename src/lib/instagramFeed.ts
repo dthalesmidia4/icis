@@ -9,7 +9,7 @@
  *  - `rejected_attachments` NUNCA é mídia.
  */
 
-import { dedupeSnapshotAgainstLive } from "@/lib/demandCode";
+import { dedupeSnapshotAgainstLive, extractDemandCode, splitParentCodes } from "@/lib/demandCode";
 
 export interface FeedAttachment {
   url: string;
@@ -261,9 +261,14 @@ export function buildInstagramFeed({
   statusNames = {},
 }: BuildFeedParams): FeedEntry[] {
   const entries: FeedEntry[] = [];
+  // Card dividido em posts isolados: o pai (DF-002) sai do Feed quando os
+  // filhos (DF-002-A, -B, ...) existem — senão a mesma entrega apareceria 2x.
+  const splitParents = splitParentCodes(demands.map((d) => d.title));
 
   demands.forEach((d) => {
     if (!d.publish_date) return;
+    const code = extractDemandCode(d.title);
+    if (code && splitParents.has(code)) return;
     if (!channelAllowsInstagram(d.channel)) return;
     const kind = resolveFeedKind({ typeKey: d.demand_type_key, typeLabel: d.demand_type });
     if (!kind) return;

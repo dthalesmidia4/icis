@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, Clock, Loader2, RotateCcw, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, Loader2, RotateCcw, Timer, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -11,10 +11,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { fmtMinutes } from "@/lib/reorderSequence";
+import { formatDuration, normalizeDurationInput } from "@/lib/durationOverrides";
+import { commonValidStages, type StageOption } from "@/lib/stageOptions";
 import {
   applyBulkAllocation,
   collaboratorMayReceive,
@@ -51,6 +54,8 @@ const fmtNextAvailable = (next: { date: string; time: string } | null): string |
   return `${isToday ? "Hoje" : fmtDate(next.date)} às ${next.time}`;
 };
 
+const selectClass =
+  "h-8 rounded-md border border-border bg-background px-2 text-[11px] font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50";
 
 export default function BulkAllocationModal({
   open,
@@ -68,6 +73,12 @@ export default function BulkAllocationModal({
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [areasByUser, setAreasByUser] = useState<Record<string, Set<string>>>({});
+  /** Escolhas explícitas do gestor ANTES da transferência. */
+  const [stageOverrides, setStageOverrides] = useState<Record<string, string>>({});
+  const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
+  /** Texto em edição dos campos de duração (permite apagar e digitar). */
+  const [durationDraft, setDurationDraft] = useState<Record<string, string>>({});
+  const [bulkDuration, setBulkDuration] = useState("");
 
   const areaSet = useMemo(() => new Set(selectedAreas || []), [selectedAreas]);
   const idsKey = useMemo(() => [...cardIds].sort().join(","), [cardIds]);
@@ -78,6 +89,10 @@ export default function BulkAllocationModal({
       setTargetUserId(null);
       setLoading(false);
       setApplying(false);
+      setStageOverrides({});
+      setDurationOverrides({});
+      setDurationDraft({});
+      setBulkDuration("");
     }
   }, [open]);
 
@@ -95,7 +110,10 @@ export default function BulkAllocationModal({
   }, [open, tenantId]);
 
   const compute = useCallback(
-    async (userId: string) => {
+    async (
+      userId: string,
+      overrides?: { stageOverrides?: Record<string, string>; durationOverrides?: Record<string, number> },
+    ) => {
       if (!tenantId) return;
       setLoading(true);
       setPlan(null);
@@ -106,8 +124,21 @@ export default function BulkAllocationModal({
           targetUserId: userId,
           sourceScreen,
           activeDispatchIds,
+          stageOverrides: overrides?.stageOverrides ?? stageOverrides,
+          durationOverrides: overrides?.durationOverrides ?? durationOverrides,
         });
         setPlan(next);
+        // O planner devolve a duração efetiva (inclusive as já gravadas): usar
+        // como valor inicial dos campos evita mostrar caixa vazia.
+        setDurationDraft((prev) => {
+          const merged = { ...prev };
+          for (const a of next.assignments) {
+            if (merged[a.cardId] === undefined && a.durationMin != null) {
+              merged[a.cardId] = String(a.durationMin);
+            }
+          }
+          return merged;
+        });
       } catch (err) {
         console.error("[bulkAllocation] plan error", err);
         toast.error("Não foi possível calcular a prévia da alocação.");
@@ -116,13 +147,76 @@ export default function BulkAllocationModal({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tenantId, idsKey, sourceScreen, activeDispatchIds],
+    [tenantId, idsKey, sourceScreen, activeDispatchIds, stageOverrides, durationOverrides],
   );
 
   useEffect(() => {
     if (open && targetUserId) void compute(targetUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, targetUserId, idsKey]);
+
+  /** Etapas válidas em TODOS os cards — base do "aplicar etapa a todos". */
+  const sharedStages = useMemo(
+    () => (plan ? commonValidStages(plan.assignments.map((a) => a.stageOptions)) : []),
+    [plan],
+  );
+
+  const applyStage = (cardId: string, functionKey: string) => {
+    const next = { ...stageOverrides };
+    if (!functionKey) delete next[cardId];
+    else next[cardId] = functionKey;
+    setStageOverrides(next);
+    if (targetUserId) void compute(targetUserId, { stageOverrides: next });
+  };
+
+  const applyStageToAll = (functionKey: string) => {
+    if (!plan) return;
+    const next: Record<string, string> = { ...stageOverrides };
+    for (const a of plan.assignments) {
+      if (!functionKey) delete next[a.cardId];
+      else if (a.stageOptions.some((o) => o.functionKey === functionKey && o.valid)) next[a.cardId] = functionKey;
+    }
+    setStageOverrides(next);
+    if (targetUserId) void compute(targetUserId, { stageOverrides: next });
+  };
+
+  const commitDuration = (cardId: string, raw: string) => {
+    const next = { ...durationOverrides };
+    const parsed = raw.trim() === "" ? null : normalizeDurationInput(raw);
+    if (parsed) next[cardId] = parsed;
+    else delete next[cardId];
+    setDurationDraft((prev) => ({ ...prev, [cardId]: parsed ? String(parsed) : "" }));
+    setDurationOverrides(next);
+    if (targetUserId) void compute(targetUserId, { durationOverrides: next });
+  };
+
+  const applyDurationToAll = () => {
+    if (!plan) return;
+    const parsed = bulkDuration.trim() === "" ? null : normalizeDurationInput(bulkDuration);
+    const next: Record<string, number> = { ...durationOverrides };
+    const drafts: Record<string, string> = { ...durationDraft };
+    for (const a of plan.assignments) {
+      if (a.untimed) continue;
+      if (parsed) {
+        next[a.cardId] = parsed;
+        drafts[a.cardId] = String(parsed);
+      } else {
+        delete next[a.cardId];
+        drafts[a.cardId] = "";
+      }
+    }
+    setDurationDraft(drafts);
+    setDurationOverrides(next);
+    if (targetUserId) void compute(targetUserId, { durationOverrides: next });
+  };
+
+  const resetChoices = () => {
+    setStageOverrides({});
+    setDurationOverrides({});
+    setDurationDraft({});
+    setBulkDuration("");
+    if (targetUserId) void compute(targetUserId, { stageOverrides: {}, durationOverrides: {} });
+  };
 
   const canApply = !!plan && !loading && !applying && plan.assignments.length > 0;
 
@@ -156,6 +250,24 @@ export default function BulkAllocationModal({
     }
     toast.error(res.message);
   }
+
+  const renderStageSelect = (cardId: string, options: StageOption[], value: string | null) => (
+    <select
+      className={selectClass}
+      value={value || ""}
+      disabled={applying || loading || options.length === 0}
+      onChange={(e) => applyStage(cardId, e.target.value)}
+      aria-label="Etapa de destino"
+    >
+      {options.length === 0 && <option value="">etapa automática</option>}
+      {options.map((o) => (
+        <option key={o.functionKey} value={o.functionKey} disabled={!o.valid}>
+          {stageLabel(o.functionKey)}
+          {o.valid ? "" : ` — ${o.reasonLabel}`}
+        </option>
+      ))}
+    </select>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -230,8 +342,74 @@ export default function BulkAllocationModal({
                   {plan.summary.rescheduledExisting > 0 && (
                     <Badge variant="outline">{plan.summary.rescheduledExisting} reagendados</Badge>
                   )}
+                  <Badge variant="outline">
+                    <Timer className="mr-1 h-3 w-3" />
+                    total {formatDuration(plan.summary.totalOperationalMin)}
+                  </Badge>
+                  {plan.summary.stageChanged > 0 && (
+                    <Badge variant="secondary">{plan.summary.stageChanged} com etapa alterada</Badge>
+                  )}
+                  {plan.summary.durationCustomized > 0 && (
+                    <Badge variant="secondary">{plan.summary.durationCustomized} com tempo ajustado</Badge>
+                  )}
                 </div>
 
+                {/* Controles em massa: etapa e tempo ANTES da transferência. */}
+                <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground">
+                      Etapa para todos
+                    </span>
+                    <select
+                      className={selectClass}
+                      defaultValue=""
+                      disabled={applying || sharedStages.length === 0}
+                      onChange={(e) => applyStageToAll(e.target.value)}
+                      aria-label="Aplicar etapa a todos os cards"
+                    >
+                      <option value="">
+                        {sharedStages.length === 0 ? "nenhuma etapa comum" : "manter etapa sugerida"}
+                      </option>
+                      {sharedStages.map((s) => (
+                        <option key={s.functionKey} value={s.functionKey}>
+                          {stageLabel(s.functionKey)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground">
+                      Tempo para todos (min)
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        min={5}
+                        step={5}
+                        value={bulkDuration}
+                        disabled={applying}
+                        onChange={(e) => setBulkDuration(e.target.value)}
+                        className="h-8 w-24 text-[11px] font-bold"
+                        placeholder="padrão"
+                      />
+                      <Button size="sm" variant="outline" className="h-8" disabled={applying} onClick={applyDurationToAll}>
+                        Aplicar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8"
+                    disabled={applying}
+                    onClick={resetChoices}
+                    title="Voltar para etapa sugerida e tempo padrão"
+                  >
+                    Limpar ajustes
+                  </Button>
+                </div>
 
                 <section className="space-y-1.5">
                   {plan.assignments.length === 0 && (
@@ -251,6 +429,7 @@ export default function BulkAllocationModal({
                           <span className="text-sm font-bold text-foreground">{a.title}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                          {a.stageSource === "manual" && <Badge variant="secondary">etapa definida</Badge>}
                           {a.direction === "forward" && <Badge variant="secondary">avançou etapa</Badge>}
                           {a.direction === "backward" && <Badge variant="destructive">voltou etapa</Badge>}
                           {a.fixed && <Badge variant="outline">horário fixo</Badge>}
@@ -259,6 +438,36 @@ export default function BulkAllocationModal({
                               {a.untimedReason === "awaiting_client" ? "aguardando cliente" : "publicação agendada"}
                             </Badge>
                           )}
+                        </div>
+                      </div>
+
+                      {/* Controle explícito de etapa e tempo deste card. */}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {renderStageSelect(a.cardId, a.stageOptions, a.resolvedFunctionKey)}
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min={5}
+                            step={5}
+                            disabled={applying || a.untimed}
+                            value={durationDraft[a.cardId] ?? (a.durationMin != null ? String(a.durationMin) : "")}
+                            onChange={(e) =>
+                              setDurationDraft((prev) => ({ ...prev, [a.cardId]: e.target.value }))
+                            }
+                            onBlur={(e) => commitDuration(a.cardId, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitDuration(a.cardId, (e.target as HTMLInputElement).value);
+                            }}
+                            className="h-8 w-20 text-[11px] font-bold"
+                            placeholder="min"
+                            aria-label="Tempo operacional em minutos"
+                          />
+                          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                            min
+                            {a.defaultDurationMin != null && a.durationSource === "manual"
+                              ? ` · padrão ${formatDuration(a.defaultDurationMin)}`
+                              : ""}
+                          </span>
                         </div>
                       </div>
 
@@ -291,7 +500,6 @@ export default function BulkAllocationModal({
                           <span className="font-bold text-foreground">Horário não alterado</span>
                         )}
                       </div>
-
 
                       {a.warnings.length > 0 && (
                         <div className="mt-1.5 space-y-0.5">

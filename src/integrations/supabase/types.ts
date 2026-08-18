@@ -874,6 +874,61 @@ export type Database = {
           },
         ]
       }
+      demand_stage_duration_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          demand_id: string
+          duration_min: number
+          function_key: string
+          id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          demand_id: string
+          duration_min: number
+          function_key: string
+          id?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          demand_id?: string
+          duration_min?: number
+          function_key?: string
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_stage_duration_overrides_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_stage_duration_overrides_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
+          },
+          {
+            foreignKeyName: "demand_stage_duration_overrides_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demand_type_flow_rules: {
         Row: {
           created_at: string
