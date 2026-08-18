@@ -29,7 +29,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 vi.mock("@/lib/areaConflicts", () => ({
   AREA_LABEL: { midia: "Mídia", sistemas: "Sistemas" },
-  findScheduleAreaConflicts: vi.fn(async () => []),
+  findScheduleAreaConflict: vi.fn(async () => ({ conflicts: [], reason: null })),
   findAreaConflicts: vi.fn(async () => []),
   checkAreaConflict: vi.fn(async () => null),
 }));
