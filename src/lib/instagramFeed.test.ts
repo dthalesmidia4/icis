@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildInstagramFeed, resolveFeedKind, type FeedDemandInput } from "./instagramFeed";
+import { buildInstagramFeed, feedHasMedia, resolveFeedKind, resolveFeedMedia, type FeedDemandInput } from "./instagramFeed";
 
 const demand = (over: Partial<FeedDemandInput>): FeedDemandInput => ({
   id: over.id || "d1",
