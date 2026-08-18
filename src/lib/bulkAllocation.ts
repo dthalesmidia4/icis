@@ -859,3 +859,17 @@ export function collaboratorMayReceive(
   for (const a of selectedAreas) if (areas.has(a)) return true;
   return false;
 }
+
+// ------------------------------------------------------------------
+// Guardas puras de UI (testáveis sem DOM)
+// ------------------------------------------------------------------
+
+/** Somente gestor operacional / super admin acessam a alocação em massa. */
+export function canBulkAllocate(role: { isSuperAdmin?: boolean; isAgencyManager?: boolean }): boolean {
+  return !!(role?.isSuperAdmin || role?.isAgencyManager);
+}
+
+/** Drag-and-drop fica desabilitado no modo seleção e no registro de entregas. */
+export function isDragEnabled(state: { selectionMode: boolean; historyMode: boolean }): boolean {
+  return !state.selectionMode && !state.historyMode;
+}
