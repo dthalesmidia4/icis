@@ -1977,6 +1977,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 statusNames={workspace.statusNames}
                 stageNames={workspace.stageNames}
                 onOpenDemand={(id) => setDrawerDemandId(id)}
+                onReload={workspace.reload}
               />
             </TabsContent>
             <TabsContent value="cuidados" className="m-0">

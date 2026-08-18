@@ -152,3 +152,31 @@ export async function buildReturnFromClientDates(
     delivery_time: hm(end),
   };
 }
+
+// ------------------------------------------------------------------
+// Cache curto dos overrides por tenant
+// ------------------------------------------------------------------
+
+const AREA_CACHE_TTL_MS = 60_000;
+const areaCache = new Map<string, { at: number; value: Promise<StageDurations> }>();
+
+/**
+ * Overrides por área com cache curto — permite que caminhos de alta frequência
+ * (verificação de conflito de agenda) usem a MESMA duração do planejamento sem
+ * disparar uma consulta por card.
+ */
+export function getCachedDurationsByArea(tenantId: string): Promise<StageDurations> {
+  if (!tenantId) return Promise.resolve({});
+  const hit = areaCache.get(tenantId);
+  const now = Date.now();
+  if (hit && now - hit.at < AREA_CACHE_TTL_MS) return hit.value;
+  const value = loadDurationsByArea(tenantId).catch(() => ({} as StageDurations));
+  areaCache.set(tenantId, { at: now, value });
+  return value;
+}
+
+/** Invalida o cache (após editar as durações no modal de configuração). */
+export function clearDurationsCache(tenantId?: string): void {
+  if (tenantId) areaCache.delete(tenantId);
+  else areaCache.clear();
+}

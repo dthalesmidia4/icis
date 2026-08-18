@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Layers, Play, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Layers, Play, Image as ImageIcon, ChevronLeft, ChevronRight, CheckSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAgencyRole } from "@/hooks/useAgencyRole";
+import BulkAllocationModal from "@/components/kanban/BulkAllocationModal";
+import { canBulkAllocate } from "@/lib/bulkAllocation";
 import { cn } from "@/lib/utils";
 import { AttachmentPreviewModal, type AttachmentPreviewItem } from "@/components/AttachmentPreviewModal";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
-import { buildInstagramFeed, feedHasMedia, type FeedEntry, type FeedMediaItem } from "@/lib/instagramFeed";
+import { buildInstagramFeed, feedHasMedia, isFeedEntrySelectable, type FeedEntry, type FeedMediaItem } from "@/lib/instagramFeed";
 
 const MONTHS_SHORT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
@@ -50,6 +55,8 @@ interface InstagramFeedTabProps {
   statusNames: Record<string, { name: string; isFinal: boolean }>;
   stageNames: Record<string, string>;
   onOpenDemand?: (demandId: string) => void;
+  /** Recarrega o workspace após uma alocação em massa. */
+  onReload?: () => void;
 }
 
 export default function InstagramFeedTab({
@@ -58,11 +65,27 @@ export default function InstagramFeedTab({
   statusNames,
   stageNames,
   onOpenDemand,
+  onReload,
 }: InstagramFeedTabProps) {
   const [filter, setFilter] = useState<"all" | "media" | "producao">("all");
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [slideByEntry, setSlideByEntry] = useState<Record<string, number>>({});
   const [activeCarouselKey, setActiveCarouselKey] = useState<string | null>(null);
+
+  // Mesmo gate da Visão Geral: gestor operacional / super admin.
+  const { tenantId } = useTenant();
+  const { isSuperAdmin, isAgencyManager } = useAgencyRole();
+  const canAllocate = canBulkAllocate({ isSuperAdmin, isAgencyManager });
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const toggleSelect = useCallback((demandId: string) => {
+    setSelectedIds((prev) => (prev.includes(demandId) ? prev.filter((x) => x !== demandId) : [...prev, demandId]));
+  }, []);
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds([]);
+  }, []);
 
   const entries = useMemo(
     () => buildInstagramFeed({ demands, planItems, stageNames, statusNames }),
@@ -124,6 +147,17 @@ export default function InstagramFeedTab({
           </p>
         </div>
         <div className="flex items-center gap-1.5">
+          {canAllocate && (
+            <Button
+              size="sm"
+              variant={selectionMode ? "default" : "outline"}
+              onClick={() => (selectionMode ? exitSelection() : setSelectionMode(true))}
+              className="mr-1 gap-1.5"
+            >
+              <CheckSquare className="h-4 w-4" />
+              {selectionMode ? "Cancelar seleção" : "Selecionar"}
+            </Button>
+          )}
           {filters.map((f) => (
             <button
               key={f.value}
@@ -156,6 +190,9 @@ export default function InstagramFeedTab({
               onSlideChange={(next) => setSlide(entry.key, next)}
               onActivateCarousel={() => setActiveCarouselKey(entry.key)}
               onOpenDemand={onOpenDemand}
+              selectable={selectionMode && isFeedEntrySelectable(entry)}
+              selected={!!entry.demandId && selectedIds.includes(entry.demandId)}
+              onToggleSelect={() => entry.demandId && toggleSelect(entry.demandId)}
               onOpenMedia={(items, initialIndex) =>
                 setPreview({
                   items: items.map((it) => ({ url: it.url, name: mediaFileName(it) })),
@@ -167,6 +204,37 @@ export default function InstagramFeedTab({
             />
           ))}
         </div>
+      )}
+
+      {canAllocate && selectionMode && selectedIds.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-xl backdrop-blur">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="font-bold text-foreground">{selectedIds.length} selecionados</span>
+            <Button size="sm" onClick={() => setBulkOpen(true)}>
+              Alocar para colaborador
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>
+              Limpar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={exitSelection}>
+              Sair da seleção
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {canAllocate && (
+        <BulkAllocationModal
+          open={bulkOpen}
+          onOpenChange={setBulkOpen}
+          tenantId={tenantId}
+          cardIds={selectedIds}
+          sourceScreen="feed"
+          onApplied={() => {
+            exitSelection();
+            onReload?.();
+          }}
+        />
       )}
 
       {preview && (
@@ -192,6 +260,9 @@ function FeedCell({
   onActivateCarousel,
   onOpenDemand,
   onOpenMedia,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }: {
   entry: FeedEntry;
   slideIndex: number;
@@ -199,8 +270,11 @@ function FeedCell({
   onActivateCarousel: () => void;
   onOpenDemand?: (id: string) => void;
   onOpenMedia: (items: FeedMediaItem[], initialIndex: number) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
-  const clickable = entry.isDemand && !!entry.demandId && !!onOpenDemand;
+  const clickable = (entry.isDemand && !!entry.demandId && !!onOpenDemand) || selectable;
   const media = entry.media;
   const [pressing, setPressing] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -237,7 +311,11 @@ function FeedCell({
       longFiredRef.current = false;
       return;
     }
-    if (clickable) onOpenDemand!(entry.demandId!);
+    if (selectable) {
+      onToggleSelect?.();
+      return;
+    }
+    if (entry.isDemand && entry.demandId && onOpenDemand) onOpenDemand(entry.demandId);
   };
 
   const arrowClass =
@@ -282,6 +360,18 @@ function FeedCell({
             </span>
           </div>
         </div>
+      )}
+
+      {selectable && (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute bottom-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded border text-[11px] font-black",
+            selected ? "border-primary bg-primary text-primary-foreground" : "border-white/70 bg-background/85",
+          )}
+        >
+          {selected ? "✓" : ""}
+        </span>
       )}
 
       {entry.mediaSource === "reference" && (
@@ -370,6 +460,7 @@ function FeedCell({
         onClick={handleClick}
         className={cn(
           "group relative aspect-[4/5] w-full overflow-hidden rounded-sm transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          selectable && selected && "ring-2 ring-primary ring-offset-2",
           pressClasses
         )}
       >

@@ -5,6 +5,7 @@ import { StageRoutingTab } from "@/components/config/StageRoutingTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { clearDurationsCache } from "@/lib/flowDurations";
 import { useAgency } from "@/contexts/AgencyContext";
 import { toast } from "sonner";
 import { Loader2, RotateCcw, PauseCircle } from "lucide-react";
@@ -488,6 +489,8 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     if (error) {
       toast.error("Erro ao salvar duração");
       console.error(error);
+    } else {
+      clearDurationsCache(agencyId);
     }
     setSavingDuration(null);
   };
@@ -524,6 +527,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         .eq("work_area", area)
         .eq("function_key", fn.key);
     }
+    clearDurationsCache(agencyId);
     setDurationsByType(nextByType);
     setSavingDuration(null);
     toast.success(`Durações de "${dt.name}" restauradas.`);

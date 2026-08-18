@@ -685,6 +685,22 @@ export function estimateDurationMinutes(card: ReorderCardInput): number {
   return estimateDurationBase(card, ctx);
 }
 
+/**
+ * Duração canônica de um card na etapa, aplicando os overrides reais do tenant
+ * (`flow_functions.config.durations` / `durations_by_type`).
+ *
+ * Este é o ÚNICO ponto que planejamento (computeReorder), conflito de agenda
+ * (scheduleOccupancy) e alocação em massa devem usar — não existe outra matriz.
+ */
+export function estimateDurationMinutesWithOverrides(
+  card: ReorderCardInput,
+  overrides?: StageDurationOverrides,
+): number {
+  const ctx: WorkCtx = buildCtx(DEFAULT_WORK_HOURS, new Set());
+  return estimateDurationBase(card, ctx, overrides);
+}
+
+
 // ------------------------------------------------------------------
 // Atraso
 // ------------------------------------------------------------------

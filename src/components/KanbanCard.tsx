@@ -48,6 +48,11 @@ interface KanbanCardProps {
   overdueSince?: string | null;
 
 
+  /** Modo de seleção múltipla (alocação em massa). Genérico: sem lógica de bulk aqui. */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+
   onClick?: () => void;
   onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
 }
@@ -244,6 +249,10 @@ const KanbanCard = ({
 
   overdueSince = null,
 
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+
   onClick,
   onDatesChange,
 }: KanbanCardProps) => {
@@ -268,9 +277,24 @@ const KanbanCard = ({
         isDailyCard && !overdue && "border-l-4 border-l-amber-500",
         awaitingClient && "border-l-4 border-l-blue-500",
         isSistemas && !overdue && "bg-slate-500/5 dark:bg-slate-400/5 border-slate-500/25",
+        selectable && "relative",
+        selectable && selected && "ring-2 ring-primary ring-offset-1",
       )}
-      onClick={onClick}
+      onClick={selectable ? onToggleSelect : onClick}
+      role={selectable ? "checkbox" : undefined}
+      aria-checked={selectable ? selected : undefined}
     >
+      {selectable && (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute right-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded border text-[10px] font-black",
+            selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background/90",
+          )}
+        >
+          {selected ? "✓" : ""}
+        </span>
+      )}
       <CardHeader className="px-2.5 pt-2.5 pb-1.5 space-y-1">
         {((subtitle || _statusName) && !awaitingClient) || overdue ? (
           <div className="flex items-start gap-1.5 min-w-0">

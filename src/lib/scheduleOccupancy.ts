@@ -15,7 +15,8 @@
  * - Cards arquivados e rascunhos ficam fora.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { estimateDurationMinutes } from "@/lib/reorderSequence";
+import { estimateDurationMinutesWithOverrides } from "@/lib/reorderSequence";
+import { getCachedDurationsByArea, type StageDurations } from "@/lib/flowDurations";
 import { isClientFacingFunction } from "@/lib/flowFunctions";
 import { findScheduleAreaConflict, AREA_LABEL, type WorkArea } from "@/lib/areaConflicts";
 import {
@@ -98,9 +99,9 @@ export function isUntimedStage(key?: string | null): boolean {
   return isClientFacingFunction(key);
 }
 
-function durationMinutesOf(card: OccupancyCardInput): number {
+function durationMinutesOf(card: OccupancyCardInput, durations?: StageDurations): number {
   try {
-    const min = estimateDurationMinutes({
+    const min = estimateDurationMinutesWithOverrides({
       id: card.id,
       title: card.title || "",
       demand_type: card.demand_type ?? null,
@@ -108,7 +109,7 @@ function durationMinutesOf(card: OccupancyCardInput): number {
       is_daily_card: !!card.is_daily_card,
       current_function_key: card.current_function_key ?? null,
       work_area: areaOf(card.work_area),
-    } as any);
+    } as any, durations);
     return Math.max(5, min || 15);
   } catch {
     return 15;
@@ -119,7 +120,7 @@ function durationMinutesOf(card: OccupancyCardInput): number {
  * Janela ocupada por um card. Retorna null quando o card não ocupa agenda
  * (etapa sem prazo, sem nenhuma data utilizável).
  */
-export function cardWindow(card: OccupancyCardInput): BusyInterval | null {
+export function cardWindow(card: OccupancyCardInput, durations?: StageDurations): BusyInterval | null {
   if (isUntimedStage(card.current_function_key)) return null;
 
   const startDate = card.due_date || card.publish_date || null;
@@ -138,7 +139,7 @@ export function cardWindow(card: OccupancyCardInput): BusyInterval | null {
       end = toMs(card.delivery_date, endTime || startTime!);
     }
     if (end === null || end <= start) {
-      end = start + durationMinutesOf(card) * 60_000;
+      end = start + durationMinutesOf(card, durations) * 60_000;
       const d = new Date(end);
       endTime = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     }
@@ -166,6 +167,8 @@ export async function getBusyIntervals(params: {
   fromDate: string;
   toDate: string;
   excludeDemandId?: string;
+  /** Overrides de duração do tenant. Omitido = carregado do cache. */
+  durations?: StageDurations;
 }): Promise<BusyInterval[]> {
   const { tenantId, userId, fromDate, toDate, excludeDemandId } = params;
   if (!tenantId || !userId) return [];
@@ -193,6 +196,8 @@ export async function getBusyIntervals(params: {
 
   if (error || !data) return [];
 
+  const durations = params.durations ?? (await getCachedDurationsByArea(tenantId));
+
   const winStart = toMs(fromDate, "00:00") ?? 0;
   const winEnd = endOfDayMs(toDate);
 
@@ -205,7 +210,7 @@ export async function getBusyIntervals(params: {
       ...(Array.isArray(row.additional_assignees) ? row.additional_assignees : []),
     ]);
     if (!owners.has(userId)) continue;
-    const w = cardWindow(row as OccupancyCardInput);
+    const w = cardWindow(row as OccupancyCardInput, durations);
     if (!w) continue;
     if (w.end <= winStart || w.start >= winEnd) continue;
     out.push(w);
@@ -224,6 +229,8 @@ export async function checkAssignmentConflicts(params: {
   card: OccupancyCardInput;
   targetStage?: string | null;
   area?: WorkArea | null;
+  /** Overrides de duração do tenant. Omitido = carregado do cache. */
+  durations?: StageDurations;
 }): Promise<AssignmentConflictResult> {
   const empty: AssignmentConflictResult = {
     hard: [],
@@ -241,8 +248,9 @@ export async function checkAssignmentConflicts(params: {
   // Etapa sem prazo não ocupa agenda → não há conflito possível.
   if (isUntimedStage(stage)) return empty;
 
+  const durations = params.durations ?? (await getCachedDurationsByArea(tenantId));
   const probe: OccupancyCardInput = { ...params.card, current_function_key: stage, work_area: area };
-  const w = cardWindow(probe);
+  const w = cardWindow(probe, durations);
   if (!w) return empty;
 
   const busy = await getBusyIntervals({
@@ -251,6 +259,7 @@ export async function checkAssignmentConflicts(params: {
     fromDate: w.date,
     toDate: params.card.delivery_date || w.date,
     excludeDemandId: params.card.id,
+    durations,
   });
 
   const hard: AssignmentConflict[] = [];
@@ -348,12 +357,14 @@ export async function suggestFreeSlot(params: {
   card: OccupancyCardInput;
   targetStage?: string | null;
   area?: WorkArea | null;
+  durations?: StageDurations;
 }): Promise<FreeSlotSuggestion | null> {
   const stage = params.targetStage ?? params.card.current_function_key ?? null;
   if (isUntimedStage(stage)) return null;
   const area = params.area ?? areaOf(params.card.work_area);
+  const durations = params.durations ?? (await getCachedDurationsByArea(params.tenantId));
   const probe: OccupancyCardInput = { ...params.card, current_function_key: stage, work_area: area };
-  const dur = durationMinutesOf(probe);
+  const dur = durationMinutesOf(probe, durations);
 
   const baseDate = params.card.due_date || params.card.publish_date;
   if (!baseDate) return null;
@@ -394,6 +405,7 @@ export async function suggestFreeSlot(params: {
         fromDate: dateStr,
         toDate: dateStr,
         excludeDemandId: params.card.id,
+        durations,
       });
       const dayZero = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()).getTime();
       const blocks = busy.map((b) => ({
