@@ -295,8 +295,19 @@ describe("planBulkAllocation — sequenciamento", () => {
   });
 
   it("prioriza data de publicação mais próxima", async () => {
+    // O primeiro card da fila (em andamento) é preservado pelo motor: usamos um
+    // card já do destinatário nessa posição para comparar apenas os selecionados.
+    const anchor = row({
+      id: "anchor",
+      assigned_to: TARGET,
+      due_date: "2026-08-05",
+      due_time: "09:00",
+      delivery_date: "2026-08-05",
+      delivery_time: "09:30",
+    });
     const h = harness({
       cards: [row({ id: "late", publish_date: "2026-09-30" }), row({ id: "soon", publish_date: "2026-08-07" })],
+      queue: [anchor],
     });
     const p = await plan(h, ["late", "soon"]);
     const soon = p.assignments.find((x) => x.cardId === "soon")!;
