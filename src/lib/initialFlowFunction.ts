@@ -173,7 +173,11 @@ export async function resolveFunctionForAssignee(
 
 
   const firstUsable = allowedSeq.find(usable);
-  return firstUsable ?? allowedSeq[0];
+  if (firstUsable) return firstUsable;
+  // Administrativo: sem etapa OPERACIONAL compatível o card é rejeitado —
+  // nunca cai numa etapa client-facing só para encaixar o colaborador.
+  return administrative ? null : allowedSeq[0];
+
 }
 
 /**
