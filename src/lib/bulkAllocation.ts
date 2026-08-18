@@ -658,10 +658,8 @@ export async function planBulkAllocation(
 
   // Próximo horário operacional: primeiro slot realmente usado pela fila
   // proposta (mesma agenda consolidada), nunca no passado.
-  const nowISO = deps.now();
-  const nowKey = `${nowISO.getFullYear()}-${String(nowISO.getMonth() + 1).padStart(2, "0")}-${String(
-    nowISO.getDate(),
-  ).padStart(2, "0")}T${String(nowISO.getHours()).padStart(2, "0")}:${String(nowISO.getMinutes()).padStart(2, "0")}`;
+  const nowKey = zonedWallclockKey(deps.now(), workHours.tz || "America/Sao_Paulo");
+
   let nextAvailable: BulkAllocationPlan["nextAvailable"] = null;
   for (const p of proposals) {
     if (p.skipped) continue;
