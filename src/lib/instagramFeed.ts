@@ -155,8 +155,102 @@ export const resolveFeedKind = (params: {
 
 const timeValue = (time?: string | null) => String(time || "00:00").slice(0, 5);
 
+const toMedia = (list: FeedAttachment[], kind: Exclude<FeedPreviewKind, "none">): FeedMediaItem[] =>
+  list.map((a) => ({ url: a.url, kind, name: a.name ?? null }));
+
+export interface ResolvedFeedMedia {
+  previewKind: FeedPreviewKind;
+  previewUrl: string | null;
+  mediaCount: number;
+  media: FeedMediaItem[];
+  mediaSource: FeedMediaSource;
+}
+
+const EMPTY_MEDIA: ResolvedFeedMedia = {
+  previewKind: "none",
+  previewUrl: null,
+  mediaCount: 0,
+  media: [],
+  mediaSource: null,
+};
+
+/** Seleção de mídia de UMA fonte, com as regras por formato do feed. */
+const selectFromSource = (
+  kind: FeedContentKind,
+  raw: unknown,
+  source: Exclude<FeedMediaSource, null>
+): ResolvedFeedMedia => {
+  const attachments = normalizeAttachments(raw);
+  const images = attachments.filter(isImageAttachment);
+  const videos = attachments.filter(isVideoAttachment);
+
+  if (kind === "carousel") {
+    if (images.length) {
+      return {
+        previewKind: "image",
+        previewUrl: images[0].url,
+        mediaCount: images.length,
+        media: toMedia(images, "image"),
+        mediaSource: source,
+      };
+    }
+    if (videos.length) {
+      return {
+        previewKind: "video-file",
+        previewUrl: videos[0].url,
+        mediaCount: videos.length,
+        media: toMedia(videos, "video-file"),
+        mediaSource: source,
+      };
+    }
+    return EMPTY_MEDIA;
+  }
+
+  // Vídeo e estático: uma única peça (imagem vence o mp4 como capa).
+  if (images.length) {
+    return {
+      previewKind: "image",
+      previewUrl: images[0].url,
+      mediaCount: 1,
+      media: toMedia(images.slice(0, 1), "image"),
+      mediaSource: source,
+    };
+  }
+  if (videos.length) {
+    return {
+      previewKind: "video-file",
+      previewUrl: videos[0].url,
+      mediaCount: 1,
+      media: toMedia(videos.slice(0, 1), "video-file"),
+      mediaSource: source,
+    };
+  }
+  return EMPTY_MEDIA;
+};
+
+/**
+ * Prioridade determinística: `attachments` > `reference_attachments` > sem mídia.
+ * Referências são apenas fallback VISUAL do Feed Simulado.
+ */
+export function resolveFeedMedia(params: {
+  kind: FeedContentKind;
+  attachments?: unknown;
+  referenceAttachments?: unknown;
+}): ResolvedFeedMedia {
+  const primary = selectFromSource(params.kind, params.attachments, "attachment");
+  if (primary.mediaSource) return primary;
+  const fallback = selectFromSource(params.kind, params.referenceAttachments, "reference");
+  if (fallback.mediaSource) return fallback;
+  return EMPTY_MEDIA;
+}
+
 interface BuildFeedParams {
   demands: FeedDemandInput[];
+  planItems: FeedPlanItemInput[];
+  stageNames?: Record<string, string>;
+  statusNames?: Record<string, { name: string; isFinal: boolean }>;
+}
+
   planItems: FeedPlanItemInput[];
   stageNames?: Record<string, string>;
   statusNames?: Record<string, { name: string; isFinal: boolean }>;
