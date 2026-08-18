@@ -29,6 +29,7 @@ import {
   type BulkAllocationDeps,
   type BulkCardRow,
 } from "@/lib/bulkAllocation";
+import { DEFAULT_REORDER_PRIORITY_BY_AREA } from "@/lib/reorderPriority";
 import { isFeedEntrySelectable } from "@/lib/instagramFeed";
 
 const NOW = new Date("2026-08-05T12:00:00.000Z"); // quarta-feira, 09:00 em São Paulo
@@ -107,7 +108,7 @@ function harness(opts: {
     loadWorkHours: async () => WORK_HOURS,
     loadAreaSchedule: async () => opts.areaSchedule,
     loadDurations: async () => DURATIONS as any,
-    loadPriority: async () => ({ midia: "publish_date", sistemas: "publish_date" }) as any,
+    loadPriority: async () => ({ ...DEFAULT_REORDER_PRIORITY_BY_AREA }),
     loadActiveDispatchIds: async () => new Set(opts.dispatchIds || []),
     loadUserName: async () => "Alvo",
     loadUserNames: async () => ({ [OTHER]: "Outro" }),
