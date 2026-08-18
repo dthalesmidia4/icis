@@ -71,6 +71,7 @@ import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from 
 import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
 import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
+import StageQuickChangePopover from "@/components/kanban/StageQuickChangePopover";
 import type { AssignmentConflict, FreeSlotSuggestion } from "@/lib/scheduleOccupancy";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
@@ -1347,6 +1348,32 @@ const KanbanCentralPage = () => {
     revisar_publicacao: "Revisar publicação",
     avaliar: "Avaliar",
   };
+
+  /**
+   * Envelopa o chip da etapa: pressionar e segurar (~0,5s) abre a troca rápida
+   * de etapa. Clique simples segue abrindo o card.
+   */
+  const stageChipWrapper = useCallback(
+    (card: CentralKanbanCard, disabled?: boolean) => (chip: React.ReactNode) => (
+      <StageQuickChangePopover
+        tenantId={tenantId}
+        card={{
+          id: card.id,
+          tenant_id: tenantId,
+          demand_type_key: (card as any).demand_type_key ?? null,
+          work_area: (card as any).work_area ?? null,
+          origin: (card as any).origin ?? null,
+          current_function_key: (card as any).current_function_key ?? null,
+          assigned_to: (card as any).assigned_to ?? null,
+        }}
+        disabled={disabled}
+        onChanged={() => fetchAllCards()}
+      >
+        {chip}
+      </StageQuickChangePopover>
+    ),
+    [tenantId],
+  );
 
   const resolveStageLabel = useCallback((
     card: CentralKanbanCard,
@@ -3424,6 +3451,7 @@ const KanbanCentralPage = () => {
                                             overdueSince={cardOverdueSince(card)}
                                             cardId={card.id}
                                            statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId, isPausedByCaptarNow })}
+                                           stageChipWrapper={stageChipWrapper(card, isHistory || selectionMode)}
                                             statusColor={card.status_color}
                                             isDailyCard={(card as any).is_daily_card}
                                             dailyCompleted={(card as any).daily_completed_occurrences}
@@ -3514,6 +3542,7 @@ const KanbanCentralPage = () => {
                                       overdueSince={cardOverdueSince(card)}
                                       cardId={card.id}
                                       statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
+                                      stageChipWrapper={stageChipWrapper(card)}
                                       statusColor={(card as any).status_color}
                                       isDailyCard={(card as any).is_daily_card}
                                       dailyCompleted={(card as any).daily_completed_occurrences}
