@@ -53,6 +53,12 @@ interface KanbanCardProps {
   selected?: boolean;
   onToggleSelect?: () => void;
 
+  /**
+   * Envelopa o chip da etapa (`statusName`) — usado na Visão Geral para trocar
+   * a etapa com pressionar-e-segurar sem afetar o clique normal do card.
+   */
+  stageChipWrapper?: (chip: React.ReactNode) => React.ReactNode;
+
   onClick?: () => void;
   onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
 }
@@ -253,6 +259,8 @@ const KanbanCard = ({
   selected = false,
   onToggleSelect,
 
+  stageChipWrapper,
+
   onClick,
   onDatesChange,
 }: KanbanCardProps) => {
@@ -306,7 +314,12 @@ const KanbanCard = ({
               {subtitle && _statusName && !awaitingClient && (
                 <span className="text-muted-foreground/60"> · </span>
               )}
-              {_statusName && !awaitingClient && <span className="text-muted-foreground">{_statusName}</span>}
+              {_statusName && !awaitingClient
+                ? (() => {
+                    const chip = <span className="text-muted-foreground">{_statusName}</span>;
+                    return stageChipWrapper ? stageChipWrapper(chip) : chip;
+                  })()
+                : null}
               
             </div>
             {overdue && (
