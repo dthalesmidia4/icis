@@ -353,11 +353,17 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
               <span className="text-sm font-medium text-foreground truncate">
                 {activeName}
               </span>
+              {badgeLabel && (
+                <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                  {badgeLabel}
+                </span>
+              )}
               {total > 1 && (
                 <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                   {currentIndex + 1} / {total}
                 </span>
               )}
+
             </div>
             <Button
               variant="ghost"
