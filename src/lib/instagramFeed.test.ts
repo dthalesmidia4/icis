@@ -126,3 +126,80 @@ describe("instagramFeed", () => {
     expect(list[0].demandId).toBeNull();
   });
 });
+
+describe("resolveFeedMedia (fallback de referências)", () => {
+  const img = (n: string) => ({ url: `https://x/${n}.png`, name: `${n}.png`, type: "image/png" });
+
+  it("prefere attachments quando ambos existem", () => {
+    const r = resolveFeedMedia({
+      kind: "static",
+      attachments: [img("final")],
+      referenceAttachments: [img("ref")],
+    });
+    expect(r.mediaSource).toBe("attachment");
+    expect(r.previewUrl).toContain("final");
+  });
+
+  it("usa referência quando não há attachment válido", () => {
+    const r = resolveFeedMedia({ kind: "static", attachments: [], referenceAttachments: [img("ref")] });
+    expect(r.mediaSource).toBe("reference");
+    expect(r.previewUrl).toContain("ref");
+  });
+
+  it("sem nenhuma mídia retorna fallback vazio", () => {
+    const r = resolveFeedMedia({ kind: "static" });
+    expect(r.mediaSource).toBeNull();
+    expect(r.previewKind).toBe("none");
+    expect(r.media).toEqual([]);
+  });
+
+  it("carrossel usa todas as referências como slides no fallback", () => {
+    const r = resolveFeedMedia({
+      kind: "carousel",
+      attachments: null,
+      referenceAttachments: [img("a"), img("b"), img("c")],
+    });
+    expect(r.mediaSource).toBe("reference");
+    expect(r.mediaCount).toBe(3);
+    expect(r.media).toHaveLength(3);
+  });
+
+  it("entradas inválidas/vazias não quebram a resolução", () => {
+    const r = resolveFeedMedia({
+      kind: "static",
+      attachments: [null, {}, { url: "" }, "https://x/doc.txt"] as unknown,
+      referenceAttachments: [img("ref")],
+    });
+    expect(r.mediaSource).toBe("reference");
+  });
+
+  it("attachment adicionado depois vence a referência", () => {
+    const before = resolveFeedMedia({ kind: "video", referenceAttachments: [img("ref")] });
+    expect(before.mediaSource).toBe("reference");
+    const after = resolveFeedMedia({
+      kind: "video",
+      attachments: [{ url: "https://x/v.mp4", name: "v.mp4", type: "video/mp4" }],
+      referenceAttachments: [img("ref")],
+    });
+    expect(after.mediaSource).toBe("attachment");
+    expect(after.previewKind).toBe("video-file");
+  });
+
+  it("buildInstagramFeed marca mediaSource=reference no fallback", () => {
+    const [entry] = buildInstagramFeed({
+      demands: [
+        {
+          id: "d1",
+          title: "Post",
+          demand_type_key: "criativo_estatico",
+          publish_date: "2026-08-10",
+          attachments: [],
+          reference_attachments: [img("ref")],
+        },
+      ],
+      planItems: [],
+    });
+    expect(entry.mediaSource).toBe("reference");
+    expect(feedHasMedia(entry)).toBe(true);
+  });
+});
