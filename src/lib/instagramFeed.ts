@@ -20,6 +20,7 @@ export interface FeedAttachment {
 
 export type FeedContentKind = "static" | "carousel" | "video";
 export type FeedPreviewKind = "image" | "video-file" | "none";
+export type FeedMediaSource = "attachment" | "reference" | null;
 
 export interface FeedDemandInput {
   id: string;
@@ -320,6 +321,7 @@ export function buildInstagramFeed({
       previewUrl: null,
       mediaCount: 0,
       media: [],
+      mediaSource: null,
       stageLabel: "Planejado · produção não iniciada",
       caption: null,
     });
