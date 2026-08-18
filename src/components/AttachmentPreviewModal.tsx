@@ -126,7 +126,9 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
   items,
   initialIndex = 0,
   onIndexChange,
+  badgeLabel,
 }) => {
+
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
