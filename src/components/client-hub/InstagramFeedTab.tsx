@@ -189,7 +189,7 @@ export default function InstagramFeedTab({
               onSlideChange={(next) => setSlide(entry.key, next)}
               onActivateCarousel={() => setActiveCarouselKey(entry.key)}
               onOpenDemand={onOpenDemand}
-              selectable={selectionMode && entry.isDemand && !!entry.demandId}
+              selectable={selectionMode && isFeedEntrySelectable(entry)}
               selected={!!entry.demandId && selectedIds.includes(entry.demandId)}
               onToggleSelect={() => entry.demandId && toggleSelect(entry.demandId)}
               onOpenMedia={(items, initialIndex) =>

@@ -339,3 +339,10 @@ export function buildInstagramFeed({
 }
 
 export const feedHasMedia = (e: FeedEntry): boolean => e.previewKind !== "none";
+
+/**
+ * Somente entradas que representam demandas reais (com id) podem entrar na
+ * seleção múltipla — itens de plano ainda não persistidos nunca são alocáveis.
+ */
+export const isFeedEntrySelectable = (e: Pick<FeedEntry, "isDemand" | "demandId">): boolean =>
+  !!e.isDemand && !!e.demandId;
