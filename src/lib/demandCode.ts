@@ -7,8 +7,30 @@
  * NÃO deve ser renderizado.
  */
 export const extractDemandCode = (title?: string | null): string | null => {
-  const match = String(title || "").match(/\bDF[\s\-–—_]?(\d{3})\b/i);
-  return match ? `DF-${match[1]}` : null;
+  const match = String(title || "").match(/\bDF[\s\-–—_]?(\d{3})(?:[\s\-–—_]?([A-Z]))?\b/i);
+  if (!match) return null;
+  const suffix = match[2] ? `-${match[2].toUpperCase()}` : "";
+  return `DF-${match[1]}${suffix}`;
+};
+
+/** Código do pai de um código com sufixo (`DF-002-A` -> `DF-002`). */
+export const parentDemandCode = (code?: string | null): string | null => {
+  const m = String(code || "").match(/^(DF-\d{3})-[A-Z]$/);
+  return m ? m[1] : null;
+};
+
+/**
+ * Códigos de cards que foram DIVIDIDOS em posts isolados: quando existem
+ * `DF-002-A/B/...` vivos, o card-pai `DF-002` não deve ser renderizado como
+ * mais uma célula do Feed (a entrega real são os filhos).
+ */
+export const splitParentCodes = (titles: (string | null | undefined)[]): Set<string> => {
+  const parents = new Set<string>();
+  titles.forEach((t) => {
+    const parent = parentDemandCode(extractDemandCode(t));
+    if (parent) parents.add(parent);
+  });
+  return parents;
 };
 
 /** Título normalizado para o fallback de deduplicação (itens sem código). */
