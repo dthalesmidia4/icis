@@ -1671,35 +1671,39 @@ export default function TaskCard({
     }
     let cancelled = false;
     (async () => {
-      const entries = await Promise.all(
-        collaborators.map(async (c) => {
-          try {
-            const resolved = await resolveFunctionForAssignee(
-              card.tenant_id as string,
-              c.id,
-              demandTypeKeyForEligibility,
-              null,
-              null,
-              { workArea: workAreaForEligibility, origin: originForEligibility },
-            );
-            return resolved ? c.id : null;
-          } catch {
-            return c.id; // em caso de falha de leitura, não esconder o colaborador
-          }
-        }),
-      );
+      // CONTRATO ÚNICO: card salvo é avaliado com a ETAPA ATUAL em modo
+      // administrativo (igual ao `evaluateReassign`, portanto com remapeamento);
+      // rascunho é avaliado pela etapa inicial do fluxo.
+      const map = await listEligibleAssignees({
+        tenantId: card.tenant_id as string,
+        card: {
+          id: card.id ?? null,
+          demand_type_key: demandTypeKeyForEligibility,
+          work_area: workAreaForEligibility,
+          origin: originForEligibility,
+          current_function_key: currentFunctionKeyForEligibility,
+        },
+        userIds: collaborators.map((c) => c.id),
+        mode: isDraft ? "draft" : "saved",
+      });
       if (cancelled) return;
-      setEligibleAssignees(new Set(entries.filter(Boolean) as string[]));
+      setEligibleAssignees(
+        new Set(Object.entries(map).filter(([, v]) => v.eligible).map(([id]) => id)),
+      );
     })();
     return () => { cancelled = true; };
   }, [
     open,
     card?.tenant_id,
+    card?.id,
+    isDraft,
     demandTypeKeyForEligibility,
     workAreaForEligibility,
     originForEligibility,
+    currentFunctionKeyForEligibility,
     collaborators,
   ]);
+
 
   /** Nomes das etapas da área atual (chave → rótulo) para textos auxiliares. */
   useEffect(() => {
