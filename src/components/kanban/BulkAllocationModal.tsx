@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCollaborators } from "@/hooks/useCollaborators";
+import { describeCollaboratorCounts } from "@/lib/operationalCount";
 import { fmtMinutes, zonedClockParts, DEFAULT_WORK_HOURS } from "@/lib/reorderSequence";
 import { formatDuration, normalizeDurationInput } from "@/lib/durationOverrides";
 import { commonValidStages, type StageOption } from "@/lib/stageOptions";
