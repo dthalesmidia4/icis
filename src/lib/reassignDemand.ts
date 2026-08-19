@@ -23,6 +23,7 @@ import {
   type OccupancyCardInput,
   type WorkArea,
 } from "@/lib/scheduleOccupancy";
+import { normalizeAdditionalAssignees } from "@/lib/reassignRules";
 
 export interface ReassignCard extends OccupancyCardInput {
   id: string;
