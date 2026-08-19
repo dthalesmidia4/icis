@@ -156,3 +156,46 @@ describe("humanizeTypeKey", () => {
     expect(humanizeTypeKey("post-estatico")).toBe("post estatico");
   });
 });
+
+describe("escolha manual de etapa (long-press)", () => {
+  const sequence = [
+    { functionKey: "gravar", name: "Gravar" },
+    { functionKey: "editar_video", name: "Editar vídeo" },
+  ];
+
+  it("administrativo bloqueia etapa já concluída pelo responsável", () => {
+    const opts = computeStageOptions({
+      sequence,
+      allowedKeys: ["gravar", "editar_video"],
+      completedByUser: ["editar_video"],
+      currentKey: "gravar",
+    });
+    const editar = opts.find((o) => o.functionKey === "editar_video")!;
+    expect(editar.valid).toBe(false);
+    expect(editar.reason).toBe("already_completed");
+  });
+
+  it("escolha manual libera a mesma etapa (histórico não bloqueia)", () => {
+    const opts = computeStageOptions({
+      sequence,
+      allowedKeys: ["gravar", "editar_video"],
+      completedByUser: ["editar_video"],
+      currentKey: "gravar",
+      mode: "manual_stage_change",
+    });
+    const editar = opts.find((o) => o.functionKey === "editar_video")!;
+    expect(editar.valid).toBe(true);
+    expect(editar.reason).toBeNull();
+  });
+
+  it("escolha manual continua exigindo a função habilitada", () => {
+    const opts = computeStageOptions({
+      sequence,
+      allowedKeys: ["gravar"],
+      completedByUser: [],
+      currentKey: "gravar",
+      mode: "manual_stage_change",
+    });
+    expect(opts.find((o) => o.functionKey === "editar_video")!.reason).toBe("not_allowed");
+  });
+});
