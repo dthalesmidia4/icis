@@ -9,6 +9,19 @@ import { cn } from "@/lib/utils";
 import { AttachmentPreviewModal, type AttachmentPreviewItem } from "@/components/AttachmentPreviewModal";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { buildInstagramFeed, feedHasMedia, isFeedEntrySelectable, type FeedEntry, type FeedMediaItem } from "@/lib/instagramFeed";
+import { Input } from "@/components/ui/input";
+import {
+  CLASSIFICATION_OPTIONS,
+  EMPTY_CONTENT_FILTERS,
+  buildClassificationCounts,
+  buildTypeCounts,
+  countActiveContentFilters,
+  matchesContentFilters,
+  type ContentClassification,
+  type ContentFilterState,
+} from "@/lib/contentFilters";
+import { useEdgeScroll } from "@/hooks/useEdgeScroll";
+import ScrollEdgeButton from "@/components/client-hub/ScrollEdgeButton";
 
 const MONTHS_SHORT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
@@ -68,6 +81,8 @@ export default function InstagramFeedTab({
   onReload,
 }: InstagramFeedTabProps) {
   const [filter, setFilter] = useState<"all" | "media" | "producao">("all");
+  // Filtros compartilhados com a aba Calendário (busca, tipo, classificação).
+  const [shared, setShared] = useState<ContentFilterState>(EMPTY_CONTENT_FILTERS);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [slideByEntry, setSlideByEntry] = useState<Record<string, number>>({});
   const [activeCarouselKey, setActiveCarouselKey] = useState<string | null>(null);
@@ -92,15 +107,43 @@ export default function InstagramFeedTab({
     [demands, planItems, stageNames, statusNames]
   );
 
-  const withMedia = entries.filter(feedHasMedia).length;
-  const inProduction = entries.length - withMedia;
+  const toFilterable = (e: FeedEntry) => ({
+    title: e.title,
+    typeLabel: e.typeLabel,
+    classifications: e.classifications,
+    isDemand: e.isDemand,
+  });
 
-  const visible = entries.filter((e) =>
-    filter === "all" ? true : filter === "media" ? feedHasMedia(e) : !feedHasMedia(e)
+  // Filtros compartilhados primeiro: contadores de mídia refletem o recorte atual.
+  const sharedFiltered = useMemo(
+    () => entries.filter((e) => matchesContentFilters(toFilterable(e), shared)),
+    [entries, shared]
   );
 
+  const withMedia = sharedFiltered.filter(feedHasMedia).length;
+  const inProduction = sharedFiltered.length - withMedia;
+
+  const visible = useMemo(
+    () =>
+      sharedFiltered.filter((e) =>
+        filter === "all" ? true : filter === "media" ? feedHasMedia(e) : !feedHasMedia(e)
+      ),
+    [sharedFiltered, filter]
+  );
+
+  const filterableAll = useMemo(() => entries.map(toFilterable), [entries]);
+  const typeCounts = useMemo(() => buildTypeCounts(filterableAll), [filterableAll]);
+  const opCounts = useMemo(() => buildClassificationCounts(filterableAll), [filterableAll]);
+  const activeFilterCount =
+    countActiveContentFilters(shared) + (filter === "all" ? 0 : 1);
+
+  const clearFilters = useCallback(() => {
+    setShared(EMPTY_CONTENT_FILTERS);
+    setFilter("all");
+  }, []);
+
   const filters: { value: typeof filter; label: string; count: number }[] = [
-    { value: "all", label: "Todos", count: entries.length },
+    { value: "all", label: "Todos", count: sharedFiltered.length },
     { value: "media", label: "Com mídia", count: withMedia },
     { value: "producao", label: "Em produção", count: inProduction },
   ];
