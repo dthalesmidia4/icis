@@ -30,6 +30,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
+import { listEligibleAssignees } from "@/lib/eligibleAssignees";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { computeDraftMissingFields, draftAreaChangePatch, draftClientChangePatch } from "@/lib/draftDemand";
 import { DailyCardSection } from "@/components/DailyCardSection";
@@ -1663,6 +1664,7 @@ export default function TaskCard({
   const demandTypeKeyForEligibility = (card as any)?.demand_type_key ?? null;
   const workAreaForEligibility = (card as any)?.work_area ?? null;
   const originForEligibility = (card as any)?.origin ?? null;
+  const currentFunctionKeyForEligibility = (card as any)?.current_function_key ?? null;
 
   useEffect(() => {
     if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
@@ -1671,35 +1673,41 @@ export default function TaskCard({
     }
     let cancelled = false;
     (async () => {
-      const entries = await Promise.all(
-        collaborators.map(async (c) => {
-          try {
-            const resolved = await resolveFunctionForAssignee(
-              card.tenant_id as string,
-              c.id,
-              demandTypeKeyForEligibility,
-              null,
-              null,
-              { workArea: workAreaForEligibility, origin: originForEligibility },
-            );
-            return resolved ? c.id : null;
-          } catch {
-            return c.id; // em caso de falha de leitura, não esconder o colaborador
-          }
-        }),
-      );
+      // CONTRATO ÚNICO: card salvo é avaliado com a ETAPA ATUAL em modo
+      // administrativo (igual ao `evaluateReassign`, portanto com remapeamento);
+      // rascunho é avaliado pela etapa inicial do fluxo.
+      const map = await listEligibleAssignees({
+        tenantId: card.tenant_id as string,
+        card: {
+          id: card.id ?? null,
+          demand_type_key: demandTypeKeyForEligibility,
+          work_area: workAreaForEligibility,
+          origin: originForEligibility,
+          current_function_key: currentFunctionKeyForEligibility,
+        },
+        userIds: collaborators.map((c) => c.id),
+        mode: isDraft ? "draft" : "saved",
+      });
       if (cancelled) return;
-      setEligibleAssignees(new Set(entries.filter(Boolean) as string[]));
+      setEligibleAssignees(
+        new Set(
+          Object.keys(map).filter((id) => map[id]?.eligible),
+        ),
+      );
     })();
     return () => { cancelled = true; };
   }, [
     open,
     card?.tenant_id,
+    card?.id,
+    isDraft,
     demandTypeKeyForEligibility,
     workAreaForEligibility,
     originForEligibility,
+    currentFunctionKeyForEligibility,
     collaborators,
   ]);
+
 
   /** Nomes das etapas da área atual (chave → rótulo) para textos auxiliares. */
   useEffect(() => {
@@ -1718,7 +1726,11 @@ export default function TaskCard({
     return () => { cancelled = true; };
   }, [open, card?.tenant_id, workAreaForEligibility]);
 
-  /** Resolve etapa inicial de cada colaborador na configuração atual (rascunho). */
+  /**
+   * Etapa que cada colaborador assumiria na configuração atual.
+   * Mesmo contrato do seletor (`listEligibleAssignees`): no card salvo a
+   * pergunta é feita com a etapa atual em modo administrativo.
+   */
   useEffect(() => {
     if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
       setDraftAssigneeResolution({});
@@ -1726,37 +1738,50 @@ export default function TaskCard({
     }
     let cancelled = false;
     (async () => {
-      const entries = await Promise.all(
-        collaborators.map(async (c) => {
-          try {
-            const key = await resolveFunctionForAssignee(
-              card.tenant_id as string,
-              c.id,
-              demandTypeKeyForEligibility,
-              null,
-              null,
-              { workArea: workAreaForEligibility, origin: originForEligibility },
-            );
-            return [c.id, { eligible: !!key, functionKey: key ?? null, functionName: key ? (flowFunctionNames[key] ?? null) : null }] as const;
-          } catch {
-            return [c.id, { eligible: true, functionKey: null, functionName: null }] as const;
-          }
-        }),
-      );
+      const map = await listEligibleAssignees({
+        tenantId: card.tenant_id as string,
+        card: {
+          id: card.id ?? null,
+          demand_type_key: demandTypeKeyForEligibility,
+          work_area: workAreaForEligibility,
+          origin: originForEligibility,
+          current_function_key: currentFunctionKeyForEligibility,
+        },
+        userIds: collaborators.map((c) => c.id),
+        mode: isDraft ? "draft" : "saved",
+      });
       if (cancelled) return;
-      setDraftAssigneeResolution(Object.fromEntries(entries));
+      setDraftAssigneeResolution(
+        Object.fromEntries(
+          Object.keys(map).map((id) => {
+            const key = map[id]?.functionKey ?? null;
+            return [
+              id,
+              {
+                eligible: !!map[id]?.eligible,
+                functionKey: key,
+                functionName: key ? flowFunctionNames[key] ?? null : null,
+              },
+            ];
+          }),
+        ),
+      );
     })();
     return () => { cancelled = true; };
   }, [
     open,
     card?.tenant_id,
+    card?.id,
     card?.clientId,
+    isDraft,
     demandTypeKeyForEligibility,
     workAreaForEligibility,
     originForEligibility,
+    currentFunctionKeyForEligibility,
     collaborators,
     flowFunctionNames,
   ]);
+
 
   const assigneeOptions = eligibleAssignees
     ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
