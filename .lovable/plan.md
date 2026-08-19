@@ -1,159 +1,68 @@
-# Auditoria: mecanismo de alocação em massa
+# Auditoria — todos os caminhos que trocam `assigned_to`
 
-Análise técnica baseada no código real e no Postgres conectado. Nada foi implementado.
+Somente evidência do estado atual (nada foi editado). Cada item aponta arquivo + handler real e a cadeia até o write.
 
-## 1. Arquitetura atual encontrada
+## Contrato central existente
 
-### Transferência individual (drag na Visão Geral)
-`src/pages/KanbanCentralPage.tsx` (`handleDragEnd`, ~linha 1361) é hoje o único caminho completo de troca de responsável e já implementa a ordem correta:
+`src/lib/reassignDemand.ts`
+- `evaluateReassign` → `userHasFunction` (etapa atual) → se não tem, `resolveFunctionForAssignee(..., mode: params.mode ?? "administrative_reassign")` → confere de novo com `userHasFunction` → `checkAssignmentConflicts` → devolve `nextFunctionKey`, `functionRemapped`, `direction`, `remapMessage`. Só bloqueia (`blockedBy: "function"`) quando não existe etapa utilizável.
+- `applyReassign` → recheck de agenda → `applyFlowReactivation` → `commitFlowTransition` (compare-and-set em `assigned_to` + `current_function_key`) → `recordFlowHistory`.
+- Remapeamento administrativo real: `src/lib/initialFlowFunction.ts:141-170` (`usable`: função habilitada, não client-facing em modo administrativo, etapa já concluída pelo usuário excluída, anti-autorrevisão) + `pickAdministrativeStage` (`src/lib/flowSegments.ts`): preserva a etapa; senão avança dentro do mesmo segmento operacional sem atravessar gate de cliente nem pular revisão obrigatória; senão volta dentro do segmento; senão `null`.
 
-1. `evaluateReassign` (`src/lib/reassignDemand.ts`) — valida função, remapeia etapa, checa agenda, sugere slot.
-2. Se bloqueado por agenda → `ScheduleConflictModal` com `suggestion`.
-3. `applyReassign` — reconfere conflito, monta payload, `commitFlowTransition` (compare-and-set em `assigned_to` + `current_function_key`), `applyFlowReactivation`, `recordFlowHistory`.
-4. `reassignFailureMessage` traduz `ok | stale | conflict | error`.
+## Caminhos aferidos
 
-Nenhum outro ponto do app faz alocação com esse rigor. Não existe hoje seleção múltipla / checkbox / bulk action em cards em nenhuma tela (o único "bulk" existente é `src/lib/bulkAttachments.ts`, exclusão de anexos — padrão de confirmação reutilizável, lógica não).
+1. **TaskCard aberto — seletor de responsável** — `src/components/TaskCard.tsx:3573-3660` (`onValueChange` do `Select` "Responsável"). Card salvo: `evaluateReassign` → `runExecutionExitGuarded("Transferir")` → `applyReassign` (`historySource: "task_card"`) → `onCardChange`. Remapeia sim (mostra `remapMessage`), modo administrativo, conflito de agenda cai em `setAssignConflict` + `applyAssignReschedule` (`TaskCard.tsx:2384-2420`). **OK**, com uma ressalva de UI: `eligibleAssignees` (`TaskCard.tsx:1667-1701`) é calculada com `resolveFunctionForAssignee(..., currentKey = null)` e **sem** `mode`, portanto em modo `flow`; colaboradores fora dessa lista aparecem `disabled` ("Sem etapa compatível") e não podem ser escolhidos, mesmo que `evaluateReassign` os aceitaria. É um bloqueio de UI antes do contrato — **PARCIAL** nesse detalhe. No rascunho (`isDraft`) resolve localmente com `currentKey = null` e sem `mode` (aceitável: card ainda não existe), mas `TaskCard.tsx:1778-1785` limpa o responsável automaticamente quando ele sai de `eligibleAssignees`.
 
-### Resolução de etapa para um colaborador
-Camadas, todas já centralizadas:
-- `collaborator_function_assignments` = permissão (`userHasFunction` / SQL `user_can_hold_function`).
-- `demand_type_flow_rules` + `flow_functions` (position, `work_area`, `requires_client_origin`) = fluxo por tipo/área.
-- `resolveFunctionForAssignee` (`src/lib/initialFlowFunction.ts`, RPC homônima) = etapa compatível mais próxima, preferindo avanço e caindo para regressão.
-- `stageDirection` em `reassignDemand.ts` = detecta regressão (grava `moved_back` no histórico).
-- `src/lib/stageRouting.ts` = preferência por cliente (`client_stage_routing_preferences`) + carga; usado no sentido inverso (etapa → pessoa).
-- Anti-auto-revisão e sticky de responsável vivem em `src/lib/proceedDemand.ts` (fluxo de avanço), **não** no caminho de reatribuição manual — e não precisam entrar no bulk (o gestor escolhe a pessoa explicitamente).
+2. **Visão Geral / Kanban Central — drag entre colaboradores** — `src/pages/KanbanCentralPage.tsx:1415-1516` (`handleDragEnd`) e `handleConflictReschedule:1518-1568`. Cadeia: `evaluateReassign` → `requestExit` → `applyReassign` (`kanban_drag`) → toast informando a etapa nova. **OK**.
 
-### Duração por tipo × etapa
-- `DURATION_MATRIX` + `SYSTEMS_TYPE_MINUTES` + `FALLBACK_STAGE_DURATION` em `src/lib/reorderSequence.ts`.
-- Overrides em `flow_functions.config.durations` (grupo, legado) e `config.durations_by_type` (por `demand_type_key`, prioritário), carregados por `loadDurationsByArea` (chaves `area:function_key`) ou `loadDurationsForTenant`.
-- `estimateDurationBase(card, ctx, overrides)` é a função canônica; `estimateDurationMinutes` é o wrapper sem overrides usado por `scheduleOccupancy` — ou seja, **a checagem de conflito hoje ignora overrides do tenant**, enquanto o reorganizador os respeita. Divergência conhecida a tratar.
+3. **Kanban antigo** — `src/pages/Kanban.tsx` apenas renderiza `Scheduled`; `src/components/Scheduled.tsx` não escreve `assigned_to` (grep sem ocorrências). Nada a corrigir — **OK (inexistente)**.
 
-### Agenda / ocupação
-- `src/lib/scheduleOccupancy.ts`: `cardWindow`, `getBusyIntervals` (inclui `additional_assignees`, exclui draft/arquivado), `checkAssignmentConflicts` (overlap + all-day + janela de área via `areaConflicts.ts`), `suggestFreeSlot` (varre 30 dias).
-- `src/lib/freeSlot.ts`: núcleo puro (`firstFreeStart`, `mergeSpans`, `buildDayWindows`, `DEFAULT_WORK_WINDOWS` 09–12 / 13:30–18).
-- `user_area_schedules` por `weekday`/área: dia sem faixa nenhuma → expediente padrão; dia só com faixa de outra área → indisponível.
-- Feriados: `fetchHolidaysInRange` (`br_calendar_events`) só é consultado por `computeReorder`; `suggestFreeSlot` **não** trata feriado (apenas pula fim de semana quando não há `user_area_schedules`).
-- Etapas de cliente (`aguardando_cliente`, `enviar_cliente`, `entregar_cliente`, `feedback_cliente`) não ocupam agenda (`isUntimedStage`).
+4. **Feed Simulado / seleção em massa / BulkAllocation** — `src/lib/bulkAllocation.ts:576-586` (`deps.evaluate` → `evaluateReassignReal`, `skipSuggestion`), `deps.loadStageGroups(..., administrative: true)`, apply via RPC `apply_bulk_allocation_atomic_v1` (não via `applyReassign` no caminho atômico). O RPC revalida `user_can_hold_function` + `bulk_admin_stage_allowed` e grava `assigned_to`/`current_function_key`/agenda + histórico. **OK** (front e RPC concordam nas regras de segmento; ver divergência do trigger abaixo).
 
-### Reorganizador por colaborador
-`computeReorder` (`reorderSequence.ts`) + `ReorderSequenceModal`:
-- exclui cards com dispatch ativo (`scheduledPublishIds`);
-- `captar` e cards diários ficam fixos e entram como intervalos bloqueados que o cursor contorna;
-- `aguardando_cliente` sai totalmente do cálculo;
-- ordenação `sortForReorder`: tiers (produção → revisão → avaliar), primeiro card por `due` preservado como "em andamento", depois opcional prioridade por publicação, depois janela de risco (slack) e "recém-chegado" no fim;
-- `keepStart` preserva início de card em execução; `manualOverrides` permitem fixar início/fim/duração;
-- persistência: `buildReorderScheduleUpdate` + update por card com `.eq("updated_at", live)` (lock otimista) — só escreve datas, nunca `assigned_to`.
+5. **Reatribuição rápida em Demandas do Colaborador** — `src/pages/CollaboratorDemands.tsx:333-380`: `evaluateReassign` → `requestExit` → `applyReassign` → `reassignFailureMessage`. **OK**.
 
-### Feed Simulado
-`src/lib/instagramFeed.ts` → `buildInstagramFeed` gera `FeedEntry` com `isDemand`, `demandId`, `mediaSource`; itens de planejamento têm `isDemand: false` e `demandId: null`. `InstagramFeedTab.tsx` renderiza grade 3 colunas com clique só quando `entry.isDemand && entry.demandId`. O feed não carrega `assigned_to`, `current_function_key`, `work_area`, `due_*`/`delivery_*` — `useClientPeriodWorkspace` precisaria expor esses campos (ou o helper de bulk recarrega os cards por id).
+6. **Long-press do chip: troca manual de etapa e de tipo** — `src/components/kanban/StageQuickChangePopover.tsx` (`load` + `choose`) → `src/lib/typeStageChange.ts:applyTypeStageChange` → mesmo tipo: `jumpToFunction`; tipo diferente: RPC `change_demand_type_and_stage` (CAS) com `p_next_assigned_to = card.assigned_to`. Valida sempre pelo **responsável atual** (`loadTypeStageGroups`, `mode: "manual_stage_change"`). Não troca responsável (por design) e exige responsável definido. **OK**, mas é o único lugar onde etapa muda sem oferecer troca de pessoa.
 
-### Concorrência e constraints reais (verificado no Postgres)
-Triggers em `public.demands`:
-- `validate_demand_stage_assignment_trg` — na mudança de `assigned_to`/`current_function_key`/`demand_type_key`/`work_area`: se o usuário não pode a etapa, tenta `resolve_function_for_assignee` e **reescreve `current_function_key`**; se nada compatível, `RAISE 23514`. Ou seja o banco é a última linha de defesa e pode alterar a etapa sob nós.
-- `block_conflicting_assignment_trigger` — **só valida quando `assigned_to` muda**; recusa (`23514`) qualquer sobreposição com outro card não arquivado do mesmo responsável (ignora etapas de cliente, `due_date` no passado e drafts). Consequência crítica: o update em massa precisa gravar `assigned_to` **junto** com `due/delivery` finais e as janelas propostas precisam ser mutuamente disjuntas — senão o 2º card do lote é rejeitado pelo próprio 1º.
-- `guard_demand_release_trg`, `normalize_release_state_on_insert_trg`, `trigger_auto_release_queue_trg`, `on_demand_status_change`, `update_demands_updated_at` (mexe em `updated_at`, então lock otimista por `updated_at` continua válido apenas dentro de um único update).
-- `app.skip_schedule_check` / `app.skip_release_guard` existem mas só são acessíveis server-side — não usar no client.
+7. **Voltar demanda / regressão** — `src/components/TaskCard.tsx:1176-1215` (`executeRegress`) → `regressDemand` (`src/lib/proceedDemand.ts:~1440-1560`) com `pickCompatibleReturnStage` (`src/lib/returnTargetResolution.ts`): preserva o destinatário e adapta a etapa para trás. Transição real de processo, write direto com payload próprio + histórico. **OK como transição real** (não passa por `applyReassign`, e não deve).
 
-Realtime (`useRealtimeDemands`) reescreve `cards` a qualquer momento: uma prévia calculada precisa ser revalidada contra o estado lido no momento do apply.
+8. **Prosseguir / Entregar / Entregar minha parte / jump** — `src/lib/proceedDemand.ts:896, 1014, 1233, 1307, 1446, 1543, 1702, 1800`. Todos writes diretos de processo com `pickAssigneeForFunction`/`lastUserOfStage` e histórico próprio; `deliverMyPart:1770-1815` faz `.update({ assigned_to: newPrimary, additional_assignees: newExtras })` (promoção dentro de `captar`). **Transições reais — OK**, não afetadas pelas regras administrativas (o `mode` administrativo só existe no caminho de reatribuição).
 
-## 2. O que DEVE ser reutilizado (e não duplicado)
+9. **Atribuição inicial / criação / auto-routing** — `assignInitialResponsible` (`src/lib/initialFlowFunction.ts:190-250`, ctx sem `mode` → `flow`), `create_manual_demand_atomic` (migration `20260811183904…:490-640`, valida com `user_can_hold_function`), `src/lib/createCardFromContent.ts:211-240` (`resolveFunctionForAssignee`, sem `mode`), `src/lib/releaseQueue.ts`/`auto_release_next_for_user` (libera, não troca responsável). **OK**.
 
-| Necessidade | Reutilizar | Não fazer |
-|---|---|---|
-| Etapa válida do destinatário | `evaluateReassign` / `resolveFunctionForAssignee` | novo resolvedor de etapa |
-| Duração real | `estimateDurationBase` + `loadDurationsByArea` | nova matriz ou `estimateDurationMinutes` puro |
-| Sequenciamento na agenda | `computeReorder` (+ `freeSlot` para o cursor inicial) | novo alocador de horários |
-| Ordem/prioridade | `sortForReorder` com `prioritizePublishDate: true` | novo comparador |
-| Ocupação existente | `getBusyIntervals` / `checkAssignmentConflicts` | consulta nova a `demands` |
-| Escrita segura | `commitFlowTransition` + `buildReorderScheduleUpdate` | update direto sem CAS |
-| Histórico | `recordFlowHistory` | insert manual |
-| Mensagens de falha | `reassignFailureMessage` | strings novas por tela |
+10. **Etapas de cliente** — `src/components/kanban/AwaitingClientActions.tsx:158-190`: write direto `{ current_function_key: "publicar", assigned_to: null, ... }` + `recordStageDeliveries` + histórico. É desatribuição de processo (aprovação do cliente), não escolha de pessoa — **OK**, porém é um write direto fora do contrato.
 
-## 3. Proposta de arquitetura
+11. **`captar` / `additional_assignees`** — limpeza/deduplicação existe no caminho em massa (`additional_assignees_mode` no payload e no RPC) e em `deliverMyPart`. **`applyReassign` não mexe em `additional_assignees`**: transferir um card de `captar` por drag/TaskCard mantém os extras antigos no card. **PARCIAL**.
 
-### Helper central: `src/lib/bulkAllocation.ts`
-Duas funções, prévia e aplicação separadas — mesmo contrato do reorganizador.
+12. **Triggers/RPCs do banco**
+    - `validate_demand_stage_assignment` (`20260811183904…:193-255`): se o novo responsável não tem a etapa, chama `resolve_function_for_assignee` e **reescreve silenciosamente** `current_function_key`; só levanta exceção se nada resolver.
+    - `resolve_function_for_assignee` no banco (`20260811183904…:4-118`) **não conhece**: modo administrativo, barreiras client-facing, etapas já concluídas (`stage_completions`) nem anti-autorrevisão. Ele avança para a próxima etapa habilitada e, se não houver, volta para a anterior — podendo atravessar `enviar_cliente`/`aguardando_cliente` e cair em etapa que o usuário já executou. **Divergência front × banco (FALHA de coerência)**: qualquer write direto de `assigned_to` é remapeado por regra mais frouxa que a do front.
+    - `block_conflicting_assignment` (agenda) e `apply_bulk_allocation_atomic_v1`/`bulk_admin_stage_allowed`: coerentes com o front.
+    - `change_demand_type_and_stage`: CAS, não escolhe responsável.
 
-```text
-planBulkAllocation({ tenantId, cardIds, targetUserId })
-  1. recarrega os cards por id direto do banco (fonte de verdade, não o estado da tela)
-  2. para cada card: evaluateReassign(skipSuggestion: true)
-       -> allowed?  nextFunctionKey (etapa resolvida, direction)
-       -> blocked por "function" => item vai para `rejected` com motivo
-       (conflito de agenda NÃO rejeita aqui: o sequenciamento vai reagendar)
-  3. carrega agenda do destinatário: getBusyIntervals + fila atual dele
-     (cards já dele que não estão no lote) + user_area_schedules + feriados
-  4. computeReorder(cardsDoLote + filaAtualDoDestinatario, {
-        startFrom: agora, durations: loadDurationsByArea, areaSchedule,
-        scheduledPublishIds, prioritizePublishDate: true })
-     -> mantém captar/diário/aguardando cliente/dispatch ativo fixos
-     -> mantém o card em andamento do destinatário no topo
-  5. devolve BulkAllocationPlan {
-        assignments: [{ cardId, fromUser, nextFunctionKey, direction,
-                        start/end propostos, durationMin, changed }],
-        untouched: cards do destinatário só reagendados,
-        rejected: [{ cardId, reason }],
-        signature: hash(cardId + updated_at) para revalidação
-     }
-```
+13. **Writes de `assigned_to` fora do helper central**
+    - `supabase/functions/run-scheduled-dispatches/index.ts:330-368` — escolhe revisor por carga e grava `assigned_to` direto, sem resolver etapa por colaborador (fixa `revisar_publicacao`) e sem checar `user_can_hold_function`; depende do trigger. **PARCIAL/FALHA**.
+    - `supabase/functions/return-awaiting-client-cards/index.ts:145-200` — resolve por histórico/`allowedUsers` e grava direto; sem anti-autorrevisão nem checagem de agenda. **PARCIAL**.
+    - `src/components/kanban/AwaitingClientActions.tsx:164` e `src/lib/proceedDemand.ts` (vários) — processo, aceitável.
+    - `src/lib/bulkAllocation.ts:588` `updateSchedule` — só agenda, não responsável.
 
-```text
-applyBulkAllocation(plan)
-  - revalida `signature` (releitura de updated_at) → aborta em `stale`
-  - por card, na ORDEM CRONOLÓGICA da proposta:
-      applyReassign({ card, newAssignedTo, nextFunctionKey,
-                      reschedule: { due/delivery da proposta },
-                      historySource: "bulk_allocation" })
-      (assigned_to + horários no MESMO update → satisfaz block_conflicting_assignment)
-  - cards já do destinatário que só mudam de horário: update de datas com
-    lock otimista em updated_at (caminho do reorganizador), sem tocar assigned_to
-  - resultado agregado: applied / skipped / failed[{cardId, message}]
-  - parada opcional no primeiro erro? não: segue e reporta, sem rollback
-    (cada card é uma transação independente; a prévia pode ser recalculada)
-```
+## Respostas
 
-Ajuste necessário fora do helper: fazer `scheduleOccupancy.durationMinutesOf` aceitar os overrides do tenant (parâmetro opcional), para que conflito e sequenciamento usem a mesma duração. Sem isso, prévia e trigger podem discordar.
+**A) "Abrir o card e trocar o usuário" está corrigido?** Sim no núcleo: handler `onValueChange` do Select de Responsável em `src/components/TaskCard.tsx:3573-3660` usa `evaluateReassign` → `applyReassign`, com remapeamento automático via `pickAdministrativeStage` e mensagem `remapMessage`. Ressalva real: a lista de opções é pré-filtrada por `eligibleAssignees` (`TaskCard.tsx:1667-1701`), calculada em modo `flow` e com `currentKey = null`, então parte dos colaboradores aparece desabilitada e o contrato nem é chamado.
 
-### Prévia antes de aplicar
-Novo `BulkAllocationModal` (mesma linguagem visual de `ReorderSequenceModal`, reaproveitando `ReorderProposalRow`):
-- seletor de colaborador (candidatos = quem tem alguma função compatível, via `getEligibleStageCandidates` por etapa dos cards selecionados);
-- lista ordenada: card, cliente, etapa resultante (com aviso quando a etapa foi remapeada ou regrediu), duração, início→fim propostos, badge de risco/publicação;
-- bloco separado "Não podem ir para este colaborador" com motivo;
-- bloco "Também serão reagendados" (fila atual do destinatário);
-- botão Aplicar desabilitado se nenhum item elegível; recálculo ao trocar de colaborador.
+**B) O comportamento é sistêmico em todas as telas?** Não. Drag (Visão Geral), TaskCard, CollaboratorDemands e alocação em massa compartilham o contrato; ficam fora: o filtro de elegibilidade do TaskCard, os dois edge functions que gravam responsável, `additional_assignees` na transferência simples, e o trigger do banco que remapeia com regras diferentes.
 
-## 4. Comportamento por tela
+**C) Bypasses/gaps a migrar**
+1. `eligibleAssignees` do TaskCard (pré-filtro em modo `flow`, ignora etapa atual).
+2. `run-scheduled-dispatches` — atribuição de revisor sem resolver etapa por colaborador.
+3. `return-awaiting-client-cards` — retorno automático sem regras de conclusão/autorrevisão/agenda.
+4. `applyReassign` não normaliza `additional_assignees` ao sair de `captar`.
+5. `resolve_function_for_assignee` (banco) sem modo administrativo, gates de cliente, conclusões e anti-autorrevisão — remapeia mais frouxo que o front.
+6. `AwaitingClientActions` grava responsável/etapa direto (processo, mas sem contrato).
 
-**Visão Geral (`KanbanCentralPage`)**
-- Modo seleção ativado por um botão no header, visível só para `canReorder` (super admin / gestor) e desligado em `isHistoryMode`.
-- Enquanto ativo: `KanbanCard` recebe `selectable`/`selected`/`onToggleSelect`; clique alterna seleção em vez de abrir o card; drag desabilitado (`isDragDisabled`) para não competir com o gesto. Fora do modo, comportamento atual intacto (drag, abrir card, agrupamentos, focus mode, histórico por coluna).
-- Barra de ação flutuante: "N selecionados · Alocar para colaborador · Limpar".
-- Seleção limpa ao trocar filtros/área/foco.
-
-**Feed Simulado (`InstagramFeedTab`)**
-- Mesmo modo seleção, restrito a `entry.isDemand && entry.demandId`; itens de planejamento ficam não selecionáveis (nada muda para eles).
-- Long-press/preview e navegação de carrossel preservados: em modo seleção o clique curto seleciona, o preview continua no long-press.
-- `useClientPeriodWorkspace` passa a expor os campos de agenda/etapa dos demands (ou o helper recarrega por id — preferível, mantém o feed leve).
-
-## 5. Regra de prioridade
-Delegada a `sortForReorder` com `prioritizePublishDate: true`, que já entrega: publicação mais próxima sobe; cards sem `publish_date` recebem chave `9999-12-31` e caem para o fim de forma estável (índice original como desempate); tiers produção → revisão → avaliar; janela de risco por slack; card em andamento preservado no topo; captar/diário/aguardando cliente/dispatch ativo fora da realocação.
-
-## 6. Casos especiais e blockers
-- **Etapas de cliente**: card em `aguardando_cliente`/`enviar_cliente` não ocupa agenda; alocar em massa deve permitir a troca de responsável mas sem propor horário (marcar "sem horário").
-- **`captar` e multi-assignee**: `additional_assignees` não é tocado; card em `captar` mantém janela fixa — sinalizar na prévia como "horário preservado".
-- **Dispatch ativo / publicação agendada**: card sai do sequenciamento (`scheduledPublishIds`) e é apenas reatribuído.
-- **Cards diários**: janela fixa, apenas reatribuídos.
-- **Fila de liberação**: bulk não deve alterar `released_at` (`guard_demand_release` só permite gestores e fila ativa) — nada a fazer, só não incluir o campo.
-- **Trigger de agenda**: a proposta precisa ser disjunta inclusive contra cards do destinatário fora do lote; por isso a fila atual dele entra em `computeReorder`.
-- **Trigger de etapa**: pode reescrever `current_function_key`; após aplicar, reler o estado (o realtime já faz) em vez de confiar no otimista.
-- **Divergência de duração** entre `scheduleOccupancy` e `reorderSequence`: precisa ser resolvida antes, senão a prévia mostra um horário que o banco rejeita.
-- **Feriados em `suggestFreeSlot`**: não tratados; o bulk usa `computeReorder`, que trata — evitar `suggestFreeSlot` como motor do bulk.
-- **Volume**: lote grande = N updates sequenciais. Sugiro limite prático (ex. 30 cards) e barra de progresso; se virar gargalo, uma RPC transacional é a evolução natural (fora desta versão).
-
-## 7. Recomendação: 1 colaborador agora, distribuição depois
-Implementar apenas **(A) Alocar para um colaborador**. A base para (B) existe parcialmente (`getEligibleStageCandidates` já ordena por carga), mas falta o essencial: não há noção de capacidade diária por pessoa nem de custo comparável entre áreas, e "primeiro slot livre" entre vários usuários exigiria rodar `computeReorder` por candidato a cada card — caro e difícil de mostrar em prévia. Recomendação: entregar (A) com prévia sólida e, depois, avaliar (B) reaproveitando o mesmo `planBulkAllocation` com um laço de candidatos.
-
-## 8. Detalhes técnicos (resumo de arquivos)
-- Novo: `src/lib/bulkAllocation.ts` (puro + I/O separados), `src/lib/bulkAllocation.test.ts`, `src/components/kanban/BulkAllocationModal.tsx`.
-- Ajustes: `scheduleOccupancy.ts` (duração com overrides), `KanbanCard.tsx` (props de seleção), `KanbanCentralPage.tsx` (modo seleção + barra), `InstagramFeedTab.tsx` (modo seleção restrito a demandas), possivelmente `useClientPeriodWorkspace.ts`.
-- Sem migration nova: nenhum campo novo é necessário.
+**D) Arquitetura mínima de centralização (sem tocar nas transições legítimas)**
+- Manter dois contratos explícitos e nomeados: `reassign` (administrativo: `evaluateReassign`/`applyReassign`) e `flow transition` (`proceedDemand`/`regressDemand`/`jumpToFunction`). Nada além disso pode escrever `assigned_to`.
+- Extrair de `initialFlowFunction`/`flowSegments` um resolvedor puro único e espelhá-lo no banco: nova `resolve_function_for_assignee_v2(_mode, ...)` com gates de cliente, etapas concluídas e anti-autorrevisão; o trigger passa a usá-la e o front consome a mesma tabela de regras.
+- Expor um único helper de elegibilidade (`listEligibleAssignees(card)`) derivado de `evaluateReassign` (mesmo modo, mesma etapa atual) e usá-lo no TaskCard e em qualquer seletor futuro.
+- Mover a atribuição dos dois edge functions para uma RPC `reassign_demand_administrative(...)` que aplique o mesmo resolvedor + checagem de agenda no servidor.
+- Incluir a normalização de `additional_assignees` no payload de `applyReassign` (mesma regra já usada no bulk).
+- Guard de lint/teste: proibir `.update({ assigned_to })` fora de `reassignDemand.ts`, `proceedDemand.ts` e RPCs autorizadas.
