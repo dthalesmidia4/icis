@@ -1726,7 +1726,11 @@ export default function TaskCard({
     return () => { cancelled = true; };
   }, [open, card?.tenant_id, workAreaForEligibility]);
 
-  /** Resolve etapa inicial de cada colaborador na configuração atual (rascunho). */
+  /**
+   * Etapa que cada colaborador assumiria na configuração atual.
+   * Mesmo contrato do seletor (`listEligibleAssignees`): no card salvo a
+   * pergunta é feita com a etapa atual em modo administrativo.
+   */
   useEffect(() => {
     if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
       setDraftAssigneeResolution({});
@@ -1734,37 +1738,50 @@ export default function TaskCard({
     }
     let cancelled = false;
     (async () => {
-      const entries = await Promise.all(
-        collaborators.map(async (c) => {
-          try {
-            const key = await resolveFunctionForAssignee(
-              card.tenant_id as string,
-              c.id,
-              demandTypeKeyForEligibility,
-              null,
-              null,
-              { workArea: workAreaForEligibility, origin: originForEligibility },
-            );
-            return [c.id, { eligible: !!key, functionKey: key ?? null, functionName: key ? (flowFunctionNames[key] ?? null) : null }] as const;
-          } catch {
-            return [c.id, { eligible: true, functionKey: null, functionName: null }] as const;
-          }
-        }),
-      );
+      const map = await listEligibleAssignees({
+        tenantId: card.tenant_id as string,
+        card: {
+          id: card.id ?? null,
+          demand_type_key: demandTypeKeyForEligibility,
+          work_area: workAreaForEligibility,
+          origin: originForEligibility,
+          current_function_key: currentFunctionKeyForEligibility,
+        },
+        userIds: collaborators.map((c) => c.id),
+        mode: isDraft ? "draft" : "saved",
+      });
       if (cancelled) return;
-      setDraftAssigneeResolution(Object.fromEntries(entries));
+      setDraftAssigneeResolution(
+        Object.fromEntries(
+          Object.keys(map).map((id) => {
+            const key = map[id]?.functionKey ?? null;
+            return [
+              id,
+              {
+                eligible: !!map[id]?.eligible,
+                functionKey: key,
+                functionName: key ? flowFunctionNames[key] ?? null : null,
+              },
+            ];
+          }),
+        ),
+      );
     })();
     return () => { cancelled = true; };
   }, [
     open,
     card?.tenant_id,
+    card?.id,
     card?.clientId,
+    isDraft,
     demandTypeKeyForEligibility,
     workAreaForEligibility,
     originForEligibility,
+    currentFunctionKeyForEligibility,
     collaborators,
     flowFunctionNames,
   ]);
+
 
   const assigneeOptions = eligibleAssignees
     ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
