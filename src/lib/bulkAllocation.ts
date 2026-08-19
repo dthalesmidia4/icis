@@ -1139,10 +1139,13 @@ export async function applyBulkAllocation(
     return { status: "nothing", message: "Nada para alocar.", appliedIds, failed };
   }
 
-  // PREFLIGHT — antes de QUALQUER write.
+  const guardIds = Object.keys(plan.guards || {});
+
+  // PREFLIGHT — antes de QUALQUER write. Inclui as GUARDAS: cards do
+  // destinatário que participaram do cálculo sem serem atualizados.
   let live: Record<string, BulkCardSignature>;
   try {
-    live = await deps.loadSignatures(plan.tenantId, ids);
+    live = await deps.loadSignatures(plan.tenantId, [...ids, ...guardIds]);
   } catch (err) {
     console.error("[bulkAllocation] preflight error", err);
     return { status: "error", message: "Não foi possível verificar o estado atual da fila.", appliedIds, failed };
@@ -1150,6 +1153,12 @@ export async function applyBulkAllocation(
   for (const id of ids) {
     const current = live[id];
     if (!current || !signaturesMatch(plan.signatures[id], current)) {
+      return { status: "stale", message: STALE_BULK_MESSAGE, appliedIds, failed };
+    }
+  }
+  for (const id of guardIds) {
+    const current = live[id];
+    if (!current || !signaturesMatch(plan.guards[id], current)) {
       return { status: "stale", message: STALE_BULK_MESSAGE, appliedIds, failed };
     }
   }
@@ -1196,9 +1205,47 @@ export async function applyBulkAllocation(
       expected_function_key: sig.current_function_key ?? null,
       next_function_key: a.sameAssignee ? null : a.resolvedFunctionKey,
       same_assignee: a.sameAssignee,
+      additional_assignees_mode: a.additionalAssigneesMode,
       schedule,
     });
   }
+
+  // FRESCOR NO MOMENTO DO APPLY: nenhum horário NOVO pode começar no passado.
+  // A prévia pode ter ficado aberta — mesmo sem nada mudar no banco, o relógio
+  // andou. Só há duas saídas: recalcular ou não gravar.
+  const tz = plan.timezone || DEFAULT_WORK_HOURS.tz;
+  const nowWallclock = zonedWallclockKey(deps.now(), tz);
+  const startsInPast = [...items, ...queueItems].some(
+    (i) => !!i.schedule && `${i.schedule.due_date}T${i.schedule.due_time}` < nowWallclock,
+  );
+  if (startsInPast) {
+    return { status: "stale", message: STALE_CLOCK_MESSAGE, appliedIds, failed };
+  }
+
+  // Tempos personalizados vão na MESMA transação: alocação aplicada sem o tempo
+  // manual gravado deixa de ser um resultado possível.
+  const durationOverrides: BulkAtomicDurationOverride[] = plan.assignments
+    .filter((a) => a.durationSource === "manual" && a.resolvedFunctionKey)
+    .map((a) => ({
+      card_id: a.cardId,
+      function_key: a.resolvedFunctionKey as string,
+      duration_min: plan.durationOverrides[a.cardId],
+    }))
+    .filter((r) => !!r.duration_min);
+
+  const guardRows: BulkAtomicGuard[] = guardIds.map((id) => {
+    const sig = plan.guards[id];
+    return {
+      card_id: id,
+      expected_updated_at: sig.updated_at ?? null,
+      expected_assigned_to: sig.assigned_to ?? null,
+      expected_function_key: sig.current_function_key ?? null,
+      expected_due_date: sig.due_date ?? null,
+      expected_due_time: sig.due_time ?? null,
+      expected_delivery_date: sig.delivery_date ?? null,
+      expected_delivery_time: sig.delivery_time ?? null,
+    };
+  });
 
   if (items.length === 0 && queueItems.length === 0) {
     return { status: "nothing", message: "Nada mudou — a fila já estava organizada.", appliedIds, failed };
@@ -1211,6 +1258,10 @@ export async function applyBulkAllocation(
     source_screen: plan.sourceScreen,
     items,
     queue: queueItems,
+    guards: guardRows,
+    duration_overrides: durationOverrides,
+    now_wallclock: nowWallclock,
+    timezone: tz,
   });
 
   if (res.status === "stale") {
@@ -1240,38 +1291,12 @@ export async function applyBulkAllocation(
     ? res.appliedIds
     : [...queueItems, ...items].map((i) => i.card_id)));
 
-  // Tempos personalizados sobrevivem à alocação: futuras reorganizações usam o
-  // mesmo tempo que o gestor definiu aqui.
-  await persistDurationOverrides(plan, appliedIds, deps);
-
   return {
     status: "applied",
     message: `${appliedIds.length} card${appliedIds.length === 1 ? "" : "s"} alocado${appliedIds.length === 1 ? "" : "s"} para o colaborador.`,
     appliedIds,
     failed,
   };
-}
-
-async function persistDurationOverrides(
-  plan: BulkAllocationPlan,
-  appliedIds: string[],
-  deps: BulkAllocationDeps,
-): Promise<void> {
-  const applied = new Set(appliedIds);
-  const rows = plan.assignments
-    .filter((a) => applied.has(a.cardId) && a.durationSource === "manual" && a.resolvedFunctionKey)
-    .map((a) => ({
-      demandId: a.cardId,
-      functionKey: a.resolvedFunctionKey as string,
-      durationMin: plan.durationOverrides[a.cardId],
-    }))
-    .filter((r) => !!r.durationMin);
-  if (rows.length === 0) return;
-  try {
-    await deps.saveDurationOverrides(plan.tenantId, rows);
-  } catch (err) {
-    console.warn("[bulkAllocation] persist duration overrides failed", err);
-  }
 }
 
 // ------------------------------------------------------------------
