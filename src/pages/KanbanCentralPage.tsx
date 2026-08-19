@@ -1575,7 +1575,24 @@ const KanbanCentralPage = () => {
     if (!isTaskCardOpen) restoreSavedScroll();
   }, [isTaskCardOpen, restoreSavedScroll]);
 
-  const handleCardClick = (card: CentralKanbanCard, columnId?: string) => {
+  /**
+   * CONTRATO ÚNICO DE CLIQUE NA VISÃO GERAL.
+   *
+   * Em modo seleção nenhum clique abre o TaskCard: cards selecionáveis apenas
+   * alternam a seleção e itens que não são demandas reais (fila de liberação,
+   * histórico de entregas) simplesmente não reagem.
+   */
+  const handleCardClick = (
+    card: CentralKanbanCard,
+    columnId?: string,
+    opts?: { selectable?: boolean },
+  ) => {
+    if (selectionMode) {
+      if (opts?.selectable === false) return;
+      if (!card?.id || (card as any)._historyStage) return;
+      toggleCardSelection(card.id);
+      return;
+    }
     captureColumnScroll(columnId || card.assigned_to || "__unassigned__", card.id);
     setSelectedCard(card);
     setIsTaskCardOpen(true);
@@ -3574,7 +3591,10 @@ const KanbanCentralPage = () => {
                                       overdueSince={cardOverdueSince(card)}
                                       cardId={card.id}
                                       statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
-                                      stageChipWrapper={stageChipWrapper(card)}
+                                      stageChipWrapper={stageChipWrapper(card, selectionMode)}
+                                      selectable={selectionMode}
+                                      selected={selectedCardIds.includes(card.id)}
+                                      onToggleSelect={() => toggleCardSelection(card.id)}
                                       statusColor={(card as any).status_color}
                                       isDailyCard={(card as any).is_daily_card}
                                       dailyCompleted={(card as any).daily_completed_occurrences}
@@ -3674,6 +3694,9 @@ const KanbanCentralPage = () => {
                                           />
                                         ) : null
                                       }
+                                      selectable={selectionMode}
+                                      selected={selectedCardIds.includes(card.id)}
+                                      onToggleSelect={() => toggleCardSelection(card.id)}
                                       onClick={() => handleCardClick(card, column.id)}
                                     />
 
@@ -3813,7 +3836,7 @@ const KanbanCentralPage = () => {
                                     </div>
                                     <button
                                       type="button"
-                                      onClick={() => handleCardClick(qc, column.id)}
+                                      onClick={() => handleCardClick(qc, column.id, { selectable: false })}
                                       className="w-full text-left text-sm font-medium text-foreground/80 break-words line-clamp-2 hover:text-foreground"
                                     >
                                       {qc.title}
