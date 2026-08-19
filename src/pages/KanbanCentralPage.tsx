@@ -4227,7 +4227,9 @@ const KanbanCentralPage = () => {
           onApplied={() => {
             exitSelection();
             fetchAllCards?.();
+            refreshCollaborators();
           }}
+
         />
       )}
 
