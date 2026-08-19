@@ -61,7 +61,23 @@ import {
 
 } from "@/lib/demandChangeRequests";
 import { useRealtimeDemandChangeRequests } from "@/hooks/realtime";
-import { CalendarClock } from "lucide-react";
+import ExecutionPanel from "@/components/demands/ExecutionPanel";
+import { useRealtimeDemandExecution } from "@/hooks/realtime/useRealtimeDemandExecution";
+import {
+  addExecutionItem,
+  closeActiveExecutionRun,
+  completeAllPendingExecutionItems,
+  countPendingExecutionItems,
+  deleteExecutionItem,
+  ensureExecutionRun,
+  loadExecutionRuns,
+  setExecutionItemCompleted,
+  shouldShowExecutionTab,
+  buildExecutionTransitionWarning,
+  resolveAutoOpenTab,
+  type ExecutionRunWithItems,
+} from "@/lib/demandExecution";
+import { CalendarClock, ListChecks } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
 // Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
@@ -518,7 +534,7 @@ export default function TaskCard({
   const [referenceToRemove, setReferenceToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
-  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos' | 'referencias' | 'alteracoes'>(
+  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos' | 'referencias' | 'alteracoes' | 'execucao'>(
     presentation === 'drawer' && (card as any)?.content_brief ? 'briefing' : 'description'
   );
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
@@ -790,17 +806,189 @@ export default function TaskCard({
     }
   };
 
+  /* ===================== EXECUÇÃO DA ETAPA (passagem atual) ===================== */
 
-  /**
-   * Ajuda o executor quando há alterações pendentes, mas NUNCA bloqueia:
-   * o usuário pode continuar mesmo assim.
-   */
-  const runWithPendingChangesGuard = (label: string, run: () => Promise<void> | void) => {
-    if (pendingChangeItems > 0) {
-      setPendingGuardAction({ label, run });
+  const [execution, setExecution] = useState<{
+    active: ExecutionRunWithItems | null;
+    history: ExecutionRunWithItems[];
+  }>({ active: null, history: [] });
+  const [executionLoading, setExecutionLoading] = useState(false);
+  const [busyExecutionItemId, setBusyExecutionItemId] = useState<string | null>(null);
+  const [addingExecutionItem, setAddingExecutionItem] = useState(false);
+  const [completingAllExecution, setCompletingAllExecution] = useState(false);
+  const [executionGuardAction, setExecutionGuardAction] = useState<{
+    label: string;
+    run: () => Promise<void> | void;
+  } | null>(null);
+  const executionAutoOpenedRef = useRef<string | null>(null);
+
+  const pendingExecutionItems = countPendingExecutionItems(execution.active);
+  const showExecutionTab = shouldShowExecutionTab({ isDraft });
+  const executionWarning = buildExecutionTransitionWarning(execution.active);
+
+  /** Identidade da passagem atual: etapa + tipo + responsável. */
+  const executionContext = {
+    functionKey: card?.current_function_key ?? null,
+    demandTypeKey: (card as any)?.demand_type_key ?? null,
+    assignedTo: card?.assigned_to ?? null,
+  };
+
+  const refreshExecution = useCallback(async () => {
+    if (!card?.id || isDraft) {
+      setExecution({ active: null, history: [] });
       return;
     }
-    void run();
+    setExecution(await loadExecutionRuns(card.id));
+  }, [card?.id, isDraft]);
+
+  useEffect(() => {
+    if (!open || isDraft || !card?.id) {
+      setExecution({ active: null, history: [] });
+      return;
+    }
+    let cancelled = false;
+    setExecutionLoading(true);
+    loadExecutionRuns(card.id)
+      .then((data) => {
+        if (cancelled) return;
+        setExecution(data);
+      })
+      .finally(() => {
+        if (!cancelled) setExecutionLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [open, isDraft, card?.id]);
+
+  useEffect(() => {
+    if (!open) executionAutoOpenedRef.current = null;
+  }, [open]);
+
+  /**
+   * Abre direto na aba com pendência. "Alterações" (retrabalho) tem prioridade
+   * sobre "Execução" — nunca as duas ao mesmo tempo.
+   */
+  useEffect(() => {
+    if (!open || isDraft || !card?.id) return;
+    const target = resolveAutoOpenTab({
+      isDraft,
+      alterationsPending: pendingChangeItems,
+      executionPending: pendingExecutionItems,
+    });
+    if (target !== 'execucao') return;
+    if (executionAutoOpenedRef.current === card.id) return;
+    executionAutoOpenedRef.current = card.id;
+    setActiveSection('execucao');
+  }, [open, isDraft, card?.id, pendingChangeItems, pendingExecutionItems]);
+
+  useRealtimeDemandExecution({
+    tenantId: card?.tenant_id ?? null,
+    demandId: card?.id ?? null,
+    enabled: !!open && !isDraft,
+    onChange: () => { void refreshExecution(); },
+  });
+
+  const handleAddExecutionItem = async (text: string) => {
+    if (!card || readOnly || isDraft) return;
+    setAddingExecutionItem(true);
+    try {
+      const run = await ensureExecutionRun({
+        tenantId: card.tenant_id,
+        demandId: card.id,
+        context: executionContext,
+        metadata: { created_from: "task_card" },
+      });
+      if (!run) throw new Error("Sem passagem ativa");
+      await addExecutionItem({
+        runId: run.id,
+        tenantId: card.tenant_id,
+        text,
+        position: run.items.length,
+      });
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] add execution item", err);
+      toast.error("Não foi possível adicionar a tarefa.");
+    } finally {
+      setAddingExecutionItem(false);
+    }
+  };
+
+  const handleToggleExecutionItem = async (itemId: string, completed: boolean) => {
+    if (readOnly) return;
+    setBusyExecutionItemId(itemId);
+    try {
+      await setExecutionItemCompleted(itemId, completed, currentUserId);
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] toggle execution item", err);
+      toast.error("Não foi possível atualizar a tarefa.");
+      await refreshExecution();
+    } finally {
+      setBusyExecutionItemId(null);
+    }
+  };
+
+  const handleDeleteExecutionItem = async (itemId: string) => {
+    if (readOnly) return;
+    setBusyExecutionItemId(itemId);
+    try {
+      await deleteExecutionItem(itemId);
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] delete execution item", err);
+      toast.error("Não foi possível remover a tarefa.");
+    } finally {
+      setBusyExecutionItemId(null);
+    }
+  };
+
+  const handleCompleteAllExecution = async () => {
+    if (readOnly || !execution.active) return;
+    setCompletingAllExecution(true);
+    try {
+      await completeAllPendingExecutionItems(execution.active.id, currentUserId);
+      await refreshExecution();
+      toast.success("Execução marcada como concluída.");
+    } catch (err) {
+      console.error("[TaskCard] complete all execution", err);
+      toast.error("Não foi possível marcar as tarefas.");
+    } finally {
+      setCompletingAllExecution(false);
+    }
+  };
+
+  /**
+   * Ajuda o executor quando há alterações OU execução pendentes, mas NUNCA
+   * bloqueia: o usuário pode continuar mesmo assim.
+   *
+   * Toda transição encerra a passagem em execução — o checklist de uma etapa
+   * nunca vaza para a etapa seguinte, e "passou com pendências" fica no
+   * histórico da passagem.
+   */
+  const runWithPendingChangesGuard = (label: string, run: () => Promise<void> | void) => {
+    const demandId = card?.id ?? null;
+    const activeRun = execution.active;
+    const guarded = async () => {
+      await run();
+      if (demandId && activeRun) {
+        await closeActiveExecutionRun({
+          demandId,
+          reason: `flow_transition:${label}`,
+          active: activeRun,
+        });
+        await refreshExecution();
+      }
+    };
+
+    if (pendingChangeItems > 0) {
+      setPendingGuardAction({ label, run: guarded });
+      return;
+    }
+    if (pendingExecutionItems > 0) {
+      setExecutionGuardAction({ label, run: guarded });
+      return;
+    }
+    void guarded();
   };
 
   const executeProceed = async (forcedAssigneeId?: string | null) => {
@@ -3988,6 +4176,9 @@ export default function TaskCard({
                                 ? [{ id: 'briefing' as const, label: 'Briefing', icon: FileText, savingKey: 'content_brief' }]
                                 : []),
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
+                              ...(showExecutionTab
+                                ? [{ id: 'execucao' as const, label: 'Execução', icon: ListChecks, savingKey: 'execution' }]
+                                : []),
                               ...(showAlterationsTab
                                 ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
                                 : []),
@@ -4006,7 +4197,13 @@ export default function TaskCard({
                                 {sectionButtons.map(({ id, label, icon: Icon, savingKey }) => {
                                   const isActive = activeSection === id;
                                   const isSaving = saving && savingField === savingKey;
-                                  const showPendingBadge = id === 'alteracoes' && pendingChangeItems > 0;
+                                  const badgeCount =
+                                    id === 'alteracoes'
+                                      ? pendingChangeItems
+                                      : id === 'execucao'
+                                        ? pendingExecutionItems
+                                        : 0;
+                                  const showPendingBadge = badgeCount > 0;
                                   return (
                                     <button
                                       key={id}
@@ -4028,7 +4225,7 @@ export default function TaskCard({
                                           "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold",
                                           isActive ? "bg-primary-foreground/20" : "bg-amber-500 text-white"
                                         )}>
-                                          {pendingChangeItems}
+                                          {badgeCount}
                                         </span>
                                       )}
                                       {isSaving && <Loader2 className="h-3 w-3 animate-spin" />}
@@ -4172,6 +4369,34 @@ export default function TaskCard({
                               />
                             )}
 
+                            {activeSection === 'execucao' && (
+                              <ExecutionPanel
+                                active={execution.active}
+                                history={execution.history}
+                                loading={executionLoading}
+                                readOnly={readOnly}
+                                stageLabel={
+                                  (pipelineSequence as any[]).find(
+                                    (f: any) => f.function_key === card.current_function_key,
+                                  )?.name || undefined
+                                }
+                                typeLabel={card.demand_type || undefined}
+                                stageLabels={Object.fromEntries(
+                                  (pipelineSequence as any[]).map((f: any) => [f.function_key, f.name]),
+                                )}
+                                userNames={Object.fromEntries(collaborators.map((c) => [c.id, c.name]))}
+                                onAddItem={handleAddExecutionItem}
+                                onToggleItem={handleToggleExecutionItem}
+                                onDeleteItem={handleDeleteExecutionItem}
+                                onCompleteAll={handleCompleteAllExecution}
+                                busyItemId={busyExecutionItemId}
+                                adding={addingExecutionItem}
+                                completingAll={completingAllExecution}
+                              />
+                            )}
+
+
+
                           </section>
                           )}
                         </>
@@ -4239,6 +4464,65 @@ export default function TaskCard({
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+
+                    {/* Orientação (não bloqueio) quando a execução da etapa tem pendências */}
+                    <AlertDialog
+                      open={!!executionGuardAction}
+                      onOpenChange={(v) => { if (!v) setExecutionGuardAction(null); }}
+                    >
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Execução desta etapa com pendências</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {executionWarning
+                              ? `${executionWarning.pending} de ${executionWarning.total} tarefas desta etapa ainda não foram concluídas. Você pode continuar mesmo assim — a passagem fica registrada como concluída com pendências.`
+                              : "Ainda há tarefas desta etapa não concluídas."}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        {executionWarning && executionWarning.pendingTexts.length > 0 && (
+                          <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+                            {executionWarning.pendingTexts.map((t, i) => (
+                              <li key={`${i}-${t}`} className="text-xs text-muted-foreground">• {t}</li>
+                            ))}
+                          </ul>
+                        )}
+                        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setExecutionGuardAction(null);
+                              setActiveSection('execucao');
+                            }}
+                          >
+                            Ver execução
+                          </Button>
+                          <Button
+                            variant="outline"
+                            disabled={completingAllExecution}
+                            onClick={async () => {
+                              const action = executionGuardAction;
+                              setExecutionGuardAction(null);
+                              await handleCompleteAllExecution();
+                              await action?.run();
+                            }}
+                          >
+                            Marcar tudo e continuar
+                          </Button>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              const action = executionGuardAction;
+                              setExecutionGuardAction(null);
+                              await action?.run();
+                            }}
+                          >
+                            Continuar com pendências
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+
 
 
 

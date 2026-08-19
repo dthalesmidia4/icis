@@ -668,6 +668,130 @@ export type Database = {
           },
         ]
       }
+      demand_execution_items: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          execution_run_id: string
+          id: string
+          is_completed: boolean
+          position: number
+          tenant_id: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          execution_run_id: string
+          id?: string
+          is_completed?: boolean
+          position?: number
+          tenant_id: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          execution_run_id?: string
+          id?: string
+          is_completed?: boolean
+          position?: number
+          tenant_id?: string
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_execution_items_execution_run_id_fkey"
+            columns: ["execution_run_id"]
+            isOneToOne: false
+            referencedRelation: "demand_execution_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_execution_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_execution_runs: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          demand_id: string
+          demand_type_key: string | null
+          function_key: string | null
+          id: string
+          metadata: Json
+          pass_number: number
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          demand_id: string
+          demand_type_key?: string | null
+          function_key?: string | null
+          id?: string
+          metadata?: Json
+          pass_number?: number
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          demand_id?: string
+          demand_type_key?: string | null
+          function_key?: string | null
+          id?: string
+          metadata?: Json
+          pass_number?: number
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_execution_runs_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_execution_runs_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
+          },
+          {
+            foreignKeyName: "demand_execution_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demand_feedback_events: {
         Row: {
           channel: string | null
@@ -2737,6 +2861,19 @@ export type Database = {
       can_manage_release_queue: {
         Args: { _tenant_id: string }
         Returns: boolean
+      }
+      change_demand_type_and_stage: {
+        Args: {
+          p_demand_id: string
+          p_expected_assigned_to: string
+          p_expected_function_key: string
+          p_expected_type_key: string
+          p_next_assigned_to: string
+          p_next_function_key: string
+          p_next_type_key: string
+          p_next_type_label?: string
+        }
+        Returns: Json
       }
       create_demand_from_template: {
         Args: {

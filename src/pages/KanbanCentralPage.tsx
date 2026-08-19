@@ -1361,6 +1361,7 @@ const KanbanCentralPage = () => {
           id: card.id,
           tenant_id: tenantId,
           demand_type_key: (card as any).demand_type_key ?? null,
+          demand_type: (card as any).demand_type ?? null,
           work_area: (card as any).work_area ?? null,
           origin: (card as any).origin ?? null,
           current_function_key: (card as any).current_function_key ?? null,
