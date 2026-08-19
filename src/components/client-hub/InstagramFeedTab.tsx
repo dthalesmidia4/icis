@@ -519,9 +519,30 @@ function FeedCell({
             <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-primary">
               {entry.stageLabel}
             </span>
-            <span className="block text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-              {dateLabel(entry.date)}
-            </span>
+            {editablePublication ? (
+              <SingleDateTimePopover
+                date={entry.date}
+                time={entry.time || null}
+                label="Publicação"
+                align="start"
+                onSave={savePublication}
+                trigger={
+                  <button
+                    type="button"
+                    title="Editar data e hora da publicação"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block rounded text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-primary"
+                  >
+                    {savingPublication ? "Salvando…" : publicationText}
+                  </button>
+                }
+              />
+            ) : (
+              <span className="block text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                {publicationText}
+              </span>
+            )}
           </div>
         </div>
       )}
