@@ -2860,6 +2860,17 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: number
       }
+      bulk_admin_stage_allowed: {
+        Args: {
+          _current_key: string
+          _demand_type_key: string
+          _next_key: string
+          _origin: string
+          _tenant_id: string
+          _work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: boolean
+      }
       can_create_demands: { Args: { _tenant_id: string }; Returns: boolean }
       can_create_tenant: { Args: { _user_id: string }; Returns: boolean }
       can_manage_release_queue: {
@@ -2950,10 +2961,12 @@ export type Database = {
         Returns: Json
       }
       is_agency_admin: { Args: { _tenant_id: string }; Returns: boolean }
+      is_client_facing_function: { Args: { _key: string }; Returns: boolean }
       is_release_queue_enabled: {
         Args: { _tenant_id: string }
         Returns: boolean
       }
+      is_review_function: { Args: { _key: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       record_demand_feedback: {
         Args: {

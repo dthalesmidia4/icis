@@ -15,7 +15,14 @@
  * - Cards arquivados e rascunhos ficam fora.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { estimateDurationMinutesWithOverrides } from "@/lib/reorderSequence";
+import {
+  addDaysISO,
+  estimateDurationMinutesWithOverrides,
+  weekdayOfISO,
+  zonedClockParts,
+  DEFAULT_WORK_HOURS,
+} from "@/lib/reorderSequence";
+import { fetchHolidaysInRange } from "@/lib/dailyCards";
 import { getCachedDurationsByArea, type StageDurations } from "@/lib/flowDurations";
 import { isClientFacingFunction } from "@/lib/flowFunctions";
 import { findScheduleAreaConflict, AREA_LABEL, type WorkArea } from "@/lib/areaConflicts";
@@ -363,6 +370,8 @@ export async function suggestFreeSlot(params: {
   durations?: StageDurations;
   /** Instante de referência (default: agora). Injetável nos testes. */
   now?: Date;
+  /** Timezone canônica do expediente (default: America/Sao_Paulo). */
+  tz?: string;
 }): Promise<FreeSlotSuggestion | null> {
   const stage = params.targetStage ?? params.card.current_function_key ?? null;
   if (isUntimedStage(stage)) return null;
@@ -371,19 +380,18 @@ export async function suggestFreeSlot(params: {
   const probe: OccupancyCardInput = { ...params.card, current_function_key: stage, work_area: area };
   const dur = durationMinutesOf(probe, durations);
 
-  const pad = (n: number) => String(n).padStart(2, "0");
+  // Relógio CANÔNICO do expediente (nunca o timezone do runtime/navegador).
+  const tz = params.tz || DEFAULT_WORK_HOURS.tz;
   const nowRef = params.now ?? new Date();
-  const todayISO = `${nowRef.getFullYear()}-${pad(nowRef.getMonth() + 1)}-${pad(nowRef.getDate())}`;
+  const nowParts = zonedClockParts(nowRef, tz);
+  const todayISO = nowParts.dateISO;
   // Minuto atual arredondado para cima na grade de 5 minutos do sistema.
-  const nowMinRaw = nowRef.getHours() * 60 + nowRef.getMinutes();
+  const nowMinRaw = nowParts.minutes;
   const nowMin = nowMinRaw % 5 === 0 ? nowMinRaw : nowMinRaw + (5 - (nowMinRaw % 5));
 
   const cardDate = params.card.due_date || params.card.publish_date || null;
   // Base = max(data do card, hoje). Data vencida nunca puxa a busca para o passado.
   const baseDate = cardDate && cardDate > todayISO ? cardDate : todayISO;
-  const [by, bm, bd] = baseDate.split("-").map(Number);
-  const cursor = new Date(by, (bm || 1) - 1, bd || 1);
-
 
   // Expediente configurado do usuário (todas as áreas, todos os dias da semana).
   let scheduleRows: Array<{ work_area: string; weekday: number; start_time: string; end_time: string }> = [];
@@ -399,17 +407,28 @@ export async function suggestFreeSlot(params: {
   }
   const hasSchedule = scheduleRows.length > 0;
 
+  // Feriados vindos da MESMA fonte usada pelo motor de reorganização.
+  let holidays = new Set<string>();
+  try {
+    holidays = await fetchHolidaysInRange(baseDate, addDaysISO(baseDate, 31));
+  } catch {
+    holidays = new Set<string>();
+  }
+
   for (let i = 0; i < 30; i++) {
-    const dateStr = `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}-${pad(cursor.getDate())}`;
-    const dow = cursor.getDay();
+    const dateStr = addDaysISO(baseDate, i);
+    const dow = weekdayOfISO(dateStr);
 
     const dayRows = scheduleRows.filter((r) => r.weekday === dow);
     // Sem nenhuma configuração no sistema: expediente padrão, pulando fim de semana.
-    const windows = hasSchedule
-      ? buildDayWindows(dayRows, area)
-      : dow === 0 || dow === 6
-        ? []
-        : DEFAULT_WORK_WINDOWS;
+    const windows = holidays.has(dateStr)
+      ? []
+      : hasSchedule
+        ? buildDayWindows(dayRows, area)
+        : dow === 0 || dow === 6
+          ? []
+          : DEFAULT_WORK_WINDOWS;
+
 
     if (windows.length > 0) {
       const busy = await getBusyIntervals({
@@ -420,7 +439,8 @@ export async function suggestFreeSlot(params: {
         excludeDemandId: params.card.id,
         durations,
       });
-      const dayZero = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()).getTime();
+      const [dy, dm, dd] = dateStr.split("-").map(Number);
+      const dayZero = new Date(dy, (dm || 1) - 1, dd || 1).getTime();
       const blocks = busy.map((b) => ({
         s: Math.max(0, Math.round((b.start - dayZero) / 60_000)),
         e: Math.min(24 * 60, Math.round((b.end - dayZero) / 60_000)),
@@ -463,7 +483,6 @@ export async function suggestFreeSlot(params: {
         rejected.push(start);
       }
     }
-    cursor.setDate(cursor.getDate() + 1);
   }
   return null;
 }

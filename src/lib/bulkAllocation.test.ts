@@ -26,6 +26,7 @@ import {
   signatureOf,
   signaturesMatch,
   STALE_BULK_MESSAGE,
+  STALE_CLOCK_MESSAGE,
   type BulkAllocationDeps,
   type BulkCardRow,
 } from "@/lib/bulkAllocation";
@@ -683,5 +684,234 @@ describe("planBulkAllocation — nunca sugere horário vencido", () => {
     });
     const p = await plan(h, ["c1"]);
     expect(p.nextAvailable).toBeNull();
+  });
+});
+
+// ------------------------------------------------------------------
+// Frescor no momento do apply
+// ------------------------------------------------------------------
+
+describe("applyBulkAllocation — frescor do relógio", () => {
+  it("prévia aberta por 20min sem mudança no banco: stale e ZERO writes", async () => {
+    const h = harness({ cards: [row()] });
+    const p = await plan(h, ["c1"]);
+    expect(p.assignments[0].dueTime).toBe("09:00");
+
+    const later = new Date(NOW.getTime() + 20 * 60_000); // 09:20 em São Paulo
+    const res = await applyBulkAllocation(p, { ...h.deps, now: () => later });
+    expect(res.status).toBe("stale");
+    expect(res.message).toBe(STALE_CLOCK_MESSAGE);
+    expect(h.atomicCalls).toHaveLength(0);
+    expect(res.appliedIds).toEqual([]);
+  });
+
+  it("apply no mesmo minuto da prévia segue válido", async () => {
+    const h = harness({ cards: [row()] });
+    const p = await plan(h, ["c1"]);
+    const res = await applyBulkAllocation(p, h.deps);
+    expect(res.status).toBe("applied");
+    expect(h.atomicCalls).toHaveLength(1);
+    expect(h.atomicCalls[0].now_wallclock).toBe("2026-08-05T09:00");
+    expect(h.atomicCalls[0].timezone).toBe("America/Sao_Paulo");
+  });
+});
+
+// ------------------------------------------------------------------
+// Guardas da fila inteira do destinatário
+// ------------------------------------------------------------------
+
+describe("guardas da fila do destinatário", () => {
+  /** Card do destinatário que NÃO precisa mudar de horário na prévia. */
+  const untouched = () =>
+    row({
+      id: "q-keep",
+      assigned_to: TARGET,
+      current_function_key: "aguardando_cliente",
+      due_date: "2026-08-05",
+      due_time: "16:00",
+      delivery_date: "2026-08-05",
+      delivery_time: "17:00",
+      updated_at: "2026-08-02T09:00:00.000Z",
+    });
+
+  it("card inalterado da fila entra como guarda (sem virar update)", async () => {
+    const h = harness({ cards: [row({ id: "a" })], queue: [untouched()] });
+    const p = await plan(h, ["a"]);
+    expect(Object.keys(p.guards)).toContain("q-keep");
+    expect(Object.keys(p.signatures)).not.toContain("q-keep");
+
+    await applyBulkAllocation(p, h.deps);
+    const payload = h.atomicCalls[0];
+    expect(payload.guards.map((g: any) => g.card_id)).toContain("q-keep");
+    expect(payload.queue.map((q: any) => q.card_id)).not.toContain("q-keep");
+    expect(payload.items.map((i: any) => i.card_id)).not.toContain("q-keep");
+    expect(payload.guards[0]).toMatchObject({
+      expected_updated_at: "2026-08-02T09:00:00.000Z",
+      expected_assigned_to: TARGET,
+      expected_function_key: "aguardando_cliente",
+    });
+  });
+
+  it("guarda alterada depois da prévia aborta o lote sem nenhum write", async () => {
+    const h = harness({ cards: [row({ id: "a" })], queue: [untouched()] });
+    const p = await plan(h, ["a"]);
+
+    const moved = harness({
+      cards: [row({ id: "a" })],
+      queue: [untouched()],
+      signatures: {
+        a: signatureOf(row({ id: "a" })),
+        "q-keep": { ...signatureOf(untouched()), updated_at: "2026-08-04T12:00:00.000Z" },
+      },
+    });
+    const res = await applyBulkAllocation(p, moved.deps);
+    expect(res.status).toBe("stale");
+    expect(res.message).toBe(STALE_BULK_MESSAGE);
+    expect(moved.atomicCalls).toHaveLength(0);
+  });
+});
+
+// ------------------------------------------------------------------
+// `captar` fixo só quando já era captação real
+// ------------------------------------------------------------------
+
+describe("captar — horário fixo apenas em captação real", () => {
+  const toCaptar = () => ({
+    status: "ok",
+    nextFunctionKey: "captar",
+    direction: "forward",
+    softMessages: [],
+  });
+
+  it("criar_arte -> captar com due antigo é rejeitado (nunca herda a janela anterior)", async () => {
+    const h = harness({
+      cards: [
+        row({
+          id: "c1",
+          current_function_key: "criar_arte",
+          due_date: "2026-07-28",
+          due_time: "10:00",
+          delivery_date: "2026-07-28",
+          delivery_time: "11:00",
+        }),
+      ],
+      evaluate: toCaptar,
+    });
+    const p = await plan(h, ["c1"]);
+    expect(p.assignments).toHaveLength(0);
+    expect(p.rejected[0].reason).toMatch(/Captação sem horário definido/);
+  });
+
+  it("revisar -> captar com data passada idem", async () => {
+    const h = harness({
+      cards: [
+        row({
+          id: "c1",
+          current_function_key: "revisar",
+          due_date: "2026-08-01",
+          due_time: "15:00",
+          delivery_date: "2026-08-01",
+          delivery_time: "15:30",
+        }),
+      ],
+      evaluate: toCaptar,
+    });
+    const p = await plan(h, ["c1"]);
+    expect(p.assignments).toHaveLength(0);
+    expect(p.rejected[0].reason).toMatch(/agende a captação/);
+  });
+
+  it("card originalmente em captar, com horário válido, preserva a janela fixa", async () => {
+    const h = harness({
+      cards: [
+        row({
+          id: "c1",
+          current_function_key: "captar",
+          due_date: "2026-08-07",
+          due_time: "14:00",
+          delivery_date: "2026-08-07",
+          delivery_time: "16:00",
+        }),
+      ],
+      evaluate: toCaptar,
+    });
+    const p = await plan(h, ["c1"]);
+    const a = p.assignments[0];
+    expect(a.fixed).toBe(true);
+    expect([a.dueDate, a.dueTime]).toEqual(["2026-08-07", "14:00"]);
+    expect([a.deliveryDate, a.deliveryTime]).toEqual(["2026-08-07", "16:00"]);
+  });
+});
+
+// ------------------------------------------------------------------
+// Colaboradores extras (captação)
+// ------------------------------------------------------------------
+
+describe("additional_assignees na alocação em massa", () => {
+  it("captar -> editar_video limpa os colaboradores extras", async () => {
+    const h = harness({
+      cards: [
+        row({
+          id: "c1",
+          current_function_key: "captar",
+          additional_assignees: ["extra-1", "extra-2"],
+          due_date: "2026-08-07",
+          due_time: "14:00",
+          delivery_date: "2026-08-07",
+          delivery_time: "16:00",
+        }),
+      ],
+      evaluate: () => ({ status: "ok", nextFunctionKey: "editar_video", direction: "forward", softMessages: [] }),
+    });
+    const p = await plan(h, ["c1"]);
+    expect(p.assignments[0].additionalAssigneesMode).toBe("clear");
+    await applyBulkAllocation(p, h.deps);
+    expect(h.atomicCalls[0].items[0].additional_assignees_mode).toBe("clear");
+  });
+
+  it("permanece em captar e o destinatário já era extra: vira principal e sai da lista", async () => {
+    const h = harness({
+      cards: [
+        row({
+          id: "c1",
+          current_function_key: "captar",
+          additional_assignees: [TARGET, "extra-2"],
+          due_date: "2026-08-07",
+          due_time: "14:00",
+          delivery_date: "2026-08-07",
+          delivery_time: "16:00",
+        }),
+      ],
+      evaluate: () => ({ status: "ok", nextFunctionKey: "captar", direction: "same", softMessages: [] }),
+    });
+    const p = await plan(h, ["c1"]);
+    expect(p.assignments[0].additionalAssigneesMode).toBe("drop_target");
+  });
+});
+
+// ------------------------------------------------------------------
+// Duração personalizada na mesma transação
+// ------------------------------------------------------------------
+
+describe("duração personalizada é transacional", () => {
+  it("vai no payload atômico, nunca em um write separado", async () => {
+    const h = harness({ cards: [row()] });
+    const p = await plan(h, ["c1"], { durationOverrides: { c1: 75 } });
+    expect(p.assignments[0].durationSource).toBe("manual");
+    await applyBulkAllocation(p, h.deps);
+    expect(h.atomicCalls[0].duration_overrides).toEqual([
+      { card_id: "c1", function_key: "criar_arte", duration_min: 75 },
+    ]);
+  });
+
+  it("falha da transação não devolve sucesso: nada aplicado", async () => {
+    const h = harness({
+      cards: [row()],
+      atomicResult: () => ({ status: "error", message: "duração inválida" }),
+    });
+    const p = await plan(h, ["c1"], { durationOverrides: { c1: 75 } });
+    const res = await applyBulkAllocation(p, h.deps);
+    expect(res.status).toBe("error");
+    expect(res.appliedIds).toEqual([]);
   });
 });
