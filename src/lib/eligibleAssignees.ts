@@ -4,55 +4,18 @@
  * Antes cada tela calculava "quem pode receber este card" com parâmetros
  * próprios (normalmente `currentKey = null` e modo `flow`), o que desabilitava
  * colaboradores que o contrato de reatribuição (`evaluateReassign`) aceitaria
- * com remapeamento de etapa. Agora existe um único resolvedor:
- *
- *  - card SALVO  → mesma pergunta do `evaluateReassign`: a etapa ATUAL do card
- *    com `mode: "administrative_reassign"` (respeita barreiras de cliente,
- *    etapas já concluídas e anti-autorrevisão);
- *  - RASCUNHO    → o card ainda não existe: pergunta a etapa INICIAL do fluxo
- *    (`currentKey = null`, modo `flow`).
+ * com remapeamento de etapa. Agora existe um único resolvedor, com as regras
+ * puras em `src/lib/eligibilityRules.ts`.
  *
  * Nada é gravado aqui.
  */
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
+import { eligibilityResolverArgs } from "@/lib/eligibilityRules";
 
-export type EligibilityMode = "saved" | "draft";
+export type { EligibilityMode, EligibilityCard, EligibilityResolverArgs } from "@/lib/eligibilityRules";
+export { eligibilityResolverArgs };
 
-export interface EligibilityCard {
-  id?: string | null;
-  demand_type_key?: string | null;
-  work_area?: string | null;
-  origin?: string | null;
-  current_function_key?: string | null;
-}
-
-export interface EligibilityResolverArgs {
-  demandTypeKey: string | null;
-  currentFunctionKey: string | null;
-  demandId: string | null;
-  workArea: string | null;
-  origin: string | null;
-  mode: "flow" | "administrative_reassign";
-}
-
-/**
- * Parâmetros exatos do resolvedor para (card, modo). Exposto separadamente para
- * permitir teste puro da regra sem rede.
- */
-export function eligibilityResolverArgs(
-  card: EligibilityCard,
-  mode: EligibilityMode,
-): EligibilityResolverArgs {
-  const saved = mode === "saved";
-  return {
-    demandTypeKey: card.demand_type_key ?? null,
-    currentFunctionKey: saved ? card.current_function_key ?? null : null,
-    demandId: saved ? card.id ?? null : null,
-    workArea: card.work_area ?? null,
-    origin: card.origin ?? null,
-    mode: saved ? "administrative_reassign" : "flow",
-  };
-}
+import type { EligibilityCard, EligibilityMode } from "@/lib/eligibilityRules";
 
 export interface AssigneeEligibility {
   eligible: boolean;
@@ -93,5 +56,5 @@ export async function listEligibleAssignees(params: {
     }),
   );
 
-  return Object.fromEntries(entries);
+  return Object.fromEntries(entries) as Record<string, AssigneeEligibility>;
 }

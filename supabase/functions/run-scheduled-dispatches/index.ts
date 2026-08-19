@@ -323,7 +323,7 @@ Deno.serve(async (req) => {
             .in("role", ["agency_admin", "agency_manager", "agency_user"]);
           const internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
           if (internalIds.length > 0) {
-            const [{ data: profiles }, { data: openDemands }] = await Promise.all([
+            const [{ data: profiles }, { data: openDemands }, { data: hist }] = await Promise.all([
               supabase.from("profiles").select("id, full_name").in("id", internalIds),
               supabase
                 .from("demands")
@@ -331,21 +331,36 @@ Deno.serve(async (req) => {
                 .eq("tenant_id", raw.tenant_id)
                 .is("archived_at", null)
                 .in("assigned_to", internalIds),
+              supabase
+                .from("demand_flow_history")
+                .select("from_user_id, from_function_key")
+                .eq("demand_id", raw.card_id)
+                .limit(200),
             ]);
+            // ANTI-AUTORREVISÃO: quem executou etapa deste card não revisa a
+            // própria publicação. Só relaxa se sobrar ninguém.
+            const worked = new Set(
+              ((hist as any[]) || [])
+                .filter((h) => h.from_user_id && h.from_function_key && h.from_function_key !== "revisar_publicacao")
+                .map((h) => h.from_user_id as string),
+            );
+            const pool = internalIds.filter((id) => !worked.has(id));
+            const candidates = pool.length > 0 ? pool : internalIds;
             const counts = new Map<string, number>();
             (openDemands || []).forEach((d: any) => {
               if (d.assigned_to) counts.set(d.assigned_to, (counts.get(d.assigned_to) || 0) + 1);
             });
             const nameById = new Map<string, string>();
             (profiles || []).forEach((p: any) => nameById.set(p.id, p.full_name || "Colaborador"));
-            internalIds.sort((a, b) => {
+            candidates.sort((a, b) => {
               const ca = counts.get(a) || 0;
               const cb = counts.get(b) || 0;
               if (ca !== cb) return ca - cb;
               return (nameById.get(a) || "").localeCompare(nameById.get(b) || "", "pt-BR");
             });
-            reviewerId = internalIds[0] || null;
+            reviewerId = candidates[0] || null;
           }
+
         }
         if (!reviewerId) {
           console.warn(`[dispatch ${raw.id}] no reviewer available for revisar_publicacao (tenant ${raw.tenant_id})`);

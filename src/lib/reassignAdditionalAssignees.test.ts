@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAdditionalAssignees } from "@/lib/reassignDemand";
+import { normalizeAdditionalAssignees } from "@/lib/reassignRules";
 
 describe("normalizeAdditionalAssignees", () => {
   it("limpa extras ao sair de captar", () => {

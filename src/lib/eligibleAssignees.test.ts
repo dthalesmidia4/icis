@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eligibilityResolverArgs } from "@/lib/eligibleAssignees";
+import { eligibilityResolverArgs } from "@/lib/eligibilityRules";
 
 const CARD = {
   id: "d1",
