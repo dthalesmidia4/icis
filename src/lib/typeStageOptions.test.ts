@@ -11,6 +11,7 @@ import {
   typeStageChoiceError,
   type AreaDemandType,
 } from "./typeStageOptions";
+import { computeStageOptions } from "./stageOptions";
 
 const types: AreaDemandType[] = [
   {
