@@ -1,0 +1,2 @@
+REVOKE ALL ON FUNCTION public.resolve_function_for_assignee_admin(uuid, uuid, text, text, work_area, text, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_function_for_assignee_admin(uuid, uuid, text, text, work_area, text, uuid) TO service_role;
