@@ -178,7 +178,7 @@ export default function InstagramFeedTab({
   }, [activeCarouselKey, slideByEntry, previewOpen, setSlide]);
 
   return (
-    <div className="space-y-6">
+    <div ref={anchorRef} className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black tracking-tight text-foreground">Prévia do Feed Simulado</h2>
@@ -201,6 +201,7 @@ export default function InstagramFeedTab({
               {selectionMode ? "Cancelar seleção" : "Selecionar"}
             </Button>
           )}
+          {/* Filtros exclusivos do Feed (mídia / produção) — preservados. */}
           {filters.map((f) => (
             <button
               key={f.value}
@@ -216,6 +217,80 @@ export default function InstagramFeedTab({
               {f.label} · {f.count}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Filtros compartilhados com o Calendário: busca, tipo e classificação. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="w-full lg:max-w-xs">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+            Buscar
+          </p>
+          <Input
+            value={shared.search}
+            onChange={(e) => setShared((prev) => ({ ...prev, search: e.target.value }))}
+            placeholder="Tema, tipo ou demanda"
+            className="h-10 rounded-lg"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <button
+            type="button"
+            onClick={() => setShared((prev) => ({ ...prev, type: "all" }))}
+            className={cn(
+              "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
+              shared.type === "all"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+            )}
+          >
+            Todos os tipos <span className="tabular-nums opacity-70">{entries.length}</span>
+          </button>
+          {typeCounts.map(([type, count]) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setShared((prev) => ({ ...prev, type }))}
+              className={cn(
+                "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
+                shared.type === type
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+              )}
+            >
+              {type} <span className="tabular-nums opacity-70">{count}</span>
+            </button>
+          ))}
+          <span className="mx-1 h-6 w-px self-center bg-border" aria-hidden />
+          {CLASSIFICATION_OPTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() =>
+                setShared((prev) => ({
+                  ...prev,
+                  classification: prev.classification === key ? null : (key as ContentClassification),
+                }))
+              }
+              className={cn(
+                "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
+                shared.classification === key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+              )}
+            >
+              {label} <span className="tabular-nums opacity-70">{opCounts[key]}</span>
+            </button>
+          ))}
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-full border border-dashed px-3 py-1 text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              Limpar filtros · {activeFilterCount}
+            </button>
+          )}
         </div>
       </div>
 
