@@ -1663,6 +1663,7 @@ export default function TaskCard({
   const demandTypeKeyForEligibility = (card as any)?.demand_type_key ?? null;
   const workAreaForEligibility = (card as any)?.work_area ?? null;
   const originForEligibility = (card as any)?.origin ?? null;
+  const currentFunctionKeyForEligibility = (card as any)?.current_function_key ?? null;
 
   useEffect(() => {
     if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
