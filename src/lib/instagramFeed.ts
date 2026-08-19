@@ -36,6 +36,8 @@ export interface FeedDemandInput {
   post_caption?: string | null;
   current_function_key?: string | null;
   status_id?: string | null;
+  /** Classificações operacionais (anuncio / grafica) — filtro compartilhado. */
+  classifications?: string[] | null;
 }
 
 
@@ -71,6 +73,8 @@ export interface FeedEntry {
   mediaSource: FeedMediaSource;
   stageLabel: string;
   caption: string | null;
+  /** Classificações operacionais da demanda (vazio para itens de plano). */
+  classifications: string[];
 }
 
 
@@ -300,6 +304,7 @@ export function buildInstagramFeed({
       mediaSource: resolved.mediaSource,
       stageLabel,
       caption: d.post_caption ?? null,
+      classifications: Array.isArray(d.classifications) ? d.classifications : [],
     });
   });
 
@@ -329,6 +334,7 @@ export function buildInstagramFeed({
       mediaSource: null,
       stageLabel: "Planejado · produção não iniciada",
       caption: null,
+      classifications: [],
     });
   });
 
