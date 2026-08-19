@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCollaborators } from "@/hooks/useCollaborators";
-import { fmtMinutes } from "@/lib/reorderSequence";
+import { fmtMinutes, zonedClockParts, DEFAULT_WORK_HOURS } from "@/lib/reorderSequence";
 import { formatDuration, normalizeDurationInput } from "@/lib/durationOverrides";
 import { commonValidStages, type StageOption } from "@/lib/stageOptions";
 import {
@@ -45,13 +45,17 @@ const fmtDate = (iso?: string | null) =>
 
 const stageLabel = (key?: string | null) => (key ? key.replace(/_/g, " ") : "sem etapa");
 
-const todayISO = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-/** "Hoje às 17:25" / "19/08 às 09:00" */
-const fmtNextAvailable = (next: { date: string; time: string } | null): string | null => {
+/**
+ * "Hoje às 17:25" / "19/08 às 09:00" — a decisão de "Hoje" usa a TIMEZONE
+ * CANÔNICA do plano (expediente), nunca a do navegador.
+ */
+const fmtNextAvailable = (
+  next: { date: string; time: string } | null,
+  timezone?: string | null,
+): string | null => {
   if (!next) return null;
-  const isToday = next.date === todayISO(new Date());
+  const todayISO = zonedClockParts(new Date(), timezone || DEFAULT_WORK_HOURS.tz).dateISO;
+  const isToday = next.date === todayISO;
   return `${isToday ? "Hoje" : fmtDate(next.date)} às ${next.time}`;
 };
 
@@ -354,7 +358,7 @@ export default function BulkAllocationModal({
                   <p className="text-[11px] font-black uppercase tracking-[0.12em] text-primary">
                     <Clock className="mr-1 inline h-3.5 w-3.5" />
                     {plan.nextAvailable
-                      ? `Próximo horário operacional de ${plan.targetUserName}: ${fmtNextAvailable(plan.nextAvailable)}`
+                      ? `Próximo horário operacional de ${plan.targetUserName}: ${fmtNextAvailable(plan.nextAvailable, plan.timezone)}`
                       : `Nenhum horário operacional novo será usado para ${plan.targetUserName}`}
                   </p>
                 </div>
