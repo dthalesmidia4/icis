@@ -287,12 +287,23 @@ export async function applyReassign(input: ApplyReassignInput): Promise<ApplyRea
   if ((nextFunctionKey ?? null) !== (card.current_function_key ?? null)) {
     update.current_function_key = nextFunctionKey;
   }
+  // Colaboradores extras pertencem à CAPTAÇÃO: sair de `captar` limpa a lista;
+  // dentro dela o novo principal nunca fica duplicado nos extras.
+  // (mesma regra já aplicada na alocação em massa)
+  const extras = normalizeAdditionalAssignees({
+    extras: card.additional_assignees ?? null,
+    currentFunctionKey: card.current_function_key ?? null,
+    nextFunctionKey: nextFunctionKey ?? null,
+    newAssignedTo,
+  });
+  if (extras) update.additional_assignees = extras.value;
   if (reschedule) {
     update.due_date = reschedule.due_date;
     update.due_time = reschedule.due_time;
     update.delivery_date = reschedule.delivery_date;
     update.delivery_time = reschedule.delivery_time;
   }
+
 
   await applyFlowReactivation(update, card.id, newAssignedTo);
 
