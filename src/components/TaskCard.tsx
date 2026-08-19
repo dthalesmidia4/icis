@@ -30,6 +30,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
+import { listEligibleAssignees } from "@/lib/eligibleAssignees";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { computeDraftMissingFields, draftAreaChangePatch, draftClientChangePatch } from "@/lib/draftDemand";
 import { DailyCardSection } from "@/components/DailyCardSection";
