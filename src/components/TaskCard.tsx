@@ -518,7 +518,7 @@ export default function TaskCard({
   const [referenceToRemove, setReferenceToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
-  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos' | 'referencias' | 'alteracoes'>(
+  const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos' | 'referencias' | 'alteracoes' | 'execucao'>(
     presentation === 'drawer' && (card as any)?.content_brief ? 'briefing' : 'description'
   );
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
