@@ -6,6 +6,17 @@ import type { CurrentPeriodInfo } from "@/lib/periodCounts";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { cn } from "@/lib/utils";
 import { dedupeSnapshotAgainstLive } from "@/lib/demandCode";
+import {
+  CLASSIFICATION_OPTIONS,
+  EMPTY_CONTENT_FILTERS,
+  buildClassificationCounts,
+  buildTypeCounts,
+  classificationLabel,
+  countActiveContentFilters,
+  matchesContentFilters,
+  type ContentClassification,
+  type ContentFilterState,
+} from "@/lib/contentFilters";
 
 
 const WEEKDAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
@@ -63,9 +74,14 @@ interface CalendarTabProps {
 }
 
 export default function CalendarTab({ period, planItems, demands, onOpenDemand }: CalendarTabProps) {
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [opFilter, setOpFilter] = useState<"anuncio" | "grafica" | null>(null);
+  const [filters, setFilters] = useState<ContentFilterState>(EMPTY_CONTENT_FILTERS);
+  const { search, type: typeFilter, classification: opFilter } = filters;
+  const setSearch = (search: string) => setFilters((prev) => ({ ...prev, search }));
+  const setTypeFilter = (type: string) => setFilters((prev) => ({ ...prev, type }));
+  const toggleOpFilter = (key: ContentClassification) =>
+    setFilters((prev) => ({ ...prev, classification: prev.classification === key ? null : key }));
+  const clearFilters = () => setFilters(EMPTY_CONTENT_FILTERS);
+  const activeFilterCount = countActiveContentFilters(filters);
 
   const allEntries = useMemo(() => {
     const entries: CalendarEntry[] = [];
@@ -108,25 +124,26 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
 
 
 
-  const types = useMemo(() => {
-    const map = new Map<string, number>();
-    allEntries.forEach((e) => {
-      const key = (e.type || "Sem tipo").trim();
-      map.set(key, (map.get(key) || 0) + 1);
-    });
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
-  }, [allEntries]);
+  const filterable = useMemo(
+    () =>
+      allEntries.map((e) => ({
+        title: e.title,
+        typeLabel: e.type,
+        classifications: e.classifications,
+        isDemand: e.isDemand,
+      })),
+    [allEntries]
+  );
+
+  const types = useMemo(() => buildTypeCounts(filterable), [filterable]);
 
   const { byDate, weeks } = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const entries = allEntries.filter((e) => {
-      if (term && !e.title.toLowerCase().includes(term) && !(e.type || "").toLowerCase().includes(term)) {
-        return false;
-      }
-      if (typeFilter !== "all" && (e.type || "Sem tipo").trim() !== typeFilter) return false;
-      if (opFilter && !(e.isDemand && e.classifications.includes(opFilter))) return false;
-      return true;
-    });
+    const entries = allEntries.filter((e) =>
+      matchesContentFilters(
+        { title: e.title, typeLabel: e.type, classifications: e.classifications, isDemand: e.isDemand },
+        filters
+      )
+    );
 
     const map = new Map<string, CalendarEntry[]>();
     entries.forEach((e) => {
@@ -158,15 +175,9 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
     if (week.length) result.push(week);
 
     return { byDate: map, weeks: result };
-  }, [allEntries, period, search, typeFilter, opFilter]);
+  }, [allEntries, period, filters]);
 
-  const opCounts = useMemo(
-    () => ({
-      anuncio: allEntries.filter((e) => e.isDemand && e.classifications.includes("anuncio")).length,
-      grafica: allEntries.filter((e) => e.isDemand && e.classifications.includes("grafica")).length,
-    }),
-    [allEntries]
-  );
+  const opCounts = useMemo(() => buildClassificationCounts(filterable), [filterable]);
 
   const today = todayIso();
   const sortedDays = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
@@ -269,14 +280,11 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
           </button>
         ))}
         <span className="mx-1 h-6 w-px self-center bg-border" aria-hidden />
-        {([
-          ["anuncio", "Anúncios"],
-          ["grafica", "Gráfica"],
-        ] as const).map(([key, label]) => (
+        {CLASSIFICATION_OPTIONS.map(({ key, label }) => (
           <button
             key={key}
             type="button"
-            onClick={() => setOpFilter((prev) => (prev === key ? null : key))}
+            onClick={() => toggleOpFilter(key)}
             className={cn(
               "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
               opFilter === key
@@ -287,6 +295,15 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
             {label} <span className="tabular-nums opacity-70">{opCounts[key]}</span>
           </button>
         ))}
+        {activeFilterCount > 0 && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="rounded-full border border-dashed px-3 py-1 text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          >
+            Limpar filtros · {activeFilterCount}
+          </button>
+        )}
       </div>
     </div>
   );
