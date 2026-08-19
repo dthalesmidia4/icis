@@ -3593,13 +3593,22 @@ const KanbanCentralPage = () => {
 
                             {!isReviewCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {reviewCards.map((card) => (
-                                  <div
+                                {reviewCards.map((card, revIdx) => (
+                                  <Draggable
                                     key={card.id}
+                                    draggableId={card.id}
+                                    index={columnCards.length + revIdx}
+                                    isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "review" })}
+                                  >
+                                    {(dp, snap) => (
+                                  <div
                                     ref={(el) => {
+                                      dp.innerRef(el);
                                       if (el) cardRefs.current.set(card.id, el);
                                       else cardRefs.current.delete(card.id);
                                     }}
+                                    {...dp.draggableProps}
+                                    {...dp.dragHandleProps}
                                     className={cn(
                                       highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
                                     )}
@@ -3612,6 +3621,7 @@ const KanbanCentralPage = () => {
                                       dueTime={card.due_time || undefined}
                                       cardDeliveryDate={card.delivery_date || undefined}
                                       deliveryTime={card.delivery_time || undefined}
+                                      isDragging={snap.isDragging}
                                       isOverdue={isCardOverdue(card)}
                                       overdueSince={cardOverdueSince(card)}
                                       cardId={card.id}
@@ -3630,7 +3640,10 @@ const KanbanCentralPage = () => {
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
                                   </div>
+                                    )}
+                                  </Draggable>
                                 ))}
+
                               </div>
                             )}
                           </div>
