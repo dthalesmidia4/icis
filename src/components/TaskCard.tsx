@@ -4369,6 +4369,34 @@ export default function TaskCard({
                               />
                             )}
 
+                            {activeSection === 'execucao' && (
+                              <ExecutionPanel
+                                active={execution.active}
+                                history={execution.history}
+                                loading={executionLoading}
+                                readOnly={readOnly}
+                                stageLabel={
+                                  (pipelineSequence as any[]).find(
+                                    (f: any) => f.function_key === card.current_function_key,
+                                  )?.name || undefined
+                                }
+                                typeLabel={card.demand_type || undefined}
+                                stageLabels={Object.fromEntries(
+                                  (pipelineSequence as any[]).map((f: any) => [f.function_key, f.name]),
+                                )}
+                                userNames={Object.fromEntries(collaborators.map((c) => [c.id, c.name]))}
+                                onAddItem={handleAddExecutionItem}
+                                onToggleItem={handleToggleExecutionItem}
+                                onDeleteItem={handleDeleteExecutionItem}
+                                onCompleteAll={handleCompleteAllExecution}
+                                busyItemId={busyExecutionItemId}
+                                adding={addingExecutionItem}
+                                completingAll={completingAllExecution}
+                              />
+                            )}
+
+
+
                           </section>
                           )}
                         </>
