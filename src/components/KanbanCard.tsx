@@ -288,7 +288,22 @@ const KanbanCard = ({
         selectable && "relative",
         selectable && selected && "ring-2 ring-primary ring-offset-1",
       )}
-      onClick={selectable ? onToggleSelect : onClick}
+      /**
+       * MODO SELEÇÃO: interceptar na FASE DE CAPTURA. Qualquer clique em
+       * qualquer ponto do card (título, data, chip de etapa, botões de
+       * "aguardando cliente", menus) apenas alterna a seleção — nunca abre o
+       * TaskCard nem dispara ação de filho.
+       */
+      onClickCapture={
+        selectable
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSelect?.();
+            }
+          : undefined
+      }
+      onClick={selectable ? undefined : onClick}
       role={selectable ? "checkbox" : undefined}
       aria-checked={selectable ? selected : undefined}
     >
@@ -317,7 +332,8 @@ const KanbanCard = ({
               {_statusName && !awaitingClient
                 ? (() => {
                     const chip = <span className="text-muted-foreground">{_statusName}</span>;
-                    return stageChipWrapper ? stageChipWrapper(chip) : chip;
+                    // Em modo seleção o chip nunca abre popover de etapa.
+                    return stageChipWrapper && !selectable ? stageChipWrapper(chip) : chip;
                   })()
                 : null}
               
@@ -379,7 +395,7 @@ const KanbanCard = ({
             returnLimitReached={awaitingClientReturnLimitReached}
           />
 
-          {awaitingClientActions && (
+          {awaitingClientActions && !selectable && (
             <div className="w-full">{awaitingClientActions}</div>
 
           )}
@@ -394,7 +410,7 @@ const KanbanCard = ({
                 deliveryDate={cardDeliveryDate}
                 deliveryTime={deliveryTime}
                 isOverdue={overdue}
-                editable={!!onDatesChange}
+                editable={!!onDatesChange && !selectable}
                 onSave={onDatesChange}
               />
             </CardContent>
@@ -407,7 +423,7 @@ const KanbanCard = ({
                 deliveryDate={cardDeliveryDate}
                 deliveryTime={deliveryTime}
                 isOverdue={overdue}
-                editable={!!onDatesChange}
+                editable={!!onDatesChange && !selectable}
                 onSave={onDatesChange}
               />
             </CardContent>
