@@ -122,9 +122,9 @@ describe("identidade da passagem", () => {
 });
 
 describe("abas e auto-open", () => {
-  it("aba existe em card salvo e não em rascunho", () => {
+  it("aba existe em card salvo E também no rascunho (criação manual)", () => {
     expect(shouldShowExecutionTab({})).toBe(true);
-    expect(shouldShowExecutionTab({ isDraft: true })).toBe(false);
+    expect(shouldShowExecutionTab({ isDraft: true })).toBe(true);
   });
 
   it("Alterações tem prioridade sobre Execução", () => {
@@ -158,5 +158,32 @@ describe("drafts e avisos", () => {
 
   it("run fechado não gera aviso", () => {
     expect(buildExecutionTransitionWarning(run({ status: "completed", items: [item()] }))).toBeNull();
+  });
+});
+
+
+describe("checklist de rascunho", () => {
+  it("run sintético reflete os itens locais e o contexto da passagem", () => {
+    const items = [makeDraftExecutionItem("Gravar"), makeDraftExecutionItem("Editar")];
+    items[0].is_completed = true;
+    const run = buildDraftExecutionRun(items, {
+      functionKey: "editar_video",
+      demandTypeKey: "video_captado",
+      assignedTo: "u1",
+    });
+    expect(run.status).toBe("active");
+    expect(run.items.map((i) => i.position)).toEqual([0, 1]);
+    expect(countPendingExecutionItems(run)).toBe(1);
+    expect(run.function_key).toBe("editar_video");
+  });
+
+  it("textos materializados são normalizados (vazios e duplicados fora)", () => {
+    const items = [
+      makeDraftExecutionItem("Gravar"),
+      makeDraftExecutionItem("gravar"),
+      makeDraftExecutionItem("  "),
+      makeDraftExecutionItem("Editar"),
+    ];
+    expect(draftExecutionItemTexts(items)).toEqual(["Gravar", "Editar"]);
   });
 });
