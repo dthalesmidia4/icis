@@ -317,13 +317,24 @@ export default function BulkAllocationModal({
               {loadingCollabs && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
               {collaborators.map((c) => {
                 const compatible = collaboratorMayReceive(areasByUser, c.userId, areaSet);
+                const secondary = describeCollaboratorCounts({
+                  operationalDemandCount: c.operationalDemandCount,
+                  scheduledDemandCount: c.scheduledDemandCount,
+                  totalActiveDemandCount: c.totalActiveDemandCount,
+                });
                 return (
                   <button
                     key={c.userId}
                     type="button"
                     disabled={!compatible || applying}
                     onClick={() => setTargetUserId(c.userId)}
-                    title={compatible ? c.roleLabel : "Sem função habilitada na área dos cards selecionados"}
+                    title={
+                      compatible
+                        ? [c.roleLabel, `${c.operationalDemandCount} na fila`, secondary]
+                            .filter(Boolean)
+                            .join(" · ")
+                        : "Sem função habilitada na área dos cards selecionados"
+                    }
                     className={cn(
                       "rounded-full border px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                       targetUserId === c.userId
@@ -332,10 +343,14 @@ export default function BulkAllocationModal({
                     )}
                   >
                     {c.fullName}
-                    <span className="ml-1.5 opacity-70">{c.demandCount}</span>
+                    <span className="ml-1.5 opacity-70">{c.operationalDemandCount} na fila</span>
+                    {c.scheduledDemandCount > 0 && (
+                      <span className="ml-1 opacity-50">+{c.scheduledDemandCount} agendadas</span>
+                    )}
                   </button>
                 );
               })}
+
             </div>
           </div>
 
