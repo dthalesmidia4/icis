@@ -66,6 +66,18 @@ export const STAGE_REASON_LABEL: Record<StageInvalidReason, string> = {
 };
 
 
+/**
+ * Contexto da decisão:
+ *  - `administrative_reassign` (default): decisão automática/administrativa
+ *    (alocação em massa, reatribuição). Repetir uma etapa que o colaborador já
+ *    concluiu neste card é indesejado e fica bloqueado;
+ *  - `manual_stage_change`: ESCOLHA MANUAL EXPLÍCITA de uma pessoa (long-press
+ *    do chip da etapa). Aqui `already_completed` é apenas histórico — não
+ *    impede a escolha. As demais regras (função habilitada, anti-autorrevisão,
+ *    etapa de cliente, segmento do fluxo) continuam valendo.
+ */
+export type StageDecisionMode = "administrative_reassign" | "manual_stage_change";
+
 export interface ComputeStageOptionsParams {
   sequence: StageSequenceItem[];
   /** Funções `allowed = true` do colaborador na área do card. */
@@ -78,6 +90,7 @@ export interface ComputeStageOptionsParams {
    * ser escolhidas. `false` = transição real de processo.
    */
   administrative?: boolean;
+  mode?: StageDecisionMode;
 }
 
 const toSet = (v?: Set<string> | string[]): Set<string> =>
