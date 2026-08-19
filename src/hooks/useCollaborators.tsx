@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { VALID_AGENCY_ROLES, type ValidAgencyRole, getRoleLabel } from "@/lib/constants/roles";
+import { countOperationalDemands, type CountableDemandRow } from "@/lib/operationalCount";
 
 export interface Collaborator {
   userId: string;
@@ -8,8 +9,16 @@ export interface Collaborator {
   avatarUrl: string | null;
   role: ValidAgencyRole;
   roleLabel: string;
+  /** @deprecated número ambíguo — use `operationalDemandCount`. */
   demandCount: number;
+  /** Fila que o usuário reconhece no Kanban (sem publicação agendada). */
+  operationalDemandCount: number;
+  /** Ativas com dispatch de publicação ativo (fora da fila operacional). */
+  scheduledDemandCount: number;
+  /** Ativas não arquivadas/não rascunho como responsável principal. */
+  totalActiveDemandCount: number;
 }
+
 
 /**
  * Retorna colaboradores internos do tenant (agency_admin/manager/user)
@@ -55,36 +64,45 @@ export function useCollaborators(tenantId: string | null | undefined) {
       }
       const userIds = Array.from(roleByUser.keys());
 
-      const [{ data: profiles }, { data: demands }] = await Promise.all([
+      const [{ data: profiles }, { data: demands }, { data: dispatches }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
         supabase
           .from("demands")
-          .select("assigned_to")
+          .select("id, assigned_to, archived_at, is_draft")
           .eq("tenant_id", tenantId)
           .is("archived_at", null)
           .eq("is_draft", false)
           .in("assigned_to", userIds),
-
+        // Mesma exclusão estrutural da Visão Geral: publicação agendada sai da fila.
+        supabase
+          .from("scheduled_publication_dispatches")
+          .select("card_id")
+          .eq("tenant_id", tenantId)
+          .in("status", ["scheduled", "dispatching"]),
       ]);
 
-      const countByUser = new Map<string, number>();
-      (demands || []).forEach((d: any) => {
-        if (!d.assigned_to) return;
-        countByUser.set(d.assigned_to, (countByUser.get(d.assigned_to) || 0) + 1);
-      });
+      const rows = (demands || []) as CountableDemandRow[];
+      const activeDispatchIds = new Set<string>(
+        ((dispatches || []) as any[]).map((d) => d.card_id).filter(Boolean),
+      );
 
       const result: Collaborator[] = userIds.map((uid) => {
         const p = profiles?.find((pr: any) => pr.id === uid);
         const role = roleByUser.get(uid)!;
+        const counts = countOperationalDemands(rows, uid, activeDispatchIds);
         return {
           userId: uid,
           fullName: p?.full_name || "Colaborador",
           avatarUrl: p?.avatar_url || null,
           role,
           roleLabel: getRoleLabel(role),
-          demandCount: countByUser.get(uid) || 0,
+          demandCount: counts.operationalDemandCount,
+          operationalDemandCount: counts.operationalDemandCount,
+          scheduledDemandCount: counts.scheduledDemandCount,
+          totalActiveDemandCount: counts.totalActiveDemandCount,
         };
       });
+
 
       result.sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
       setCollaborators(result);

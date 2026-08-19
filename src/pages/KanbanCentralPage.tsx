@@ -71,6 +71,8 @@ import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
 import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
+import { smartAdministrativeReassign, type SmartReassignResult } from "@/lib/smartReassign";
+import { decideKanbanDrop, isCardDraggable } from "@/lib/kanbanDroppable";
 import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
 import StageQuickChangePopover from "@/components/kanban/StageQuickChangePopover";
 import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
@@ -492,7 +494,7 @@ const KanbanCentralPage = () => {
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<"all" | "midia" | "sistemas">("all");
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
-  const { collaborators } = useCollaborators(tenantId);
+  const { collaborators, refresh: refreshCollaborators } = useCollaborators(tenantId);
 
   // Se a coluna focada não existe mais no quadro, descarta o foco silenciosamente.
   useEffect(() => {
@@ -1418,105 +1420,102 @@ const KanbanCentralPage = () => {
     const { source, destination, draggableId } = result;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    const card = cards.find((c) => c.id === draggableId);
+    // Ids compostos do modo foco (`uuid::production`) NUNCA podem virar assigned_to.
+    const cardId = String(draggableId).split("::")[0];
+    const card = cards.find((c) => c.id === cardId);
     if (!card) return;
+    if ((card as any)._historyStage) return;
 
-    // Column ids: collaborator user_id or "__unassigned__"
-    const destColId = destination.droppableId as string;
-    const newAssignedTo = destColId === "__unassigned__" ? null : destColId;
     const previousAssignedTo = card.assigned_to ?? null;
     const previousFunctionKey = card.current_function_key ?? null;
 
-    if (previousAssignedTo === newAssignedTo) return;
+    const decision = decideKanbanDrop({
+      sourceDroppableId: source.droppableId,
+      destinationDroppableId: destination.droppableId,
+      currentAssignedTo: previousAssignedTo,
+    });
+    // Mover entre sub-colunas do mesmo responsável não muda nada (etapa se muda
+    // pelo long-press/jump, não pelo agrupamento visual).
+    if (!decision.reassign) return;
 
+    const newAssignedTo = decision.newAssignedTo;
     const collabName = newAssignedTo
       ? collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "colaborador"
       : "Sem responsável";
 
-    // Validação única: função da etapa + ocupação de agenda (mesma área e entre áreas).
-    const evaluation = await evaluateReassign({
-      tenantId: tenantId || "",
-      card: card as any,
-      newAssignedTo,
-      collaboratorName: collabName,
-      functionLabel: previousFunctionKey
-        ? flowFunctionNames[previousFunctionKey] || previousFunctionKey
-        : undefined,
-    });
-
-    if (!evaluation.allowed) {
-      if (evaluation.blockedBy === "schedule") {
-        setScheduleConflict({
-          card: card as any,
-          newAssignedTo,
-          targetName: collabName,
-          conflicts: evaluation.hard,
-          suggestion: evaluation.suggestion,
-          nextFunctionKey: evaluation.nextFunctionKey,
-        });
-      } else {
-        sonnerToast.error(evaluation.message || "Transferência bloqueada");
-      }
-      return;
-    }
-
-    const nextFunctionKey = evaluation.nextFunctionKey;
-
     // Optimistic update
     setCards((prev) => prev.map((c) =>
-      c.id === draggableId ? { ...c, assigned_to: newAssignedTo, current_function_key: nextFunctionKey } : c
+      c.id === card.id ? { ...c, assigned_to: newAssignedTo } : c
+    ));
+
+    const revert = () => setCards((prev) => prev.map((c) =>
+      c.id === card.id
+        ? { ...c, assigned_to: previousAssignedTo, current_function_key: previousFunctionKey }
+        : c
     ));
 
     try {
       // Arrastar para outra coluna abandona a passagem atual: guard de execução.
-      let res: Awaited<ReturnType<typeof applyReassign>> | null = null;
+      let smart: SmartReassignResult | null = null;
       const guard = await requestExit({
         demandId: card.id,
         reason: "reassign_drag",
         actionLabel: "Transferir",
         cardLabel: (card as any).title || undefined,
         perform: async () => {
-          res = await applyReassign({
+          smart = await smartAdministrativeReassign({
             tenantId: tenantId || "",
             card: card as any,
-            newAssignedTo,
-            nextFunctionKey,
-            direction: evaluation.direction,
+            targetUserId: newAssignedTo,
+            targetUserName: collabName,
+            functionLabel: previousFunctionKey
+              ? flowFunctionNames[previousFunctionKey] || previousFunctionKey
+              : undefined,
+            stageLabelOf: (k) => flowFunctionNames[k] || k,
             historySource: "kanban_drag",
           });
-          return reassignFailureMessage(res) ? "failure" : "success";
+          return smart.status === "applied" ? "success" : "failure";
         },
       });
-      if (!res) {
+      if (!smart) {
         // Cancelado no aviso: nada foi gravado.
-        setCards((prev) => prev.map((c) =>
-          c.id === draggableId ? { ...c, assigned_to: previousAssignedTo, current_function_key: previousFunctionKey } : c
-        ));
+        revert();
         return;
       }
-      const failure = reassignFailureMessage(res);
-      if (failure || guard.outcome !== "success") throw new Error(failure || "Transferência não aplicada");
-
-      evaluation.softMessages.forEach((m) => sonnerToast.warning(m));
-      if (nextFunctionKey && nextFunctionKey !== previousFunctionKey) {
-        sonnerToast.success(
-          `Atribuída a ${collabName} — etapa: ${flowFunctionNames[nextFunctionKey] || nextFunctionKey}` +
-            (evaluation.direction === "backward" ? " (voltou no fluxo)" : ""),
-        );
-      } else {
-        sonnerToast.success(`Atribuída a ${collabName}`);
+      const applied = smart as SmartReassignResult;
+      if (applied.status !== "applied" || guard.outcome !== "success") {
+        revert();
+        sonnerToast.error(applied.message);
+        return;
       }
 
-
+      setCards((prev) => prev.map((c) =>
+        c.id === card.id
+          ? {
+              ...c,
+              assigned_to: newAssignedTo,
+              current_function_key: applied.nextFunctionKey,
+              ...(applied.finalSchedule
+                ? {
+                    due_date: applied.finalSchedule.due_date,
+                    due_time: applied.finalSchedule.due_time,
+                    delivery_date: applied.finalSchedule.delivery_date,
+                    delivery_time: applied.finalSchedule.delivery_time,
+                  }
+                : {}),
+            }
+          : c
+      ));
+      applied.softMessages.forEach((m) => sonnerToast.warning(m));
+      sonnerToast.success(applied.message);
+      refreshCollaborators();
     } catch (error) {
       console.error("Error updating assigned_to:", error);
       sonnerToast.error("Erro ao atribuir demanda");
-      // Revert
-      setCards((prev) => prev.map((c) =>
-        c.id === draggableId ? { ...c, assigned_to: previousAssignedTo, current_function_key: previousFunctionKey } : c
-      ));
+      revert();
     }
   };
+
 
   const handleConflictReschedule = async (slot: { date: string; startTime: string; endTime: string }) => {
     if (!scheduleConflict) return;
@@ -3477,7 +3476,7 @@ const KanbanCentralPage = () => {
                                      key={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
                                      draggableId={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
                                      index={index}
-                                     isDragDisabled={!isDragEnabled({ selectionMode, historyMode: isHistoryMode })}
+                                     isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: (card as any)._historyStage ? "history" : "production" })}
                                    >
                                     {(provided, snapshot) => {
                                       const isHistory = isHistoryMode;
@@ -3594,13 +3593,22 @@ const KanbanCentralPage = () => {
 
                             {!isReviewCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {reviewCards.map((card) => (
-                                  <div
+                                {reviewCards.map((card, revIdx) => (
+                                  <Draggable
                                     key={card.id}
+                                    draggableId={card.id}
+                                    index={columnCards.length + revIdx}
+                                    isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "review" })}
+                                  >
+                                    {(dp, snap) => (
+                                  <div
                                     ref={(el) => {
+                                      dp.innerRef(el);
                                       if (el) cardRefs.current.set(card.id, el);
                                       else cardRefs.current.delete(card.id);
                                     }}
+                                    {...dp.draggableProps}
+                                    {...dp.dragHandleProps}
                                     className={cn(
                                       highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
                                     )}
@@ -3613,6 +3621,7 @@ const KanbanCentralPage = () => {
                                       dueTime={card.due_time || undefined}
                                       cardDeliveryDate={card.delivery_date || undefined}
                                       deliveryTime={card.delivery_time || undefined}
+                                      isDragging={snap.isDragging}
                                       isOverdue={isCardOverdue(card)}
                                       overdueSince={cardOverdueSince(card)}
                                       cardId={card.id}
@@ -3631,7 +3640,10 @@ const KanbanCentralPage = () => {
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
                                   </div>
+                                    )}
+                                  </Draggable>
                                 ))}
+
                               </div>
                             )}
                           </div>
@@ -3662,19 +3674,28 @@ const KanbanCentralPage = () => {
 
                             {!isAwaitingCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {awaitingCardsSorted.map((card) => {
+                                {awaitingCardsSorted.map((card, awIdx) => {
                                   const resendCount = (card as any).client_resend_count || 0;
                                   const waitStart = getClientSentAt(card as any);
                                   const cardArea = (card as any).work_area === "sistemas" ? "sistemas" : "midia";
                                   const nextReturn = describeNextReturn(waitStart, resendCount, clientReturnCfg[cardArea]);
                                   return (
 
-                                  <div
+                                  <Draggable
                                     key={card.id}
+                                    draggableId={card.id}
+                                    index={columnCards.length + reviewCards.length + awIdx}
+                                    isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "awaiting" })}
+                                  >
+                                    {(dp) => (
+                                  <div
                                     ref={(el) => {
+                                      dp.innerRef(el);
                                       if (el) cardRefs.current.set(card.id, el);
                                       else cardRefs.current.delete(card.id);
                                     }}
+                                    {...dp.draggableProps}
+                                    {...dp.dragHandleProps}
                                     className={cn(
                                       highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
                                     )}
@@ -3727,6 +3748,8 @@ const KanbanCentralPage = () => {
                                     />
 
                                   </div>
+                                    )}
+                                  </Draggable>
                                   );
                                 })}
 
@@ -4204,7 +4227,9 @@ const KanbanCentralPage = () => {
           onApplied={() => {
             exitSelection();
             fetchAllCards?.();
+            refreshCollaborators();
           }}
+
         />
       )}
 
