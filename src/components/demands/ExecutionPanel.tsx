@@ -40,6 +40,8 @@ export interface ExecutionPanelProps {
   typeLabel?: string;
   userNames?: Record<string, string>;
   stageLabels?: Record<string, string>;
+  /** Aviso de contexto (ex.: checklist de rascunho ainda não salvo). */
+  notice?: string;
   onAddItem: (text: string) => void | Promise<void>;
   onToggleItem: (itemId: string, completed: boolean) => void | Promise<void>;
   onDeleteItem: (itemId: string) => void | Promise<void>;
@@ -70,6 +72,7 @@ export default function ExecutionPanel({
   typeLabel,
   userNames = {},
   stageLabels = {},
+  notice,
   onAddItem,
   onToggleItem,
   onDeleteItem,
@@ -103,6 +106,11 @@ export default function ExecutionPanel({
 
   return (
     <div className="space-y-5">
+      {notice && (
+        <p className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+          {notice}
+        </p>
+      )}
       <div className="space-y-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="gap-1 border-primary/50 text-primary">

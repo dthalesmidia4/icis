@@ -2272,6 +2272,31 @@ const KanbanCentralPage = () => {
         await recordOriginTouchpoint(tenantId, result.demand_id);
       }
 
+      // Materializa o checklist de execução escrito durante o rascunho.
+      const itemTexts = (extras?.executionItemTexts || []).filter(Boolean);
+      if (itemTexts.length > 0 && tenantId) {
+        try {
+          const run = await ensureExecutionRun({
+            tenantId,
+            demandId: result.demand_id,
+            context: {
+              functionKey: result.current_function_key ?? null,
+              demandTypeKey: selectedCard.demand_type_key ?? null,
+              assignedTo: selectedCard.assigned_to ?? null,
+            },
+            itemTexts,
+            metadata: { created_from: "manual_draft" },
+          });
+          if (!run) throw new Error("run_not_created");
+        } catch (err) {
+          // Compensação explícita: a demanda existe, o checklist não foi salvo.
+          console.error("[handleDraftSave] execution materialization failed", err);
+          sonnerToast.warning(
+            "Demanda criada, mas o checklist de execução não foi salvo. Abra o card e reescreva os itens na aba Execução.",
+          );
+        }
+      }
+
       sonnerToast.success("Demanda criada!");
       setIsDraftMode(false);
       setIsTaskCardOpen(false);
