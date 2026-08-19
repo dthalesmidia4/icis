@@ -83,6 +83,7 @@ interface Harness {
   reassignCalls: any[];
   scheduleCalls: any[];
   evaluateCalls: any[];
+  atomicCalls: any[];
 }
 
 function harness(opts: {
@@ -95,7 +96,10 @@ function harness(opts: {
   signatures?: Record<string, any>;
   reassignResult?: (cardId: string) => any;
   scheduleResult?: (cardId: string) => "ok" | "conflict" | "error";
+  externalBlocks?: Array<{ cardId: string; title: string; start: Date; end: Date }>;
+  atomicResult?: (payload: any) => any;
 }): Harness {
+
   const reassignCalls: any[] = [];
   const scheduleCalls: any[] = [];
   const evaluateCalls: any[] = [];
