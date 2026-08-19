@@ -3476,7 +3476,7 @@ const KanbanCentralPage = () => {
                                      key={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
                                      draggableId={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
                                      index={index}
-                                     isDragDisabled={!isDragEnabled({ selectionMode, historyMode: isHistoryMode })}
+                                     isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: (card as any)._historyStage ? "history" : "production" })}
                                    >
                                     {(provided, snapshot) => {
                                       const isHistory = isHistoryMode;
