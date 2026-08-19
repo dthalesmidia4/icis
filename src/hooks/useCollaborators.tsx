@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { VALID_AGENCY_ROLES, type ValidAgencyRole, getRoleLabel } from "@/lib/constants/roles";
+import { countOperationalDemands, type CountableDemandRow } from "@/lib/operationalCount";
 
 export interface Collaborator {
   userId: string;
@@ -8,8 +9,16 @@ export interface Collaborator {
   avatarUrl: string | null;
   role: ValidAgencyRole;
   roleLabel: string;
+  /** @deprecated número ambíguo — use `operationalDemandCount`. */
   demandCount: number;
+  /** Fila que o usuário reconhece no Kanban (sem publicação agendada). */
+  operationalDemandCount: number;
+  /** Ativas com dispatch de publicação ativo (fora da fila operacional). */
+  scheduledDemandCount: number;
+  /** Ativas não arquivadas/não rascunho como responsável principal. */
+  totalActiveDemandCount: number;
 }
+
 
 /**
  * Retorna colaboradores internos do tenant (agency_admin/manager/user)
