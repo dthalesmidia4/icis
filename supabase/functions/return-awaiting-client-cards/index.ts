@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
             if (cand && allowedUsers.has(cand)) { resolved = cand; break; }
           }
           // 2) Qualquer colaborador habilitado na etapa/área.
-          if (!resolved && allowedUsers.size > 0) resolved = [...allowedUsers][0] as string;
+          if (!resolved && allowedUsers.size > 0) resolved = leastBusyAllowed();
           assignee = resolved;
         }
 
