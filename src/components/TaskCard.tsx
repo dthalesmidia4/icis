@@ -77,7 +77,7 @@ import {
   resolveAutoOpenTab,
   type ExecutionRunWithItems,
 } from "@/lib/demandExecution";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, ListChecks } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
 // Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
@@ -4177,7 +4177,7 @@ export default function TaskCard({
                                 : []),
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
                               ...(showExecutionTab
-                                ? [{ id: 'execucao' as const, label: 'Execução', icon: CalendarClock, savingKey: 'execution' }]
+                                ? [{ id: 'execucao' as const, label: 'Execução', icon: ListChecks, savingKey: 'execution' }]
                                 : []),
                               ...(showAlterationsTab
                                 ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
@@ -4197,7 +4197,13 @@ export default function TaskCard({
                                 {sectionButtons.map(({ id, label, icon: Icon, savingKey }) => {
                                   const isActive = activeSection === id;
                                   const isSaving = saving && savingField === savingKey;
-                                  const showPendingBadge = id === 'alteracoes' && pendingChangeItems > 0;
+                                  const badgeCount =
+                                    id === 'alteracoes'
+                                      ? pendingChangeItems
+                                      : id === 'execucao'
+                                        ? pendingExecutionItems
+                                        : 0;
+                                  const showPendingBadge = badgeCount > 0;
                                   return (
                                     <button
                                       key={id}
@@ -4219,7 +4225,7 @@ export default function TaskCard({
                                           "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold",
                                           isActive ? "bg-primary-foreground/20" : "bg-amber-500 text-white"
                                         )}>
-                                          {pendingChangeItems}
+                                          {badgeCount}
                                         </span>
                                       )}
                                       {isSaving && <Loader2 className="h-3 w-3 animate-spin" />}
