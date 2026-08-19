@@ -4,6 +4,8 @@ import { recordFlowHistory } from "@/lib/flowHistory";
 import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
 import { isClientFacingFunction, isReviewFunction, normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
 import { isClientOrigin } from "@/lib/proceedDemand";
+import { pickAdministrativeStage } from "@/lib/flowSegments";
+
 
 
 /** Contexto de área/origem do card — obrigatório para não misturar Mídia × Sistemas. */
@@ -157,6 +159,12 @@ export async function resolveFunctionForAssignee(
   };
 
 
+  if (administrative) {
+    // Reatribuição administrativa: nunca atravessa barreira de cliente e nunca
+    // "conserta" silenciosamente uma etapa fora do fluxo do tipo.
+    return pickAdministrativeStage({ sequence, currentKey: currentFunctionKey, usable });
+  }
+
   if (currentFunctionKey && sequence.includes(currentFunctionKey)) {
     if (usable(currentFunctionKey)) return currentFunctionKey;
     const idx = sequence.indexOf(currentFunctionKey);
@@ -174,9 +182,8 @@ export async function resolveFunctionForAssignee(
 
   const firstUsable = allowedSeq.find(usable);
   if (firstUsable) return firstUsable;
-  // Administrativo: sem etapa OPERACIONAL compatível o card é rejeitado —
-  // nunca cai numa etapa client-facing só para encaixar o colaborador.
-  return administrative ? null : allowedSeq[0];
+  return allowedSeq[0];
+
 
 }
 

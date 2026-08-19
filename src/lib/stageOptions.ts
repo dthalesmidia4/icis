@@ -23,6 +23,12 @@ import {
   type WorkArea,
 } from "@/lib/flowFunctions";
 import { isClientOrigin } from "@/lib/proceedDemand";
+import {
+  isStageOutsideFlow,
+  pickAdministrativeStage,
+  sameAdministrativeSegment,
+} from "@/lib/flowSegments";
+
 import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
 
 export interface StageSequenceItem {
@@ -34,7 +40,9 @@ export type StageInvalidReason =
   | "not_allowed"
   | "already_completed"
   | "self_review"
-  | "client_facing";
+  | "client_facing"
+  | "crosses_process_gate"
+  | "outside_flow";
 
 export interface StageOption {
   functionKey: string;
@@ -53,7 +61,10 @@ export const STAGE_REASON_LABEL: Record<StageInvalidReason, string> = {
   already_completed: "Este colaborador já concluiu esta etapa neste card",
   self_review: "Não pode revisar a etapa que ele mesmo executou",
   client_facing: "Etapa de cliente: exige evento real do processo",
+  crosses_process_gate: "Fora do segmento atual do fluxo (atravessa etapa de cliente)",
+  outside_flow: "A etapa atual do card não pertence ao fluxo deste tipo",
 };
+
 
 export interface ComputeStageOptionsParams {
   sequence: StageSequenceItem[];
@@ -78,6 +89,8 @@ export function computeStageOptions(params: ComputeStageOptionsParams): StageOpt
   const completed = toSet(params.completedByUser);
   const administrative = params.administrative !== false;
   const current = (params.currentKey || "").trim() || null;
+  const keys = params.sequence.map((s) => s.functionKey);
+  const outsideFlow = isStageOutsideFlow(keys, current);
 
   return params.sequence.map((item, index) => {
     const key = item.functionKey;
@@ -89,6 +102,15 @@ export function computeStageOptions(params: ComputeStageOptionsParams): StageOpt
     else if (isReviewFunction(key) && completed.has(params.sequence[index - 1]?.functionKey || ""))
       reason = "self_review";
     else if (administrative && clientFacing && key !== current) reason = "client_facing";
+    else if (administrative && outsideFlow) reason = "outside_flow";
+    else if (
+      administrative &&
+      current &&
+      !outsideFlow &&
+      key !== current &&
+      !sameAdministrativeSegment(keys, current, key)
+    )
+      reason = "crosses_process_gate";
 
     return {
       functionKey: key,
@@ -111,9 +133,10 @@ export interface StageSuggestion {
 }
 
 /**
- * Sugestão DETERMINÍSTICA: mantém a etapa atual quando ela é válida; senão a
- * primeira etapa válida à frente; senão a válida mais próxima atrás.
- * `null` = nenhuma etapa operacional compatível (card não alocável).
+ * Sugestão DETERMINÍSTICA: mantém a etapa atual quando válida; senão a primeira
+ * válida à frente e depois atrás — sempre dentro do mesmo segmento
+ * administrativo (barreiras de cliente nunca são atravessadas).
+ * `null` = nenhuma etapa compatível (card não alocável sem escolha explícita).
  */
 export function pickSuggestedStage(
   options: StageOption[],
@@ -123,15 +146,18 @@ export function pickSuggestedStage(
   const idx = current ? options.findIndex((o) => o.functionKey === current) : -1;
   if (idx >= 0 && options[idx].valid) return { functionKey: current as string, source: "current" };
   if (idx >= 0) {
-    const forward = options.slice(idx + 1).find((o) => o.valid);
-    if (forward) return { functionKey: forward.functionKey, source: "suggested" };
-    const backward = [...options.slice(0, idx)].reverse().find((o) => o.valid);
-    if (backward) return { functionKey: backward.functionKey, source: "suggested" };
-    return null;
+    const keys = options.map((o) => o.functionKey);
+    const picked = pickAdministrativeStage({
+      sequence: keys,
+      currentKey: current,
+      usable: (k) => !!options.find((o) => o.functionKey === k && o.valid),
+    });
+    return picked ? { functionKey: picked, source: "suggested" } : null;
   }
   const first = options.find((o) => o.valid);
   return first ? { functionKey: first.functionKey, source: "suggested" } : null;
 }
+
 
 /** Etapas válidas comuns a TODOS os cards (seletor "aplicar etapa a todos"). */
 export function commonValidStages(optionSets: StageOption[][]): StageSequenceItem[] {
@@ -166,6 +192,8 @@ export interface LoadStageOptionsResult {
   sequence: StageSequenceItem[];
   options: StageOption[];
   suggestion: StageSuggestion | null;
+  /** A etapa atual do card não pertence ao fluxo do tipo (exige escolha explícita). */
+  currentOutsideFlow: boolean;
 }
 
 /** Sequência real de etapas da demanda (área + tipo + origem). */
@@ -260,5 +288,13 @@ export async function loadStageOptionsForAssignee(params: {
     administrative: params.administrative !== false,
   });
 
-  return { sequence, options, suggestion: pickSuggestedStage(options, card.current_function_key) };
+  return {
+    sequence,
+    options,
+    suggestion: pickSuggestedStage(options, card.current_function_key),
+    currentOutsideFlow: isStageOutsideFlow(
+      sequence.map((s) => s.functionKey),
+      card.current_function_key,
+    ),
+  };
 }

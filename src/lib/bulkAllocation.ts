@@ -200,8 +200,51 @@ export interface BulkAllocationPlan {
   };
 }
 
+export interface BulkExternalBlock {
+  cardId: string;
+  title: string;
+  start: Date;
+  end: Date;
+}
+
+/** Item enviado ao RPC atômico. */
+export interface BulkAtomicItem {
+  card_id: string;
+  expected_updated_at: string | null;
+  expected_assigned_to?: string | null;
+  expected_function_key?: string | null;
+  next_function_key?: string | null;
+  same_assignee?: boolean;
+  schedule: {
+    due_date: string;
+    due_time: string;
+    delivery_date: string;
+    delivery_time: string;
+  } | null;
+}
+
+export interface BulkAtomicPayload {
+  tenant_id: string;
+  target_user_id: string;
+  bulk_allocation_id: string;
+  source_screen: BulkSourceScreen;
+  items: BulkAtomicItem[];
+  queue: BulkAtomicItem[];
+}
+
+export interface BulkAtomicResponse {
+  status: "applied" | "stale" | "blocked" | "nothing" | "error";
+  message?: string;
+  appliedIds?: string[];
+  cardId?: string;
+}
+
 export interface BulkApplyResult {
-  status: "applied" | "partial" | "stale" | "nothing" | "error";
+  /**
+   * `partial` NUNCA ocorre por falha técnica: a aplicação é atômica (uma única
+   * transação no banco). O status existe apenas para compatibilidade histórica.
+   */
+  status: "applied" | "partial" | "stale" | "blocked" | "nothing" | "error";
   message: string;
   appliedIds: string[];
   failed: Array<{ cardId: string; reason: string }>;
@@ -336,6 +379,17 @@ export interface BulkAllocationDeps {
     expectedUpdatedAt: string | null,
   ): Promise<"ok" | "conflict" | "error">;
   loadSignatures(tenantId: string, ids: string[]): Promise<Record<string, BulkCardSignature>>;
+  /**
+   * Compromissos do destinatário que esta fila NÃO pode reagendar (ele é apenas
+   * `additional_assignee`). Só bloqueiam horários.
+   */
+  loadExternalBlocks(
+    tenantId: string,
+    userId: string,
+    excludeIds: string[],
+  ): Promise<BulkExternalBlock[]>;
+  /** Aplicação ATÔMICA do lote (uma transação: tudo ou nada). */
+  applyAtomic(payload: BulkAtomicPayload): Promise<BulkAtomicResponse>;
   now(): Date;
   uuid(): string;
 }
@@ -502,6 +556,47 @@ export const defaultBulkDeps: BulkAllocationDeps = {
     const out: Record<string, BulkCardSignature> = {};
     for (const row of (data || []) as any[]) out[row.id] = signatureOf(row as BulkCardRow);
     return out;
+  },
+
+  async loadExternalBlocks(tenantId, userId, excludeIds) {
+    const { data, error } = await (supabase.from("demands") as any)
+      .select("id, title, due_date, due_time, delivery_date, delivery_time, additional_assignees")
+      .eq("tenant_id", tenantId)
+      .is("archived_at", null)
+      .eq("is_draft", false)
+      .contains("additional_assignees", [userId]);
+    if (error) {
+      console.warn("[bulkAllocation] loadExternalBlocks error", error);
+      return [];
+    }
+    const skip = new Set(excludeIds);
+    const out: BulkExternalBlock[] = [];
+    for (const row of ((data || []) as any[])) {
+      if (skip.has(row.id)) continue;
+      if (!row.due_date || !row.due_time || !row.delivery_date || !row.delivery_time) continue;
+      const start = new Date(`${row.due_date}T${String(row.due_time).slice(0, 5)}:00`);
+      const end = new Date(`${row.delivery_date}T${String(row.delivery_time).slice(0, 5)}:00`);
+      if (!(end > start)) continue;
+      out.push({ cardId: row.id, title: row.title || "Card", start, end });
+    }
+    return out;
+  },
+
+  async applyAtomic(payload) {
+    const { data, error } = await (supabase.rpc as any)("apply_bulk_allocation_atomic_v1", {
+      p_payload: payload as any,
+    });
+    if (error) {
+      console.error("[bulkAllocation] atomic rpc error", error);
+      return { status: "error", message: error.message || "Falha ao aplicar a alocação" };
+    }
+    const res = (data || {}) as any;
+    return {
+      status: (res.status as BulkAtomicResponse["status"]) || "error",
+      message: res.message,
+      appliedIds: Array.isArray(res.applied_ids) ? (res.applied_ids as string[]) : [],
+      cardId: res.card_id,
+    };
   },
 
   now: () => new Date(),
@@ -678,7 +773,17 @@ export async function planBulkAllocation(
   for (const e of eligible) stageByCard[e.row.id] = (e.resolvedFunctionKey || "").trim();
   for (const r of queueRows) stageByCard[r.id] = (r.current_function_key || "").trim();
 
-  const [workHours, areaSchedule, durations, priority, stageStarts, dispatchIds, fromNames, storedDurations] =
+  const [
+    workHours,
+    areaSchedule,
+    durations,
+    priority,
+    stageStarts,
+    dispatchIds,
+    fromNames,
+    storedDurations,
+    externalBlocks,
+  ] =
     await Promise.all([
       deps.loadWorkHours(tenantId),
       deps.loadAreaSchedule(tenantId, targetUserId),
@@ -692,6 +797,9 @@ export async function planBulkAllocation(
         Array.from(new Set(eligible.map((e) => e.row.assigned_to).filter(Boolean) as string[])),
       ),
       deps.loadDurationOverrides(tenantId, allIds).catch(() => ({}) as Record<string, number>),
+      deps
+        .loadExternalBlocks(tenantId, targetUserId, allIds)
+        .catch(() => [] as BulkExternalBlock[]),
     ]);
 
   // 3b. Duração efetiva por card: escolha desta sessão > override já gravado >
@@ -736,6 +844,12 @@ export async function planBulkAllocation(
     durations,
     areaSchedule,
     scheduledPublishIds: dispatchIds,
+    externalBlocks: externalBlocks.map((b) => ({
+      start: b.start,
+      end: b.end,
+      cardId: b.cardId,
+      title: b.title,
+    })),
     priority,
     manualOverrides,
     // Nesta funcionalidade a prioridade por publicação é SEMPRE ativa.
@@ -757,7 +871,7 @@ export async function planBulkAllocation(
 
 
   // 5. Prévia.
-  const assignments: BulkAssignment[] = eligible.map((e) => {
+  const rawAssignments: BulkAssignment[] = eligible.map((e) => {
     const p = proposalById.get(e.row.id);
     const warnings = [...e.warnings];
     if (p?.warning) warnings.push(p.warning);
@@ -804,6 +918,40 @@ export async function planBulkAllocation(
     };
   });
 
+  // 5b. Cards de horário FIXO (captar / diário) não são reagendáveis: se a janela
+  //     preservada colide com um compromisso não-reagendável do destinatário, o
+  //     card é rejeitado com motivo explícito — nunca gravado em cima do conflito.
+  const overlaps = (
+    aStart: string,
+    aEnd: string,
+    bStart: number,
+    bEnd: number,
+  ): boolean => {
+    const toKey = (d: Date) => d.getTime();
+    void toKey;
+    return Date.parse(aStart) < bEnd && bStart < Date.parse(aEnd);
+  };
+  const conflictedFixed = new Map<string, string>();
+  for (const a of rawAssignments) {
+    if (!a.fixed || !a.dueDate || !a.dueTime || !a.deliveryDate || !a.deliveryTime) continue;
+    const start = `${a.dueDate}T${a.dueTime}:00`;
+    const end = `${a.deliveryDate}T${a.deliveryTime}:00`;
+    const clash = externalBlocks.find((b) =>
+      overlaps(start, end, b.start.getTime(), b.end.getTime()),
+    );
+    if (clash) {
+      conflictedFixed.set(
+        a.cardId,
+        `Horário fixo conflita com "${clash.title}" (compromisso não reagendável de ${targetUserName})`,
+      );
+    }
+  }
+  const assignments = rawAssignments.filter((a) => !conflictedFixed.has(a.cardId));
+  for (const [cardId, reason] of conflictedFixed) {
+    const found = rawAssignments.find((a) => a.cardId === cardId);
+    rejected.push({ cardId, title: found?.title || "Card", reason });
+  }
+
   const queueReschedules: BulkQueueReschedule[] = [];
   for (const r of queueRows) {
     const p = proposalById.get(r.id);
@@ -830,6 +978,7 @@ export async function planBulkAllocation(
   const signatures: Record<string, BulkCardSignature> = {};
   const cards: Record<string, BulkCardRow> = {};
   for (const e of eligible) {
+    if (conflictedFixed.has(e.row.id)) continue;
     signatures[e.row.id] = signatureOf(e.row);
     cards[e.row.id] = e.row;
   }
