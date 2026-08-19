@@ -200,8 +200,51 @@ export interface BulkAllocationPlan {
   };
 }
 
+export interface BulkExternalBlock {
+  cardId: string;
+  title: string;
+  start: Date;
+  end: Date;
+}
+
+/** Item enviado ao RPC atômico. */
+export interface BulkAtomicItem {
+  card_id: string;
+  expected_updated_at: string | null;
+  expected_assigned_to?: string | null;
+  expected_function_key?: string | null;
+  next_function_key?: string | null;
+  same_assignee?: boolean;
+  schedule: {
+    due_date: string;
+    due_time: string;
+    delivery_date: string;
+    delivery_time: string;
+  } | null;
+}
+
+export interface BulkAtomicPayload {
+  tenant_id: string;
+  target_user_id: string;
+  bulk_allocation_id: string;
+  source_screen: BulkSourceScreen;
+  items: BulkAtomicItem[];
+  queue: BulkAtomicItem[];
+}
+
+export interface BulkAtomicResponse {
+  status: "applied" | "stale" | "blocked" | "nothing" | "error";
+  message?: string;
+  appliedIds?: string[];
+  cardId?: string;
+}
+
 export interface BulkApplyResult {
-  status: "applied" | "partial" | "stale" | "nothing" | "error";
+  /**
+   * `partial` NUNCA ocorre por falha técnica: a aplicação é atômica (uma única
+   * transação no banco). O status existe apenas para compatibilidade histórica.
+   */
+  status: "applied" | "partial" | "stale" | "blocked" | "nothing" | "error";
   message: string;
   appliedIds: string[];
   failed: Array<{ cardId: string; reason: string }>;
@@ -336,6 +379,17 @@ export interface BulkAllocationDeps {
     expectedUpdatedAt: string | null,
   ): Promise<"ok" | "conflict" | "error">;
   loadSignatures(tenantId: string, ids: string[]): Promise<Record<string, BulkCardSignature>>;
+  /**
+   * Compromissos do destinatário que esta fila NÃO pode reagendar (ele é apenas
+   * `additional_assignee`). Só bloqueiam horários.
+   */
+  loadExternalBlocks(
+    tenantId: string,
+    userId: string,
+    excludeIds: string[],
+  ): Promise<BulkExternalBlock[]>;
+  /** Aplicação ATÔMICA do lote (uma transação: tudo ou nada). */
+  applyAtomic(payload: BulkAtomicPayload): Promise<BulkAtomicResponse>;
   now(): Date;
   uuid(): string;
 }
@@ -502,6 +556,47 @@ export const defaultBulkDeps: BulkAllocationDeps = {
     const out: Record<string, BulkCardSignature> = {};
     for (const row of (data || []) as any[]) out[row.id] = signatureOf(row as BulkCardRow);
     return out;
+  },
+
+  async loadExternalBlocks(tenantId, userId, excludeIds) {
+    const { data, error } = await (supabase.from("demands") as any)
+      .select("id, title, due_date, due_time, delivery_date, delivery_time, additional_assignees")
+      .eq("tenant_id", tenantId)
+      .is("archived_at", null)
+      .eq("is_draft", false)
+      .contains("additional_assignees", [userId]);
+    if (error) {
+      console.warn("[bulkAllocation] loadExternalBlocks error", error);
+      return [];
+    }
+    const skip = new Set(excludeIds);
+    const out: BulkExternalBlock[] = [];
+    for (const row of ((data || []) as any[])) {
+      if (skip.has(row.id)) continue;
+      if (!row.due_date || !row.due_time || !row.delivery_date || !row.delivery_time) continue;
+      const start = new Date(`${row.due_date}T${String(row.due_time).slice(0, 5)}:00`);
+      const end = new Date(`${row.delivery_date}T${String(row.delivery_time).slice(0, 5)}:00`);
+      if (!(end > start)) continue;
+      out.push({ cardId: row.id, title: row.title || "Card", start, end });
+    }
+    return out;
+  },
+
+  async applyAtomic(payload) {
+    const { data, error } = await (supabase.rpc as any)("apply_bulk_allocation_atomic_v1", {
+      p_payload: payload as any,
+    });
+    if (error) {
+      console.error("[bulkAllocation] atomic rpc error", error);
+      return { status: "error", message: error.message || "Falha ao aplicar a alocação" };
+    }
+    const res = (data || {}) as any;
+    return {
+      status: (res.status as BulkAtomicResponse["status"]) || "error",
+      message: res.message,
+      appliedIds: Array.isArray(res.applied_ids) ? (res.applied_ids as string[]) : [],
+      cardId: res.card_id,
+    };
   },
 
   now: () => new Date(),
@@ -678,7 +773,17 @@ export async function planBulkAllocation(
   for (const e of eligible) stageByCard[e.row.id] = (e.resolvedFunctionKey || "").trim();
   for (const r of queueRows) stageByCard[r.id] = (r.current_function_key || "").trim();
 
-  const [workHours, areaSchedule, durations, priority, stageStarts, dispatchIds, fromNames, storedDurations] =
+  const [
+    workHours,
+    areaSchedule,
+    durations,
+    priority,
+    stageStarts,
+    dispatchIds,
+    fromNames,
+    storedDurations,
+    externalBlocks,
+  ] =
     await Promise.all([
       deps.loadWorkHours(tenantId),
       deps.loadAreaSchedule(tenantId, targetUserId),
@@ -692,6 +797,9 @@ export async function planBulkAllocation(
         Array.from(new Set(eligible.map((e) => e.row.assigned_to).filter(Boolean) as string[])),
       ),
       deps.loadDurationOverrides(tenantId, allIds).catch(() => ({}) as Record<string, number>),
+      deps
+        .loadExternalBlocks(tenantId, targetUserId, allIds)
+        .catch(() => [] as BulkExternalBlock[]),
     ]);
 
   // 3b. Duração efetiva por card: escolha desta sessão > override já gravado >
@@ -736,6 +844,12 @@ export async function planBulkAllocation(
     durations,
     areaSchedule,
     scheduledPublishIds: dispatchIds,
+    externalBlocks: externalBlocks.map((b) => ({
+      start: b.start,
+      end: b.end,
+      cardId: b.cardId,
+      title: b.title,
+    })),
     priority,
     manualOverrides,
     // Nesta funcionalidade a prioridade por publicação é SEMPRE ativa.
@@ -757,7 +871,7 @@ export async function planBulkAllocation(
 
 
   // 5. Prévia.
-  const assignments: BulkAssignment[] = eligible.map((e) => {
+  const rawAssignments: BulkAssignment[] = eligible.map((e) => {
     const p = proposalById.get(e.row.id);
     const warnings = [...e.warnings];
     if (p?.warning) warnings.push(p.warning);
@@ -804,6 +918,32 @@ export async function planBulkAllocation(
     };
   });
 
+  // 5b. Cards de horário FIXO (captar / diário) não são reagendáveis: se a janela
+  //     preservada colide com um compromisso não-reagendável do destinatário, o
+  //     card é rejeitado com motivo explícito — nunca gravado em cima do conflito.
+  const overlaps = (aStart: string, aEnd: string, bStart: number, bEnd: number): boolean =>
+    Date.parse(aStart) < bEnd && bStart < Date.parse(aEnd);
+  const conflictedFixed = new Map<string, string>();
+  for (const a of rawAssignments) {
+    if (!a.fixed || !a.dueDate || !a.dueTime || !a.deliveryDate || !a.deliveryTime) continue;
+    const start = `${a.dueDate}T${a.dueTime}:00`;
+    const end = `${a.deliveryDate}T${a.deliveryTime}:00`;
+    const clash = externalBlocks.find((b) =>
+      overlaps(start, end, b.start.getTime(), b.end.getTime()),
+    );
+    if (clash) {
+      conflictedFixed.set(
+        a.cardId,
+        `Horário fixo conflita com "${clash.title}" (compromisso não reagendável de ${targetUserName})`,
+      );
+    }
+  }
+  const assignments = rawAssignments.filter((a) => !conflictedFixed.has(a.cardId));
+  for (const [cardId, reason] of conflictedFixed) {
+    const found = rawAssignments.find((a) => a.cardId === cardId);
+    rejected.push({ cardId, title: found?.title || "Card", reason });
+  }
+
   const queueReschedules: BulkQueueReschedule[] = [];
   for (const r of queueRows) {
     const p = proposalById.get(r.id);
@@ -830,6 +970,7 @@ export async function planBulkAllocation(
   const signatures: Record<string, BulkCardSignature> = {};
   const cards: Record<string, BulkCardRow> = {};
   for (const e of eligible) {
+    if (conflictedFixed.has(e.row.id)) continue;
     signatures[e.row.id] = signatureOf(e.row);
     cards[e.row.id] = e.row;
   }
@@ -932,120 +1073,93 @@ export async function applyBulkAllocation(
   const scheduleOf = (cardId: string) => {
     const p = plan.proposals[cardId];
     if (!p || p.skipped) return null;
-    return buildReorderScheduleUpdate(p);
+    const payload = buildReorderScheduleUpdate(p);
+    if (!payload.due_date || !payload.delivery_date) return null;
+    return {
+      due_date: String(payload.due_date),
+      due_time: String(payload.due_time),
+      delivery_date: String(payload.delivery_date),
+      delivery_time: String(payload.delivery_time),
+    };
   };
 
-  // 1. Cards que já eram do destinatário: só horários (o trigger de conflito
-  //    valida na troca de responsável, então aqui não há reprovação de agenda).
-  for (const q of plan.queueReschedules) {
-    const payload = scheduleOf(q.cardId);
-    if (!payload) continue;
-    const res = await deps.updateSchedule(q.cardId, payload, plan.signatures[q.cardId]?.updated_at ?? null);
-    if (res === "ok") {
-      appliedIds.push(q.cardId);
-      continue;
-    }
-    failed.push({
-      cardId: q.cardId,
-      reason: res === "conflict" ? "A fila mudou durante a aplicação" : "Falha ao reagendar",
-    });
-    return partial(appliedIds, failed);
-  }
+  // Uma ÚNICA transação no banco: reagendamento da fila do destinatário +
+  // transferências dos selecionados. Qualquer erro/conflito reverte tudo, de
+  // modo que "partial técnico" deixa de existir.
+  const queueItems: BulkAtomicItem[] = plan.queueReschedules
+    .map((q) => ({
+      card_id: q.cardId,
+      expected_updated_at: plan.signatures[q.cardId]?.updated_at ?? null,
+      schedule: scheduleOf(q.cardId),
+    }))
+    .filter((i) => !!i.schedule);
 
-  // 2. Selecionados, em ordem cronológica da proposta.
+  const items: BulkAtomicItem[] = [];
   const ordered = [...plan.assignments].sort((a, b) => {
     const ka = `${a.dueDate || "9999-12-31"}T${a.dueTime || "23:59"}`;
     const kb = `${b.dueDate || "9999-12-31"}T${b.dueTime || "23:59"}`;
     return ka.localeCompare(kb);
   });
-
   for (const a of ordered) {
-    const row = plan.cards[a.cardId];
-    if (!row) continue;
-    const payload = scheduleOf(a.cardId);
-
-    if (a.sameAssignee) {
-      // Já era do destinatário: nunca mexer em responsável/etapa.
-      if (!payload) continue;
-      const res = await deps.updateSchedule(a.cardId, payload, plan.signatures[a.cardId]?.updated_at ?? null);
-      if (res === "ok") {
-        appliedIds.push(a.cardId);
-        continue;
-      }
-      failed.push({
-        cardId: a.cardId,
-        reason: res === "conflict" ? "A fila mudou durante a aplicação" : "Falha ao reagendar",
-      });
-      return partial(appliedIds, failed);
-    }
-
-    const reschedule =
-      payload && payload.due_date && payload.delivery_date
-        ? {
-            due_date: String(payload.due_date),
-            due_time: String(payload.due_time),
-            delivery_date: String(payload.delivery_date),
-            delivery_time: String(payload.delivery_time),
-          }
-        : a.fixed || a.untimed
-          ? null
-          : a.dueDate && a.deliveryDate
-            ? {
-                due_date: a.dueDate,
-                due_time: a.dueTime || "09:00",
-                delivery_date: a.deliveryDate,
-                delivery_time: a.deliveryTime || "18:00",
-              }
-            : null;
-
-    const result = await deps.applyReassign({
-      tenantId: plan.tenantId,
-      card: row as any,
-      newAssignedTo: plan.targetUserId,
-      nextFunctionKey: a.resolvedFunctionKey,
-      reschedule,
-      direction: a.direction,
-      historySource: "bulk_allocation",
-      metadata: {
-        bulk_allocation_id: plan.bulkAllocationId,
-        source_screen: plan.sourceScreen,
-        selected_count: plan.summary.selected,
-        original_function_key: a.originalFunctionKey,
-        resolved_function_key: a.resolvedFunctionKey,
-        schedule_before: {
-          due_date: row.due_date ?? null,
-          due_time: row.due_time ?? null,
-          delivery_date: row.delivery_date ?? null,
-          delivery_time: row.delivery_time ?? null,
-        },
-        schedule_after: reschedule,
-      },
+    const sig = plan.signatures[a.cardId];
+    if (!sig) continue;
+    const schedule = a.fixed || a.untimed ? null : scheduleOf(a.cardId);
+    if (a.sameAssignee && !schedule) continue;
+    items.push({
+      card_id: a.cardId,
+      expected_updated_at: sig.updated_at ?? null,
+      expected_assigned_to: sig.assigned_to ?? null,
+      expected_function_key: sig.current_function_key ?? null,
+      next_function_key: a.sameAssignee ? null : a.resolvedFunctionKey,
+      same_assignee: a.sameAssignee,
+      schedule,
     });
-
-    if (result.status === "ok") {
-      appliedIds.push(a.cardId);
-      continue;
-    }
-
-    failed.push({
-      cardId: a.cardId,
-      reason:
-        result.status === "stale"
-          ? "A demanda mudou durante a aplicação"
-          : result.status === "conflict"
-            ? result.message
-            : "Falha ao alocar",
-    });
-    return partial(appliedIds, failed);
   }
+
+  if (items.length === 0 && queueItems.length === 0) {
+    return { status: "nothing", message: "Nada mudou — a fila já estava organizada.", appliedIds, failed };
+  }
+
+  const res = await deps.applyAtomic({
+    tenant_id: plan.tenantId,
+    target_user_id: plan.targetUserId,
+    bulk_allocation_id: plan.bulkAllocationId,
+    source_screen: plan.sourceScreen,
+    items,
+    queue: queueItems,
+  });
+
+  if (res.status === "stale") {
+    return { status: "stale", message: res.message || STALE_BULK_MESSAGE, appliedIds, failed };
+  }
+  if (res.status === "blocked") {
+    return {
+      status: "blocked",
+      message: res.message || "Alocação bloqueada pelas regras de fluxo. Nada foi gravado.",
+      appliedIds,
+      failed: res.cardId ? [{ cardId: res.cardId, reason: res.message || "Bloqueado" }] : failed,
+    };
+  }
+  if (res.status === "nothing") {
+    return { status: "nothing", message: "Nada mudou — a fila já estava organizada.", appliedIds, failed };
+  }
+  if (res.status !== "applied") {
+    return {
+      status: "error",
+      message: res.message || "Falha ao aplicar a alocação. Nada foi gravado.",
+      appliedIds,
+      failed,
+    };
+  }
+
+  appliedIds.push(...(res.appliedIds && res.appliedIds.length > 0
+    ? res.appliedIds
+    : [...queueItems, ...items].map((i) => i.card_id)));
 
   // Tempos personalizados sobrevivem à alocação: futuras reorganizações usam o
   // mesmo tempo que o gestor definiu aqui.
   await persistDurationOverrides(plan, appliedIds, deps);
 
-  if (appliedIds.length === 0) {
-    return { status: "nothing", message: "Nada mudou — a fila já estava organizada.", appliedIds, failed };
-  }
   return {
     status: "applied",
     message: `${appliedIds.length} card${appliedIds.length === 1 ? "" : "s"} alocado${appliedIds.length === 1 ? "" : "s"} para o colaborador.`,
@@ -1074,15 +1188,6 @@ async function persistDurationOverrides(
   } catch (err) {
     console.warn("[bulkAllocation] persist duration overrides failed", err);
   }
-}
-
-function partial(appliedIds: string[], failed: Array<{ cardId: string; reason: string }>): BulkApplyResult {
-  return {
-    status: "partial",
-    message: `${appliedIds.length} aplicados, ${failed.length} não aplicados. Recalcule para continuar.`,
-    appliedIds,
-    failed,
-  };
 }
 
 // ------------------------------------------------------------------

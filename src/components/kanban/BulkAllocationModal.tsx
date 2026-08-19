@@ -360,7 +360,9 @@ export default function BulkAllocationModal({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em]">
-                  <Badge variant="secondary">{plan.summary.eligible} alocáveis</Badge>
+                  <Badge variant="secondary">
+                    {plan.summary.eligible} de {plan.summary.eligible + plan.summary.rejected} alocáveis
+                  </Badge>
                   {plan.summary.rejected > 0 && (
                     <Badge variant="destructive">{plan.summary.rejected} bloqueados</Badge>
                   )}

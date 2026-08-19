@@ -328,13 +328,28 @@ function buildCtx(wh: WorkHoursConfig, holidays: Set<string>, areaSchedule?: Are
   return { wsMin, weMin, lsMin, leMin, hasLunch, holidays, areaSchedule };
 }
 
-/** Blocos [start,end] em minutos do dia, ordenados, respeitando área quando disponível. */
+/**
+ * Blocos [start,end] em minutos do dia, ordenados.
+ *
+ * Regra ESTRITA: quando existe agenda de área configurada para o colaborador
+ * (`areaSchedule`), a ausência de bloco naquela área/dia significa
+ * INDISPONÍVEL — nunca cai no expediente genérico. O fallback genérico só vale
+ * para quem não tem nenhuma configuração de agenda.
+ */
 function dayBlocks(d: Date, area: ReorderWorkArea | null | undefined, ctx: WorkCtx): Array<{ s: number; e: number }> {
-  if (area && ctx.areaSchedule) {
-    const blocks = ctx.areaSchedule[area]?.[d.getUTCDay()];
-    if (blocks && blocks.length) {
+  if (ctx.areaSchedule) {
+    if (area) {
+      const blocks = ctx.areaSchedule[area]?.[d.getUTCDay()];
+      if (!blocks || blocks.length === 0) return [];
       return [...blocks].filter((b) => b.e > b.s).sort((a, b) => a.s - b.s);
     }
+    // Sem área definida (cursor neutro): união das janelas configuradas no dia.
+    const union = [
+      ...(ctx.areaSchedule.midia?.[d.getUTCDay()] || []),
+      ...(ctx.areaSchedule.sistemas?.[d.getUTCDay()] || []),
+    ].filter((b) => b.e > b.s);
+    if (union.length > 0) return mergeBlocks(union);
+    return [];
   }
   // Fallback: workHours + almoço genérico
   if (ctx.hasLunch) {
@@ -345,6 +360,19 @@ function dayBlocks(d: Date, area: ReorderWorkArea | null | undefined, ctx: WorkC
   }
   return [{ s: ctx.wsMin, e: ctx.weMin }];
 }
+
+/** União de blocos sobrepostos/adjacentes. */
+function mergeBlocks(blocks: Array<{ s: number; e: number }>): Array<{ s: number; e: number }> {
+  const sorted = [...blocks].sort((a, b) => a.s - b.s);
+  const out: Array<{ s: number; e: number }> = [];
+  for (const b of sorted) {
+    const last = out[out.length - 1];
+    if (last && b.s <= last.e) last.e = Math.max(last.e, b.e);
+    else out.push({ ...b });
+  }
+  return out;
+}
+
 
 /** Minutos úteis num dia (somando todos os blocos da área). */
 function workingMinutesInDay(d: Date, area: ReorderWorkArea | null | undefined, ctx: WorkCtx): number {
@@ -945,6 +973,11 @@ export async function computeReorder(
      * fila. Nunca preservam início histórico: recebem um slot novo >= agora.
      */
     transferredIds?: Set<string>;
+    /**
+     * Blocos de tempo do colaborador que NÃO são reagendáveis por esta fila
+     * (ex.: cards em que ele é apenas `additional_assignee`). Só bloqueiam.
+     */
+    externalBlocks?: Array<{ start: Date; end: Date; cardId?: string; title?: string }>;
 
     manualOverrides?: Record<string, ReorderManualOverride>;
     /**
@@ -1018,7 +1051,7 @@ export async function computeReorder(
 
   // Intervalos ocupados por cards fixos (captar, daily).
   // O alocador contornará esses intervalos em vez de agendar por cima.
-  type BlockedInterval = { start: Date; end: Date; kind?: "captar" | "daily" | "awaiting"; cardId?: string; title?: string };
+  type BlockedInterval = { start: Date; end: Date; kind?: "captar" | "daily" | "awaiting" | "external"; cardId?: string; title?: string };
   const blocked: BlockedInterval[] = [];
   const tagFor = (c: ReorderCardInput): "captar" | "daily" | "awaiting" => {
     const k = (c.current_function_key || "").toLowerCase();
@@ -1034,6 +1067,15 @@ export async function computeReorder(
     // Truncar início ao agora: bloqueios que começaram no passado só valem daqui pra frente.
     const s = rawStart < now ? new Date(now) : rawStart;
     if (e > s) blocked.push({ start: s, end: e, kind: tagFor(c), cardId: c.id, title: c.title });
+  }
+  // Bloqueadores externos: o colaborador está comprometido nesse intervalo por
+  // outro card (participação secundária). Nunca reagendáveis aqui.
+  for (const ext of opts?.externalBlocks || []) {
+    const e = toZonedVirtualUtc(new Date(ext.end), wh.tz);
+    if (e <= now) continue;
+    const rawStart = toZonedVirtualUtc(new Date(ext.start), wh.tz);
+    const s = rawStart < now ? new Date(now) : rawStart;
+    if (e > s) blocked.push({ start: s, end: e, kind: "external", cardId: ext.cardId, title: ext.title });
   }
   blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
 

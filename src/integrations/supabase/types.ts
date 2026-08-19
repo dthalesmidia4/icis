@@ -2852,6 +2852,10 @@ export type Database = {
       }
     }
     Functions: {
+      apply_bulk_allocation_atomic_v1: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
       auto_release_next_for_user: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: number
