@@ -140,6 +140,26 @@ Deno.serve(async (req) => {
         .eq("allowed", true);
       const allowedUsers = new Set(((allowedRows as any[]) || []).map((r) => r.user_id));
 
+      // Carga atual de cada colaborador habilitado: o fallback escolhe o MENOS
+      // ocupado (antes pegava um qualquer da lista).
+      const loadByUser = new Map<string, number>();
+      if (allowedUsers.size > 0) {
+        const { data: openDemands } = await supabase
+          .from("demands")
+          .select("assigned_to")
+          .eq("tenant_id", row.tenant_id)
+          .is("archived_at", null)
+          .in("assigned_to", [...allowedUsers]);
+        ((openDemands as any[]) || []).forEach((d) => {
+          if (d.assigned_to) loadByUser.set(d.assigned_to, (loadByUser.get(d.assigned_to) || 0) + 1);
+        });
+      }
+      const leastBusyAllowed = (): string | null =>
+        [...allowedUsers].sort(
+          (a, b) => (loadByUser.get(a as string) || 0) - (loadByUser.get(b as string) || 0),
+        )[0] as string | null;
+
+
       const returned: string[] = [];
       const failures: any[] = [];
 
