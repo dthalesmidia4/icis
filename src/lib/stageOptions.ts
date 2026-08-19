@@ -112,7 +112,7 @@ export function computeStageOptions(params: ComputeStageOptionsParams): StageOpt
     let reason: StageInvalidReason | null = null;
 
     if (!allowed.has(key)) reason = "not_allowed";
-    else if (completed.has(key) && key !== current) reason = "already_completed";
+    else if (!manual && completed.has(key) && key !== current) reason = "already_completed";
     else if (isReviewFunction(key) && completed.has(params.sequence[index - 1]?.functionKey || ""))
       reason = "self_review";
     else if (administrative && clientFacing && key !== current) reason = "client_facing";
