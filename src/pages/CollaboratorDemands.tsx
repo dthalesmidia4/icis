@@ -23,6 +23,7 @@ import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/u
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { ClientSendHistoryPopover } from "@/components/kanban/ClientSendHistoryPopover";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
+import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
 import {
   DEFAULT_RELEASE_QUEUE,
   isOperationallyReleased,
@@ -304,6 +305,7 @@ const CollaboratorDemands = () => {
   const { collaborators } = useCollaborators(tenantId);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { requestExit, dialog: executionExitDialog } = useExecutionExitGuard();
   const [editDraft, setEditDraft] = useState<{ title: string; due_date: string; due_time: string; delivery_date: string; delivery_time: string; assigned_to: string }>({
     title: "", due_date: "", due_time: "", delivery_date: "", delivery_time: "", assigned_to: "",
   });
@@ -348,14 +350,26 @@ const CollaboratorDemands = () => {
       sonnerToast.error(evaluation.message || "Transferência bloqueada.");
       return false;
     }
-    const res = await applyReassign({
-      tenantId,
-      card: card as any,
-      newAssignedTo,
-      nextFunctionKey: evaluation.nextFunctionKey,
-      direction: evaluation.direction,
-      historySource: "collaborator_demands",
+    // Transferir abandona a passagem atual: guard de execução antes de gravar.
+    let res: Awaited<ReturnType<typeof applyReassign>> | null = null;
+    await requestExit({
+      demandId: card.id,
+      reason: "reassign_collaborator_demands",
+      actionLabel: "Transferir",
+      cardLabel: (card as any).title || undefined,
+      perform: async () => {
+        res = await applyReassign({
+          tenantId,
+          card: card as any,
+          newAssignedTo,
+          nextFunctionKey: evaluation.nextFunctionKey,
+          direction: evaluation.direction,
+          historySource: "collaborator_demands",
+        });
+        return reassignFailureMessage(res) ? "failure" : "success";
+      },
     });
+    if (!res) return false;
     const failure = reassignFailureMessage(res);
     if (failure) {
       sonnerToast.error(failure);
@@ -605,6 +619,7 @@ const CollaboratorDemands = () => {
 
   return (
     <div className="mt-4 px-3 sm:px-4">
+      {executionExitDialog}
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div className="flex items-center gap-3">

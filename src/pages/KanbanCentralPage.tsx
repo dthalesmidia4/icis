@@ -72,6 +72,7 @@ import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from 
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
 import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
 import StageQuickChangePopover from "@/components/kanban/StageQuickChangePopover";
+import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
 import type { AssignmentConflict, FreeSlotSuggestion } from "@/lib/scheduleOccupancy";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
@@ -287,6 +288,7 @@ const KanbanCentralPage = () => {
     }
   }, [tenantId]);
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
+  const { requestExit, dialog: executionExitDialog } = useExecutionExitGuard();
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
   const [collapsedDateGroups, setCollapsedDateGroups] = useState<Set<string>>(new Set());
   const toggleDateGroup = useCallback((key: string) => {
@@ -1465,16 +1467,34 @@ const KanbanCentralPage = () => {
     ));
 
     try {
-      const res = await applyReassign({
-        tenantId: tenantId || "",
-        card: card as any,
-        newAssignedTo,
-        nextFunctionKey,
-        direction: evaluation.direction,
-        historySource: "kanban_drag",
+      // Arrastar para outra coluna abandona a passagem atual: guard de execução.
+      let res: Awaited<ReturnType<typeof applyReassign>> | null = null;
+      const guard = await requestExit({
+        demandId: card.id,
+        reason: "reassign_drag",
+        actionLabel: "Transferir",
+        cardLabel: (card as any).title || undefined,
+        perform: async () => {
+          res = await applyReassign({
+            tenantId: tenantId || "",
+            card: card as any,
+            newAssignedTo,
+            nextFunctionKey,
+            direction: evaluation.direction,
+            historySource: "kanban_drag",
+          });
+          return reassignFailureMessage(res) ? "failure" : "success";
+        },
       });
+      if (!res) {
+        // Cancelado no aviso: nada foi gravado.
+        setCards((prev) => prev.map((c) =>
+          c.id === draggableId ? { ...c, assigned_to: previousAssignedTo, current_function_key: previousFunctionKey } : c
+        ));
+        return;
+      }
       const failure = reassignFailureMessage(res);
-      if (failure) throw new Error(failure);
+      if (failure || guard.outcome !== "success") throw new Error(failure || "Transferência não aplicada");
 
       evaluation.softMessages.forEach((m) => sonnerToast.warning(m));
       if (nextFunctionKey && nextFunctionKey !== previousFunctionKey) {
@@ -1502,21 +1522,32 @@ const KanbanCentralPage = () => {
     setReschedulingConflict(true);
     try {
       const { card, newAssignedTo, nextFunctionKey } = scheduleConflict;
-      const res = await applyReassign({
-        tenantId: tenantId || "",
-        card: card as any,
-        newAssignedTo,
-        nextFunctionKey,
-        reschedule: {
-          due_date: slot.date,
-          due_time: slot.startTime,
-          delivery_date: slot.date,
-          delivery_time: slot.endTime,
+      let res: Awaited<ReturnType<typeof applyReassign>> | null = null;
+      const guard = await requestExit({
+        demandId: card.id,
+        reason: "reassign_drag_rescheduled",
+        actionLabel: "Transferir",
+        cardLabel: (card as any).title || undefined,
+        perform: async () => {
+          res = await applyReassign({
+            tenantId: tenantId || "",
+            card: card as any,
+            newAssignedTo,
+            nextFunctionKey,
+            reschedule: {
+              due_date: slot.date,
+              due_time: slot.startTime,
+              delivery_date: slot.date,
+              delivery_time: slot.endTime,
+            },
+            historySource: "kanban_drag_rescheduled",
+          });
+          return reassignFailureMessage(res) ? "failure" : "success";
         },
-        historySource: "kanban_drag_rescheduled",
       });
+      if (!res) return;
       const failure = reassignFailureMessage(res);
-      if (failure) throw new Error(failure);
+      if (failure || guard.outcome !== "success") throw new Error(failure || "Transferência não aplicada");
       setCards((prev) => prev.map((c) =>
         c.id === card.id
           ? {
@@ -4103,8 +4134,11 @@ const KanbanCentralPage = () => {
         </div>
       )}
 
+      {executionExitDialog}
+
       {canReorder && (
         <BulkAllocationModal
+
           open={bulkModalOpen}
           onOpenChange={(o) => setBulkModalOpen(o)}
           tenantId={tenantId}

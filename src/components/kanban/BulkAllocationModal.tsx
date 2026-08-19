@@ -26,6 +26,7 @@ import {
   type BulkAllocationPlan,
   type BulkSourceScreen,
 } from "@/lib/bulkAllocation";
+import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
 
 interface Props {
   open: boolean;
@@ -78,6 +79,8 @@ export default function BulkAllocationModal({
   const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
   /** Texto em edição dos campos de duração (permite apagar e digitar). */
   const [durationDraft, setDurationDraft] = useState<Record<string, string>>({});
+  /** Transferir/mudar etapa em lote também abandona passagens de execução. */
+  const { requestBulkExit, dialog: executionExitDialog } = useExecutionExitGuard();
   const [bulkDuration, setBulkDuration] = useState("");
 
   const areaSet = useMemo(() => new Set(selectedAreas || []), [selectedAreas]);
@@ -223,8 +226,28 @@ export default function BulkAllocationModal({
   async function handleApply() {
     if (!plan) return;
     setApplying(true);
-    const res = await applyBulkAllocation(plan);
+    // Uma única confirmação para o lote; cada run é fechado só se o card moveu.
+    const exiting = plan.assignments
+      .filter((a) => !a.sameAssignee)
+      .map((a) => ({ id: a.cardId, label: plan.cards[a.cardId]?.title || undefined }));
+    let res: Awaited<ReturnType<typeof applyBulkAllocation>> = {
+      status: "nothing",
+      message: "Nada para alocar.",
+      appliedIds: [],
+      failed: [],
+    };
+    const guard = await requestBulkExit({
+      cards: exiting,
+      reason: "bulk_allocation",
+      actionLabel: "Alocar",
+      perform: async () => {
+        res = await applyBulkAllocation(plan);
+        const moved = new Set(exiting.map((c) => c.id));
+        return { appliedIds: res.appliedIds.filter((id) => moved.has(id)) };
+      },
+    });
     setApplying(false);
+    if (guard.cancelled) return;
 
     if (res.status === "applied") {
       toast.success(res.message);
@@ -270,6 +293,8 @@ export default function BulkAllocationModal({
   );
 
   return (
+    <>
+      {executionExitDialog}
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
@@ -573,5 +598,6 @@ export default function BulkAllocationModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

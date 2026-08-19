@@ -18,7 +18,8 @@ import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { createLongPressCore } from "@/lib/longPress";
-import { applyTypeStageChange } from "@/lib/typeStageChange";
+import { applyTypeStageChange, type TypeStageChangeResult } from "@/lib/typeStageChange";
+import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
 import { loadTypeStageGroups, type TypeStageGroup } from "@/lib/typeStageOptions";
 
 export interface StageQuickChangeCard {
@@ -49,6 +50,8 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
   const [saving, setSaving] = useState<string | null>(null);
   const [groups, setGroups] = useState<TypeStageGroup[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Trocar etapa/tipo ABANDONA a passagem atual: passa pelo guard de execução.
+  const { requestExit, dialog: executionExitDialog } = useExecutionExitGuard();
 
   const load = useCallback(async () => {
     if (!tenantId || !card.assigned_to) {
@@ -117,24 +120,37 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
     const busyKey = `${group.demandTypeKey}::${functionKey}`;
     setSaving(busyKey);
     try {
-      const res = await applyTypeStageChange({
-        tenantId,
-        card: {
-          id: card.id,
-          demand_type_key: card.demand_type_key ?? null,
-          demand_type: card.demand_type ?? null,
-          work_area: card.work_area ?? null,
-          origin: card.origin ?? null,
-          current_function_key: card.current_function_key ?? null,
-          assigned_to: card.assigned_to ?? null,
+      let res: TypeStageChangeResult = {
+        status: "error",
+        message: "Não foi possível alterar a etapa.",
+      };
+      await requestExit({
+        demandId: card.id,
+        reason: sameType ? "stage_changed" : "type_and_stage_changed",
+        actionLabel: "Trocar etapa",
+        perform: async () => {
+          res = await applyTypeStageChange({
+            tenantId,
+            card: {
+              id: card.id,
+              demand_type_key: card.demand_type_key ?? null,
+              demand_type: card.demand_type ?? null,
+              work_area: card.work_area ?? null,
+              origin: card.origin ?? null,
+              current_function_key: card.current_function_key ?? null,
+              assigned_to: card.assigned_to ?? null,
+            },
+            targetTypeKey: group.demandTypeKey,
+            targetTypeLabel: group.demandTypeLabel,
+            targetFunctionKey: functionKey,
+            source: "overview_stage_long_press",
+          });
+          return res;
         },
-        targetTypeKey: group.demandTypeKey,
-        targetTypeLabel: group.demandTypeLabel,
-        targetFunctionKey: functionKey,
-        source: "overview_stage_long_press",
       });
 
-      if (res.status === "ok") {
+      const final = res as TypeStageChangeResult;
+      if (final.status === "ok") {
         toast.success(
           sameType
             ? `Etapa alterada para "${stageLabel(functionKey)}".`
@@ -143,8 +159,8 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
         onChanged?.();
         setOpen(false);
       } else {
-        toast.error(res.message);
-        if (res.status === "stale") {
+        toast.error(final.message);
+        if (final.status === "stale") {
           onChanged?.();
           void load();
         }
@@ -192,6 +208,8 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
   const others = groups.filter((g) => !g.isCurrentType);
 
   return (
+    <>
+      {executionExitDialog}
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <span
@@ -293,5 +311,6 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
         )}
       </PopoverContent>
     </Popover>
+    </>
   );
 }

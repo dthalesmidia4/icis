@@ -8,13 +8,13 @@
  *  - a validade é sempre a do RESPONSÁVEL ATUAL (mesmas regras de
  *    `stageOptions`): função habilitada, etapa não repetida, sem autorrevisão,
  *    sem pular para etapa de cliente numa decisão administrativa;
- *  - a passagem em execução é encerrada (o checklist antigo não vaza para a
- *    nova etapa) e a mudança fica registrada no histórico do card;
+ *  - a passagem em execução é encerrada pelo GUARD de saída (o chamador usa
+ *    `useExecutionExitGuard`, que só fecha o run APÓS o sucesso confirmado —
+ *    aqui nunca se fecha run diretamente) e a mudança fica no histórico;
  *  - o tempo operacional personalizado da etapa antiga não é herdado: a etapa
  *    nova volta ao tempo padrão do fluxo.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { closeActiveExecutionRun } from "@/lib/demandExecution";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { jumpToFunction, type ProceedResult } from "@/lib/proceedDemand";
 import { saveStageDurationOverrides } from "@/lib/durationOverrides";
@@ -84,7 +84,6 @@ export async function applyTypeStageChange(
     if (!res.success) {
       return { status: "error", message: res.message || "Não foi possível alterar a etapa." };
     }
-    await closeActiveExecutionRun({ demandId: card.id, reason: "stage_changed" });
     await dropStageDurationOverride(tenantId, card.id, card.current_function_key, targetStage);
     return { status: "ok", message: res.message || "Etapa alterada." };
   }
@@ -127,7 +126,6 @@ export async function applyTypeStageChange(
     },
   });
 
-  await closeActiveExecutionRun({ demandId: card.id, reason: "type_and_stage_changed" });
   await dropStageDurationOverride(tenantId, card.id, card.current_function_key, targetStage);
 
   return { status: "ok", message: "Tipo e etapa atualizados." };
