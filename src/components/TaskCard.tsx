@@ -61,6 +61,22 @@ import {
 
 } from "@/lib/demandChangeRequests";
 import { useRealtimeDemandChangeRequests } from "@/hooks/realtime";
+import ExecutionPanel from "@/components/demands/ExecutionPanel";
+import { useRealtimeDemandExecution } from "@/hooks/realtime/useRealtimeDemandExecution";
+import {
+  addExecutionItem,
+  closeActiveExecutionRun,
+  completeAllPendingExecutionItems,
+  countPendingExecutionItems,
+  deleteExecutionItem,
+  ensureExecutionRun,
+  loadExecutionRuns,
+  setExecutionItemCompleted,
+  shouldShowExecutionTab,
+  buildExecutionTransitionWarning,
+  resolveAutoOpenTab,
+  type ExecutionRunWithItems,
+} from "@/lib/demandExecution";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
