@@ -65,6 +65,7 @@ import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createS
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
+import { ensureExecutionRun } from "@/lib/demandExecution";
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
@@ -2176,7 +2177,7 @@ const KanbanCentralPage = () => {
   };
 
 
-  const handleDraftSave = async () => {
+  const handleDraftSave = async (extras?: { executionItemTexts?: string[] }) => {
     if (savingDraftRef.current) return;
     if (!selectedCard) return;
     if (!selectedCard.clientId) {
