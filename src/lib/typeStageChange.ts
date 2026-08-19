@@ -23,6 +23,7 @@ import {
   typeStageChoiceError,
   type TypeStageCard,
 } from "@/lib/typeStageOptions";
+import type { StageDecisionMode } from "@/lib/stageOptions";
 
 export interface TypeStageChangeParams {
   tenantId: string;
@@ -32,6 +33,11 @@ export interface TypeStageChangeParams {
   targetFunctionKey: string;
   /** Origem do registro no histórico (tela que disparou). */
   source?: string;
+  /**
+   * Contexto da decisão. O long-press do chip é uma ESCOLHA MANUAL: etapas já
+   * concluídas pelo responsável continuam disponíveis (só o histórico registra).
+   */
+  mode?: StageDecisionMode;
 }
 
 export type TypeStageChangeResult =
@@ -69,6 +75,7 @@ export async function applyTypeStageChange(
     card,
     userId: card.assigned_to,
     administrative: true,
+    mode: params.mode ?? "manual_stage_change",
   });
   const invalid = typeStageChoiceError(groups, targetType, targetStage);
   if (invalid) return { status: "invalid", message: invalid };

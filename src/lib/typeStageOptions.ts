@@ -17,6 +17,7 @@ import { isClientOrigin } from "@/lib/proceedDemand";
 import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
 import {
   computeStageOptions,
+  type StageDecisionMode,
   type StageOption,
   type StageSequenceItem,
 } from "@/lib/stageOptions";
@@ -68,6 +69,8 @@ export interface ComputeTypeStageGroupsParams {
   allowedKeys: Set<string> | string[];
   completedByUser?: Set<string> | string[];
   administrative?: boolean;
+  /** Contexto da decisão (manual libera etapas já concluídas). */
+  mode?: StageDecisionMode;
   /** Nome do responsável — usado nos motivos de bloqueio. */
   assigneeName?: string | null;
 }
@@ -94,6 +97,7 @@ export function computeTypeStageGroups(
         // Só o tipo ATUAL tem "etapa atual": em outro tipo, tudo é destino novo.
         currentKey: isCurrentType ? currentStage || null : null,
         administrative: params.administrative !== false,
+        mode: params.mode,
       });
 
       const stages = options.map<TypeStageOption>((o) => ({
@@ -238,6 +242,7 @@ export async function loadTypeStageGroups(params: {
   card: TypeStageCard;
   userId: string;
   administrative?: boolean;
+  mode?: StageDecisionMode;
   assigneeName?: string | null;
 }): Promise<LoadTypeStageGroupsResult> {
   const { tenantId, card, userId } = params;
@@ -274,6 +279,7 @@ export async function loadTypeStageGroups(params: {
     allowedKeys,
     completedByUser,
     administrative: params.administrative !== false,
+    mode: params.mode,
     assigneeName: params.assigneeName ?? null,
   });
 

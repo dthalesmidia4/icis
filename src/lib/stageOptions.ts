@@ -274,6 +274,7 @@ export async function loadStageOptionsForAssignee(params: {
   card: StageOptionsCard;
   userId: string;
   administrative?: boolean;
+  mode?: StageDecisionMode;
   /** Sequência já carregada (evita reconsulta por card na alocação em massa). */
   sequence?: StageSequenceItem[];
   allowedKeys?: Set<string>;
@@ -300,6 +301,7 @@ export async function loadStageOptionsForAssignee(params: {
     completedByUser,
     currentKey: card.current_function_key,
     administrative: params.administrative !== false,
+    mode: params.mode,
   });
 
   return {

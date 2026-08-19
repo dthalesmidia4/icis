@@ -72,6 +72,8 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
         },
         userId: card.assigned_to,
         administrative: true,
+        // Escolha manual explícita: etapa já concluída não é bloqueio.
+        mode: "manual_stage_change",
       });
       setGroups(res.groups);
       setExpanded(
@@ -143,6 +145,7 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
             targetTypeKey: group.demandTypeKey,
             targetTypeLabel: group.demandTypeLabel,
             targetFunctionKey: functionKey,
+            mode: "manual_stage_change",
             source: "overview_stage_long_press",
           });
           return res;
