@@ -4176,6 +4176,9 @@ export default function TaskCard({
                                 ? [{ id: 'briefing' as const, label: 'Briefing', icon: FileText, savingKey: 'content_brief' }]
                                 : []),
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
+                              ...(showExecutionTab
+                                ? [{ id: 'execucao' as const, label: 'Execução', icon: CalendarClock, savingKey: 'execution' }]
+                                : []),
                               ...(showAlterationsTab
                                 ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
                                 : []),
