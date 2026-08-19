@@ -1,27 +1,31 @@
 /**
- * TROCA RÁPIDA DE ETAPA (Visão Geral).
+ * TROCA RÁPIDA DE ETAPA E DE TIPO DE ATIVIDADE (Visão Geral).
  *
  * Um clique no card continua abrindo o card. Pressionar e segurar ~0,5s no chip
- * da etapa abre este popover com as etapas do fluxo daquele card:
- *  - só etapas que o RESPONSÁVEL ATUAL pode executar ficam habilitadas;
- *  - etapas inválidas aparecem com o motivo (nunca somem sem explicação);
- *  - a troca real passa por `jumpToFunction`, o mesmo caminho do fluxo normal
- *    (histórico, responsável e regras de etapa de cliente preservados).
+ * da etapa abre este popover com:
+ *  - as etapas do TIPO ATUAL da demanda (bloco de cima);
+ *  - os OUTROS TIPOS de atividade da mesma área, cada um com suas etapas.
+ *
+ * Regras preservadas: só etapas que o RESPONSÁVEL ATUAL pode executar ficam
+ * habilitadas, etapas inválidas aparecem com o motivo (nunca somem sem
+ * explicação) e a troca de tipo + etapa acontece em uma única gravação
+ * condicionada ao estado esperado (nunca "tipo novo + etapa antiga").
  */
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { createLongPressCore } from "@/lib/longPress";
-import { jumpToFunction } from "@/lib/proceedDemand";
-import { loadStageOptionsForAssignee, type StageOption } from "@/lib/stageOptions";
+import { applyTypeStageChange } from "@/lib/typeStageChange";
+import { loadTypeStageGroups, type TypeStageGroup } from "@/lib/typeStageOptions";
 
 export interface StageQuickChangeCard {
   id: string;
   tenant_id?: string | null;
   demand_type_key?: string | null;
+  demand_type?: string | null;
   work_area?: string | null;
   origin?: string | null;
   current_function_key?: string | null;
@@ -43,20 +47,22 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
-  const [options, setOptions] = useState<StageOption[]>([]);
+  const [groups, setGroups] = useState<TypeStageGroup[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     if (!tenantId || !card.assigned_to) {
-      setOptions([]);
+      setGroups([]);
       return;
     }
     setLoading(true);
     try {
-      const res = await loadStageOptionsForAssignee({
+      const res = await loadTypeStageGroups({
         tenantId,
         card: {
           id: card.id,
           demand_type_key: card.demand_type_key ?? null,
+          demand_type: card.demand_type ?? null,
           work_area: card.work_area ?? null,
           origin: card.origin ?? null,
           current_function_key: card.current_function_key ?? null,
@@ -64,14 +70,26 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
         userId: card.assigned_to,
         administrative: true,
       });
-      setOptions(res.options);
+      setGroups(res.groups);
+      setExpanded(
+        Object.fromEntries(res.groups.map((g) => [g.demandTypeKey, g.isCurrentType])),
+      );
     } catch (err) {
       console.error("[StageQuickChange] load error", err);
       toast.error("Não foi possível carregar as etapas deste card.");
     } finally {
       setLoading(false);
     }
-  }, [tenantId, card.id, card.assigned_to, card.demand_type_key, card.work_area, card.origin, card.current_function_key]);
+  }, [
+    tenantId,
+    card.id,
+    card.assigned_to,
+    card.demand_type_key,
+    card.demand_type,
+    card.work_area,
+    card.origin,
+    card.current_function_key,
+  ]);
 
   const longPress = useMemo(
     () =>
@@ -86,34 +104,92 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
   );
   const pressed = useRef(false);
 
-  async function choose(functionKey: string) {
-    if (!tenantId || functionKey === card.current_function_key) {
+  async function choose(group: TypeStageGroup, functionKey: string) {
+    if (!tenantId) {
       setOpen(false);
       return;
     }
-    setSaving(functionKey);
+    const sameType = group.isCurrentType;
+    if (sameType && functionKey === card.current_function_key) {
+      setOpen(false);
+      return;
+    }
+    const busyKey = `${group.demandTypeKey}::${functionKey}`;
+    setSaving(busyKey);
     try {
-      const res = await jumpToFunction({
-        demandId: card.id,
+      const res = await applyTypeStageChange({
         tenantId,
-        demandTypeKey: card.demand_type_key ?? null,
+        card: {
+          id: card.id,
+          demand_type_key: card.demand_type_key ?? null,
+          demand_type: card.demand_type ?? null,
+          work_area: card.work_area ?? null,
+          origin: card.origin ?? null,
+          current_function_key: card.current_function_key ?? null,
+          assigned_to: card.assigned_to ?? null,
+        },
+        targetTypeKey: group.demandTypeKey,
+        targetTypeLabel: group.demandTypeLabel,
         targetFunctionKey: functionKey,
-        currentFunctionKey: card.current_function_key ?? null,
+        source: "overview_stage_long_press",
       });
-      if (res.success) {
-        toast.success(`Etapa alterada para "${stageLabel(functionKey)}".`);
+
+      if (res.status === "ok") {
+        toast.success(
+          sameType
+            ? `Etapa alterada para "${stageLabel(functionKey)}".`
+            : `${group.demandTypeLabel} · ${stageLabel(functionKey)}`,
+        );
         onChanged?.();
         setOpen(false);
       } else {
-        toast.error(res.message || "Não foi possível alterar a etapa.");
+        toast.error(res.message);
+        if (res.status === "stale") {
+          onChanged?.();
+          void load();
+        }
       }
     } catch (err) {
-      console.error("[StageQuickChange] jump error", err);
+      console.error("[StageQuickChange] change error", err);
       toast.error("Não foi possível alterar a etapa.");
     } finally {
       setSaving(null);
     }
   }
+
+  const renderStages = (group: TypeStageGroup) => (
+    <div className="space-y-0.5">
+      {group.stages.map((o) => {
+        const busyKey = `${group.demandTypeKey}::${o.functionKey}`;
+        return (
+          <button
+            key={busyKey}
+            type="button"
+            disabled={!o.valid || !!saving}
+            onClick={() => void choose(group, o.functionKey)}
+            title={o.reasonLabel || undefined}
+            className={cn(
+              "flex w-full items-center justify-between gap-2 rounded px-1.5 py-1.5 text-left text-xs font-semibold transition-colors",
+              o.valid ? "text-foreground hover:bg-primary/10" : "cursor-not-allowed text-muted-foreground/60",
+              o.isCurrentStage && "bg-primary/10",
+            )}
+          >
+            <span className="truncate">{o.name}</span>
+            {saving === busyKey ? (
+              <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+            ) : o.isCurrentStage ? (
+              <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.1em] text-primary">atual</span>
+            ) : !o.valid ? (
+              <span className="shrink-0 text-[9px] uppercase tracking-[0.08em]">bloqueada</span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const current = groups.find((g) => g.isCurrentType);
+  const others = groups.filter((g) => !g.isCurrentType);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -121,7 +197,7 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
         <span
           role="button"
           tabIndex={-1}
-          title="Segure para trocar a etapa"
+          title="Segure para trocar a etapa ou o tipo"
           className={cn("cursor-pointer rounded px-0.5", !disabled && "hover:bg-primary/10")}
           onPointerDown={(e) => {
             if (disabled) return;
@@ -152,50 +228,69 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-64 p-1.5"
+        className="max-h-[70vh] w-72 overflow-y-auto p-1.5"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
         <p className="px-1.5 pb-1 text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground">
-          Trocar etapa
+          Trocar etapa / tipo
         </p>
+
         {loading && (
           <div className="flex items-center gap-2 px-1.5 py-2 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> carregando etapas…
           </div>
         )}
-        {!loading && options.length === 0 && (
+
+        {!loading && groups.length === 0 && (
           <p className="px-1.5 py-2 text-xs text-muted-foreground">
-            Nenhuma etapa disponível para o responsável atual.
+            {card.assigned_to
+              ? "Nenhuma etapa disponível para o responsável atual."
+              : "Defina um responsável para trocar a etapa deste card."}
           </p>
         )}
-        {!loading &&
-          options.map((o) => {
-            const isCurrent = o.functionKey === card.current_function_key;
-            return (
-              <button
-                key={o.functionKey}
-                type="button"
-                disabled={!o.valid || !!saving}
-                onClick={() => void choose(o.functionKey)}
-                title={o.reasonLabel || undefined}
-                className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded px-1.5 py-1.5 text-left text-xs font-semibold transition-colors",
-                  o.valid ? "hover:bg-primary/10 text-foreground" : "cursor-not-allowed text-muted-foreground/60",
-                  isCurrent && "bg-primary/10",
-                )}
-              >
-                <span className="truncate">{o.name}</span>
-                {saving === o.functionKey ? (
-                  <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                ) : isCurrent ? (
-                  <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.1em] text-primary">atual</span>
-                ) : !o.valid ? (
-                  <span className="shrink-0 text-[9px] uppercase tracking-[0.08em]">bloqueada</span>
-                ) : null}
-              </button>
-            );
-          })}
+
+        {!loading && current && (
+          <div className="mb-1">
+            <p className="px-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary">
+              {current.demandTypeLabel} · tipo atual
+            </p>
+            {renderStages(current)}
+          </div>
+        )}
+
+        {!loading && others.length > 0 && (
+          <div className="mt-1 border-t border-border pt-1">
+            <p className="px-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+              Outros tipos desta área
+            </p>
+            {others.map((g) => {
+              const isOpen = !!expanded[g.demandTypeKey];
+              return (
+                <div key={g.demandTypeKey}>
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((p) => ({ ...p, [g.demandTypeKey]: !isOpen }))}
+                    className="flex w-full items-center gap-1 rounded px-1.5 py-1.5 text-left text-xs font-bold text-foreground hover:bg-muted"
+                  >
+                    {isOpen ? (
+                      <ChevronDown className="h-3 w-3 shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 shrink-0" />
+                    )}
+                    <span className="truncate">{g.demandTypeLabel}</span>
+                    {!g.hasValidStage && (
+                      <span className="ml-auto shrink-0 text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
+                        sem etapa
+                      </span>
+                    )}
+                  </button>
+                  {isOpen && <div className="pl-3">{renderStages(g)}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
