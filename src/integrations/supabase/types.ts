@@ -3007,6 +3007,18 @@ export type Database = {
             }
             Returns: string
           }
+      resolve_function_for_assignee_admin: {
+        Args: {
+          _current_key: string
+          _demand_id?: string
+          _demand_type_key: string
+          _origin: string
+          _tenant_id: string
+          _user_id: string
+          _work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: string
+      }
       resolve_initial_function: {
         Args: {
           _demand_type_key: string
