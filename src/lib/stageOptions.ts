@@ -101,6 +101,7 @@ export function computeStageOptions(params: ComputeStageOptionsParams): StageOpt
   const allowed = toSet(params.allowedKeys);
   const completed = toSet(params.completedByUser);
   const administrative = params.administrative !== false;
+  const manual = params.mode === "manual_stage_change";
   const current = (params.currentKey || "").trim() || null;
   const keys = params.sequence.map((s) => s.functionKey);
   const outsideFlow = isStageOutsideFlow(keys, current);
