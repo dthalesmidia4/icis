@@ -29,9 +29,38 @@ export interface ReassignCard extends OccupancyCardInput {
   tenant_id?: string | null;
   assigned_to?: string | null;
   origin?: string | null;
+  additional_assignees?: string[] | null;
+}
+
+/**
+ * Normalização dos colaboradores extras numa transferência administrativa.
+ *
+ * Regras (idênticas às da alocação em massa):
+ *  - sair de `captar` → lista zerada (extras existem só na captação);
+ *  - continuar em `captar` → o novo responsável principal nunca fica duplicado
+ *    entre os extras;
+ *  - fora de `captar` sem extras → nada a gravar (`null`).
+ *
+ * Pura: devolve `{ value }` só quando há mudança real a gravar.
+ */
+export function normalizeAdditionalAssignees(params: {
+  extras: string[] | null;
+  currentFunctionKey: string | null;
+  nextFunctionKey: string | null;
+  newAssignedTo: string | null;
+}): { value: string[] } | null {
+  const extras = (params.extras || []).filter(Boolean);
+  const isCaptar = (k: string | null) => (k || "").toLowerCase().trim() === "captar";
+  const leavingCaptar = isCaptar(params.currentFunctionKey) && !isCaptar(params.nextFunctionKey);
+
+  if (leavingCaptar) return extras.length > 0 ? { value: [] } : null;
+  if (extras.length === 0) return null;
+  const deduped = extras.filter((u) => u !== params.newAssignedTo);
+  return deduped.length === extras.length ? null : { value: deduped };
 }
 
 export type ReassignBlockReason = "function" | "schedule";
+
 
 export interface ReassignEvaluation {
   allowed: boolean;
