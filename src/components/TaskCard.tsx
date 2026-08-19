@@ -82,6 +82,10 @@ import {
   setExecutionItemCompleted,
   shouldShowExecutionTab,
   hasOperationalExecutionContext,
+  buildDraftExecutionRun,
+  draftExecutionItemTexts,
+  makeDraftExecutionItem,
+  type DraftExecutionItem,
   resolveInitialSection,
   resolvePostLoadOverride,
   type ExecutionRunWithItems,
@@ -266,7 +270,7 @@ interface TaskCardProps {
   onScheduleRequest?: (card: KanbanCardData) => void;
   /** Draft mode: card was just created as a draft; hide flow buttons and show Salvar/Descartar */
   isDraft?: boolean;
-  onDraftSave?: () => Promise<void> | void;
+  onDraftSave?: (extras?: { executionItemTexts?: string[] }) => Promise<void> | void;
   onDraftDiscard?: () => Promise<void> | void;
   /** Disables draft save/discard buttons while the parent is persisting. */
   savingDraft?: boolean;
@@ -855,7 +859,28 @@ export default function TaskCard({
   } | null>(null);
   const [executionGuardBusy, setExecutionGuardBusy] = useState(false);
 
-  const pendingExecutionItems = countPendingExecutionItems(execution.active);
+  /**
+   * RASCUNHO: o checklist da primeira passagem vive só em memória e é
+   * materializado no banco depois que a demanda é criada.
+   */
+  const [draftExecutionItems, setDraftExecutionItems] = useState<DraftExecutionItem[]>([]);
+  useEffect(() => { if (!open) setDraftExecutionItems([]); }, [open]);
+
+  const draftExecutionRun = useMemo(
+    () =>
+      isDraft
+        ? buildDraftExecutionRun(draftExecutionItems, {
+            functionKey: card?.current_function_key ?? null,
+            demandTypeKey: (card as any)?.demand_type_key ?? null,
+            assignedTo: card?.assigned_to ?? null,
+          })
+        : null,
+    [isDraft, draftExecutionItems, card?.current_function_key, (card as any)?.demand_type_key, card?.assigned_to],
+  );
+
+  const pendingExecutionItems = isDraft
+    ? draftExecutionItems.filter((i) => !i.is_completed).length
+    : countPendingExecutionItems(execution.active);
   const showExecutionTab = shouldShowExecutionTab({ isDraft });
 
   /** Identidade da passagem atual: etapa + tipo + responsável. */
@@ -918,7 +943,17 @@ export default function TaskCard({
   });
 
   const handleAddExecutionItem = async (text: string) => {
-    if (!card || readOnly || isDraft) return;
+    if (!card || readOnly) return;
+    if (isDraft) {
+      const value = (text || "").trim();
+      if (!value) return;
+      setDraftExecutionItems((prev) =>
+        prev.some((i) => i.text.toLowerCase() === value.toLowerCase())
+          ? prev
+          : [...prev, makeDraftExecutionItem(value)],
+      );
+      return;
+    }
     setAddingExecutionItem(true);
     try {
       const run = await ensureExecutionRun({
@@ -945,6 +980,12 @@ export default function TaskCard({
 
   const handleToggleExecutionItem = async (itemId: string, completed: boolean) => {
     if (readOnly) return;
+    if (isDraft) {
+      setDraftExecutionItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, is_completed: completed } : i)),
+      );
+      return;
+    }
     setBusyExecutionItemId(itemId);
     try {
       await setExecutionItemCompleted(itemId, completed, currentUserId);
@@ -960,6 +1001,10 @@ export default function TaskCard({
 
   const handleDeleteExecutionItem = async (itemId: string) => {
     if (readOnly) return;
+    if (isDraft) {
+      setDraftExecutionItems((prev) => prev.filter((i) => i.id !== itemId));
+      return;
+    }
     setBusyExecutionItemId(itemId);
     try {
       await deleteExecutionItem(itemId);
@@ -973,7 +1018,12 @@ export default function TaskCard({
   };
 
   const handleCompleteAllExecution = async () => {
-    if (readOnly || !execution.active) return;
+    if (readOnly) return;
+    if (isDraft) {
+      setDraftExecutionItems((prev) => prev.map((i) => ({ ...i, is_completed: true })));
+      return;
+    }
+    if (!execution.active) return;
     setCompletingAllExecution(true);
     try {
       await completeAllPendingExecutionItems(execution.active.id, currentUserId);
@@ -2922,7 +2972,9 @@ export default function TaskCard({
                       className="h-11 gap-2 shrink-0"
                       onClick={() => {
                         if (savingDraft || !draftReady) return;
-                        onDraftSave?.();
+                        onDraftSave?.({
+                          executionItemTexts: draftExecutionItemTexts(draftExecutionItems),
+                        });
                       }}
                       disabled={savingDraft || !draftReady}
                       aria-label="Salvar demanda"
@@ -4448,9 +4500,14 @@ export default function TaskCard({
 
                             {activeSection === 'execucao' && (
                               <ExecutionPanel
-                                active={execution.active}
-                                history={execution.history}
-                                loading={executionLoading}
+                                active={isDraft ? draftExecutionRun : execution.active}
+                                history={isDraft ? [] : execution.history}
+                                loading={isDraft ? false : executionLoading}
+                                notice={
+                                  isDraft
+                                    ? "Checklist da primeira passagem. Ele é salvo junto com a demanda ao clicar em \"Salvar Demanda\"."
+                                    : undefined
+                                }
                                 readOnly={readOnly}
                                 stageLabel={
                                   (pipelineSequence as any[]).find(
