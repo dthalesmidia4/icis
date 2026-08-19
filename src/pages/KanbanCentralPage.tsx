@@ -3748,6 +3748,8 @@ const KanbanCentralPage = () => {
                                     />
 
                                   </div>
+                                    )}
+                                  </Draggable>
                                   );
                                 })}
 
