@@ -21,6 +21,9 @@ import {
   type ContentFilterState,
 } from "@/lib/contentFilters";
 import { useEdgeScroll } from "@/hooks/useEdgeScroll";
+import { SingleDateTimePopover } from "@/components/kanban/StartEndDatePopover";
+import { publicationNotice, saveDemandPublication } from "@/lib/demandPublication";
+import { toast } from "sonner";
 import ScrollEdgeButton from "@/components/client-hub/ScrollEdgeButton";
 
 const MONTHS_SHORT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
@@ -315,6 +318,8 @@ export default function InstagramFeedTab({
               onSlideChange={(next) => setSlide(entry.key, next)}
               onActivateCarousel={() => setActiveCarouselKey(entry.key)}
               onOpenDemand={onOpenDemand}
+              onPublicationSaved={onReload}
+              canEditPublication={!selectionMode}
               selectable={selectionMode && isFeedEntrySelectable(entry)}
               selected={!!entry.demandId && selectedIds.includes(entry.demandId)}
               onToggleSelect={() => entry.demandId && toggleSelect(entry.demandId)}
@@ -387,6 +392,8 @@ function FeedCell({
   onActivateCarousel,
   onOpenDemand,
   onOpenMedia,
+  onPublicationSaved,
+  canEditPublication = false,
   selectable = false,
   selected = false,
   onToggleSelect,
@@ -397,6 +404,8 @@ function FeedCell({
   onActivateCarousel: () => void;
   onOpenDemand?: (id: string) => void;
   onOpenMedia: (items: FeedMediaItem[], initialIndex: number) => void;
+  onPublicationSaved?: () => void;
+  canEditPublication?: boolean;
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -411,6 +420,34 @@ function FeedCell({
   const current = media[index];
   const hasMedia = !!current;
   const showArrows = entry.kind === "carousel" && media.length > 1;
+  // Edição de publicação direto no feed: só demandas reais, fora do modo seleção.
+  const editablePublication = canEditPublication && entry.isDemand && !!entry.demandId;
+  const [savingPublication, setSavingPublication] = useState(false);
+
+  const savePublication = async (v: { date: string | null; time: string | null }) => {
+    if (!entry.demandId) return;
+    setSavingPublication(true);
+    try {
+      const res = await saveDemandPublication({
+        demandId: entry.demandId,
+        date: v.date,
+        time: v.time,
+      });
+      if (!res.ok) {
+        toast.error("Não foi possível salvar a publicação.");
+        return;
+      }
+      const notice = publicationNotice(res);
+      if (res.dispatchCancelled && notice) toast.warning(notice);
+      else if (notice) toast.info(notice);
+      else toast.success("Publicação atualizada.");
+      onPublicationSaved?.();
+    } finally {
+      setSavingPublication(false);
+    }
+  };
+
+  const publicationText = `${dateLabel(entry.date)}${entry.time ? ` · ${entry.time}` : ""}`;
 
   const clearTimer = () => {
     if (timerRef.current !== null) {
@@ -560,11 +597,31 @@ function FeedCell({
             </>
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-1.5">
-            <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-white">
-              {dateLabel(entry.date)}
-              {entry.time ? ` · ${entry.time}` : ""}
-            </span>
+          <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/55 to-transparent p-1.5">
+            {editablePublication ? (
+              <SingleDateTimePopover
+                date={entry.date}
+                time={entry.time || null}
+                label="Publicação"
+                align="start"
+                onSave={savePublication}
+                trigger={
+                  <button
+                    type="button"
+                    title="Editar data e hora da publicação"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    className="rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white underline decoration-white/40 decoration-dotted underline-offset-2 transition-colors hover:bg-white/20"
+                  >
+                    {savingPublication ? "Salvando…" : publicationText}
+                  </button>
+                }
+              />
+            ) : (
+              <span className="pointer-events-none text-[9px] font-bold uppercase tracking-[0.1em] text-white">
+                {publicationText}
+              </span>
+            )}
           </div>
         </>
       )}
@@ -575,8 +632,9 @@ function FeedCell({
 
   if (clickable || hasMedia) {
     return (
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         title={entry.title}
         aria-label={`${KIND_LABEL[entry.kind]}: ${entry.title}`}
         onPointerDown={handlePointerDown}
@@ -585,14 +643,19 @@ function FeedCell({
         onPointerCancel={clearTimer}
         onContextMenu={(e) => hasMedia && e.preventDefault()}
         onClick={handleClick}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          handleClick();
+        }}
         className={cn(
-          "group relative aspect-[4/5] w-full overflow-hidden rounded-sm transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          "group relative aspect-[4/5] w-full cursor-pointer overflow-hidden rounded-sm transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
           selectable && selected && "ring-2 ring-primary ring-offset-2",
           pressClasses
         )}
       >
         {content}
-      </button>
+      </div>
     );
   }
 
