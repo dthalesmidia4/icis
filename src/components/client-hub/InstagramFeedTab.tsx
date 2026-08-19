@@ -177,6 +177,13 @@ export default function InstagramFeedTab({
     return () => window.removeEventListener("keydown", onKey);
   }, [activeCarouselKey, slideByEntry, previewOpen, setSlide]);
 
+  // Scroll canônico: resolve o <main> do Layout como container real e habilita
+  // PageUp/PageDown/Home/End sem exigir clique prévio em um card.
+  const { anchorRef, canScroll, action, scrollToEdge } = useEdgeScroll<HTMLDivElement>({
+    modalOpen: previewOpen || bulkOpen,
+    revalidateKey: `${visible.length}:${filter}:${shared.search}:${shared.type}:${shared.classification}`,
+  });
+
   return (
     <div ref={anchorRef} className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -354,6 +361,8 @@ export default function InstagramFeedTab({
           }}
         />
       )}
+
+      <ScrollEdgeButton action={action} visible={canScroll} onClick={scrollToEdge} />
 
       {preview && (
         <AttachmentPreviewModal
