@@ -4465,6 +4465,65 @@ export default function TaskCard({
                       </AlertDialogContent>
                     </AlertDialog>
 
+                    {/* Orientação (não bloqueio) quando a execução da etapa tem pendências */}
+                    <AlertDialog
+                      open={!!executionGuardAction}
+                      onOpenChange={(v) => { if (!v) setExecutionGuardAction(null); }}
+                    >
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Execução desta etapa com pendências</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {executionWarning
+                              ? `${executionWarning.pending} de ${executionWarning.total} tarefas desta etapa ainda não foram concluídas. Você pode continuar mesmo assim — a passagem fica registrada como concluída com pendências.`
+                              : "Ainda há tarefas desta etapa não concluídas."}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        {executionWarning && executionWarning.pendingTexts.length > 0 && (
+                          <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+                            {executionWarning.pendingTexts.map((t, i) => (
+                              <li key={`${i}-${t}`} className="text-xs text-muted-foreground">• {t}</li>
+                            ))}
+                          </ul>
+                        )}
+                        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setExecutionGuardAction(null);
+                              setActiveSection('execucao');
+                            }}
+                          >
+                            Ver execução
+                          </Button>
+                          <Button
+                            variant="outline"
+                            disabled={completingAllExecution}
+                            onClick={async () => {
+                              const action = executionGuardAction;
+                              setExecutionGuardAction(null);
+                              await handleCompleteAllExecution();
+                              await action?.run();
+                            }}
+                          >
+                            Marcar tudo e continuar
+                          </Button>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              const action = executionGuardAction;
+                              setExecutionGuardAction(null);
+                              await action?.run();
+                            }}
+                          >
+                            Continuar com pendências
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+
+
 
 
 
