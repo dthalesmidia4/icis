@@ -123,9 +123,13 @@ export function closingStatusFor(
 
 /* ============================== ABAS / BADGES ============================== */
 
-/** A aba "Execução" existe em qualquer card já salvo (mesmo sem checklist). */
-export function shouldShowExecutionTab(opts: { isDraft?: boolean } = {}): boolean {
-  return !opts.isDraft;
+/**
+ * A aba "Execução" existe em QUALQUER card — inclusive durante a criação
+ * manual (rascunho). No rascunho o checklist vive só em memória e é
+ * materializado no banco depois que a demanda é criada.
+ */
+export function shouldShowExecutionTab(_opts: { isDraft?: boolean } = {}): boolean {
+  return true;
 }
 
 /** Badge da aba: número de itens pendentes da passagem atual. */
