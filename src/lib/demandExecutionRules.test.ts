@@ -45,6 +45,7 @@ const run = (over: Partial<ExecutionRunWithItems> = {}): ExecutionRunWithItems =
   completed_at: null,
   updated_at: "2026-01-01T00:00:00Z",
   metadata: {},
+  ...over,
   items: over.items ?? [],
 });
 
