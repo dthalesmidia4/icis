@@ -38,6 +38,7 @@ import { MainDeliveryEditor, resolveDeliveryField } from "@/components/demands/M
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
+import { publicationNotice, saveDemandPublication } from "@/lib/demandPublication";
 import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
 import { isClientFacingFunction, isEvaluationFunction } from "@/lib/flowFunctions";
@@ -4113,18 +4114,20 @@ export default function TaskCard({
                           const timeStr = v.time || (dateStr ? '09:00' : '');
                           onCardChange({ ...card, publish_date: dateStr, publish_time: timeStr });
                           if (isDraft) return;
-                          await onSave('publish_date', dateStr);
-                          await onSave('publish_time', timeStr);
-                          if (!dateStr) {
-                            try { await supabase.from("demands").update({ additional_publish_dates: [] }).eq("id", card.id); } catch (e) { console.error(e); }
-                          } else {
-                            const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: dateStr, publishTime: timeStr });
-                            if (res.pastDate && res.cancelled) {
-                              toast.warning("A data escolhida já passou. O agendamento automático foi desativado para evitar publicação imediata.");
-                            } else if (res.skipped && res.publishedExists) {
-                              toast.info("Existe uma publicação já publicada para este card; o agendamento não foi alterado.");
-                            }
+                          // Helper canônico: grava a demanda, limpa datas extras
+                          // e sincroniza o disparo agendado ativo.
+                          const res = await saveDemandPublication({
+                            demandId: card.id,
+                            date: dateStr || null,
+                            time: timeStr || null,
+                          });
+                          if (!res.ok) {
+                            toast.error("Não foi possível salvar a publicação.");
+                            return;
                           }
+                          const notice = publicationNotice(res);
+                          if (res.dispatchCancelled && notice) toast.warning(notice);
+                          else if (notice) toast.info(notice);
                         }}
                         extraContent={card.publish_date ? (
                           <div className="space-y-1">
