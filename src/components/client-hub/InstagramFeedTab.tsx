@@ -9,6 +9,19 @@ import { cn } from "@/lib/utils";
 import { AttachmentPreviewModal, type AttachmentPreviewItem } from "@/components/AttachmentPreviewModal";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { buildInstagramFeed, feedHasMedia, isFeedEntrySelectable, type FeedEntry, type FeedMediaItem } from "@/lib/instagramFeed";
+import { Input } from "@/components/ui/input";
+import {
+  CLASSIFICATION_OPTIONS,
+  EMPTY_CONTENT_FILTERS,
+  buildClassificationCounts,
+  buildTypeCounts,
+  countActiveContentFilters,
+  matchesContentFilters,
+  type ContentClassification,
+  type ContentFilterState,
+} from "@/lib/contentFilters";
+import { useEdgeScroll } from "@/hooks/useEdgeScroll";
+import ScrollEdgeButton from "@/components/client-hub/ScrollEdgeButton";
 
 const MONTHS_SHORT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
@@ -68,6 +81,8 @@ export default function InstagramFeedTab({
   onReload,
 }: InstagramFeedTabProps) {
   const [filter, setFilter] = useState<"all" | "media" | "producao">("all");
+  // Filtros compartilhados com a aba Calendário (busca, tipo, classificação).
+  const [shared, setShared] = useState<ContentFilterState>(EMPTY_CONTENT_FILTERS);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [slideByEntry, setSlideByEntry] = useState<Record<string, number>>({});
   const [activeCarouselKey, setActiveCarouselKey] = useState<string | null>(null);
@@ -92,15 +107,43 @@ export default function InstagramFeedTab({
     [demands, planItems, stageNames, statusNames]
   );
 
-  const withMedia = entries.filter(feedHasMedia).length;
-  const inProduction = entries.length - withMedia;
+  const toFilterable = (e: FeedEntry) => ({
+    title: e.title,
+    typeLabel: e.typeLabel,
+    classifications: e.classifications,
+    isDemand: e.isDemand,
+  });
 
-  const visible = entries.filter((e) =>
-    filter === "all" ? true : filter === "media" ? feedHasMedia(e) : !feedHasMedia(e)
+  // Filtros compartilhados primeiro: contadores de mídia refletem o recorte atual.
+  const sharedFiltered = useMemo(
+    () => entries.filter((e) => matchesContentFilters(toFilterable(e), shared)),
+    [entries, shared]
   );
 
+  const withMedia = sharedFiltered.filter(feedHasMedia).length;
+  const inProduction = sharedFiltered.length - withMedia;
+
+  const visible = useMemo(
+    () =>
+      sharedFiltered.filter((e) =>
+        filter === "all" ? true : filter === "media" ? feedHasMedia(e) : !feedHasMedia(e)
+      ),
+    [sharedFiltered, filter]
+  );
+
+  const filterableAll = useMemo(() => entries.map(toFilterable), [entries]);
+  const typeCounts = useMemo(() => buildTypeCounts(filterableAll), [filterableAll]);
+  const opCounts = useMemo(() => buildClassificationCounts(filterableAll), [filterableAll]);
+  const activeFilterCount =
+    countActiveContentFilters(shared) + (filter === "all" ? 0 : 1);
+
+  const clearFilters = useCallback(() => {
+    setShared(EMPTY_CONTENT_FILTERS);
+    setFilter("all");
+  }, []);
+
   const filters: { value: typeof filter; label: string; count: number }[] = [
-    { value: "all", label: "Todos", count: entries.length },
+    { value: "all", label: "Todos", count: sharedFiltered.length },
     { value: "media", label: "Com mídia", count: withMedia },
     { value: "producao", label: "Em produção", count: inProduction },
   ];
@@ -134,8 +177,15 @@ export default function InstagramFeedTab({
     return () => window.removeEventListener("keydown", onKey);
   }, [activeCarouselKey, slideByEntry, previewOpen, setSlide]);
 
+  // Scroll canônico: resolve o <main> do Layout como container real e habilita
+  // PageUp/PageDown/Home/End sem exigir clique prévio em um card.
+  const { anchorRef, canScroll, action, scrollToEdge } = useEdgeScroll<HTMLDivElement>({
+    modalOpen: previewOpen || bulkOpen,
+    revalidateKey: `${visible.length}:${filter}:${shared.search}:${shared.type}:${shared.classification}`,
+  });
+
   return (
-    <div className="space-y-6">
+    <div ref={anchorRef} className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black tracking-tight text-foreground">Prévia do Feed Simulado</h2>
@@ -158,6 +208,7 @@ export default function InstagramFeedTab({
               {selectionMode ? "Cancelar seleção" : "Selecionar"}
             </Button>
           )}
+          {/* Filtros exclusivos do Feed (mídia / produção) — preservados. */}
           {filters.map((f) => (
             <button
               key={f.value}
@@ -173,6 +224,80 @@ export default function InstagramFeedTab({
               {f.label} · {f.count}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Filtros compartilhados com o Calendário: busca, tipo e classificação. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="w-full lg:max-w-xs">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+            Buscar
+          </p>
+          <Input
+            value={shared.search}
+            onChange={(e) => setShared((prev) => ({ ...prev, search: e.target.value }))}
+            placeholder="Tema, tipo ou demanda"
+            className="h-10 rounded-lg"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <button
+            type="button"
+            onClick={() => setShared((prev) => ({ ...prev, type: "all" }))}
+            className={cn(
+              "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
+              shared.type === "all"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+            )}
+          >
+            Todos os tipos <span className="tabular-nums opacity-70">{entries.length}</span>
+          </button>
+          {typeCounts.map(([type, count]) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setShared((prev) => ({ ...prev, type }))}
+              className={cn(
+                "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
+                shared.type === type
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+              )}
+            >
+              {type} <span className="tabular-nums opacity-70">{count}</span>
+            </button>
+          ))}
+          <span className="mx-1 h-6 w-px self-center bg-border" aria-hidden />
+          {CLASSIFICATION_OPTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() =>
+                setShared((prev) => ({
+                  ...prev,
+                  classification: prev.classification === key ? null : (key as ContentClassification),
+                }))
+              }
+              className={cn(
+                "rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
+                shared.classification === key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+              )}
+            >
+              {label} <span className="tabular-nums opacity-70">{opCounts[key]}</span>
+            </button>
+          ))}
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-full border border-dashed px-3 py-1 text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              Limpar filtros · {activeFilterCount}
+            </button>
+          )}
         </div>
       </div>
 
@@ -236,6 +361,8 @@ export default function InstagramFeedTab({
           }}
         />
       )}
+
+      <ScrollEdgeButton action={action} visible={canScroll} onClick={scrollToEdge} />
 
       {preview && (
         <AttachmentPreviewModal
