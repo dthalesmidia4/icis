@@ -99,6 +99,7 @@ function harness(opts: {
   const reassignCalls: any[] = [];
   const scheduleCalls: any[] = [];
   const evaluateCalls: any[] = [];
+  const atomicCalls: any[] = [];
 
   const deps: Partial<BulkAllocationDeps> = {
     loadCards: async () => opts.cards.map((c) => ({ ...c })),
@@ -131,6 +132,14 @@ function harness(opts: {
       scheduleCalls.push({ cardId, payload, expected });
       return opts.scheduleResult?.(cardId) ?? "ok";
     },
+    loadExternalBlocks: async () => opts.externalBlocks || [],
+    applyAtomic: async (payload) => {
+      atomicCalls.push(payload);
+      return opts.atomicResult?.(payload) ?? {
+        status: "applied",
+        appliedIds: [...payload.queue, ...payload.items].map((i) => i.card_id),
+      };
+    },
     loadSignatures: async (_t, ids) => {
       if (opts.signatures) return opts.signatures;
       const all = [...opts.cards, ...(opts.queue || [])];
@@ -145,7 +154,7 @@ function harness(opts: {
     uuid: () => "bulk-test-id",
   };
 
-  return { deps, reassignCalls, scheduleCalls, evaluateCalls };
+  return { deps, reassignCalls, scheduleCalls, evaluateCalls, atomicCalls };
 }
 
 const plan = (h: Harness, cardIds: string[], extra: any = {}) =>
@@ -417,7 +426,7 @@ describe("elegibilidade", () => {
 // Aplicação
 // ------------------------------------------------------------------
 
-describe("applyBulkAllocation", () => {
+describe("applyBulkAllocation — aplicação atômica", () => {
   it("aborta sem nenhum write quando a fila mudou (preflight)", async () => {
     const h = harness({ cards: [row()] });
     const p = await plan(h, ["c1"]);
@@ -428,26 +437,36 @@ describe("applyBulkAllocation", () => {
     const res = await applyBulkAllocation(p, stale.deps);
     expect(res.status).toBe("stale");
     expect(res.message).toBe(STALE_BULK_MESSAGE);
-    expect(stale.reassignCalls).toHaveLength(0);
-    expect(stale.scheduleCalls).toHaveLength(0);
+    expect(stale.atomicCalls).toHaveLength(0);
   });
 
-  it("transfere via applyReassign com etapa resolvida, agenda e metadados de rastreio", async () => {
+  it("envia UMA única chamada atômica com etapa, agenda e assinaturas esperadas", async () => {
     const h = harness({ cards: [row()] });
     const p = await plan(h, ["c1"]);
     const res = await applyBulkAllocation(p, h.deps);
     expect(res.status).toBe("applied");
-    expect(h.reassignCalls).toHaveLength(1);
-    const call = h.reassignCalls[0];
-    expect(call.newAssignedTo).toBe(TARGET);
-    expect(call.nextFunctionKey).toBe("criar_arte");
-    expect(call.reschedule).toMatchObject({ due_date: expect.any(String), delivery_date: expect.any(String) });
-    expect(call.historySource).toBe("bulk_allocation");
-    expect(call.metadata.bulk_allocation_id).toBe("bulk-test-id");
-    expect(call.metadata.source_screen).toBe("overview");
+    expect(h.atomicCalls).toHaveLength(1);
+    const payload = h.atomicCalls[0];
+    expect(payload.target_user_id).toBe(TARGET);
+    expect(payload.bulk_allocation_id).toBe("bulk-test-id");
+    expect(payload.source_screen).toBe("overview");
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items[0]).toMatchObject({
+      card_id: "c1",
+      next_function_key: "criar_arte",
+      same_assignee: false,
+      expected_assigned_to: OTHER,
+      expected_function_key: "criar_arte",
+    });
+    expect(Object.keys(payload.items[0].schedule).sort()).toEqual([
+      "delivery_date",
+      "delivery_time",
+      "due_date",
+      "due_time",
+    ]);
   });
 
-  it("não altera status, released_at nem anexos", async () => {
+  it("nunca toca em status, released_at, anexos ou rascunho", async () => {
     const queue = [
       row({
         id: "q1",
@@ -462,40 +481,50 @@ describe("applyBulkAllocation", () => {
     const h = harness({ cards: [row({ id: "a", publish_date: "2026-08-06" })], queue });
     const p = await plan(h, ["a"]);
     await applyBulkAllocation(p, h.deps);
+    const payload = h.atomicCalls[0];
     const forbidden = ["status_id", "released_at", "released_by", "attachments", "reference_attachments", "is_draft"];
-    for (const call of h.scheduleCalls) {
-      for (const key of forbidden) expect(Object.keys(call.payload)).not.toContain(key);
-    }
-    for (const call of h.reassignCalls) {
-      expect(Object.keys(call.reschedule || {}).sort()).toEqual([
-        "delivery_date",
-        "delivery_time",
-        "due_date",
-        "due_time",
-      ]);
+    for (const item of [...payload.items, ...payload.queue]) {
+      for (const key of forbidden) expect(Object.keys(item.schedule || {})).not.toContain(key);
     }
   });
 
-  it("apenas reagenda (sem transferência) cards que já eram do destinatário", async () => {
-    const h = harness({ cards: [row({ assigned_to: TARGET })] });
+  it("card que já era do destinatário não muda etapa nem responsável", async () => {
+    const h = harness({
+      cards: [row({ assigned_to: TARGET, publish_date: "2026-08-06" })],
+    });
     const p = await plan(h, ["c1"]);
     await applyBulkAllocation(p, h.deps);
-    expect(h.reassignCalls).toHaveLength(0);
+    const item = h.atomicCalls[0].items[0];
+    if (item) {
+      expect(item.same_assignee).toBe(true);
+      expect(item.next_function_key).toBeNull();
+    }
   });
 
-  it("retorna parcial e para na primeira falha de transferência", async () => {
+  it("falha do lote NUNCA aplica parcialmente: status stale e nenhum id aplicado", async () => {
     const h = harness({
       cards: [row({ id: "a" }), row({ id: "b" })],
-      reassignResult: (id) => (id === "a" ? { status: "ok" } : { status: "conflict", message: "Agenda ocupada" }),
+      atomicResult: () => ({ status: "stale", message: "A fila mudou desde a prévia", cardId: "b" }),
     });
     const p = await plan(h, ["a", "b"]);
     const res = await applyBulkAllocation(p, h.deps);
-    expect(res.status).toBe("partial");
-    expect(res.appliedIds).toEqual(["a"]);
-    expect(res.failed[0]).toMatchObject({ cardId: "b", reason: "Agenda ocupada" });
+    expect(res.status).toBe("stale");
+    expect(res.appliedIds).toEqual([]);
   });
 
-  it("usa lock otimista de updated_at nos reagendamentos da fila existente", async () => {
+  it("bloqueio de regra de fluxo devolve `blocked` com o card responsável", async () => {
+    const h = harness({
+      cards: [row({ id: "a" })],
+      atomicResult: () => ({ status: "blocked", message: "Sem a função desta etapa", cardId: "a" }),
+    });
+    const p = await plan(h, ["a"]);
+    const res = await applyBulkAllocation(p, h.deps);
+    expect(res.status).toBe("blocked");
+    expect(res.appliedIds).toEqual([]);
+    expect(res.failed[0]).toMatchObject({ cardId: "a" });
+  });
+
+  it("envia lock otimista (updated_at) de cada card da fila existente", async () => {
     const queue = [
       row({
         id: "q1",
@@ -511,9 +540,8 @@ describe("applyBulkAllocation", () => {
     const h = harness({ cards: [row({ id: "a", publish_date: "2026-08-06" })], queue });
     const p = await plan(h, ["a"]);
     await applyBulkAllocation(p, h.deps);
-    for (const call of h.scheduleCalls) {
-      if (call.cardId === "q1") expect(call.expected).toBe("2026-08-02T09:00:00.000Z");
-    }
+    const q = h.atomicCalls[0].queue.find((i: any) => i.card_id === "q1");
+    if (q) expect(q.expected_updated_at).toBe("2026-08-02T09:00:00.000Z");
   });
 });
 
