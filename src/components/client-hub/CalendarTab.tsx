@@ -205,7 +205,7 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
                 key={c}
                 className="rounded-sm border border-primary/40 px-1 py-0 text-[8px] font-black uppercase leading-[1.4] tracking-[0.08em] text-primary"
               >
-                {c === "anuncio" ? "Anúncio" : "Gráfica"}
+                {classificationLabel(c)}
               </span>
             ))}
           </span>
