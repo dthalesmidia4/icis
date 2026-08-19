@@ -3674,19 +3674,28 @@ const KanbanCentralPage = () => {
 
                             {!isAwaitingCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {awaitingCardsSorted.map((card) => {
+                                {awaitingCardsSorted.map((card, awIdx) => {
                                   const resendCount = (card as any).client_resend_count || 0;
                                   const waitStart = getClientSentAt(card as any);
                                   const cardArea = (card as any).work_area === "sistemas" ? "sistemas" : "midia";
                                   const nextReturn = describeNextReturn(waitStart, resendCount, clientReturnCfg[cardArea]);
                                   return (
 
-                                  <div
+                                  <Draggable
                                     key={card.id}
+                                    draggableId={card.id}
+                                    index={columnCards.length + reviewCards.length + awIdx}
+                                    isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "awaiting" })}
+                                  >
+                                    {(dp) => (
+                                  <div
                                     ref={(el) => {
+                                      dp.innerRef(el);
                                       if (el) cardRefs.current.set(card.id, el);
                                       else cardRefs.current.delete(card.id);
                                     }}
+                                    {...dp.draggableProps}
+                                    {...dp.dragHandleProps}
                                     className={cn(
                                       highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
                                     )}
