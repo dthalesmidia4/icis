@@ -242,3 +242,74 @@ export async function deleteExecutionRun(runId: string): Promise<void> {
   const { error } = await supabase.from(RUNS).delete().eq("id", runId);
   if (error) throw error;
 }
+
+/**
+ * Fecha UM run específico por id, com compare-and-set em `status = 'active'`.
+ * Retorna `true` só quando este chamador realmente fechou o run — assim a
+ * operação é idempotente e nunca fecha um run criado depois da mutação.
+ */
+export async function closeExecutionRunById(params: {
+  runId: string;
+  status: "completed" | "completed_with_pending";
+  reason: string;
+}): Promise<boolean> {
+  const { data, error } = await supabase
+    .from(RUNS)
+    .update({
+      status: params.status,
+      completed_at: new Date().toISOString(),
+      metadata: { close_reason: params.reason },
+    } as any)
+    .eq("id", params.runId)
+    .eq("status", "active")
+    .select("id");
+  if (error) {
+    console.warn("[demandExecution] closeById error", error);
+    return false;
+  }
+  return ((data as any[]) || []).length > 0;
+}
+
+/** Runs ATIVOS (com itens) de várias demandas — usado pelas ações em lote. */
+export async function loadActiveExecutionRuns(
+  demandIds: string[],
+): Promise<Record<string, ExecutionRunWithItems>> {
+  const ids = Array.from(new Set(demandIds.filter(Boolean)));
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase
+    .from(RUNS)
+    .select("*")
+    .in("demand_id", ids)
+    .eq("status", "active");
+  if (error) {
+    console.warn("[demandExecution] loadActive error", error);
+    return {};
+  }
+  const runs = ((data as any[]) || []) as ExecutionRun[];
+  if (runs.length === 0) return {};
+  const { data: itemRows } = await supabase
+    .from(ITEMS)
+    .select("*")
+    .in("execution_run_id", runs.map((r) => r.id))
+    .order("position", { ascending: true });
+  const items = ((itemRows as any[]) || []) as ExecutionItem[];
+  const out: Record<string, ExecutionRunWithItems> = {};
+  for (const r of runs) {
+    out[r.demand_id] = {
+      ...r,
+      metadata: (r.metadata as any) ?? {},
+      items: items.filter((i) => i.execution_run_id === r.id),
+    };
+  }
+  return out;
+}
+
+/** Dependências reais do orquestrador de saída de passagem. */
+export const executionExitDeps = {
+  completeAllPending: async (runId: string) => {
+    const { data } = await supabase.auth.getUser();
+    await completeAllPendingExecutionItems(runId, data?.user?.id ?? null);
+  },
+  closeRun: closeExecutionRunById,
+};
+

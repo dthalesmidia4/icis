@@ -150,6 +150,79 @@ export function resolveAutoOpenTab(params: {
   return null;
 }
 
+/* ============================== CONTEXTO OPERACIONAL ============================== */
+
+/** Card em execução humana agora (independente de existir checklist). */
+export interface OperationalContextCard {
+  id?: string | null;
+  assigned_to?: string | null;
+  current_function_key?: string | null;
+  is_draft?: boolean | null;
+  archived_at?: string | null;
+}
+
+/**
+ * "Contexto operacional humano atual": existe responsável, existe etapa e a
+ * etapa é efetivamente de execução (não client-facing / aguardando cliente /
+ * untimed). A classificação de etapa vem de `flowFunctions` — sem listas
+ * duplicadas.
+ */
+export function hasOperationalExecutionContext(
+  card: OperationalContextCard | null | undefined,
+  classify: {
+    isClientFacing: (key?: string | null) => boolean;
+    isEvaluation?: (key?: string | null) => boolean;
+  },
+): boolean {
+  if (!card) return false;
+  if (card.is_draft) return false;
+  if (card.archived_at) return false;
+  const stage = norm(card.current_function_key);
+  if (!stage) return false;
+  if (!card.assigned_to) return false;
+  if (classify.isClientFacing(stage)) return false;
+  if (classify.isEvaluation?.(stage)) return false;
+  return true;
+}
+
+/**
+ * Aba inicial do card — resolvida SINCRONICAMENTE a partir do próprio card
+ * (sem esperar carregamentos), para não abrir em Conteúdo e trocar depois.
+ */
+export function resolveInitialSection<T extends string>(params: {
+  isDraft?: boolean;
+  hasBriefing?: boolean;
+  operational: boolean;
+  showExecutionTab: boolean;
+  /** Aba padrão quando não há contexto operacional (Briefing/Conteúdo). */
+  fallback: T;
+  briefingSection: T;
+  executionSection: T;
+}): T {
+  if (!params.isDraft && params.operational && params.showExecutionTab) {
+    return params.executionSection;
+  }
+  if (params.hasBriefing) return params.briefingSection;
+  return params.fallback;
+}
+
+/**
+ * Único override permitido depois do carregamento: Alterações pendentes.
+ * Só ocorre se o usuário ainda não navegou manualmente nesta abertura.
+ */
+export function resolvePostLoadOverride<T extends string>(params: {
+  isDraft?: boolean;
+  userNavigated: boolean;
+  alterationsPending: number;
+  alterationsSection: T;
+}): T | null {
+  if (params.isDraft) return null;
+  if (params.userNavigated) return null;
+  if (params.alterationsPending > 0) return params.alterationsSection;
+  return null;
+}
+
+
 /* ============================== DRAFTS ============================== */
 
 /** Normaliza itens digitados: remove vazios, deduplica e reindexa posições. */

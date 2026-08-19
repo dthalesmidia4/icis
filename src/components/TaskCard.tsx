@@ -40,6 +40,15 @@ import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createS
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
 import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
+import { isClientFacingFunction, isEvaluationFunction } from "@/lib/flowFunctions";
+import ExecutionExitDialog from "@/components/demands/ExecutionExitDialog";
+import {
+  buildExecutionExitPreflight,
+  performExecutionExit,
+  type ExecutionExitChoice,
+  type ExecutionExitPreflight,
+} from "@/lib/executionExit";
+import { executionExitDeps } from "@/lib/demandExecution";
 import { checkAssignmentConflicts, type AssignmentConflict, type FreeSlotSuggestion } from "@/lib/scheduleOccupancy";
 import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
 import ChangeRequestPanel from "@/components/demands/ChangeRequestPanel";
@@ -65,7 +74,6 @@ import ExecutionPanel from "@/components/demands/ExecutionPanel";
 import { useRealtimeDemandExecution } from "@/hooks/realtime/useRealtimeDemandExecution";
 import {
   addExecutionItem,
-  closeActiveExecutionRun,
   completeAllPendingExecutionItems,
   countPendingExecutionItems,
   deleteExecutionItem,
@@ -73,8 +81,9 @@ import {
   loadExecutionRuns,
   setExecutionItemCompleted,
   shouldShowExecutionTab,
-  buildExecutionTransitionWarning,
-  resolveAutoOpenTab,
+  hasOperationalExecutionContext,
+  resolveInitialSection,
+  resolvePostLoadOverride,
   type ExecutionRunWithItems,
 } from "@/lib/demandExecution";
 import { CalendarClock, ListChecks } from "lucide-react";
@@ -534,9 +543,31 @@ export default function TaskCard({
   const [referenceToRemove, setReferenceToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
+  /**
+   * Aba inicial resolvida SINCRONICAMENTE (nada de abrir em Conteúdo e trocar
+   * depois): contexto operacional humano real → Execução; senão Briefing/Conteúdo.
+   */
   const [activeSection, setActiveSection] = useState<'briefing' | 'description' | 'observations' | 'caption' | 'anuncio' | 'anexos' | 'referencias' | 'alteracoes' | 'execucao'>(
-    presentation === 'drawer' && (card as any)?.content_brief ? 'briefing' : 'description'
+    () =>
+      resolveInitialSection({
+        isDraft,
+        hasBriefing: presentation === 'drawer' && !!(card as any)?.content_brief,
+        operational: hasOperationalExecutionContext(card as any, {
+          isClientFacing: isClientFacingFunction,
+          isEvaluation: isEvaluationFunction,
+        }),
+        showExecutionTab: shouldShowExecutionTab({ isDraft }),
+        fallback: 'description',
+        briefingSection: 'briefing',
+        executionSection: 'execucao',
+      }),
   );
+  /** Lock: depois que o usuário navega, nada troca a aba automaticamente. */
+  const userNavigatedRef = useRef(false);
+  const selectSection = (id: typeof activeSection) => {
+    userNavigatedRef.current = true;
+    setActiveSection(id);
+  };
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const fileDragDepthRef = useRef(0);
   const [datesOpen, setDatesOpen] = useState(false);
@@ -818,13 +849,14 @@ export default function TaskCard({
   const [completingAllExecution, setCompletingAllExecution] = useState(false);
   const [executionGuardAction, setExecutionGuardAction] = useState<{
     label: string;
-    run: () => Promise<void> | void;
+    preflight: ExecutionExitPreflight;
+    run: (choice: ExecutionExitChoice) => Promise<void>;
+    onAbort: () => void;
   } | null>(null);
-  const executionAutoOpenedRef = useRef<string | null>(null);
+  const [executionGuardBusy, setExecutionGuardBusy] = useState(false);
 
   const pendingExecutionItems = countPendingExecutionItems(execution.active);
   const showExecutionTab = shouldShowExecutionTab({ isDraft });
-  const executionWarning = buildExecutionTransitionWarning(execution.active);
 
   /** Identidade da passagem atual: etapa + tipo + responsável. */
   const executionContext = {
@@ -860,25 +892,23 @@ export default function TaskCard({
   }, [open, isDraft, card?.id]);
 
   useEffect(() => {
-    if (!open) executionAutoOpenedRef.current = null;
+    if (!open) userNavigatedRef.current = false;
   }, [open]);
 
   /**
-   * Abre direto na aba com pendência. "Alterações" (retrabalho) tem prioridade
-   * sobre "Execução" — nunca as duas ao mesmo tempo.
+   * Único override permitido após o carregamento: ALTERAÇÕES pendentes
+   * (retrabalho tem prioridade sobre execução). Respeita o lock manual.
    */
   useEffect(() => {
-    if (!open || isDraft || !card?.id) return;
-    const target = resolveAutoOpenTab({
+    if (!open || !card?.id) return;
+    const target = resolvePostLoadOverride({
       isDraft,
+      userNavigated: userNavigatedRef.current,
       alterationsPending: pendingChangeItems,
-      executionPending: pendingExecutionItems,
+      alterationsSection: 'alteracoes' as const,
     });
-    if (target !== 'execucao') return;
-    if (executionAutoOpenedRef.current === card.id) return;
-    executionAutoOpenedRef.current = card.id;
-    setActiveSection('execucao');
-  }, [open, isDraft, card?.id, pendingChangeItems, pendingExecutionItems]);
+    if (target) setActiveSection(target);
+  }, [open, isDraft, card?.id, pendingChangeItems]);
 
   useRealtimeDemandExecution({
     tenantId: card?.tenant_id ?? null,
@@ -965,30 +995,53 @@ export default function TaskCard({
    * nunca vaza para a etapa seguinte, e "passou com pendências" fica no
    * histórico da passagem.
    */
-  const runWithPendingChangesGuard = (label: string, run: () => Promise<void> | void) => {
-    const demandId = card?.id ?? null;
-    const activeRun = execution.active;
-    const guarded = async () => {
-      await run();
-      if (demandId && activeRun) {
-        await closeActiveExecutionRun({
-          demandId,
+  /**
+   * GUARD DE SAÍDA DA PASSAGEM — usado por TODO caminho que abandona a passagem
+   * atual (prosseguir, voltar, salto manual, entregar, entregar minha parte,
+   * transferir, finalizar). Resolve `true` só quando a mutação teve sucesso.
+   *
+   * Ordem transacional: executa → confirma sucesso → só então marca itens e
+   * fecha o run ANTIGO por id (CAS). `stale`/falha não fecham nada.
+   */
+  const runExecutionExitGuarded = (
+    label: string,
+    perform: () => Promise<unknown> | unknown,
+  ): Promise<boolean> =>
+    new Promise<boolean>((resolve) => {
+      const activeRun = execution.active;
+      const preflight = buildExecutionExitPreflight(activeRun);
+      const guarded = async (choice: ExecutionExitChoice) => {
+        const res = await performExecutionExit({
+          preflight,
+          runId: activeRun?.status === 'active' ? activeRun.id : null,
+          choice,
           reason: `flow_transition:${label}`,
-          active: activeRun,
+          perform,
+          deps: executionExitDeps,
         });
         await refreshExecution();
+        resolve(res.outcome === 'success');
+      };
+      if (preflight) {
+        setExecutionGuardAction({
+          label,
+          preflight,
+          run: guarded,
+          onAbort: () => resolve(false),
+        });
+        return;
       }
-    };
+      void guarded('keep_pending');
+    });
 
+  const runWithPendingChangesGuard = (label: string, run: () => Promise<unknown> | unknown) => {
+    const executionStep = () => { void runExecutionExitGuarded(label, run); };
+    // Guard de ALTERAÇÕES primeiro; o de EXECUÇÃO vem depois (nunca juntos).
     if (pendingChangeItems > 0) {
-      setPendingGuardAction({ label, run: guarded });
+      setPendingGuardAction({ label, run: executionStep });
       return;
     }
-    if (pendingExecutionItems > 0) {
-      setExecutionGuardAction({ label, run: guarded });
-      return;
-    }
-    void guarded();
+    executionStep();
   };
 
   const executeProceed = async (forcedAssigneeId?: string | null) => {
@@ -1025,6 +1078,8 @@ export default function TaskCard({
       } else {
         toast.error(result.message);
       }
+      // Fim de fluxo também ABANDONA a passagem atual.
+      return result.end ? { success: true } : result;
     } finally {
       setProceeding(false);
       setRoutingOpen(false);
@@ -1060,6 +1115,9 @@ export default function TaskCard({
       } else {
         toast.error(r.message);
       }
+      // A passagem pertence ao responsável PRINCIPAL: se ele continua no card,
+      // nada foi abandonado e o run segue ativo.
+      return { success: r.success && card.assigned_to === uid };
     } finally {
       setDeliveringPart(false);
     }
@@ -1154,7 +1212,9 @@ export default function TaskCard({
 
     // Regressão sem conteúdo: só volta o card, sem criar solicitação vazia.
     if (mode === "regress" && empty) {
-      const moved = await executeRegress(changeRequestModal.targetFunctionKey, changeRequestModal.targetUserId);
+      const moved = await runExecutionExitGuarded("Voltar", () =>
+        executeRegress(changeRequestModal.targetFunctionKey, changeRequestModal.targetUserId),
+      );
       if (moved) setChangeRequestModal(null);
       return;
     }
@@ -1173,7 +1233,9 @@ export default function TaskCard({
       createdId = created.requestId;
 
       if (mode === "regress") {
-        const moved = await executeRegress(changeRequestModal.targetFunctionKey, changeRequestModal.targetUserId);
+        const moved = await runExecutionExitGuarded("Voltar", () =>
+          executeRegress(changeRequestModal.targetFunctionKey, changeRequestModal.targetUserId),
+        );
         if (!moved) {
           // O card não se moveu: não deixa solicitação órfã.
           await deleteChangeRequest(createdId);
@@ -1248,7 +1310,9 @@ export default function TaskCard({
           daily_completed_occurrences: (card.daily_completed_occurrences || 0) + 1,
         } as any);
         onOpenChange(false);
-        return;
+        // Card Diário não finalizado: mesma etapa, mesmo responsável — a
+        // passagem continua ativa (o checklist não é encerrado).
+        return { success: false };
       }
 
       const result = await deliverDemand(card.id, pipelineId);
@@ -1267,6 +1331,7 @@ export default function TaskCard({
       } else {
         toast.error(result.message);
       }
+      return result;
     } finally {
       setDelivering(false);
     }
@@ -2269,21 +2334,27 @@ export default function TaskCard({
     if (!assignConflict || !card?.tenant_id) return;
     setReschedulingAssign(true);
     try {
-      const res = await applyReassign({
-        tenantId: card.tenant_id,
-        card: card as any,
-        newAssignedTo: assignConflict.newAssignedTo,
-        nextFunctionKey: assignConflict.nextFunctionKey,
-        reschedule: {
-          due_date: slot.date,
-          due_time: slot.startTime,
-          delivery_date: slot.date,
-          delivery_time: slot.endTime,
-        },
-        historySource: "task_card_rescheduled",
+      // Transferir com reagendamento também abandona a passagem atual.
+      let res: Awaited<ReturnType<typeof applyReassign>> | null = null;
+      const moved = await runExecutionExitGuarded("Transferir", async () => {
+        res = await applyReassign({
+          tenantId: card.tenant_id,
+          card: card as any,
+          newAssignedTo: assignConflict.newAssignedTo,
+          nextFunctionKey: assignConflict.nextFunctionKey,
+          reschedule: {
+            due_date: slot.date,
+            due_time: slot.startTime,
+            delivery_date: slot.date,
+            delivery_time: slot.endTime,
+          },
+          historySource: "task_card_rescheduled",
+        });
+        return reassignFailureMessage(res) ? "failure" : "success";
       });
+      if (!res) return;
       const failure = reassignFailureMessage(res);
-      if (failure) throw new Error(failure);
+      if (failure || !moved) throw new Error(failure || "Transferência não aplicada");
       onCardChange({
         ...card,
         assigned_to: assignConflict.newAssignedTo,
@@ -2982,6 +3053,7 @@ export default function TaskCard({
                         } else {
                           toast.error(r.message);
                         }
+                        return r;
                       } finally {
                         setJumpingStep(false);
                       }
@@ -3509,14 +3581,19 @@ export default function TaskCard({
                         if (evaluation.remapMessage) toast.info(evaluation.remapMessage);
                         // Ponto único de gravação: desarquiva e tira do status final
                         // quando o card volta ao fluxo, além de registrar o histórico.
-                        const reassignRes = await applyReassign({
-                          tenantId: card.tenant_id,
-                          card: card as any,
-                          newAssignedTo: newVal || null,
-                          nextFunctionKey: nextFn,
-                          direction: evaluation.direction,
-                          historySource: "task_card",
+                        let reassignRes: Awaited<ReturnType<typeof applyReassign>> | null = null;
+                        await runExecutionExitGuarded("Transferir", async () => {
+                          reassignRes = await applyReassign({
+                            tenantId: card.tenant_id,
+                            card: card as any,
+                            newAssignedTo: newVal || null,
+                            nextFunctionKey: nextFn,
+                            direction: evaluation.direction,
+                            historySource: "task_card",
+                          });
+                          return reassignFailureMessage(reassignRes) ? "failure" : "success";
                         });
+                        if (!reassignRes) return;
                         const reassignFailure = reassignFailureMessage(reassignRes);
                         if (reassignFailure) {
                           console.error("[TaskCard] applyReassign", reassignRes);
@@ -4175,10 +4252,10 @@ export default function TaskCard({
                               ...(contentBrief
                                 ? [{ id: 'briefing' as const, label: 'Briefing', icon: FileText, savingKey: 'content_brief' }]
                                 : []),
-                              { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
                               ...(showExecutionTab
                                 ? [{ id: 'execucao' as const, label: 'Execução', icon: ListChecks, savingKey: 'execution' }]
                                 : []),
+                              { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
                               ...(showAlterationsTab
                                 ? [{ id: 'alteracoes' as const, label: 'Alterações', icon: RotateCcw, savingKey: 'change_requests' }]
                                 : []),
@@ -4208,7 +4285,7 @@ export default function TaskCard({
                                     <button
                                       key={id}
                                       type="button"
-                                      onClick={() => setActiveSection(id)}
+                                      onClick={() => selectSection(id)}
                                       className={cn(
                                         "inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all",
                                         isActive
@@ -4465,62 +4542,56 @@ export default function TaskCard({
                       </AlertDialogContent>
                     </AlertDialog>
 
-                    {/* Orientação (não bloqueio) quando a execução da etapa tem pendências */}
-                    <AlertDialog
+                    {/* Aviso (nunca bloqueio) de saída da passagem com pendências */}
+                    <ExecutionExitDialog
                       open={!!executionGuardAction}
-                      onOpenChange={(v) => { if (!v) setExecutionGuardAction(null); }}
-                    >
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Execução desta etapa com pendências</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            {executionWarning
-                              ? `${executionWarning.pending} de ${executionWarning.total} tarefas desta etapa ainda não foram concluídas. Você pode continuar mesmo assim — a passagem fica registrada como concluída com pendências.`
-                              : "Ainda há tarefas desta etapa não concluídas."}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        {executionWarning && executionWarning.pendingTexts.length > 0 && (
-                          <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
-                            {executionWarning.pendingTexts.map((t, i) => (
-                              <li key={`${i}-${t}`} className="text-xs text-muted-foreground">• {t}</li>
-                            ))}
-                          </ul>
-                        )}
-                        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <Button
-                            variant="ghost"
-                            onClick={() => {
-                              setExecutionGuardAction(null);
-                              setActiveSection('execucao');
-                            }}
-                          >
-                            Ver execução
-                          </Button>
-                          <Button
-                            variant="outline"
-                            disabled={completingAllExecution}
-                            onClick={async () => {
-                              const action = executionGuardAction;
-                              setExecutionGuardAction(null);
-                              await handleCompleteAllExecution();
-                              await action?.run();
-                            }}
-                          >
-                            Marcar tudo e continuar
-                          </Button>
-                          <AlertDialogAction
-                            onClick={async () => {
-                              const action = executionGuardAction;
-                              setExecutionGuardAction(null);
-                              await action?.run();
-                            }}
-                          >
-                            Continuar com pendências
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      busy={executionGuardBusy}
+                      actionLabel={executionGuardAction?.label}
+                      entries={
+                        executionGuardAction
+                          ? [
+                              {
+                                cardId: executionGuardAction.preflight.demandId,
+                                pending: executionGuardAction.preflight.pending,
+                                total: executionGuardAction.preflight.total,
+                                pendingTexts: executionGuardAction.preflight.pendingTexts,
+                              },
+                            ]
+                          : []
+                      }
+                      onCancel={() => {
+                        executionGuardAction?.onAbort();
+                        setExecutionGuardAction(null);
+                      }}
+                      onViewExecution={() => {
+                        executionGuardAction?.onAbort();
+                        setExecutionGuardAction(null);
+                        selectSection('execucao');
+                      }}
+                      onCompleteAll={async () => {
+                        const action = executionGuardAction;
+                        if (!action) return;
+                        setExecutionGuardBusy(true);
+                        try {
+                          await action.run('complete_all');
+                        } finally {
+                          setExecutionGuardBusy(false);
+                          setExecutionGuardAction(null);
+                        }
+                      }}
+                      onKeepPending={async () => {
+                        const action = executionGuardAction;
+                        if (!action) return;
+                        setExecutionGuardBusy(true);
+                        try {
+                          await action.run('keep_pending');
+                        } finally {
+                          setExecutionGuardBusy(false);
+                          setExecutionGuardAction(null);
+                        }
+                      }}
+                    />
+
 
 
 
