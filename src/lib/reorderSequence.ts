@@ -50,6 +50,16 @@ export interface ReorderCardInput {
   delivery_date?: string | null;
   delivery_time?: string | null;
   current_function_key?: string | null;
+  /**
+   * Etapa em que o card estava ANTES desta decisão (alocação/reatribuição).
+   * Quando ausente, vale `current_function_key`.
+   *
+   * Existe por uma razão específica: horário FIXO de `captar` só pode ser
+   * preservado quando a captação já era real. Entrar em `captar` por
+   * remapeamento administrativo não autoriza reaproveitar a janela da etapa
+   * anterior.
+   */
+  original_function_key?: string | null;
   work_area?: ReorderWorkArea | null;
   updated_at?: string | null;
   /** Instante (ISO) em que o card entrou na etapa atual — base do cálculo de atraso. */
@@ -73,7 +83,7 @@ export interface ReorderProposal {
    * Motivo do `skipped`: horário realmente FIXO (captar/card diário) versus
    * etapa SEM agenda operacional (aguardando cliente).
    */
-  skipKind?: "captar" | "daily" | "awaiting" | null;
+  skipKind?: "captar" | "daily" | "awaiting" | "captar_unscheduled" | null;
   spansDays?: number;
   slackApplied?: boolean;
   pinned?: boolean;
@@ -271,6 +281,38 @@ export function zonedWallclockKey(source: Date, tz: string): string {
     v.getUTCHours(),
   )}:${pad(v.getUTCMinutes())}`;
 }
+
+/**
+ * Partes do relógio de parede na timezone canônica (mesma base do motor de
+ * reorganização). `weekday` é 0..6 (dom..sáb) e `minutes` são minutos desde a
+ * meia-noite local daquela timezone — nunca do runtime/navegador.
+ */
+export function zonedClockParts(
+  source: Date,
+  tz: string,
+): { dateISO: string; minutes: number; weekday: number } {
+  const v = toZonedVirtualUtc(source, tz);
+  return {
+    dateISO: isoDate(v),
+    minutes: v.getUTCHours() * 60 + v.getUTCMinutes(),
+    weekday: v.getUTCDay(),
+  };
+}
+
+/** Soma dias a uma data ISO sem depender da timezone do runtime. */
+export function addDaysISO(dateISO: string, days: number): string {
+  const [y, m, d] = dateISO.split("-").map((x) => parseInt(x, 10));
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return isoDate(dt);
+}
+
+/** Dia da semana (0..6) de uma data ISO, independente do runtime. */
+export function weekdayOfISO(dateISO: string): number {
+  const [y, m, d] = dateISO.split("-").map((x) => parseInt(x, 10));
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
 
 
 function toVirtualUtc(dateISO: string, timeHM: string): Date {
@@ -1026,8 +1068,23 @@ export async function computeReorder(
 
   // Cards que estão aguardando resposta do cliente não consomem tempo do colaborador
   // nem recebem horário novo — ficam totalmente fora do cálculo.
-  const captarFixed = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "captar");
-  const dailyFixed = cards.filter((c) => !!c.is_daily_card && !isClientWaitingFunction(c.current_function_key) && (c.current_function_key || "").toLowerCase() !== "captar");
+  // `captar` só tem HORÁRIO FIXO quando a captação já era real: o card já estava
+  // em `captar` antes desta decisão E possui janela válida. Entrar em `captar`
+  // por remapeamento administrativo NUNCA reaproveita a janela da etapa anterior.
+  const isCaptarKey = (k?: string | null) => (k || "").toLowerCase() === "captar";
+  const hasCaptureWindow = (c: ReorderCardInput) =>
+    !!(c.due_date && c.due_time && c.delivery_date && c.delivery_time) &&
+    toVirtualUtc(c.due_date as string, (c.due_time as string).slice(0, 5)) <
+      toVirtualUtc(c.delivery_date as string, (c.delivery_time as string).slice(0, 5));
+  const isGenuineCaptar = (c: ReorderCardInput) =>
+    isCaptarKey(c.current_function_key) &&
+    isCaptarKey(c.original_function_key ?? c.current_function_key) &&
+    hasCaptureWindow(c);
+
+  const captarFixed = cards.filter(isGenuineCaptar);
+  // Captação sem horário real: não é reagendável nem inventável.
+  const captarUnscheduled = cards.filter((c) => isCaptarKey(c.current_function_key) && !isGenuineCaptar(c));
+  const dailyFixed = cards.filter((c) => !!c.is_daily_card && !isClientWaitingFunction(c.current_function_key) && !isCaptarKey(c.current_function_key));
   const active = cards.filter((c) => {
     const k = (c.current_function_key || "").toLowerCase();
     if (isClientWaitingFunction(k) || k === "captar") return false;
@@ -1366,6 +1423,28 @@ export async function computeReorder(
       workArea: (c.work_area as any) ?? null,
     });
   }
+
+  for (const c of captarUnscheduled) {
+    proposals.push({
+      id: c.id,
+      title: c.title,
+      durationMin: 0,
+      startISO: "",
+      startTime: "",
+      endISO: "",
+      endTime: "",
+      publishDeadline: null,
+      changed: false,
+      skipped: true,
+      skipKind: "captar_unscheduled",
+      warning: "Captação sem horário definido — agende a captação antes de alocar.",
+      stageKey: c.current_function_key ?? null,
+      demandTypeKey: c.demand_type_key ?? null,
+      workArea: (c.work_area as any) ?? null,
+    });
+  }
+
+
 
   for (const c of dailyFixed) {
     proposals.push({
