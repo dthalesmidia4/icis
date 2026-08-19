@@ -123,9 +123,13 @@ export function closingStatusFor(
 
 /* ============================== ABAS / BADGES ============================== */
 
-/** A aba "Execução" existe em qualquer card já salvo (mesmo sem checklist). */
-export function shouldShowExecutionTab(opts: { isDraft?: boolean } = {}): boolean {
-  return !opts.isDraft;
+/**
+ * A aba "Execução" existe em QUALQUER card — inclusive durante a criação
+ * manual (rascunho). No rascunho o checklist vive só em memória e é
+ * materializado no banco depois que a demanda é criada.
+ */
+export function shouldShowExecutionTab(_opts: { isDraft?: boolean } = {}): boolean {
+  return true;
 }
 
 /** Badge da aba: número de itens pendentes da passagem atual. */
@@ -275,4 +279,62 @@ export function buildExecutionTransitionWarning(
 export function passLabel(passNumber: number): string {
   const n = Number.isFinite(passNumber) && passNumber > 0 ? Math.floor(passNumber) : 1;
   return `${n}ª passagem`;
+}
+
+/* ============================== RASCUNHO (CRIAÇÃO) ============================== */
+
+/** Item do checklist enquanto a demanda ainda é rascunho (só memória). */
+export interface DraftExecutionItem {
+  id: string;
+  text: string;
+  is_completed: boolean;
+}
+
+let draftSeq = 0;
+export function makeDraftExecutionItem(text: string): DraftExecutionItem {
+  draftSeq += 1;
+  return { id: `draft-${draftSeq}`, text: text.trim(), is_completed: false };
+}
+
+/**
+ * Run SINTÉTICO para o rascunho: permite reusar exatamente o mesmo
+ * `ExecutionPanel` da demanda salva, sem componente paralelo e sem gravar nada.
+ */
+export function buildDraftExecutionRun(
+  items: DraftExecutionItem[],
+  ctx: ExecutionContext,
+): ExecutionRunWithItems {
+  const now = new Date().toISOString();
+  return {
+    id: "draft-run",
+    tenant_id: "",
+    demand_id: "draft",
+    function_key: ctx.functionKey,
+    demand_type_key: ctx.demandTypeKey,
+    assigned_to: ctx.assignedTo,
+    pass_number: 1,
+    status: "active",
+    created_by: null,
+    created_at: now,
+    completed_at: null,
+    updated_at: now,
+    metadata: { draft: true },
+    items: items.map((i, index) => ({
+      id: i.id,
+      execution_run_id: "draft-run",
+      tenant_id: "",
+      text: i.text,
+      is_completed: i.is_completed,
+      position: index,
+      completed_by: null,
+      completed_at: null,
+      created_at: now,
+      updated_at: now,
+    })),
+  };
+}
+
+/** Textos que devem ser materializados no banco após criar a demanda. */
+export function draftExecutionItemTexts(items: DraftExecutionItem[]): string[] {
+  return normalizeExecutionItemTexts(items.map((i) => i.text)).map((i) => i.text);
 }

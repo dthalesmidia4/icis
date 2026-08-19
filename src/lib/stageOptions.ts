@@ -66,6 +66,18 @@ export const STAGE_REASON_LABEL: Record<StageInvalidReason, string> = {
 };
 
 
+/**
+ * Contexto da decisão:
+ *  - `administrative_reassign` (default): decisão automática/administrativa
+ *    (alocação em massa, reatribuição). Repetir uma etapa que o colaborador já
+ *    concluiu neste card é indesejado e fica bloqueado;
+ *  - `manual_stage_change`: ESCOLHA MANUAL EXPLÍCITA de uma pessoa (long-press
+ *    do chip da etapa). Aqui `already_completed` é apenas histórico — não
+ *    impede a escolha. As demais regras (função habilitada, anti-autorrevisão,
+ *    etapa de cliente, segmento do fluxo) continuam valendo.
+ */
+export type StageDecisionMode = "administrative_reassign" | "manual_stage_change";
+
 export interface ComputeStageOptionsParams {
   sequence: StageSequenceItem[];
   /** Funções `allowed = true` do colaborador na área do card. */
@@ -78,6 +90,7 @@ export interface ComputeStageOptionsParams {
    * ser escolhidas. `false` = transição real de processo.
    */
   administrative?: boolean;
+  mode?: StageDecisionMode;
 }
 
 const toSet = (v?: Set<string> | string[]): Set<string> =>
@@ -88,6 +101,7 @@ export function computeStageOptions(params: ComputeStageOptionsParams): StageOpt
   const allowed = toSet(params.allowedKeys);
   const completed = toSet(params.completedByUser);
   const administrative = params.administrative !== false;
+  const manual = params.mode === "manual_stage_change";
   const current = (params.currentKey || "").trim() || null;
   const keys = params.sequence.map((s) => s.functionKey);
   const outsideFlow = isStageOutsideFlow(keys, current);
@@ -98,7 +112,7 @@ export function computeStageOptions(params: ComputeStageOptionsParams): StageOpt
     let reason: StageInvalidReason | null = null;
 
     if (!allowed.has(key)) reason = "not_allowed";
-    else if (completed.has(key) && key !== current) reason = "already_completed";
+    else if (!manual && completed.has(key) && key !== current) reason = "already_completed";
     else if (isReviewFunction(key) && completed.has(params.sequence[index - 1]?.functionKey || ""))
       reason = "self_review";
     else if (administrative && clientFacing && key !== current) reason = "client_facing";
@@ -260,6 +274,7 @@ export async function loadStageOptionsForAssignee(params: {
   card: StageOptionsCard;
   userId: string;
   administrative?: boolean;
+  mode?: StageDecisionMode;
   /** Sequência já carregada (evita reconsulta por card na alocação em massa). */
   sequence?: StageSequenceItem[];
   allowedKeys?: Set<string>;
@@ -286,6 +301,7 @@ export async function loadStageOptionsForAssignee(params: {
     completedByUser,
     currentKey: card.current_function_key,
     administrative: params.administrative !== false,
+    mode: params.mode,
   });
 
   return {
