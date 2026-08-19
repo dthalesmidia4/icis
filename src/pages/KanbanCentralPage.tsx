@@ -71,6 +71,8 @@ import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
 import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
+import { smartAdministrativeReassign, type SmartReassignResult } from "@/lib/smartReassign";
+import { decideKanbanDrop, isCardDraggable } from "@/lib/kanbanDroppable";
 import ScheduleConflictModal from "@/components/kanban/ScheduleConflictModal";
 import StageQuickChangePopover from "@/components/kanban/StageQuickChangePopover";
 import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
@@ -492,7 +494,7 @@ const KanbanCentralPage = () => {
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<"all" | "midia" | "sistemas">("all");
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
-  const { collaborators } = useCollaborators(tenantId);
+  const { collaborators, refresh: refreshCollaborators } = useCollaborators(tenantId);
 
   // Se a coluna focada não existe mais no quadro, descarta o foco silenciosamente.
   useEffect(() => {
