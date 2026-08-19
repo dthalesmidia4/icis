@@ -806,17 +806,189 @@ export default function TaskCard({
     }
   };
 
+  /* ===================== EXECUÇÃO DA ETAPA (passagem atual) ===================== */
 
-  /**
-   * Ajuda o executor quando há alterações pendentes, mas NUNCA bloqueia:
-   * o usuário pode continuar mesmo assim.
-   */
-  const runWithPendingChangesGuard = (label: string, run: () => Promise<void> | void) => {
-    if (pendingChangeItems > 0) {
-      setPendingGuardAction({ label, run });
+  const [execution, setExecution] = useState<{
+    active: ExecutionRunWithItems | null;
+    history: ExecutionRunWithItems[];
+  }>({ active: null, history: [] });
+  const [executionLoading, setExecutionLoading] = useState(false);
+  const [busyExecutionItemId, setBusyExecutionItemId] = useState<string | null>(null);
+  const [addingExecutionItem, setAddingExecutionItem] = useState(false);
+  const [completingAllExecution, setCompletingAllExecution] = useState(false);
+  const [executionGuardAction, setExecutionGuardAction] = useState<{
+    label: string;
+    run: () => Promise<void> | void;
+  } | null>(null);
+  const executionAutoOpenedRef = useRef<string | null>(null);
+
+  const pendingExecutionItems = countPendingExecutionItems(execution.active);
+  const showExecutionTab = shouldShowExecutionTab({ isDraft });
+  const executionWarning = buildExecutionTransitionWarning(execution.active);
+
+  /** Identidade da passagem atual: etapa + tipo + responsável. */
+  const executionContext = {
+    functionKey: card?.current_function_key ?? null,
+    demandTypeKey: (card as any)?.demand_type_key ?? null,
+    assignedTo: card?.assigned_to ?? null,
+  };
+
+  const refreshExecution = useCallback(async () => {
+    if (!card?.id || isDraft) {
+      setExecution({ active: null, history: [] });
       return;
     }
-    void run();
+    setExecution(await loadExecutionRuns(card.id));
+  }, [card?.id, isDraft]);
+
+  useEffect(() => {
+    if (!open || isDraft || !card?.id) {
+      setExecution({ active: null, history: [] });
+      return;
+    }
+    let cancelled = false;
+    setExecutionLoading(true);
+    loadExecutionRuns(card.id)
+      .then((data) => {
+        if (cancelled) return;
+        setExecution(data);
+      })
+      .finally(() => {
+        if (!cancelled) setExecutionLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [open, isDraft, card?.id]);
+
+  useEffect(() => {
+    if (!open) executionAutoOpenedRef.current = null;
+  }, [open]);
+
+  /**
+   * Abre direto na aba com pendência. "Alterações" (retrabalho) tem prioridade
+   * sobre "Execução" — nunca as duas ao mesmo tempo.
+   */
+  useEffect(() => {
+    if (!open || isDraft || !card?.id) return;
+    const target = resolveAutoOpenTab({
+      isDraft,
+      alterationsPending: pendingChangeItems,
+      executionPending: pendingExecutionItems,
+    });
+    if (target !== 'execucao') return;
+    if (executionAutoOpenedRef.current === card.id) return;
+    executionAutoOpenedRef.current = card.id;
+    setActiveSection('execucao');
+  }, [open, isDraft, card?.id, pendingChangeItems, pendingExecutionItems]);
+
+  useRealtimeDemandExecution({
+    tenantId: card?.tenant_id ?? null,
+    demandId: card?.id ?? null,
+    enabled: !!open && !isDraft,
+    onChange: () => { void refreshExecution(); },
+  });
+
+  const handleAddExecutionItem = async (text: string) => {
+    if (!card || readOnly || isDraft) return;
+    setAddingExecutionItem(true);
+    try {
+      const run = await ensureExecutionRun({
+        tenantId: card.tenant_id,
+        demandId: card.id,
+        context: executionContext,
+        metadata: { created_from: "task_card" },
+      });
+      if (!run) throw new Error("Sem passagem ativa");
+      await addExecutionItem({
+        runId: run.id,
+        tenantId: card.tenant_id,
+        text,
+        position: run.items.length,
+      });
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] add execution item", err);
+      toast.error("Não foi possível adicionar a tarefa.");
+    } finally {
+      setAddingExecutionItem(false);
+    }
+  };
+
+  const handleToggleExecutionItem = async (itemId: string, completed: boolean) => {
+    if (readOnly) return;
+    setBusyExecutionItemId(itemId);
+    try {
+      await setExecutionItemCompleted(itemId, completed, currentUserId);
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] toggle execution item", err);
+      toast.error("Não foi possível atualizar a tarefa.");
+      await refreshExecution();
+    } finally {
+      setBusyExecutionItemId(null);
+    }
+  };
+
+  const handleDeleteExecutionItem = async (itemId: string) => {
+    if (readOnly) return;
+    setBusyExecutionItemId(itemId);
+    try {
+      await deleteExecutionItem(itemId);
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] delete execution item", err);
+      toast.error("Não foi possível remover a tarefa.");
+    } finally {
+      setBusyExecutionItemId(null);
+    }
+  };
+
+  const handleCompleteAllExecution = async () => {
+    if (readOnly || !execution.active) return;
+    setCompletingAllExecution(true);
+    try {
+      await completeAllPendingExecutionItems(execution.active.id, currentUserId);
+      await refreshExecution();
+      toast.success("Execução marcada como concluída.");
+    } catch (err) {
+      console.error("[TaskCard] complete all execution", err);
+      toast.error("Não foi possível marcar as tarefas.");
+    } finally {
+      setCompletingAllExecution(false);
+    }
+  };
+
+  /**
+   * Ajuda o executor quando há alterações OU execução pendentes, mas NUNCA
+   * bloqueia: o usuário pode continuar mesmo assim.
+   *
+   * Toda transição encerra a passagem em execução — o checklist de uma etapa
+   * nunca vaza para a etapa seguinte, e "passou com pendências" fica no
+   * histórico da passagem.
+   */
+  const runWithPendingChangesGuard = (label: string, run: () => Promise<void> | void) => {
+    const demandId = card?.id ?? null;
+    const activeRun = execution.active;
+    const guarded = async () => {
+      await run();
+      if (demandId && activeRun) {
+        await closeActiveExecutionRun({
+          demandId,
+          reason: `flow_transition:${label}`,
+          active: activeRun,
+        });
+        await refreshExecution();
+      }
+    };
+
+    if (pendingChangeItems > 0) {
+      setPendingGuardAction({ label, run: guarded });
+      return;
+    }
+    if (pendingExecutionItems > 0) {
+      setExecutionGuardAction({ label, run: guarded });
+      return;
+    }
+    void guarded();
   };
 
   const executeProceed = async (forcedAssigneeId?: string | null) => {
