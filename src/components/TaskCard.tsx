@@ -1690,7 +1690,9 @@ export default function TaskCard({
       });
       if (cancelled) return;
       setEligibleAssignees(
-        new Set(Object.entries(map).filter(([, v]) => v.eligible).map(([id]) => id)),
+        new Set(
+          Object.keys(map).filter((id) => map[id]?.eligible),
+        ),
       );
     })();
     return () => { cancelled = true; };
