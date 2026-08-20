@@ -2806,6 +2806,7 @@ const KanbanCentralPage = () => {
                     setSelectedStatusFilter("all");
                     setSelectedAreaFilter("all");
                     setDateGroupBy("start");
+                    setSearchTerm("");
                   }}
                 >
                   Limpar todos
@@ -2965,6 +2966,7 @@ const KanbanCentralPage = () => {
                 setSelectedStatusFilter("all");
                 setSelectedAreaFilter("all");
                 setDateGroupBy("start");
+                setSearchTerm("");
               }}
             >
               Limpar filtros
