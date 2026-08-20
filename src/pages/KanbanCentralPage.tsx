@@ -50,6 +50,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 import SmartSearchBar from "@/components/SmartSearchBar";
+import { matchesDemandSearch } from "@/lib/demandTextSearch";
 import { cn } from "@/lib/utils";
 import { reactivateDemandById } from "@/lib/reactivateDemand";
 import BackButton from "@/components/BackButton";
@@ -566,6 +567,9 @@ const KanbanCentralPage = () => {
     companyName?: string;
   }>>([]);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+  /** Texto da barra de busca — filtra o quadro em tempo real. */
+  const [searchTerm, setSearchTerm] = useState("");
+  const isSearching = searchTerm.trim().length > 0;
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
   const columnScrollRootsRef = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -695,14 +699,23 @@ const KanbanCentralPage = () => {
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
     // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
     // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
-    baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
+    // Durante uma busca ativa, nada é escondido por dispatch: quem procura
+    // precisa achar o card onde ele estiver.
+    if (!isSearching) {
+      baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
+    }
     // Fila de liberação: SÓ quando ativada, demandas não liberadas deixam de
     // existir para quem não é gestor. Fila desativada => nada é escondido.
-    if (!canManageQueue && queueActive) {
+    if (!canManageQueue && queueActive && !isSearching) {
       baseCards = baseCards.filter(card => isOperationallyReleased(card as any, releaseConfig));
     }
+    // Filtro de texto da barra de busca (título, cliente, descrição, objetivo,
+    // instruções, observações, legenda, tipo, status e nomes de anexos).
+    if (isSearching) {
+      baseCards = baseCards.filter(card => matchesDemandSearch(card as any, searchTerm));
+    }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue, queueActive, releaseConfig]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue, queueActive, releaseConfig, isSearching, searchTerm]);
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
@@ -734,28 +747,57 @@ const KanbanCentralPage = () => {
   const handleSearchResultSelect = useCallback((card: CentralKanbanCard) => {
     if (card.isArchived) {
       sonnerToast.info("Card de período concluído", {
-        description: `Este card pertence a um período já concluído.`
+        description: "Abrindo em modo leitura — este card pertence a um período já concluído.",
       });
+      setSelectedCard(card);
+      setIsTaskCardOpen(true);
       return;
     }
 
+    // Limpar filtros que esconderiam justamente o card escolhido.
     if (selectedClientFilter !== "all" && card.clientId !== selectedClientFilter) {
       setSelectedClientFilter("all");
     }
-    
+    if (selectedStatusFilter !== "all" && card.status !== selectedStatusFilter) {
+      setSelectedStatusFilter("all");
+    }
+    if (selectedAreaFilter !== "all" && ((card as any).work_area || "midia") !== selectedAreaFilter) {
+      setSelectedAreaFilter("all");
+    }
+    if (
+      selectedPeriodFilter !== "active" &&
+      selectedPeriodFilter !== "all" &&
+      card.periodPlanId !== selectedPeriodFilter
+    ) {
+      setSelectedPeriodFilter("active");
+    }
+
     setHighlightedCardId(card.id);
-    
-    setTimeout(() => {
+
+    // Rolagem resiliente: o card pode ainda não estar montado (coluna fora do
+    // viewport, grupo recém-expandido). Tentamos por alguns frames e, se nunca
+    // aparecer, abrimos o card diretamente.
+    let attempts = 0;
+    const tryScroll = () => {
       const cardElement = cardRefs.current.get(card.id);
       if (cardElement) {
         cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
       }
-    }, 100);
-    
+      attempts += 1;
+      if (attempts < 40) {
+        requestAnimationFrame(tryScroll);
+        return;
+      }
+      setSelectedCard(card);
+      setIsTaskCardOpen(true);
+    };
+    requestAnimationFrame(tryScroll);
+
     setTimeout(() => {
       setHighlightedCardId(null);
     }, 3000);
-  }, [selectedClientFilter]);
+  }, [selectedClientFilter, selectedStatusFilter, selectedAreaFilter, selectedPeriodFilter]);
 
   // Unified realtime handler for attachment updates
   const handleRealtimeUpdate = useCallback((itemId: string, attachments: Attachment[]) => {
@@ -2624,7 +2666,8 @@ const KanbanCentralPage = () => {
           (selectedPeriodFilter !== "active" ? 1 : 0) +
           (selectedStatusFilter !== "all" ? 1 : 0) +
           (selectedAreaFilter !== "all" ? 1 : 0) +
-          (dateGroupBy !== "start" ? 1 : 0);
+          (dateGroupBy !== "start" ? 1 : 0) +
+          (isSearching ? 1 : 0);
         const clientLabel = clients.find((c) => c.id === selectedClientFilter)?.name;
         const periodLabel =
           selectedPeriodFilter === "active"
@@ -2641,6 +2684,9 @@ const KanbanCentralPage = () => {
                   onResultSelect={handleSearchResultSelect}
                   placeholder="Pesquisar demandas..."
                   maxResults={8}
+                  value={searchTerm}
+                  onQueryChange={setSearchTerm}
+                  keepQueryOnSelect
                 />
               </div>
               <Button
@@ -2672,6 +2718,19 @@ const KanbanCentralPage = () => {
 
             {activeCount > 0 && (
               <div className="flex flex-wrap items-center gap-2">
+                {isSearching && (
+                  <Badge variant="secondary" className="gap-1 pr-1">
+                    Busca: {searchTerm.trim()}
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      className="ml-1 hover:bg-background/40 rounded p-0.5"
+                      aria-label="Limpar busca"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
                 {clientLabel && (
                   <Badge variant="secondary" className="gap-1 pr-1">
                     Cliente: {clientLabel}
@@ -2747,6 +2806,7 @@ const KanbanCentralPage = () => {
                     setSelectedStatusFilter("all");
                     setSelectedAreaFilter("all");
                     setDateGroupBy("start");
+                    setSearchTerm("");
                   }}
                 >
                   Limpar todos
@@ -2906,6 +2966,7 @@ const KanbanCentralPage = () => {
                 setSelectedStatusFilter("all");
                 setSelectedAreaFilter("all");
                 setDateGroupBy("start");
+                setSearchTerm("");
               }}
             >
               Limpar filtros
@@ -2934,7 +2995,9 @@ const KanbanCentralPage = () => {
             ];
 
             let displayColumns = rawColumns;
-            if (focusedColumnId) {
+            // Busca ativa: mostrar todos os responsáveis, para o card ser
+            // encontrado onde ele estiver (o Modo Foco volta ao limpar a busca).
+            if (focusedColumnId && !isSearching) {
               const target = rawColumns.find((c) => c.userId === focusedColumnId);
               if (target) {
                 const userCards = filteredCards.filter((c) =>
@@ -3391,7 +3454,9 @@ const KanbanCentralPage = () => {
 
                           return entries.map(({ date, items }) => {
                             const groupKey = `${column.id}::${date}`;
-                            const isCollapsed = collapsedDateGroups.has(groupKey);
+                            // Busca ativa abre todos os grupos: nada de resultado
+                            // escondido atrás de um agrupamento colapsado.
+                            const isCollapsed = !isSearching && collapsedDateGroups.has(groupKey);
                             const isCaptarNow = date === "__captar_now__";
                             return (
                             <div key={date} className="space-y-1">

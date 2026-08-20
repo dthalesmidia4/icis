@@ -6,7 +6,11 @@ export interface SearchableItem {
   id: string;
   title: string;
   description?: string | null;
+  /** Objetivo do card — `objective` é o nome canônico; `objetivo` é alias legado. */
+  objective?: string | null;
   objetivo?: string | null;
+  /** Instruções do card — `instructions` é o nome canônico. */
+  instructions?: string | null;
   instrucoes?: string | null;
   observations?: string | null;
   clientName?: string;
@@ -206,10 +210,10 @@ function calculateScore<T extends SearchableItem>(
   
   const normalizedTitle = normalizeText(item.title || "");
   const normalizedClient = normalizeText(item.clientName || "");
-  const normalizedObjetivo = normalizeText(item.objetivo || "");
+  const normalizedObjetivo = normalizeText(item.objective || item.objetivo || "");
   const normalizedDescription = normalizeText(item.description || "");
   const normalizedObservations = normalizeText(item.observations || "");
-  const normalizedInstrucoes = normalizeText(item.instrucoes || "");
+  const normalizedInstrucoes = normalizeText(item.instructions || item.instrucoes || "");
   
   // Get attachment names and metadata
   const attachmentText = (item.attachments || [])
