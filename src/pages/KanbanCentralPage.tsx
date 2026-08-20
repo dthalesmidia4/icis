@@ -3454,7 +3454,9 @@ const KanbanCentralPage = () => {
 
                           return entries.map(({ date, items }) => {
                             const groupKey = `${column.id}::${date}`;
-                            const isCollapsed = collapsedDateGroups.has(groupKey);
+                            // Busca ativa abre todos os grupos: nada de resultado
+                            // escondido atrás de um agrupamento colapsado.
+                            const isCollapsed = !isSearching && collapsedDateGroups.has(groupKey);
                             const isCaptarNow = date === "__captar_now__";
                             return (
                             <div key={date} className="space-y-1">
