@@ -235,7 +235,7 @@ export async function saveSystemsClient(
     contact_cadence_days: payload.contactCadenceDays ?? 30,
     status: payload.status ?? "ativo",
     onboarded_at: payload.onboardedAt || null,
-    lifecycle: payload.lifecycle ?? "customer",
+    // lifecycle é definido abaixo: no update só quando explicitamente informado.
     commercial_stage: payload.commercialStage ?? null,
     segment: clean(payload.segment),
     current_system: clean(payload.currentSystem),
