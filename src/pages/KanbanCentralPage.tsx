@@ -699,14 +699,23 @@ const KanbanCentralPage = () => {
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
     // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
     // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
-    baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
+    // Durante uma busca ativa, nada é escondido por dispatch: quem procura
+    // precisa achar o card onde ele estiver.
+    if (!isSearching) {
+      baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
+    }
     // Fila de liberação: SÓ quando ativada, demandas não liberadas deixam de
     // existir para quem não é gestor. Fila desativada => nada é escondido.
-    if (!canManageQueue && queueActive) {
+    if (!canManageQueue && queueActive && !isSearching) {
       baseCards = baseCards.filter(card => isOperationallyReleased(card as any, releaseConfig));
     }
+    // Filtro de texto da barra de busca (título, cliente, descrição, objetivo,
+    // instruções, observações, legenda, tipo, status e nomes de anexos).
+    if (isSearching) {
+      baseCards = baseCards.filter(card => matchesDemandSearch(card as any, searchTerm));
+    }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue, queueActive, releaseConfig]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue, queueActive, releaseConfig, isSearching, searchTerm]);
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
