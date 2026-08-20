@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Building2, Plus, Pencil, Trash2, Search, HeartPulse } from "lucide-react";
+import { Loader2, Building2, Plus, Pencil, Trash2, Search, HeartPulse, Handshake } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -168,6 +168,7 @@ export default function SystemsClients() {
       contactCadenceDays: Number(form.contactCadenceDays) || 30,
       status: form.status,
       onboardedAt: form.onboardedAt || null,
+      lifecycle: "customer",
     });
     setSaving(false);
     if (!res.success) {
@@ -211,6 +212,14 @@ export default function SystemsClients() {
           <Button size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" />
             Novo cliente
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/comercial-sistemas")}
+          >
+            <Handshake className="h-4 w-4 mr-1" />
+            Comercial
           </Button>
           <Button
             variant="outline"

@@ -11,6 +11,7 @@ import {
   DollarSign,
   KeyRound,
   MessageSquareX,
+  Handshake,
 } from "lucide-react";
 import type { HubSectionId } from "@/hooks/useHubPermissions";
 
@@ -44,6 +45,12 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     title: "Clientes Sistemas",
     icon: Briefcase,
     route: "/clientes-sistemas",
+  },
+  {
+    id: 'comercial-sistemas',
+    title: "Comercial Sistemas",
+    icon: Handshake,
+    route: "/comercial-sistemas",
   },
   {
     id: 'kanban',

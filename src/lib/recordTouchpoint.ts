@@ -9,6 +9,8 @@ export type TouchpointType =
   | "treinamento"
   | "entrega"
   | "feedback"
+  | "demonstracao"
+  | "implantacao"
   | "outro";
 
 export const TOUCHPOINT_LABEL: Record<TouchpointType, string> = {
@@ -20,6 +22,8 @@ export const TOUCHPOINT_LABEL: Record<TouchpointType, string> = {
   treinamento: "Treinamento",
   entrega: "Entrega",
   feedback: "Feedback",
+  demonstracao: "Demonstração",
+  implantacao: "Implantação",
   outro: "Outro",
 };
 
