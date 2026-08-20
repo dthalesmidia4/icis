@@ -302,6 +302,16 @@ export default function SystemsClients() {
                     </span>
                   </td>
                   <td className="p-3 text-right whitespace-nowrap">
+                    {(r.status === "pausado" || r.status === "cancelado") && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Reabrir oportunidade comercial"
+                        onClick={() => setReopenTarget(r)}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
