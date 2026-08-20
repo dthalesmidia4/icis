@@ -2995,7 +2995,9 @@ const KanbanCentralPage = () => {
             ];
 
             let displayColumns = rawColumns;
-            if (focusedColumnId) {
+            // Busca ativa: mostrar todos os responsáveis, para o card ser
+            // encontrado onde ele estiver (o Modo Foco volta ao limpar a busca).
+            if (focusedColumnId && !isSearching) {
               const target = rawColumns.find((c) => c.userId === focusedColumnId);
               if (target) {
                 const userCards = filteredCards.filter((c) =>
