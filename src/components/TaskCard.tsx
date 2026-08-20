@@ -2098,7 +2098,13 @@ export default function TaskCard({
   };
 
   // Briefing editorial estruturado (JSONB `content_brief`)
-  const contentBrief = ((card as any)?.content_brief ?? null) as Record<string, any> | null;
+  const contentBriefRaw = ((card as any)?.content_brief ?? null) as Record<string, any> | null;
+  /**
+   * Em Mídia a aba existe sempre: quando ainda não há briefing usamos um
+   * objeto vazio seguro, apenas em memória (nada é gravado ao abrir o card).
+   */
+  const contentBrief = resolveBriefForEditing(contentBriefRaw, (card as any)?.work_area);
+
 
   const handleContentBriefSave = async (next: Record<string, any>) => {
     onCardChange({ ...card, content_brief: next } as any);
