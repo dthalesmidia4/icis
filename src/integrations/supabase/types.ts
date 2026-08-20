@@ -2170,63 +2170,103 @@ export type Database = {
       }
       systems_clients: {
         Row: {
+          address: string | null
           city: string | null
+          commercial_owner_id: string | null
+          commercial_stage: string | null
           contact_cadence_days: number
           contact_name: string | null
           created_at: string
           created_by: string | null
+          current_system: string | null
           email: string | null
           id: string
+          last_contact_result: string | null
+          lead_source: string | null
+          lifecycle: string
+          loss_reason: string | null
           name: string
+          next_action: string | null
+          next_action_at: string | null
           notes: string | null
           onboarded_at: string | null
           parent_company_id: string
           phone: string | null
           plan: string | null
+          segment: string | null
           state: string | null
           status: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          address?: string | null
           city?: string | null
+          commercial_owner_id?: string | null
+          commercial_stage?: string | null
           contact_cadence_days?: number
           contact_name?: string | null
           created_at?: string
           created_by?: string | null
+          current_system?: string | null
           email?: string | null
           id?: string
+          last_contact_result?: string | null
+          lead_source?: string | null
+          lifecycle?: string
+          loss_reason?: string | null
           name: string
+          next_action?: string | null
+          next_action_at?: string | null
           notes?: string | null
           onboarded_at?: string | null
           parent_company_id: string
           phone?: string | null
           plan?: string | null
+          segment?: string | null
           state?: string | null
           status?: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          address?: string | null
           city?: string | null
+          commercial_owner_id?: string | null
+          commercial_stage?: string | null
           contact_cadence_days?: number
           contact_name?: string | null
           created_at?: string
           created_by?: string | null
+          current_system?: string | null
           email?: string | null
           id?: string
+          last_contact_result?: string | null
+          lead_source?: string | null
+          lifecycle?: string
+          loss_reason?: string | null
           name?: string
+          next_action?: string | null
+          next_action_at?: string | null
           notes?: string | null
           onboarded_at?: string | null
           parent_company_id?: string
           phone?: string | null
           plan?: string | null
+          segment?: string | null
           state?: string | null
           status?: string
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "systems_clients_commercial_owner_id_fkey"
+            columns: ["commercial_owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "systems_clients_parent_company_id_fkey"
             columns: ["parent_company_id"]
