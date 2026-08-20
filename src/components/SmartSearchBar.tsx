@@ -126,9 +126,9 @@ export function SmartSearchBar<T extends SearchableItem>({
   const handleSelect = useCallback((item: T) => {
     onResultSelect(item);
     setIsOpen(false);
-    setQuery("");
+    if (!keepQueryOnSelect) setQuery("");
     inputRef.current?.blur();
-  }, [onResultSelect]);
+  }, [onResultSelect, keepQueryOnSelect, setQuery]);
   
   const handleClear = () => {
     setQuery("");
