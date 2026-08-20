@@ -2,6 +2,20 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type SystemsClientStatus = "ativo" | "pausado" | "cancelado";
 
+/** Posição da conta na jornada comercial (antes x depois da venda). */
+export type SystemsLifecycle = "prospect" | "customer";
+
+/** Etapa comercial (só faz sentido para lifecycle = prospect). */
+export type CommercialStage =
+  | "mapeado"
+  | "contato"
+  | "demonstracao"
+  | "avaliacao"
+  | "negociacao"
+  | "ganho"
+  | "perdido"
+  | "pausado";
+
 export interface SystemsClient {
   id: string;
   tenant_id: string;
@@ -19,6 +33,18 @@ export interface SystemsClient {
   onboarded_at: string | null;
   created_at: string;
   updated_at: string;
+  /* Camada comercial */
+  lifecycle: SystemsLifecycle;
+  commercial_stage: CommercialStage | null;
+  segment: string | null;
+  current_system: string | null;
+  address: string | null;
+  commercial_owner_id: string | null;
+  next_action: string | null;
+  next_action_at: string | null;
+  last_contact_result: string | null;
+  loss_reason: string | null;
+  lead_source: string | null;
 }
 
 export interface SystemsCompany {
@@ -33,6 +59,48 @@ export const STATUS_LABEL: Record<SystemsClientStatus, string> = {
   cancelado: "Cancelado",
 };
 
+export const STAGE_LABEL: Record<CommercialStage, string> = {
+  mapeado: "Mapeado",
+  contato: "Contato",
+  demonstracao: "Demonstração",
+  avaliacao: "Avaliação",
+  negociacao: "Negociação",
+  ganho: "Ganho",
+  perdido: "Perdido",
+  pausado: "Pausado",
+};
+
+export const STAGE_OPTIONS: { value: CommercialStage; label: string }[] = (
+  Object.keys(STAGE_LABEL) as CommercialStage[]
+).map((value) => ({ value, label: STAGE_LABEL[value] }));
+
+/** Etapas que saem da rotina comercial ativa. */
+export const FINAL_STAGES: CommercialStage[] = ["ganho", "perdido", "pausado"];
+
+export function isFinalStage(stage?: string | null): boolean {
+  return !!stage && FINAL_STAGES.includes(stage as CommercialStage);
+}
+
+export function stageLabel(stage?: string | null): string {
+  if (!stage) return "—";
+  return STAGE_LABEL[stage as CommercialStage] || stage;
+}
+
+/** Normaliza o nome do sistema atual (sem acento, minúsculo, sem separadores). */
+export function normalizeCurrentSystem(value?: string | null): string {
+  if (!value) return "";
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/** Regra derivada: importador rápido existe somente para SimplesVet. */
+export function hasMigrationAvailable(currentSystem?: string | null): boolean {
+  return normalizeCurrentSystem(currentSystem) === "simplesvet";
+}
+
 /** Empresas da área Sistemas (ex.: SmartVety) — donas dos clientes de sistemas. */
 export async function loadSystemsCompanies(tenantId: string): Promise<SystemsCompany[]> {
   const { data, error } = await supabase
@@ -45,6 +113,7 @@ export async function loadSystemsCompanies(tenantId: string): Promise<SystemsCom
   return (data || []) as SystemsCompany[];
 }
 
+/** Clientes pós-venda (lifecycle = customer). */
 export async function loadSystemsClients(
   tenantId: string,
   parentCompanyId?: string | null,
@@ -53,14 +122,32 @@ export async function loadSystemsClients(
     .from("systems_clients")
     .select("*")
     .eq("tenant_id", tenantId)
+    .eq("lifecycle", "customer")
     .order("name");
   if (parentCompanyId) query = query.eq("parent_company_id", parentCompanyId);
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []) as SystemsClient[];
+  return (data || []) as unknown as SystemsClient[];
 }
 
-export async function saveSystemsClient(payload: {
+/** Oportunidades comerciais (lifecycle = prospect). */
+export async function loadSystemsProspects(
+  tenantId: string,
+  parentCompanyId?: string | null,
+): Promise<SystemsClient[]> {
+  let query = supabase
+    .from("systems_clients")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("lifecycle", "prospect")
+    .order("name");
+  if (parentCompanyId) query = query.eq("parent_company_id", parentCompanyId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as unknown as SystemsClient[];
+}
+
+export interface SaveSystemsClientPayload {
   id?: string;
   tenantId: string;
   parentCompanyId: string;
@@ -75,39 +162,110 @@ export async function saveSystemsClient(payload: {
   contactCadenceDays?: number;
   status?: SystemsClientStatus;
   onboardedAt?: string | null;
-}): Promise<{ success: boolean; message?: string }> {
+  /* Camada comercial */
+  lifecycle?: SystemsLifecycle;
+  commercialStage?: CommercialStage | null;
+  segment?: string | null;
+  currentSystem?: string | null;
+  address?: string | null;
+  commercialOwnerId?: string | null;
+  nextAction?: string | null;
+  nextActionAt?: string | null;
+  lastContactResult?: string | null;
+  lossReason?: string | null;
+  leadSource?: string | null;
+}
+
+const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
+
+export async function saveSystemsClient(
+  payload: SaveSystemsClientPayload,
+): Promise<{ success: boolean; message?: string; id?: string }> {
   const row: Record<string, unknown> = {
     tenant_id: payload.tenantId,
     parent_company_id: payload.parentCompanyId,
     name: payload.name.trim(),
-    contact_name: payload.contactName?.trim() || null,
-    email: payload.email?.trim() || null,
-    phone: payload.phone?.trim() || null,
-    city: payload.city?.trim() || null,
-    state: payload.state?.trim() || null,
-    plan: payload.plan?.trim() || null,
-    notes: payload.notes?.trim() || null,
+    contact_name: clean(payload.contactName),
+    email: clean(payload.email),
+    phone: clean(payload.phone),
+    city: clean(payload.city),
+    state: clean(payload.state),
+    plan: clean(payload.plan),
+    notes: clean(payload.notes),
     contact_cadence_days: payload.contactCadenceDays ?? 30,
     status: payload.status ?? "ativo",
     onboarded_at: payload.onboardedAt || null,
+    lifecycle: payload.lifecycle ?? "customer",
+    commercial_stage: payload.commercialStage ?? null,
+    segment: clean(payload.segment),
+    current_system: clean(payload.currentSystem),
+    address: clean(payload.address),
+    commercial_owner_id: payload.commercialOwnerId || null,
+    next_action: clean(payload.nextAction),
+    next_action_at: payload.nextActionAt || null,
+    last_contact_result: clean(payload.lastContactResult),
+    loss_reason: clean(payload.lossReason),
+    lead_source: clean(payload.leadSource),
   };
 
   if (payload.id) {
-    const { error } = await supabase.from("systems_clients").update(row as any).eq("id", payload.id);
+    const { error } = await supabase
+      .from("systems_clients")
+      .update(row as any)
+      .eq("id", payload.id);
     if (error) return { success: false, message: error.message };
-    return { success: true };
+    return { success: true, id: payload.id };
   }
 
   const { data: auth } = await supabase.auth.getUser();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("systems_clients")
-    .insert({ ...row, created_by: auth?.user?.id ?? null } as any);
+    .insert({ ...row, created_by: auth?.user?.id ?? null } as any)
+    .select("id")
+    .maybeSingle();
   if (error) return { success: false, message: error.message };
-  return { success: true };
+  return { success: true, id: (data as any)?.id };
 }
 
 export async function deleteSystemsClient(id: string): Promise<{ success: boolean; message?: string }> {
   const { error } = await supabase.from("systems_clients").delete().eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true };
+}
+
+/**
+ * Ganho → customer. O MESMO registro é convertido: nada é copiado, nenhum
+ * histórico de touchpoints é perdido.
+ */
+export async function markOpportunityWon(
+  id: string,
+  currentOnboardedAt?: string | null,
+): Promise<{ success: boolean; message?: string }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { error } = await supabase
+    .from("systems_clients")
+    .update({
+      lifecycle: "customer",
+      commercial_stage: "ganho",
+      status: "ativo",
+      onboarded_at: currentOnboardedAt || today,
+      next_action: null,
+      next_action_at: null,
+    } as any)
+    .eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true };
+}
+
+/**
+ * Reabrir oportunidade: devolve um customer ao ciclo comercial sem apagar
+ * status, onboarded_at, notas ou histórico.
+ */
+export async function reopenOpportunity(id: string): Promise<{ success: boolean; message?: string }> {
+  const { error } = await supabase
+    .from("systems_clients")
+    .update({ lifecycle: "prospect", commercial_stage: "contato" } as any)
+    .eq("id", id);
   if (error) return { success: false, message: error.message };
   return { success: true };
 }
