@@ -797,7 +797,7 @@ const KanbanCentralPage = () => {
     setTimeout(() => {
       setHighlightedCardId(null);
     }, 3000);
-  }, [selectedClientFilter]);
+  }, [selectedClientFilter, selectedStatusFilter, selectedAreaFilter, selectedPeriodFilter]);
 
   // Unified realtime handler for attachment updates
   const handleRealtimeUpdate = useCallback((itemId: string, attachments: Attachment[]) => {
