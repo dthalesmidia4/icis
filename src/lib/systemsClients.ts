@@ -130,6 +130,46 @@ export async function loadSystemsClients(
   return (data || []) as unknown as SystemsClient[];
 }
 
+/**
+ * Clientes elegíveis para NOVAS demandas: pós-venda e ativos.
+ * Prospect, pausado e cancelado nunca aparecem aqui.
+ */
+export async function loadActiveSystemsClients(
+  tenantId: string,
+  parentCompanyId?: string | null,
+): Promise<SystemsClient[]> {
+  let query = supabase
+    .from("systems_clients")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("lifecycle", "customer")
+    .eq("status", "ativo")
+    .order("name");
+  if (parentCompanyId) query = query.eq("parent_company_id", parentCompanyId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as unknown as SystemsClient[];
+}
+
+/**
+ * Recupera registros por id independentemente de lifecycle/status (sempre dentro
+ * do tenant). Usado para manter vínculos históricos visíveis em demandas antigas.
+ */
+export async function loadSystemsSubclientsByIds(
+  tenantId: string,
+  ids: string[],
+): Promise<SystemsClient[]> {
+  const unique = Array.from(new Set((ids || []).filter(Boolean)));
+  if (unique.length === 0) return [];
+  const { data, error } = await supabase
+    .from("systems_clients")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .in("id", unique);
+  if (error) throw error;
+  return (data || []) as unknown as SystemsClient[];
+}
+
 /** Oportunidades comerciais (lifecycle = prospect). */
 export async function loadSystemsProspects(
   tenantId: string,
