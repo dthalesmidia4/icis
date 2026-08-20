@@ -269,3 +269,16 @@ export async function reopenOpportunity(id: string): Promise<{ success: boolean;
   if (error) return { success: false, message: error.message };
   return { success: true };
 }
+
+/** Atualiza apenas o resumo do resultado comercial mais recente. */
+export async function updateLastContactResult(
+  id: string,
+  result: string,
+): Promise<{ success: boolean; message?: string }> {
+  const { error } = await supabase
+    .from("systems_clients")
+    .update({ last_contact_result: result } as any)
+    .eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true };
+}

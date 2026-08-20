@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { useCollaborators } from "@/hooks/useCollaborators";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,6 +53,7 @@ import {
   normalizeCurrentSystem,
   saveSystemsClient,
   stageLabel,
+  updateLastContactResult,
   type CommercialStage,
   type SystemsClient,
   type SystemsCompany,
@@ -168,6 +170,7 @@ export default function SystemsCommercial() {
   const { tenantId } = useTenant();
   const navigate = useNavigate();
   const { collaborators } = useCollaborators(tenantId);
+  const { user } = useAuth();
 
   const [companies, setCompanies] = useState<SystemsCompany[]>([]);
   const [rows, setRows] = useState<OpportunityRow[]>([]);
@@ -392,7 +395,7 @@ export default function SystemsCommercial() {
     }
     if (tpUseAsResult && tpSummary.trim() && form) {
       setForm({ ...form, lastContactResult: tpSummary.trim() });
-      await supabase_updateLastResult(selected.id, tpSummary.trim());
+      await updateLastContactResult(selected.id, tpSummary.trim());
     }
     setTpSaving(false);
     setTpSummary("");
@@ -994,7 +997,7 @@ export default function SystemsCommercial() {
                   currentSystem: newSystem,
                   lifecycle: "prospect",
                   commercialStage: "mapeado",
-                  commercialOwnerId: currentUserIdRef.current,
+                  commercialOwnerId: user?.id || null,
                 });
                 setNewSaving(false);
                 if (!res.success) {
