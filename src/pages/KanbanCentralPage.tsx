@@ -2684,6 +2684,9 @@ const KanbanCentralPage = () => {
                   onResultSelect={handleSearchResultSelect}
                   placeholder="Pesquisar demandas..."
                   maxResults={8}
+                  value={searchTerm}
+                  onQueryChange={setSearchTerm}
+                  keepQueryOnSelect
                 />
               </div>
               <Button
