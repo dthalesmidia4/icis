@@ -496,11 +496,7 @@ export default function SystemsCommercial() {
           {quickChip("atrasados", "Atrasados", counters.atrasados, <AlertTriangle className="h-3.5 w-3.5" />)}
           {quickChip("hoje", "Hoje", counters.hoje, <CalendarClock className="h-3.5 w-3.5" />)}
           {quickChip("sem_acao", "Sem próxima ação", counters.semAcao)}
-          {quickChip(
-            "simplesvet",
-            "SimplesVet",
-            scoped.filter((r) => normalizeCurrentSystem(r.client.current_system) === "simplesvet").length,
-          )}
+          {quickChip("simplesvet", "SimplesVet", counters.simplesvet)}
           {quickChip("avaliacao", "Em avaliação", counters.avaliacao)}
           {quickChip("negociacao", "Em negociação", counters.negociacao)}
         </div>
@@ -844,6 +840,15 @@ export default function SystemsCommercial() {
                   <History className="h-4 w-4 text-primary" />
                   Histórico de contatos
                 </div>
+
+                {!historyLoading && history.length > 0 && (
+                  <p className="text-xs text-muted-foreground border rounded-md p-2 bg-muted/40">
+                    Esta oportunidade possui histórico anterior registrado no ICIS. Como está no
+                    ciclo comercial, ela não aparece no Customer Success até ser convertida
+                    novamente em cliente.
+                  </p>
+                )}
+
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Select value={tpType} onValueChange={(v) => setTpType(v as TouchpointType)}>

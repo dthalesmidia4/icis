@@ -130,6 +130,46 @@ export async function loadSystemsClients(
   return (data || []) as unknown as SystemsClient[];
 }
 
+/**
+ * Clientes elegíveis para NOVAS demandas: pós-venda e ativos.
+ * Prospect, pausado e cancelado nunca aparecem aqui.
+ */
+export async function loadActiveSystemsClients(
+  tenantId: string,
+  parentCompanyId?: string | null,
+): Promise<SystemsClient[]> {
+  let query = supabase
+    .from("systems_clients")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("lifecycle", "customer")
+    .eq("status", "ativo")
+    .order("name");
+  if (parentCompanyId) query = query.eq("parent_company_id", parentCompanyId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as unknown as SystemsClient[];
+}
+
+/**
+ * Recupera registros por id independentemente de lifecycle/status (sempre dentro
+ * do tenant). Usado para manter vínculos históricos visíveis em demandas antigas.
+ */
+export async function loadSystemsSubclientsByIds(
+  tenantId: string,
+  ids: string[],
+): Promise<SystemsClient[]> {
+  const unique = Array.from(new Set((ids || []).filter(Boolean)));
+  if (unique.length === 0) return [];
+  const { data, error } = await supabase
+    .from("systems_clients")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .in("id", unique);
+  if (error) throw error;
+  return (data || []) as unknown as SystemsClient[];
+}
+
 /** Oportunidades comerciais (lifecycle = prospect). */
 export async function loadSystemsProspects(
   tenantId: string,
@@ -195,7 +235,7 @@ export async function saveSystemsClient(
     contact_cadence_days: payload.contactCadenceDays ?? 30,
     status: payload.status ?? "ativo",
     onboarded_at: payload.onboardedAt || null,
-    lifecycle: payload.lifecycle ?? "customer",
+    // lifecycle é definido abaixo: no update só quando explicitamente informado.
     commercial_stage: payload.commercialStage ?? null,
     segment: clean(payload.segment),
     current_system: clean(payload.currentSystem),
@@ -209,9 +249,13 @@ export async function saveSystemsClient(
   };
 
   if (payload.id) {
+    // No update, lifecycle só entra quando informado — nunca converte silenciosamente.
+    const updateRow = payload.lifecycle
+      ? { ...row, lifecycle: payload.lifecycle }
+      : row;
     const { error } = await supabase
       .from("systems_clients")
-      .update(row as any)
+      .update(updateRow as any)
       .eq("id", payload.id);
     if (error) return { success: false, message: error.message };
     return { success: true, id: payload.id };
@@ -220,7 +264,11 @@ export async function saveSystemsClient(
   const { data: auth } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("systems_clients")
-    .insert({ ...row, created_by: auth?.user?.id ?? null } as any)
+    .insert({
+      ...row,
+      lifecycle: payload.lifecycle ?? "customer",
+      created_by: auth?.user?.id ?? null,
+    } as any)
     .select("id")
     .maybeSingle();
   if (error) return { success: false, message: error.message };

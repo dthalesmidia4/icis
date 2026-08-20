@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { isFinalStage, type SystemsClient } from "@/lib/systemsClients";
+import { hasMigrationAvailable, isFinalStage, type SystemsClient } from "@/lib/systemsClients";
 
 /** Classificação operacional da próxima ação. */
 export type NextActionBucket = "atrasado" | "hoje" | "futuro" | "sem_acao" | "final";
@@ -91,6 +91,7 @@ export function countQuickFilters(rows: OpportunityRow[]): QuickCounters {
     if (bucket === "hoje") counters.hoje += 1;
     if (bucket === "atrasado") counters.atrasados += 1;
     if (bucket === "sem_acao") counters.semAcao += 1;
+    if (hasMigrationAvailable(client.current_system)) counters.simplesvet += 1;
     if (client.commercial_stage === "avaliacao") counters.avaliacao += 1;
     if (client.commercial_stage === "negociacao") counters.negociacao += 1;
   });
