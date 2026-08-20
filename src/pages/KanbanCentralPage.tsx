@@ -2718,6 +2718,19 @@ const KanbanCentralPage = () => {
 
             {activeCount > 0 && (
               <div className="flex flex-wrap items-center gap-2">
+                {isSearching && (
+                  <Badge variant="secondary" className="gap-1 pr-1">
+                    Busca: {searchTerm.trim()}
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      className="ml-1 hover:bg-background/40 rounded p-0.5"
+                      aria-label="Limpar busca"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
                 {clientLabel && (
                   <Badge variant="secondary" className="gap-1 pr-1">
                     Cliente: {clientLabel}
