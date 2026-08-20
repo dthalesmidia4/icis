@@ -567,6 +567,9 @@ const KanbanCentralPage = () => {
     companyName?: string;
   }>>([]);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+  /** Texto da barra de busca — filtra o quadro em tempo real. */
+  const [searchTerm, setSearchTerm] = useState("");
+  const isSearching = searchTerm.trim().length > 0;
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
   const columnScrollRootsRef = useRef<Map<string, HTMLDivElement>>(new Map());
