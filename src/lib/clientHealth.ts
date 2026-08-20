@@ -167,6 +167,7 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
         .from("systems_clients")
         .select("*")
         .eq("tenant_id", tenantId)
+        .eq("lifecycle", "customer")
         .order("name"),
       supabase
         .from("client_touchpoints")

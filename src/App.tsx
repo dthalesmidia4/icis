@@ -60,6 +60,7 @@ import VideoReferencesLibrary from "./pages/VideoReferencesLibrary";
 import ClientEvolution from "./pages/ClientEvolution";
 import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
 import SystemsClients from "./pages/SystemsClients";
+import SystemsCommercial from "./pages/SystemsCommercial";
 
 
 const queryClient = new QueryClient({
@@ -356,6 +357,16 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <SystemsClients />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/comercial-sistemas" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <SystemsCommercial />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
