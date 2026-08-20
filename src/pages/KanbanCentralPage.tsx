@@ -747,24 +747,53 @@ const KanbanCentralPage = () => {
   const handleSearchResultSelect = useCallback((card: CentralKanbanCard) => {
     if (card.isArchived) {
       sonnerToast.info("Card de período concluído", {
-        description: `Este card pertence a um período já concluído.`
+        description: "Abrindo em modo leitura — este card pertence a um período já concluído.",
       });
+      setSelectedCard(card);
+      setIsTaskCardOpen(true);
       return;
     }
 
+    // Limpar filtros que esconderiam justamente o card escolhido.
     if (selectedClientFilter !== "all" && card.clientId !== selectedClientFilter) {
       setSelectedClientFilter("all");
     }
-    
+    if (selectedStatusFilter !== "all" && card.status !== selectedStatusFilter) {
+      setSelectedStatusFilter("all");
+    }
+    if (selectedAreaFilter !== "all" && ((card as any).work_area || "midia") !== selectedAreaFilter) {
+      setSelectedAreaFilter("all");
+    }
+    if (
+      selectedPeriodFilter !== "active" &&
+      selectedPeriodFilter !== "all" &&
+      card.periodPlanId !== selectedPeriodFilter
+    ) {
+      setSelectedPeriodFilter("active");
+    }
+
     setHighlightedCardId(card.id);
-    
-    setTimeout(() => {
+
+    // Rolagem resiliente: o card pode ainda não estar montado (coluna fora do
+    // viewport, grupo recém-expandido). Tentamos por alguns frames e, se nunca
+    // aparecer, abrimos o card diretamente.
+    let attempts = 0;
+    const tryScroll = () => {
       const cardElement = cardRefs.current.get(card.id);
       if (cardElement) {
         cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
       }
-    }, 100);
-    
+      attempts += 1;
+      if (attempts < 40) {
+        requestAnimationFrame(tryScroll);
+        return;
+      }
+      setSelectedCard(card);
+      setIsTaskCardOpen(true);
+    };
+    requestAnimationFrame(tryScroll);
+
     setTimeout(() => {
       setHighlightedCardId(null);
     }, 3000);
