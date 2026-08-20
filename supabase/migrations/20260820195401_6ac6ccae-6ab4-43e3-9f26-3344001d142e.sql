@@ -1,0 +1,1 @@
+ALTER TABLE public.client_touchpoints DROP CONSTRAINT IF EXISTS client_touchpoints_type_check;
