@@ -2270,7 +2270,10 @@ const KanbanCentralPage = () => {
         subclient_id: subIds[0] || c.subclient_id || null,
         subclient_ids: subIds,
         classifications: Array.isArray(c.classifications) ? c.classifications : [],
+        // Briefing preenchido no rascunho precisa ser persistido junto do card.
+        content_brief: c.content_brief && typeof c.content_brief === "object" ? c.content_brief : null,
         image_aspect_ratio: c.image_aspect_ratio || null,
+
         is_daily_card: isDaily,
       };
 

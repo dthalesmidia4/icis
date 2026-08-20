@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { isClientStageKey, userHasFunction } from "@/lib/clientStageAssignments";
+import { resolveBriefForEditing } from "@/lib/contentBriefTab";
+
 import { IMAGE_ASPECT_OPTIONS, DEFAULT_SOCIAL_ASPECT, isImageAspectRatio, type ImageAspectRatio } from "@/lib/imageAspect";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { extractClipboardFiles, normalizePastedFiles } from "@/lib/pastedFiles";
@@ -2098,7 +2100,13 @@ export default function TaskCard({
   };
 
   // Briefing editorial estruturado (JSONB `content_brief`)
-  const contentBrief = ((card as any)?.content_brief ?? null) as Record<string, any> | null;
+  const contentBriefRaw = ((card as any)?.content_brief ?? null) as Record<string, any> | null;
+  /**
+   * Em Mídia a aba existe sempre: quando ainda não há briefing usamos um
+   * objeto vazio seguro, apenas em memória (nada é gravado ao abrir o card).
+   */
+  const contentBrief = resolveBriefForEditing(contentBriefRaw, (card as any)?.work_area);
+
 
   const handleContentBriefSave = async (next: Record<string, any>) => {
     onCardChange({ ...card, content_brief: next } as any);
