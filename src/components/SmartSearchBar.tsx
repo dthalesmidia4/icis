@@ -14,6 +14,11 @@ interface SmartSearchBarProps<T extends SearchableItem> {
   placeholder?: string;
   className?: string;
   maxResults?: number;
+  /** Modo controlado: quando definido, o texto vive fora do componente. */
+  value?: string;
+  onQueryChange?: (query: string) => void;
+  /** Em modo controlado, não limpar o texto ao selecionar um resultado. */
+  keepQueryOnSelect?: boolean;
 }
 
 export function SmartSearchBar<T extends SearchableItem>({
@@ -22,8 +27,20 @@ export function SmartSearchBar<T extends SearchableItem>({
   placeholder = "Pesquisar por tarefa, cliente, anexo, data, mês, palavra-chave…",
   className,
   maxResults = 8,
+  value,
+  onQueryChange,
+  keepQueryOnSelect = false,
 }: SmartSearchBarProps<T>) {
-  const [query, setQuery] = useState("");
+  const [internalQuery, setInternalQuery] = useState("");
+  const isControlled = value !== undefined;
+  const query = isControlled ? value : internalQuery;
+  const setQuery = useCallback(
+    (next: string) => {
+      if (!isControlled) setInternalQuery(next);
+      onQueryChange?.(next);
+    },
+    [isControlled, onQueryChange]
+  );
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
