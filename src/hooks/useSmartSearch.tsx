@@ -6,7 +6,11 @@ export interface SearchableItem {
   id: string;
   title: string;
   description?: string | null;
+  /** Objetivo do card — `objective` é o nome canônico; `objetivo` é alias legado. */
+  objective?: string | null;
   objetivo?: string | null;
+  /** Instruções do card — `instructions` é o nome canônico. */
+  instructions?: string | null;
   instrucoes?: string | null;
   observations?: string | null;
   clientName?: string;
