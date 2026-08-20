@@ -210,10 +210,10 @@ function calculateScore<T extends SearchableItem>(
   
   const normalizedTitle = normalizeText(item.title || "");
   const normalizedClient = normalizeText(item.clientName || "");
-  const normalizedObjetivo = normalizeText(item.objetivo || "");
+  const normalizedObjetivo = normalizeText(item.objective || item.objetivo || "");
   const normalizedDescription = normalizeText(item.description || "");
   const normalizedObservations = normalizeText(item.observations || "");
-  const normalizedInstrucoes = normalizeText(item.instrucoes || "");
+  const normalizedInstrucoes = normalizeText(item.instructions || item.instrucoes || "");
   
   // Get attachment names and metadata
   const attachmentText = (item.attachments || [])
