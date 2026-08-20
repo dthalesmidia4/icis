@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Building2, Plus, Pencil, Trash2, Search, HeartPulse, Handshake } from "lucide-react";
+import { Loader2, Building2, Plus, Pencil, Trash2, Search, HeartPulse, Handshake, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ import {
   loadSystemsCompanies,
   saveSystemsClient,
   deleteSystemsClient,
+  reopenOpportunity,
   STATUS_LABEL,
   type SystemsClient,
   type SystemsClientStatus,
@@ -82,6 +83,7 @@ export default function SystemsClients() {
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SystemsClient | null>(null);
+  const [reopenTarget, setReopenTarget] = useState<SystemsClient | null>(null);
 
   const load = useCallback(async () => {
     if (!tenantId) return;
@@ -417,6 +419,36 @@ export default function SystemsClients() {
             <Button onClick={submit} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reopenTarget} onOpenChange={(v) => !v && setReopenTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reabrir oportunidade</DialogTitle>
+            <DialogDescription>
+              {reopenTarget?.name} volta para o ciclo comercial na etapa Contato. Status, início do
+              atendimento, observações e histórico de contatos são preservados.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setReopenTarget(null)}>Cancelar</Button>
+            <Button
+              onClick={async () => {
+                if (!reopenTarget) return;
+                const res = await reopenOpportunity(reopenTarget.id);
+                if (!res.success) {
+                  toast.error(res.message || "Erro ao reabrir oportunidade.");
+                  return;
+                }
+                toast.success("Oportunidade reaberta em Comercial Sistemas.");
+                setReopenTarget(null);
+                load();
+              }}
+            >
+              Reabrir
             </Button>
           </DialogFooter>
         </DialogContent>
