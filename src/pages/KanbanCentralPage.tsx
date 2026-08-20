@@ -2666,7 +2666,8 @@ const KanbanCentralPage = () => {
           (selectedPeriodFilter !== "active" ? 1 : 0) +
           (selectedStatusFilter !== "all" ? 1 : 0) +
           (selectedAreaFilter !== "all" ? 1 : 0) +
-          (dateGroupBy !== "start" ? 1 : 0);
+          (dateGroupBy !== "start" ? 1 : 0) +
+          (isSearching ? 1 : 0);
         const clientLabel = clients.find((c) => c.id === selectedClientFilter)?.name;
         const periodLabel =
           selectedPeriodFilter === "active"
