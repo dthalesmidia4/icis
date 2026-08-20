@@ -496,11 +496,7 @@ export default function SystemsCommercial() {
           {quickChip("atrasados", "Atrasados", counters.atrasados, <AlertTriangle className="h-3.5 w-3.5" />)}
           {quickChip("hoje", "Hoje", counters.hoje, <CalendarClock className="h-3.5 w-3.5" />)}
           {quickChip("sem_acao", "Sem próxima ação", counters.semAcao)}
-          {quickChip(
-            "simplesvet",
-            "SimplesVet",
-            scoped.filter((r) => normalizeCurrentSystem(r.client.current_system) === "simplesvet").length,
-          )}
+          {quickChip("simplesvet", "SimplesVet", counters.simplesvet)}
           {quickChip("avaliacao", "Em avaliação", counters.avaliacao)}
           {quickChip("negociacao", "Em negociação", counters.negociacao)}
         </div>
