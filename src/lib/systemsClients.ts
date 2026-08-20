@@ -249,9 +249,13 @@ export async function saveSystemsClient(
   };
 
   if (payload.id) {
+    // No update, lifecycle só entra quando informado — nunca converte silenciosamente.
+    const updateRow = payload.lifecycle
+      ? { ...row, lifecycle: payload.lifecycle }
+      : row;
     const { error } = await supabase
       .from("systems_clients")
-      .update(row as any)
+      .update(updateRow as any)
       .eq("id", payload.id);
     if (error) return { success: false, message: error.message };
     return { success: true, id: payload.id };
@@ -260,7 +264,11 @@ export async function saveSystemsClient(
   const { data: auth } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("systems_clients")
-    .insert({ ...row, created_by: auth?.user?.id ?? null } as any)
+    .insert({
+      ...row,
+      lifecycle: payload.lifecycle ?? "customer",
+      created_by: auth?.user?.id ?? null,
+    } as any)
     .select("id")
     .maybeSingle();
   if (error) return { success: false, message: error.message };
