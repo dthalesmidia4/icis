@@ -91,6 +91,7 @@ export function countQuickFilters(rows: OpportunityRow[]): QuickCounters {
     if (bucket === "hoje") counters.hoje += 1;
     if (bucket === "atrasado") counters.atrasados += 1;
     if (bucket === "sem_acao") counters.semAcao += 1;
+    if (hasMigrationAvailable(client.current_system)) counters.simplesvet += 1;
     if (client.commercial_stage === "avaliacao") counters.avaliacao += 1;
     if (client.commercial_stage === "negociacao") counters.negociacao += 1;
   });
