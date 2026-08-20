@@ -50,6 +50,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 import SmartSearchBar from "@/components/SmartSearchBar";
+import { matchesDemandSearch } from "@/lib/demandTextSearch";
 import { cn } from "@/lib/utils";
 import { reactivateDemandById } from "@/lib/reactivateDemand";
 import BackButton from "@/components/BackButton";
