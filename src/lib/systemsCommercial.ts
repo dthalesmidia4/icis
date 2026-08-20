@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { isFinalStage, type SystemsClient } from "@/lib/systemsClients";
+import { hasMigrationAvailable, isFinalStage, type SystemsClient } from "@/lib/systemsClients";
 
 /** Classificação operacional da próxima ação. */
 export type NextActionBucket = "atrasado" | "hoje" | "futuro" | "sem_acao" | "final";
