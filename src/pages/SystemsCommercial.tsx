@@ -841,6 +841,15 @@ export default function SystemsCommercial() {
                   Histórico de contatos
                 </div>
 
+                {!historyLoading && history.length > 0 && (
+                  <p className="text-xs text-muted-foreground border rounded-md p-2 bg-muted/40">
+                    Esta oportunidade possui histórico anterior registrado no ICIS. Como está no
+                    ciclo comercial, ela não aparece no Customer Success até ser convertida
+                    novamente em cliente.
+                  </p>
+                )}
+
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Select value={tpType} onValueChange={(v) => setTpType(v as TouchpointType)}>
                     <SelectTrigger>
