@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { isClientStageKey, userHasFunction } from "@/lib/clientStageAssignments";
+import { resolveBriefForEditing } from "@/lib/contentBriefTab";
+
 import { IMAGE_ASPECT_OPTIONS, DEFAULT_SOCIAL_ASPECT, isImageAspectRatio, type ImageAspectRatio } from "@/lib/imageAspect";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { extractClipboardFiles, normalizePastedFiles } from "@/lib/pastedFiles";
