@@ -5,14 +5,18 @@
  * runtime neste ambiente). __ICIS_BUILD_TIME__ é injetado pelo Vite no build,
  * então dois deploys diferentes nunca têm o mesmo identificador.
  */
-export const BUILD_VERSION = "2026-08-21-2";
-
 declare const __ICIS_BUILD_TIME__: string;
+declare const __ICIS_BUILD_VERSION__: string;
+
+/** Definido pelo Vite (mesma constante usada para gerar /version.json). */
+export const BUILD_VERSION: string =
+  typeof __ICIS_BUILD_VERSION__ === "string" ? __ICIS_BUILD_VERSION__ : "2026-08-21-3";
 
 export const BUILD_TIME: string =
   typeof __ICIS_BUILD_TIME__ === "string" ? __ICIS_BUILD_TIME__ : "dev";
 
 export const BUILD_ID = `${BUILD_VERSION}+${BUILD_TIME}`;
+
 
 export interface BuildSentinel {
   version: string;
