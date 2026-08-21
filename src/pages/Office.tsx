@@ -163,9 +163,6 @@ export default function Office() {
               </button>
             ))}
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/kanban-central")}>
-            <LayoutGrid className="mr-2 h-4 w-4" /> Visão operacional
-          </Button>
         </div>
       </header>
 
