@@ -6,7 +6,7 @@ export type OverviewMode = "escritorio" | "operacional";
 
 export const OVERVIEW_MODES: { id: OverviewMode; label: string }[] = [
   { id: "escritorio", label: "Escritório virtual" },
-  { id: "operacional", label: "Visão operacional" },
+  { id: "operacional", label: "Visão geral" },
 ];
 
 /** Padrão desta fase: protagonismo do ambiente gamificado. */

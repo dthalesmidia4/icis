@@ -2396,18 +2396,20 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector }: KanbanCentralPa
   return (
     <div className="mt-4 px-3 sm:px-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-4 gap-x-3 gap-y-2 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="p-2 bg-primary/10 rounded-lg">
-            <LayoutGrid className="h-5 w-5 text-primary" />
+            {headerIcon || <LayoutGrid className="h-5 w-5 text-primary" />}
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-            Visão geral das Tarefas
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate">
+            {headerTitle || "Visão geral das Tarefas"}
           </h2>
-          <Badge variant="secondary">
-            {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
-          </Badge>
-          {focusedColumnId && (() => {
+          {!headerOnly && (
+            <Badge variant="secondary">
+              {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
+            </Badge>
+          )}
+          {!headerOnly && focusedColumnId && (() => {
             const focusName = collaborators.find((c) => c.userId === focusedColumnId)?.fullName || "Colaborador";
             return (
               <div className="flex items-center gap-2 pl-3 ml-1 border-l border-border/60 animate-fade-in">
