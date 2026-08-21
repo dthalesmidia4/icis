@@ -73,16 +73,19 @@ export function computeDeskSlots(count: number): DeskSlot[] {
 }
 
 /**
- * Faixas de volume da pilha: cada faixa tem altura claramente distinta
- * (3, 9 e 32 precisam parecer diferentes) com no máximo 8 camadas no DOM.
+ * Faixas de volume da pilha. As camadas do DOM ficam SEMPRE sobrepostas
+ * (step < altura da folha), então a pilha parece compacta; o que muda por
+ * faixa é a quantidade de camadas e um passo levemente maior.
+ * 3, 9 e 35 precisam parecer claramente diferentes.
  */
 export function paperStackShape(
   queueCount: number,
 ): { sheets: number; step: number; overload: boolean } {
   if (queueCount <= 0) return { sheets: 0, step: 0, overload: false };
-  if (queueCount <= 3) return { sheets: queueCount, step: 3, overload: false };
-  if (queueCount <= 8) return { sheets: 5, step: 4.5, overload: false };
-  if (queueCount <= 15) return { sheets: 6, step: 7, overload: false };
-  if (queueCount <= 24) return { sheets: 7, step: 9.5, overload: true };
-  return { sheets: 8, step: 12, overload: true };
+  if (queueCount <= 3) return { sheets: queueCount + 1, step: 3, overload: false };
+  if (queueCount <= 8) return { sheets: 5, step: 3.2, overload: false };
+  if (queueCount <= 15) return { sheets: 6, step: 3.6, overload: false };
+  if (queueCount <= 24) return { sheets: 7, step: 4, overload: true };
+  return { sheets: 8, step: 4.4, overload: true };
 }
+

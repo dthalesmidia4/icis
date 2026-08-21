@@ -12,7 +12,8 @@ interface PaperStackProps {
 
 /**
  * Pilha física de folhas apoiada no tampo: leitura principal do VOLUME de
- * trabalho (não é progresso). Altura por faixa + contador real.
+ * trabalho (não é progresso). Camadas sobrepostas (compactas) por faixa e o
+ * número real SEMPRE embaixo da pilha, nunca acima do card do monitor.
  */
 export const PaperStack = memo(function PaperStack({
   queueCount,
@@ -21,7 +22,7 @@ export const PaperStack = memo(function PaperStack({
   onOpenQueue,
 }: PaperStackProps) {
   const { sheets, step, overload } = paperStackShape(queueCount);
-  const stackHeight = Math.max(8, sheets * step + 5);
+  const stackHeight = Math.max(6, sheets * step + 5);
 
   return (
     <div className="flex items-end gap-1.5">
@@ -30,19 +31,8 @@ export const PaperStack = memo(function PaperStack({
         onClick={onOpenQueue}
         aria-label={`${queueCount} demandas na fila de ${collaboratorName}`}
         title={`${queueCount} na fila`}
-        className="group/stack relative flex flex-col items-center justify-end rounded-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring"
+        className="group/stack flex flex-col items-center justify-end rounded-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span
-          className={cn(
-            "absolute -top-2 flex items-center gap-0.5 rounded-full border bg-background/90 px-1 text-[9px] font-bold leading-4 tabular-nums shadow-sm",
-            overload ? "border-primary/50 text-primary" : "border-border text-foreground",
-          )}
-          style={{ bottom: stackHeight + 2, top: "auto" }}
-        >
-          {overload && <Layers className="h-2 w-2" />}
-          {queueCount}
-        </span>
-
         <span className="relative block w-[32px]" style={{ height: stackHeight }}>
           {sheets === 0 ? (
             <span className="absolute bottom-0 left-0 h-[3px] w-[30px] rounded-[2px] border border-dashed border-foreground/25" />
@@ -51,7 +41,7 @@ export const PaperStack = memo(function PaperStack({
               <span
                 key={i}
                 className="absolute h-[5px] w-[28px] rounded-[2px] border border-border bg-card shadow-[0_1px_1px_-1px_hsl(var(--foreground)/0.5)] transition-colors group-hover/stack:border-primary/50"
-                style={{ bottom: i * step, left: (i % 3) * 1.4 }}
+                style={{ bottom: i * step, left: (i % 3) * 1.2 }}
               />
             ))
           )}
@@ -75,6 +65,34 @@ export const PaperStack = memo(function PaperStack({
         </button>
       )}
     </div>
+  );
+});
+
+/** Contador da fila — renderizado NA BASE da mesa, ligado à pilha. */
+export const QueueBadge = memo(function QueueBadge({
+  queueCount,
+  collaboratorName,
+  onOpenQueue,
+}: {
+  queueCount: number;
+  collaboratorName: string;
+  onOpenQueue: () => void;
+}) {
+  const { overload } = paperStackShape(queueCount);
+  return (
+    <button
+      type="button"
+      onClick={onOpenQueue}
+      aria-label={`${queueCount} demandas na fila de ${collaboratorName}`}
+      title={`${queueCount} na fila de ${collaboratorName}`}
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-full border bg-background/90 px-1.5 text-[9px] font-bold leading-4 tabular-nums shadow-sm outline-none transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring",
+        overload ? "border-primary/50 text-primary" : "border-border text-foreground",
+      )}
+    >
+      <Layers className="h-2 w-2" />
+      {queueCount}
+    </button>
   );
 });
 

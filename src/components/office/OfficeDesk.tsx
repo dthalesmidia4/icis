@@ -3,7 +3,7 @@ import { AlertTriangle, Clock, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfficeStationData } from "@/hooks/useOfficeOverview";
 import OfficeCharacter from "./OfficeCharacter";
-import PaperStack from "./PaperStack";
+import PaperStack, { QueueBadge } from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
 import { assignDeskSlots, type DeskObjectKey } from "@/lib/officeDeskObjects";
@@ -26,8 +26,9 @@ interface OfficeDeskProps {
 }
 
 /**
- * Estação física: cadeira + personagem atrás, tampo cobrindo parte do torso e
- * monitor/pilha/objetos pessoais apoiados sobre a mesa (2.5D por z-index).
+ * Estação física: personagem AO LADO do monitor (sempre visível, com braços
+ * animados), monitor no centro, objetos pessoais e pilha de papéis à direita.
+ * O contador da fila fica na base da mesa, ligado à pilha.
  */
 export const OfficeDesk = memo(function OfficeDesk({
   station,
@@ -43,33 +44,34 @@ export const OfficeDesk = memo(function OfficeDesk({
   const away = presence.state === "micro_break";
   const monitorCard = current || next;
   const slots = assignDeskSlots(deskObjects);
-  const objectAt = (slot: string) => slots.find((s) => s.slot === slot)?.key;
 
   return (
     <div className="group/desk relative w-full select-none">
-      {/* ---------- cadeira + personagem (camada de trás) ---------- */}
-      <div className="relative z-10 flex justify-center" style={{ marginBottom: -30 }}>
-        {away ? (
-          // cadeira vazia: a pessoa está na cafeteria
-          <span aria-hidden="true" className="flex flex-col items-center opacity-70">
-            <span className="h-7 w-11 rounded-t-md bg-foreground/20 dark:bg-foreground/25" />
-            <span className="h-1 w-12 rounded-sm bg-foreground/25" />
-          </span>
-        ) : (
-          <OfficeCharacter
-            name={collaborator.fullName}
-            avatarUrl={collaborator.avatarUrl}
-            working={working}
-            size={56}
-          />
-        )}
-      </div>
-
-      {/* ---------- objetos sobre o tampo (camada da frente) ---------- */}
-      <div className="relative z-30 -mb-[7px] flex items-end justify-between gap-1 px-3">
-        <span className="flex items-end pb-[2px]">
-          {objectAt("left") && <DeskObject objectKey={objectAt("left")!} size={13} />}
-        </span>
+      {/* ---------- tudo que fica APOIADO/ATRÁS do tampo ---------- */}
+      <div className="relative z-30 -mb-[8px] flex items-end justify-between gap-1 px-2">
+        {/* personagem ao lado do monitor (com cadeira discreta atrás) */}
+        <div className="relative flex shrink-0 flex-col items-center pb-[2px]">
+          {away ? (
+            <span aria-hidden="true" className="flex flex-col items-center opacity-70">
+              <span className="h-8 w-9 rounded-t-md bg-foreground/20 dark:bg-foreground/25" />
+              <span className="h-1 w-10 rounded-sm bg-foreground/25" />
+            </span>
+          ) : (
+            <>
+              <span
+                aria-hidden="true"
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-t-md bg-foreground/12 dark:bg-foreground/18"
+                style={{ width: 40, height: 26 }}
+              />
+              <OfficeCharacter
+                name={collaborator.fullName}
+                avatarUrl={collaborator.avatarUrl}
+                working={working}
+                size={50}
+              />
+            </>
+          )}
+        </div>
 
         {/* monitor */}
         <div className="flex min-w-0 flex-1 flex-col items-center">
@@ -136,24 +138,21 @@ export const OfficeDesk = memo(function OfficeDesk({
           />
         </div>
 
-        <span className="flex items-end pb-[2px]">
-          {objectAt("center-side") && <DeskObject objectKey={objectAt("center-side")!} size={13} />}
-        </span>
-
-        {/* pilha física da fila */}
-        <PaperStack
-          queueCount={queueCount}
-          awaitingClientCount={awaitingClientCount}
-          collaboratorName={collaborator.fullName}
-          onOpenQueue={() => onOpenQueue(collaborator.userId)}
-        />
-
-        <span className="flex items-end pb-[2px]">
-          {objectAt("right") && <DeskObject objectKey={objectAt("right")!} size={13} />}
-        </span>
+        {/* objetos pessoais + pilha física da fila */}
+        <div className="flex shrink-0 items-end gap-1 pb-[2px]">
+          {slots.map(({ slot, key }) => (
+            <DeskObject key={slot} objectKey={key} size={18} />
+          ))}
+          <PaperStack
+            queueCount={queueCount}
+            awaitingClientCount={awaitingClientCount}
+            collaboratorName={collaborator.fullName}
+            onOpenQueue={() => onOpenQueue(collaborator.userId)}
+          />
+        </div>
       </div>
 
-      {/* ---------- mesa (cobre parte do torso) ---------- */}
+      {/* ---------- mesa ---------- */}
       <div className="relative z-20">
         <div
           aria-hidden="true"
@@ -161,10 +160,17 @@ export const OfficeDesk = memo(function OfficeDesk({
           style={{ clipPath: "polygon(3% 0, 97% 0, 100% 100%, 0 100%)" }}
         />
         <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/50 px-2 pb-1 pt-[3px] shadow-[0_6px_10px_-8px_hsl(var(--foreground)/0.6)]">
-          {/* plaquinha frontal com o nome */}
-          <p className="mx-auto w-fit max-w-full truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
-            {collaborator.fullName}
-          </p>
+          {/* plaquinha frontal com o nome + contador da fila (embaixo) */}
+          <div className="flex items-center justify-center gap-1">
+            <p className="max-w-[60%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
+              {collaborator.fullName}
+            </p>
+            <QueueBadge
+              queueCount={queueCount}
+              collaboratorName={collaborator.fullName}
+              onOpenQueue={() => onOpenQueue(collaborator.userId)}
+            />
+          </div>
 
           {isSelf && onSaveDeskObjects && (
             <button

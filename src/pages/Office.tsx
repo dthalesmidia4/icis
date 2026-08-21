@@ -100,11 +100,9 @@ export default function Office() {
       {/* ---------- Cenário ---------- */}
       <OfficeWorld
         upperZone={
-          !loading && atCoffee.length > 0 ? (
-            <div className="pointer-events-auto absolute right-3 top-3 z-40 sm:right-6 sm:top-6">
-              <CoffeeCorner people={atCoffee} />
-            </div>
-          ) : undefined
+          <div className="pointer-events-auto absolute right-3 top-[19%] z-40 hidden sm:block sm:right-8">
+            <CoffeeCorner people={loading ? [] : atCoffee} />
+          </div>
         }
       >
         {loading ? (

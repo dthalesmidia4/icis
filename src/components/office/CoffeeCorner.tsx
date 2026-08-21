@@ -9,14 +9,14 @@ interface CoffeeCornerProps {
 }
 
 /**
- * Cafeteria da sala principal: balcão, máquina de café e canecas.
- * Recebe os personagens em micro-pausa — a mesa deles continua existindo.
+ * Cafeteria da sala principal: balcão, máquina de café, canecas e banquinho.
+ * Existe SEMPRE no cenário; recebe os personagens em micro-pausa quando houver.
  */
 export const CoffeeCorner = memo(function CoffeeCorner({ people }: CoffeeCornerProps) {
   return (
-    <div className="relative flex w-[190px] flex-col items-center sm:w-[210px]">
+    <div className="relative flex w-[196px] flex-col items-center sm:w-[214px]">
       {/* pessoas em volta do balcão */}
-      <div className="relative z-20 mb-[-6px] flex items-end justify-center gap-1">
+      <div className="relative z-20 mb-[-6px] flex min-h-[10px] items-end justify-center gap-1">
         {people.slice(0, 4).map((p) => {
           const label = nextStartLabel(p.presence);
           return (
@@ -52,17 +52,26 @@ export const CoffeeCorner = memo(function CoffeeCorner({ people }: CoffeeCornerP
       <div aria-hidden="true" className="relative z-30 w-full">
         {/* máquina de café + canecas sobre o balcão */}
         <div className="relative z-30 -mb-[2px] flex items-end justify-center gap-2">
-          <span className="relative block h-7 w-5 rounded-[3px] bg-foreground/55">
-            <span className="absolute left-1/2 top-1 h-1.5 w-2.5 -translate-x-1/2 rounded-[1px] bg-primary/60" />
-            <span className="absolute bottom-1 left-1/2 h-2 w-3 -translate-x-1/2 rounded-b-[2px] bg-background/70" />
+          <span className="relative block h-9 w-6 rounded-[3px] bg-foreground/60">
+            <span className="absolute left-1/2 top-1 h-2 w-3.5 -translate-x-1/2 rounded-[1px] bg-primary/70" />
+            <span className="absolute left-1/2 top-[15px] h-1 w-1.5 -translate-x-1/2 rounded-b bg-background/70" />
+            <span className="absolute bottom-1 left-1/2 h-2.5 w-3.5 -translate-x-1/2 rounded-b-[2px] bg-background/75" />
           </span>
-          <span className="h-2 w-2 rounded-b-[2px] bg-primary/60" />
-          <span className="h-2 w-2 rounded-b-[2px] bg-muted-foreground/60" />
-          <span className="h-2 w-2 rounded-b-[2px] bg-primary/40" />
+          <span className="h-2.5 w-2.5 rounded-b-[2px] bg-primary/70" />
+          <span className="h-2.5 w-2.5 rounded-b-[2px] bg-muted-foreground/60" />
+          <span className="h-2.5 w-2.5 rounded-b-[2px] bg-primary/45" />
         </div>
-        <span className="block h-[7px] rounded-t-[3px] bg-gradient-to-b from-foreground/30 to-foreground/20" />
+        <span className="block h-[8px] rounded-t-[3px] bg-gradient-to-b from-foreground/30 to-foreground/20" />
         <div className="rounded-b-[4px] bg-gradient-to-b from-muted to-muted/50 px-2 py-1 text-center shadow-[0_6px_10px_-8px_hsl(var(--foreground)/0.6)]">
           <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Café</span>
+        </div>
+        {/* banquinho alto ao lado do balcão */}
+        <div className="relative -mt-[2px] flex items-start justify-end pr-2">
+          <span className="flex flex-col items-center">
+            <span className="h-1.5 w-6 rounded-t-[3px] bg-foreground/35" />
+            <span className="h-4 w-[3px] bg-foreground/25" />
+            <span className="h-[2px] w-5 rounded bg-foreground/25" />
+          </span>
         </div>
         <span className="mx-auto block h-1.5 w-[80%] rounded-[50%] bg-foreground/15 blur-[2px] dark:bg-background/60" />
       </div>
