@@ -8,7 +8,9 @@ import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { resolvePresence, type PresenceResult } from "@/lib/officePresence";
 import {
+  cardAreaMismatch,
   groupSchedulesByUser,
+  resolvePresenceArea,
   resolveUserWindows,
   type AreaScheduleRow,
   type ScheduleAreaFilter,
