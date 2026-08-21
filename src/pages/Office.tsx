@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LayoutGrid, Users, Play, Layers, Hourglass, Coffee } from "lucide-react";
+import { LayoutGrid, Users, Play, Layers, Hourglass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
@@ -58,7 +58,6 @@ export default function Office() {
     { label: "trabalhando", value: totals.working, icon: Play },
     { label: "na fila", value: totals.queued, icon: Layers },
     { label: "aguardando cliente", value: totals.awaitingClient, icon: Hourglass },
-    { label: "no café", value: atCoffee.length, icon: Coffee },
   ];
 
   return (
