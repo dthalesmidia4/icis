@@ -179,6 +179,7 @@ export default function Office() {
                   deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
                   isSelf={!!user && user.id === station.collaborator.userId}
                   onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
+                  registerStackAnchor={registerStackAnchor}
                 />
               </div>
             ))}
@@ -208,6 +209,7 @@ export default function Office() {
                     deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
                     isSelf={!!user && user.id === station.collaborator.userId}
                     onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
+                  registerStackAnchor={registerStackAnchor}
                   />
                 </div>
               );
