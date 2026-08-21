@@ -40,17 +40,25 @@ export function deskBaseWidth(count: number): number {
 }
 
 /**
- * Faixa vertical útil da sala: a fileira do fundo encosta logo abaixo da parede
- * das janelas (~20% da altura) e a da frente termina perto da base. Assim o
- * ambiente ocupa a tela inteira em vez de ficar acumulado na metade de baixo.
+ * Faixa vertical útil das BASES das mesas. O elemento da estação cresce para
+ * CIMA da base (monitor + personagem), então a faixa começa bem abaixo da
+ * parede (20%) para o card do monitor nunca invadir a decoração.
  */
-const TOP_BAND_PCT = 40;
+const TOP_BAND_PCT = 52;
 const BOTTOM_BAND_PCT = 97;
+/** Distância vertical fixa entre fileiras (evita vazio gigante com 2 fileiras). */
+const ROW_STEP_PCT = 26;
 
 export function computeDeskSlots(count: number): DeskSlot[] {
   if (count <= 0) return [];
   const perRow = deskPerRow(count);
   const rows = Math.ceil(count / perRow);
+  const band = BOTTOM_BAND_PCT - TOP_BAND_PCT;
+  // Passo fixo, comprimido apenas quando há fileiras demais para a faixa.
+  const step = rows > 1 ? Math.min(ROW_STEP_PCT, band / (rows - 1)) : 0;
+  const span = step * (rows - 1);
+  // Conjunto de fileiras centralizado na faixa útil: sem buraco no meio.
+  const start = TOP_BAND_PCT + (band - span) / 2;
   const slots: DeskSlot[] = [];
 
   for (let i = 0; i < count; i += 1) {
@@ -58,19 +66,19 @@ export function computeDeskSlots(count: number): DeskSlot[] {
     const inRow = Math.min(perRow, count - row * perRow);
     const posInRow = i % perRow;
 
-    const rowT = rows > 1 ? row / (rows - 1) : 0.6;
-    const topPct = TOP_BAND_PCT + rowT * (BOTTOM_BAND_PCT - TOP_BAND_PCT);
-    const scale = rows > 1 ? 0.82 + rowT * 0.26 : 1.06;
+    const rowT = rows > 1 ? row / (rows - 1) : 0.5;
+    const topPct = start + row * step;
+    const scale = 0.88 + rowT * 0.2;
 
     // Fileiras do fundo recuam levemente para dentro (perspectiva).
     const inset = 8 + (1 - rowT) * 6;
-    const span = 100 - inset * 2;
-    const step = span / inRow;
-    const leftPct = inset + step * (posInRow + 0.5) + jitter(i + row, 2.2);
+    const span2 = 100 - inset * 2;
+    const stepX = span2 / inRow;
+    const leftPct = inset + stepX * (posInRow + 0.5) + jitter(i + row, 2.2);
 
     slots.push({
       leftPct: Math.min(94, Math.max(6, leftPct)),
-      topPct: Math.min(BOTTOM_BAND_PCT, Math.max(TOP_BAND_PCT - 2, topPct + jitter(i, 1.4))),
+      topPct: Math.min(BOTTOM_BAND_PCT, Math.max(30, topPct + jitter(i, 1.1))),
       scale,
       z: 10 + row * 10,
       row,
@@ -79,6 +87,7 @@ export function computeDeskSlots(count: number): DeskSlot[] {
 
   return slots;
 }
+
 
 /**
  * Faixas de volume da pilha. As camadas do DOM ficam SEMPRE sobrepostas
