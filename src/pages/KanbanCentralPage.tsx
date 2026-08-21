@@ -84,7 +84,7 @@ import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
 
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
-import { isScheduledPublishStage, isOutOfOperationalBoard } from "@/lib/scheduledPublishStage";
+import { isScheduledPublishStage, isOutOfOperationalBoard, isPendingScheduledReview } from "@/lib/scheduledPublishStage";
 
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
