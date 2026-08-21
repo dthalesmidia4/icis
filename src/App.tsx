@@ -35,7 +35,6 @@ import PlanPeriod from "./pages/PlanPeriod";
 import CronogramaGlobal from "./pages/CronogramaGlobal";
 import ProfileSettings from "./pages/ProfileSettings";
 import Kanban from "./pages/Kanban";
-import KanbanCentralPage from "./pages/KanbanCentralPage";
 import MyCompany from "./pages/MyCompany";
 import CompanyProfile from "./pages/CompanyProfile";
 import TeamMembers from "./pages/TeamMembers";
@@ -61,7 +60,6 @@ import ClientEvolution from "./pages/ClientEvolution";
 import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
 import SystemsClients from "./pages/SystemsClients";
 import SystemsCommercial from "./pages/SystemsCommercial";
-import Office from "./pages/Office";
 import OverviewPage from "./pages/OverviewPage";
 
 
