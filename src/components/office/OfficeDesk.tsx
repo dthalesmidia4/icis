@@ -58,6 +58,8 @@ export const OfficeDesk = memo(function OfficeDesk({
   deskObjects = [],
   isSelf = false,
   onSaveDeskObjects,
+  monitorPct = 57,
+
   registerStackAnchor,
   draggingCardId = null,
   isDropTarget = false,
