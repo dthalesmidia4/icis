@@ -66,6 +66,23 @@ const Home = () => {
     canAccess,
   }).filter((c) => c.id !== 'schedule');
 
+  /**
+   * Layout do Hub: `Comercial Sistemas` deve ocupar VISUALMENTE o 4º slot no
+   * desktop; o 3º slot fica reservado (invisível, sem card). Regra apenas do
+   * Home — a ordem global de navegação não é alterada.
+   */
+  const homeSlots: (typeof actionCards[0] | null)[] = (() => {
+    const slots: (typeof actionCards[0] | null)[] = [];
+    const commercialIndex = actionCards.findIndex((c) => c.id === 'comercial-sistemas');
+    actionCards.forEach((card, index) => {
+      if (index === commercialIndex) {
+        while (slots.length < 3) slots.push(null);
+      }
+      slots.push(card);
+    });
+    return slots;
+  })();
+
 
   const handleCardClick = (card: typeof actionCards[0]) => {
     if (card.opensClientModal) {
@@ -161,11 +178,15 @@ const Home = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
-          {actionCards.map((card, index) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+          {homeSlots.map((card, index) =>
+            !card ? (
+              // Slot reservado: espaço invisível (sem borda/texto), só no desktop.
+              <div key={`slot-${index}`} aria-hidden="true" className="hidden sm:block" />
+            ) : (
             <Card 
               key={index} 
-              className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98] w-full sm:w-[240px]" 
+              className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98] w-full" 
               onClick={() => handleCardClick(card)}
             >
               <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
@@ -181,7 +202,8 @@ const Home = () => {
 
               </div>
             </Card>
-          ))}
+            ),
+          )}
 
         </div>
 

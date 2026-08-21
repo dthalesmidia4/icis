@@ -1,27 +1,36 @@
-import { useEffect, useState } from "react";
-import { Building2 } from "lucide-react";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { Building2, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import OverviewModeSwitch from "@/components/overview/OverviewModeSwitch";
+import OverviewHeader from "@/components/overview/OverviewHeader";
 import {
   DEFAULT_OVERVIEW_MODE,
   readOverviewMode,
   writeOverviewMode,
   type OverviewMode,
 } from "@/lib/overviewMode";
-import Office from "./Office";
-import KanbanCentralPage from "./KanbanCentralPage";
+
+// Code splitting real: o chunk pesado do Kanban só é baixado quando o usuário
+// realmente entra na Visão geral operacional.
+const Office = lazy(() => import("./Office"));
+const KanbanCentralPage = lazy(() => import("./KanbanCentralPage"));
 
 interface OverviewPageProps {
   /** Deep links antigos (`/escritorio`, `/kanban-central`) forçam o modo inicial. */
   forcedMode?: OverviewMode;
 }
 
+const Fallback = () => (
+  <div className="flex items-center justify-center py-12">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
+
 /**
- * Visão Geral unificada. A barra principal é a própria barra do Kanban
- * (`KanbanCentralPage`), compartilhada pelos dois modos: no Escritório virtual
- * ela é renderizada em `headerOnly`, evitando qualquer duplicação de lógica
- * das ações globais e do total canônico de demandas.
+ * Visão Geral unificada. Cada modo monta SOMENTE o que precisa: o Escritório
+ * virtual usa o header leve compartilhado (`OverviewHeader`) e nunca monta o
+ * Kanban; a Visão geral monta o Kanban, que renderiza o mesmo header.
  */
 export default function OverviewPage({ forcedMode }: OverviewPageProps) {
   const { user } = useAuth();
@@ -43,19 +52,26 @@ export default function OverviewPage({ forcedMode }: OverviewPageProps) {
   const selector = <OverviewModeSwitch mode={mode} onChange={changeMode} />;
 
   if (mode === "operacional") {
-    return <KanbanCentralPage modeSelector={selector} headerTitle="Visão geral das Tarefas" />;
+    return (
+      <Suspense fallback={<Fallback />}>
+        <KanbanCentralPage modeSelector={selector} headerTitle="Visão geral das Tarefas" />
+      </Suspense>
+    );
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <KanbanCentralPage
-        headerOnly
+    <div className="mt-4 flex h-full min-h-0 flex-col px-3 sm:px-4">
+      <OverviewHeader
+        tenantId={tenantId}
+        title="Escritório virtual"
+        icon={<Building2 className="h-5 w-5 text-primary" />}
         modeSelector={selector}
-        headerTitle="Escritório virtual"
-        headerIcon={<Building2 className="h-5 w-5 text-primary" />}
+        onRequestOperationalMode={() => changeMode("operacional")}
       />
-      <div className="min-h-0 flex-1 px-3 sm:px-4">
-        <Office />
+      <div className="min-h-0 flex-1">
+        <Suspense fallback={<Fallback />}>
+          <Office />
+        </Suspense>
       </div>
     </div>
   );

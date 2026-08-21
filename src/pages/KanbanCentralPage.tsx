@@ -57,6 +57,7 @@ import BackButton from "@/components/BackButton";
 import KanbanCard from "@/components/KanbanCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CreateColumnModal from "@/components/CreateColumnModal";
+import OverviewHeader, { type OverviewHeaderClient } from "@/components/overview/OverviewHeader";
 import ManageColumnsModal from "@/components/ManageColumnsModal";
 
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
@@ -211,7 +212,6 @@ const getDisplayDemandType = (
 
 interface KanbanCentralPageProps {
   /** Renderiza apenas a barra principal compartilhada (usada pelo Escritório virtual). */
-  headerOnly?: boolean;
   /** Seletor de modo da Visão Geral, injetado dentro da barra principal. */
   modeSelector?: ReactNode;
   /** Título exibido na barra principal (segue o modo ativo da Visão Geral). */
@@ -220,7 +220,7 @@ interface KanbanCentralPageProps {
   headerIcon?: ReactNode;
 }
 
-const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, headerIcon }: KanbanCentralPageProps) => {
+const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCentralPageProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { isSuperAdmin, isAgencyManager, isAgencyAdmin, isLoading: roleLoading } = useAgencyRole();
@@ -522,8 +522,6 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, head
 
   const navigate = useNavigate();
   const { setSelectedClient } = useSelectedClient();
-  const [evolutionPopoverOpen, setEvolutionPopoverOpen] = useState(false);
-  const [evolutionSearch, setEvolutionSearch] = useState("");
   const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
   const { cards: pendingEvalCards, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
   // Relógio reativo (virada de dia / atraso não podem ficar congelados na sessão)
@@ -692,6 +690,20 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, head
       name
     }));
   }, [cards]);
+
+  // Clientes com demandas ativas — alimenta a "Evolução das demandas" do header.
+  const evolutionClients = useMemo<OverviewHeaderClient[]>(() => {
+    const counts = new Map<string, OverviewHeaderClient>();
+    cards.forEach((c) => {
+      if (!c.clientId) return;
+      const prev = counts.get(c.clientId);
+      if (prev) prev.count += 1;
+      else counts.set(c.clientId, { id: c.clientId, name: c.clientName || "Cliente", count: 1 });
+    });
+    return Array.from(counts.values());
+  }, [cards]);
+
+
 
   // Filtrar cards por cliente, período e status
   const filteredCards = useMemo(() => {
@@ -2399,173 +2411,17 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, head
 
   return (
     <div className="mt-4 px-3 sm:px-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 gap-x-3 gap-y-2 flex-wrap">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            {headerIcon || <LayoutGrid className="h-5 w-5 text-primary" />}
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate">
-            {headerTitle || "Visão geral das Tarefas"}
-          </h2>
-          {!headerOnly && (
-            <Badge variant="secondary">
-              {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
-            </Badge>
-          )}
-          {!headerOnly && focusedColumnId && (() => {
-            const focusName = collaborators.find((c) => c.userId === focusedColumnId)?.fullName || "Colaborador";
-            return (
-              <div className="flex items-center gap-2 pl-3 ml-1 border-l border-border/60 animate-fade-in">
-                <Focus className="h-4 w-4 text-primary" />
-                <span className="text-sm font-semibold text-foreground">
-                  Modo foco: {focusName}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exitFocus}
-                  className="h-7 px-2 text-xs"
-                  title="Sair do modo foco (Esc)"
-                >
-                  Sair
-                </Button>
-              </div>
-            );
-          })()}
-        </div>
-
-        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/scheduled")}
-            title="Ver todos os conteúdos com publicação agendada"
-            className="relative"
-          >
-            <CalendarDays className="h-4 w-4 mr-1" />
-            Conteúdos agendados
-            {scheduledCount > 0 && (
-              <span
-                className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm"
-                aria-label={`${scheduledCount} agendamentos ativos`}
-              >
-                {scheduledCount > 99 ? "99+" : scheduledCount}
-              </span>
-            )}
-          </Button>
-          {/* Evolução das Demandas — seletor rápido de cliente */}
-          <Popover
-            open={evolutionPopoverOpen}
-            onOpenChange={(o) => {
-              setEvolutionPopoverOpen(o);
-              if (!o) setEvolutionSearch("");
-            }}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                title="Ver a evolução das demandas de um cliente"
-              >
-                <Activity className="h-4 w-4 mr-1" />
-                Evolução das demandas
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-2" align="end">
-              <div className="text-xs font-semibold text-foreground px-2 py-1">
-                Escolha um cliente
-              </div>
-              <div className="text-[11px] text-muted-foreground px-2 pb-2">
-                Abre a evolução das demandas do cliente selecionado.
-              </div>
-              <Input
-                autoFocus
-                value={evolutionSearch}
-                onChange={(e) => setEvolutionSearch(e.target.value)}
-                placeholder="Buscar cliente..."
-                className="h-8 text-xs mb-2"
-              />
-              {(() => {
-                const counts = new Map<string, { id: string; name: string; count: number }>();
-                cards.forEach((c) => {
-                  if (!c.clientId) return;
-                  const prev = counts.get(c.clientId);
-                  if (prev) prev.count += 1;
-                  else counts.set(c.clientId, { id: c.clientId, name: c.clientName || "Cliente", count: 1 });
-                });
-                const term = evolutionSearch.trim().toLowerCase();
-                const list = Array.from(counts.values())
-                  .filter((c) => !term || c.name.toLowerCase().includes(term))
-                  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-                if (list.length === 0) {
-                  return (
-                    <div className="text-[11px] text-muted-foreground px-2 py-3 text-center">
-                      Nenhum cliente com demandas ativas.
-                    </div>
-                  );
-                }
-                return (
-                  <div className="max-h-72 overflow-y-auto -mx-1">
-                    {list.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={async () => {
-                          setEvolutionPopoverOpen(false);
-                          setEvolutionSearch("");
-                          try {
-                            const { data } = await supabase
-                              .from("tenant_companies")
-                              .select("id, name, fantasy_name, cnpj_cpf, email, tenant_id, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url")
-                              .eq("id", c.id)
-                              .maybeSingle();
-                            if (data) {
-                              setSelectedClient(data as any);
-                            } else {
-                              setSelectedClient({
-                                id: c.id,
-                                name: c.name,
-                                fantasy_name: c.name,
-                                cnpj_cpf: "",
-                                email: "",
-                              } as any);
-                            }
-                          } catch {
-                            setSelectedClient({
-                              id: c.id,
-                              name: c.name,
-                              fantasy_name: c.name,
-                              cnpj_cpf: "",
-                              email: "",
-                            } as any);
-                          }
-                          navigate("/client-evolution", { state: { from: "/kanban-central" } });
-                        }}
-                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-muted text-left text-xs"
-                      >
-                        <span className="truncate">{c.name}</span>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
-                          {c.count} {c.count === 1 ? "ativa" : "ativas"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                );
-              })()}
-            </PopoverContent>
-          </Popover>
-          <Button
-            variant="outline"
-            size="sm"
-            title="Customer Success — saúde dos clientes de Sistemas"
-            onClick={() => navigate("/customer-success-sistemas", { state: { from: "/kanban-central" } })}
-          >
-            <HeartPulse className="h-4 w-4 mr-1" />
-            Customer Success
-          </Button>
-
-          {/* Registro de Cards global — replica o filtro para todas as colunas */}
+      {/* Header ÚNICO compartilhado pelos dois modos da Visão Geral */}
+      <OverviewHeader
+        tenantId={tenantId}
+        title={headerTitle || "Visão geral das Tarefas"}
+        icon={headerIcon}
+        modeSelector={modeSelector}
+        pipelineId={pipelineId}
+        onNewStatus={() => setIsCreateColumnModalOpen(true)}
+        onNewDemand={handleOpenDraft}
+        clients={evolutionClients}
+        historyControl={
           <Popover open={globalHistoryPopoverOpen} onOpenChange={setGlobalHistoryPopoverOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -2664,28 +2520,37 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, head
               )}
             </PopoverContent>
           </Popover>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsCreateColumnModalOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Novo Status
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleOpenDraft}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Nova Demanda
-          </Button>
-          {modeSelector}
-        </div>
-      </div>
+        }
+        extra={
+          <>
+            <Badge variant="secondary">
+              {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
+            </Badge>
+            {focusedColumnId && (() => {
+              const focusName = collaborators.find((c) => c.userId === focusedColumnId)?.fullName || "Colaborador";
+              return (
+                <div className="flex items-center gap-2 pl-3 ml-1 border-l border-border/60 animate-fade-in">
+                  <Focus className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold text-foreground">
+                    Modo foco: {focusName}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exitFocus}
+                    className="h-7 px-2 text-xs"
+                    title="Sair do modo foco (Esc)"
+                  >
+                    Sair
+                  </Button>
+                </div>
+              );
+            })()}
+          </>
+        }
+      />
 
 
-      {!headerOnly && (
-      <>
 
       {/* Search + Filters button */}
       {(() => {
@@ -4350,8 +4215,6 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, head
         onReschedule={handleConflictReschedule}
         rescheduling={reschedulingConflict}
       />
-      </>
-      )}
     </div>
   );
 };
