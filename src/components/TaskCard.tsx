@@ -3696,17 +3696,35 @@ export default function TaskCard({
                       <SelectContent>
                         <SelectItem value="__none__">Sem responsável</SelectItem>
                         {/*
-                          Colaboradores incompatíveis continuam visíveis, mas desabilitados
-                          com o motivo — esconder gerava a dúvida "onde foi meu colega?".
+                          CARD SALVO: NUNCA pré-bloquear colaborador. O resolvedor
+                          administrativo ainda pode remapear a etapa — quem decide é
+                          o contrato `smartAdministrativeReassign`. Aqui só antecipamos
+                          o ajuste ("Planejar → Criar roteiro") como informação.
+                          RASCUNHO: a etapa inicial é obrigatória, então o item fica
+                          desabilitado quando não existe etapa inicial possível.
                         */}
                         {collaborators.map((c) => {
-                          const eligible = !eligibleAssignees || eligibleAssignees.has(c.id) || c.id === card?.assigned_to;
+                          const resolution = draftAssigneeResolution[c.id];
+                          const resolvedKey = resolution?.functionKey ?? null;
+                          const willRemap =
+                            !isDraft &&
+                            !!resolvedKey &&
+                            !!card.current_function_key &&
+                            resolvedKey !== card.current_function_key;
+                          const draftBlocked =
+                            isDraft && !!eligibleAssignees && !eligibleAssignees.has(c.id) && c.id !== card?.assigned_to;
                           return (
-                            <SelectItem key={c.id} value={c.id} disabled={!eligible}>
+                            <SelectItem key={c.id} value={c.id} disabled={draftBlocked}>
                               <span className="flex items-center gap-2">
-                                <span className={cn(!eligible && "text-muted-foreground")}>{c.name}</span>
-                                {!eligible && (
-                                  <span className="text-[10px] text-muted-foreground">Sem etapa compatível</span>
+                                <span className={cn(draftBlocked && "text-muted-foreground")}>{c.name}</span>
+                                {draftBlocked && (
+                                  <span className="text-[10px] text-muted-foreground">Sem etapa inicial compatível</span>
+                                )}
+                                {willRemap && (
+                                  <span className="text-[10px] text-primary">
+                                    etapa será ajustada para{" "}
+                                    {resolution?.functionName || flowFunctionNames[resolvedKey] || resolvedKey}
+                                  </span>
                                 )}
                               </span>
                             </SelectItem>
