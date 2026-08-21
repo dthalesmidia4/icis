@@ -154,7 +154,7 @@ export const OfficeDesk = memo(function OfficeDesk({
               "relative w-full overflow-hidden rounded-[4px] border-[3px] bg-card px-1.5 py-1 text-left transition-[border-color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring",
               // Semântica única com a barra da mesa: azul normal, vermelho só em atraso.
               working ? "border-primary/60" : "border-foreground/15",
-              current?.isLate && "border-destructive/60",
+              overdue && "border-destructive/60",
               monitorCard
                 ? "hover:border-primary/70 hover:shadow-[0_0_0_2px_hsl(var(--primary)/0.2)]"
                 : "cursor-default",
