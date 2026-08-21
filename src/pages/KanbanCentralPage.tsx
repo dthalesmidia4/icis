@@ -4251,7 +4251,7 @@ const KanbanCentralPage = () => {
               if (!belongs) return false;
               // Excluir arquivados e cards com publicação agendada (fora da coluna operacional)
               if ((c as any).isArchived) return false;
-              if (activeDispatchIds.has(c.id)) return false;
+              if (isOutOfOperationalBoard(c as any, activeDispatchIds)) return false;
               return true;
             })
 
