@@ -15,10 +15,17 @@ const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
   { id: "sistemas", label: "Sistemas" },
 ];
 
+/** Grid da sala conforme quantidade de pessoas (uma única sala, sem scroll horizontal). */
+function roomGridClass(count: number) {
+  if (count <= 2) return "grid-cols-1 sm:grid-cols-2 gap-8 lg:gap-14";
+  if (count <= 4) return "grid-cols-2 gap-6 lg:gap-12";
+  if (count <= 8) return "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-8";
+  return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4 lg:gap-6";
+}
+
 /**
- * Escritório virtual (READ-ONLY): visão espacial dos mesmos dados da
- * Visão Geral. Nenhuma edição acontece aqui — cliques abrem o card real
- * em `/kanban-central?openCard=true&highlight=<id>`.
+ * Escritório virtual 2D (READ-ONLY): uma única sala com piso, paredes e móveis.
+ * Nenhuma edição acontece aqui — cliques abrem o card real na Visão Geral.
  */
 export default function Office() {
   const navigate = useNavigate();
@@ -38,15 +45,17 @@ export default function Office() {
   };
 
   const metrics = [
-    { label: "Pessoas no escritório", value: totals.people, icon: Users },
-    { label: "Em execução agora", value: totals.working, icon: Play },
-    { label: "Na fila", value: totals.queued, icon: Layers },
-    { label: "Aguardando cliente", value: totals.awaitingClient, icon: Hourglass },
+    { label: "pessoas", value: totals.people, icon: Users },
+    { label: "trabalhando", value: totals.working, icon: Play },
+    { label: "na fila", value: totals.queued, icon: Layers },
+    { label: "aguardando cliente", value: totals.awaitingClient, icon: Hourglass },
   ];
 
+  const large = stations.length > 0 && stations.length <= 4;
+
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Escritório</h1>
           <p className="text-sm text-muted-foreground">
@@ -75,55 +84,106 @@ export default function Office() {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* Faixa de status do escritório (compacta, secundária) */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
         {metrics.map((m) => (
-          <div key={m.label} className="rounded-lg border border-border bg-card px-4 py-3">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-              <m.icon className="h-3.5 w-3.5" />
-              <span className="truncate">{m.label}</span>
-            </div>
-            <p className="mt-1 text-2xl font-semibold">{m.value}</p>
+          <div key={m.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <m.icon className="h-3.5 w-3.5" />
+            <span className="text-sm font-semibold tabular-nums text-foreground">{m.value}</span>
+            <span>{m.label}</span>
           </div>
         ))}
-      </section>
+      </div>
 
-      {/* Ambiente / piso */}
+      {/* ================= SALA ================= */}
       <section
-        className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-4 sm:p-6"
         aria-label="Planta do escritório"
+        className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/70 via-muted/30 to-muted/50 shadow-inner"
       >
-        <svg
-          className="pointer-events-none absolute inset-0 h-full w-full text-border/50"
+        {/* Parede de fundo */}
+        <div
           aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-background/80 to-transparent sm:h-56"
+        />
+        {/* Rodapé da parede */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-36 hidden h-1.5 bg-foreground/10 sm:top-52 sm:block"
+        />
+
+        {/* Decoração da parede: janela, quadros, prateleira, planta */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 hidden h-52 sm:block">
+          {/* janela */}
+          <div className="absolute left-8 top-8 h-24 w-40 rounded-md border-2 border-foreground/15 bg-gradient-to-br from-primary/15 to-background/60">
+            <div className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-foreground/15" />
+            <div className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-foreground/15" />
+          </div>
+          {/* quadros */}
+          <div className="absolute left-56 top-10 h-14 w-12 rounded-sm border-2 border-foreground/15 bg-background/50" />
+          <div className="absolute left-[17.5rem] top-16 h-10 w-16 rounded-sm border-2 border-foreground/15 bg-background/40" />
+          {/* prateleira com livros */}
+          <div className="absolute right-10 top-14 w-40">
+            <div className="flex items-end gap-1 pl-2">
+              <span className="h-8 w-2 rounded-sm bg-primary/50" />
+              <span className="h-6 w-2 rounded-sm bg-foreground/25" />
+              <span className="h-9 w-2.5 rounded-sm bg-primary/35" />
+              <span className="h-5 w-2 rounded-sm bg-foreground/20" />
+              <span className="h-7 w-2 rounded-sm bg-primary/25" />
+            </div>
+            <div className="h-1.5 w-full rounded-sm bg-foreground/20" />
+          </div>
+          {/* planta */}
+          <div className="absolute right-4 top-24 flex flex-col items-center">
+            <span className="h-8 w-1 rounded bg-foreground/25" />
+            <span className="-mt-9 h-6 w-6 -rotate-45 rounded-full bg-primary/30" />
+            <span className="-mt-4 ml-5 h-5 w-5 rotate-45 rounded-full bg-primary/25" />
+            <span className="mt-2 h-4 w-6 rounded-b-md bg-foreground/25" />
+          </div>
+        </div>
+
+        {/* Piso isométrico sutil */}
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 top-24 h-auto w-full text-foreground/[0.07] sm:top-40"
         >
           <defs>
-            <pattern id="office-floor" width="56" height="56" patternTransform="skewX(-14)" patternUnits="userSpaceOnUse">
-              <path d="M56 0H0V56" fill="none" stroke="currentColor" strokeWidth="1" />
+            <pattern
+              id="office-floor-tiles"
+              width="72"
+              height="40"
+              patternUnits="userSpaceOnUse"
+              patternTransform="skewX(-22)"
+            >
+              <path d="M72 0H0V40" fill="none" stroke="currentColor" strokeWidth="1" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#office-floor)" />
+          <rect width="100%" height="100%" fill="url(#office-floor-tiles)" />
         </svg>
 
-        <div className="relative grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {loading &&
-            Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-56 w-full rounded-xl" />
-            ))}
-
-          {!loading &&
-            stations.map((station) => (
-              <OfficeStation
-                key={station.collaborator.userId}
-                station={station}
-                onOpenCard={openCard}
-                onOpenQueue={setQueueUserId}
-              />
-            ))}
-
-          {!loading && stations.length === 0 && (
-            <p className="col-span-full py-12 text-center text-sm text-muted-foreground">
+        {/* Estações posicionadas dentro da sala */}
+        <div className="relative px-3 pb-8 pt-6 sm:px-8 sm:pb-14 sm:pt-24">
+          {loading ? (
+            <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-40 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : stations.length === 0 ? (
+            <p className="py-16 text-center text-sm text-muted-foreground">
               Nenhum colaborador encontrado neste tenant.
             </p>
+          ) : (
+            <div className={cn("grid items-end", roomGridClass(stations.length))}>
+              {stations.map((station) => (
+                <OfficeStation
+                  key={station.collaborator.userId}
+                  station={station}
+                  onOpenCard={openCard}
+                  onOpenQueue={setQueueUserId}
+                  large={large}
+                />
+              ))}
+            </div>
           )}
         </div>
       </section>
