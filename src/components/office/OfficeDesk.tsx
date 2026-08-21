@@ -41,7 +41,17 @@ export const OfficeDesk = memo(function OfficeDesk({
   const { collaborator, current, next, queueCount, awaitingClientCount, presence } = station;
   const [editing, setEditing] = useState(false);
   const working = presence.state === "working_now" && !!current;
-  const away = presence.state === "micro_break";
+  const onBreak = presence.state === "official_break";
+  const offShift = presence.state === "off_shift";
+  // Cadeira vazia: micro-pausa (café), intervalo oficial e fora do expediente.
+  const away = presence.state === "micro_break" || onBreak || offShift;
+  const statusLabel = working
+    ? "Em andamento"
+    : onBreak
+      ? "Intervalo"
+      : offShift
+        ? "Fora do expediente"
+        : "Próximo";
   const monitorCard = current || next;
   const slots = assignDeskSlots(deskObjects);
 
@@ -106,7 +116,7 @@ export const OfficeDesk = memo(function OfficeDesk({
                       working ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
                     )}
                   >
-                    {working ? "Em andamento" : "Próximo"}
+                    {statusLabel}
                     {working && <span className="animate-office-caret motion-reduce:animate-none">▌</span>}
                   </span>
                   {current?.isLate && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-destructive" />}
@@ -165,6 +175,11 @@ export const OfficeDesk = memo(function OfficeDesk({
             <p className="max-w-[80%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
               {collaborator.fullName}
             </p>
+            {onBreak && presence.returnsAt && (
+              <span className="shrink-0 text-[8px] leading-4 text-muted-foreground">
+                retorna {presence.returnsAt}
+              </span>
+            )}
           </div>
 
           {isSelf && onSaveDeskObjects && (

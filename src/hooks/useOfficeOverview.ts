@@ -7,6 +7,13 @@ import { useNowTick } from "@/hooks/useNowTick";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { resolvePresence, type PresenceResult } from "@/lib/officePresence";
+import {
+  groupSchedulesByUser,
+  resolveUserWindows,
+  type AreaScheduleRow,
+  type ScheduleAreaFilter,
+} from "@/lib/officeSchedule";
+import { zonedClockParts } from "@/lib/reorderSequence";
 import { isClientWaitingFunction, normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
 
 
@@ -103,6 +110,7 @@ export function useOfficeOverview(
   const { config: workHours } = useWorkHoursConfig(tenantId);
 
   const [demands, setDemands] = useState<RawDemand[]>([]);
+  const [scheduleRows, setScheduleRows] = useState<AreaScheduleRow[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -113,22 +121,29 @@ export function useOfficeOverview(
       setLoading(false);
       return;
     }
-    const [{ data: rows, error }, { data: companies }, { data: functions }] = await Promise.all([
-      supabase
-        .from("demands")
-        .select(
-          "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, work_area, due_date, due_time, delivery_date, delivery_time, released_at, status_id, is_daily_card",
-        )
-        .eq("tenant_id", tenantId)
-        .is("archived_at", null)
-        .eq("is_draft", false),
-      supabase.from("tenant_companies").select("id, name").eq("tenant_id", tenantId),
-      supabase.from("flow_functions").select("function_key, name").eq("tenant_id", tenantId),
-    ]);
+    const [{ data: rows, error }, { data: companies }, { data: functions }, { data: schedules }] =
+      await Promise.all([
+        supabase
+          .from("demands")
+          .select(
+            "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, work_area, due_date, due_time, delivery_date, delivery_time, released_at, status_id, is_daily_card",
+          )
+          .eq("tenant_id", tenantId)
+          .is("archived_at", null)
+          .eq("is_draft", false),
+        supabase.from("tenant_companies").select("id, name").eq("tenant_id", tenantId),
+        supabase.from("flow_functions").select("function_key, name").eq("tenant_id", tenantId),
+        // Expediente REAL por usuário/área/dia — uma única query por tenant.
+        supabase
+          .from("user_area_schedules")
+          .select("user_id, work_area, weekday, start_time, end_time")
+          .eq("tenant_id", tenantId),
+      ]);
 
     if (error) console.error("[useOfficeOverview] demands error", error);
 
     setDemands(((rows || []) as unknown as RawDemand[]) ?? []);
+    setScheduleRows(((schedules || []) as unknown as AreaScheduleRow[]) ?? []);
 
     const names: Record<string, string> = {};
     ((companies || []) as any[]).forEach((c) => {
@@ -185,7 +200,11 @@ export function useOfficeOverview(
       .filter((c) => (areaFilter === "all" ? true : c.workArea === areaFilter));
   }, [demands, clientNames, stageLabels, areaFilter, now]);
 
+  const schedulesByUser = useMemo(() => groupSchedulesByUser(scheduleRows), [scheduleRows]);
+
   const stations = useMemo<OfficeStationData[]>(() => {
+    // Relógio de parede canônico do expediente (nunca o timezone do browser).
+    const clock = zonedClockParts(new Date(now), workHours.tz);
     const byUser = new Map<string, OfficeCard[]>();
     const push = (uid: string | null | undefined, card: OfficeCard) => {
       if (!uid) return;
@@ -231,9 +250,23 @@ export function useOfficeOverview(
         operational.find((c) => c.id !== current?.id) ||
         null;
 
+      // Área usada para validar a janela: card no monitor > próximo > filtro da tela.
+      const presenceArea: ScheduleAreaFilter =
+        areaFilter !== "all"
+          ? areaFilter
+          : ((current?.workArea || next?.workArea || "all") as ScheduleAreaFilter);
+
+      const { windows } = resolveUserWindows({
+        rows: schedulesByUser[collaborator.userId] || [],
+        weekday: clock.weekday,
+        area: presenceArea,
+        workHours,
+      });
+
       const presence = resolvePresence({
         now,
-        workHours,
+        windows,
+        tz: workHours.tz,
         queue: operational.map((c) => ({ id: c.id, startTs: c.startTs, endTs: c.endTs })),
       });
 
@@ -251,7 +284,7 @@ export function useOfficeOverview(
 
     const max = raw.reduce((m, s) => Math.max(m, s.queueCount), 0);
     return raw.map((s) => ({ ...s, loadRatio: max > 0 ? s.queueCount / max : 0 }));
-  }, [cards, collaborators, activeDispatchIds, now, workHours]);
+  }, [cards, collaborators, activeDispatchIds, now, workHours, schedulesByUser, areaFilter]);
 
   const totals = useMemo(() => {
     const queued = new Set<string>();
