@@ -698,6 +698,9 @@ const KanbanCentralPage = () => {
     }
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
+    // Cards na etapa canônica `publicar` ("Publicar agendado") NUNCA aparecem na
+    // Visão Geral — nem na busca: eles têm tela própria (Home → Agendamentos).
+    baseCards = baseCards.filter(card => !isScheduledPublishStage(card as any));
     // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
     // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
     // Durante uma busca ativa, nada é escondido por dispatch: quem procura
@@ -705,6 +708,7 @@ const KanbanCentralPage = () => {
     if (!isSearching) {
       baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
     }
+
     // Fila de liberação: SÓ quando ativada, demandas não liberadas deixam de
     // existir para quem não é gestor. Fila desativada => nada é escondido.
     if (!canManageQueue && queueActive && !isSearching) {
