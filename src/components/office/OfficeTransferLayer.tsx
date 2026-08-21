@@ -99,11 +99,15 @@ export default function OfficeTransferLayer({
       const animation = ghost.animate(
         [
           { transform: `translate(${p1.x - 43}px, ${p1.y - 14}px) scale(0.7) rotate(-3deg)`, opacity: 0 },
-          { transform: `translate(${p1.x - 43}px, ${p1.y - 34}px) scale(1) rotate(-2deg)`, opacity: 1, offset: 0.18 },
-          { transform: `translate(${midX - 43}px, ${midY}px) scale(1.04) rotate(4deg)`, opacity: 1, offset: 0.58 },
+          { transform: `translate(${p1.x - 43}px, ${p1.y - 34}px) scale(1) rotate(-2deg)`, opacity: 1, offset: 0.12 },
+          // pausa na origem: dá tempo de ver de quem saiu
+          { transform: `translate(${p1.x - 43}px, ${p1.y - 36}px) scale(1) rotate(-2deg)`, opacity: 1, offset: 0.3 },
+          { transform: `translate(${midX - 43}px, ${midY}px) scale(1.04) rotate(4deg)`, opacity: 1, offset: 0.62 },
+          // pausa no destino antes de desaparecer
+          { transform: `translate(${p2.x - 43}px, ${p2.y - 26}px) scale(0.95) rotate(0deg)`, opacity: 1, offset: 0.86 },
           { transform: `translate(${p2.x - 43}px, ${p2.y - 20}px) scale(0.82) rotate(0deg)`, opacity: 0 },
         ],
-        { duration: DURATION, easing: "cubic-bezier(.34,.8,.36,1)", fill: "forwards" },
+        { duration: DURATION, easing: "cubic-bezier(.4,.2,.4,.9)", fill: "forwards" },
       );
 
       const finish = () => {
