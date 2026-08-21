@@ -86,3 +86,29 @@ export function groupSchedulesByUser(rows: AreaScheduleRow[]): Record<string, Ar
   });
   return out;
 }
+
+/**
+ * Área usada para resolver a PRESENÇA HUMANA.
+ *
+ * Regra: na visão `Todas` a presença é a UNIÃO das janelas de todas as áreas em
+ * que o colaborador está alocado no dia — a área do card que está no monitor
+ * NUNCA pode transformar alguém em expediente em `off_shift`. Com filtro de
+ * área ativo, aí sim a alocação daquela área é a referência.
+ */
+export function resolvePresenceArea(areaFilter: ScheduleAreaFilter): ScheduleAreaFilter {
+  return areaFilter === "all" ? "all" : areaFilter;
+}
+
+/** Sinal DIAGNÓSTICO: o card atual pertence a uma área sem janela ativa agora. */
+export function cardAreaMismatch(params: {
+  rows: AreaScheduleRow[];
+  weekday: number;
+  cardArea: "midia" | "sistemas" | null | undefined;
+  nowMinutes: number;
+  workHours?: WorkHoursConfig | null;
+}): boolean {
+  const { rows, weekday, cardArea, nowMinutes, workHours } = params;
+  if (!cardArea) return false;
+  const { windows } = resolveUserWindows({ rows, weekday, area: cardArea, workHours });
+  return !windows.some((w) => nowMinutes >= w.s && nowMinutes < w.e);
+}

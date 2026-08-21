@@ -18,9 +18,12 @@ import {
   buildAssignmentSnapshot,
   dedupeTransfers,
   detectTransfers,
+  transferFromRealtime,
   transferKey,
   type AssignmentSnapshot,
+  type TransferEvent,
 } from "@/lib/officeTransfers";
+import { useRealtimeDemands } from "@/hooks/realtime/useRealtimeDemands";
 import { useOfficeDeskPreferences } from "@/hooks/useOfficeDeskPreferences";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -60,12 +63,8 @@ export default function Office() {
     else stackAnchors.current.delete(userId);
   }, []);
 
-  useEffect(() => {
-    if (loading) return;
-    const next = buildAssignmentSnapshot(cards);
-    // Primeira carga (e troca de filtro/reload) apenas registra o baseline.
-    const detected = detectTransfers(snapshotRef.current, next);
-    snapshotRef.current = next;
+  /** Enfileira eventos já detectados (dedupe compartilhado entre os 2 caminhos). */
+  const enqueue = useCallback((detected: TransferEvent[]) => {
     if (detected.length === 0) return;
     const { events, recent } = dedupeTransfers(detected, recentRef.current, Date.now());
     recentRef.current = recent;
@@ -75,7 +74,37 @@ export default function Office() {
       ...prev.slice(-12),
       ...events.map((e) => ({ ...e, key: `${transferKey(e)}:${stamp}` })),
     ]);
-  }, [cards, loading]);
+  }, []);
+
+  // CAMINHO PRINCIPAL (latência mínima): anima direto no UPDATE realtime,
+  // sem esperar o roundtrip do refetch que atualiza pilhas/monitores.
+  useRealtimeDemands({
+    tenantId: tenantId || null,
+    enabled: !!tenantId,
+    scopeKey: "office-transfers",
+    onChange: ({ type, id, new: rowNew, old: rowOld }) => {
+      if (type !== "UPDATE" || !rowNew) return;
+      const { event, snapshot } = transferFromRealtime(snapshotRef.current, {
+        id,
+        title: (rowNew.title as string) || null,
+        assignedTo: (rowNew.assigned_to as string) ?? null,
+        oldAssignedTo:
+          rowOld && "assigned_to" in rowOld ? ((rowOld.assigned_to as string) ?? null) : undefined,
+      });
+      snapshotRef.current = snapshot;
+      if (event) enqueue([event]);
+    },
+  });
+
+  // FALLBACK: detector por snapshot depois do refetch (cobre eventos perdidos).
+  useEffect(() => {
+    if (loading) return;
+    const next = buildAssignmentSnapshot(cards);
+    // Primeira carga (e troca de filtro/reload) apenas registra o baseline.
+    const detected = detectTransfers(snapshotRef.current, next);
+    snapshotRef.current = next;
+    enqueue(detected);
+  }, [cards, loading, enqueue]);
 
   // Trocar o filtro de área recompõe as estações: reinicia o baseline.
   useEffect(() => {

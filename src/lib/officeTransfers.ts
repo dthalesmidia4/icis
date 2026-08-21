@@ -84,3 +84,38 @@ export function dedupeTransfers(
   });
   return { events: kept, recent: nextRecent };
 }
+
+/**
+ * Caminho PRINCIPAL de latência mínima: converte um UPDATE realtime de
+ * `demands.assigned_to` em evento de transferência SEM esperar o refetch.
+ *
+ * - `snapshot` nulo (baseline ainda não carregado) nunca gera evento;
+ * - origem vem de `old.assigned_to` quando disponível, senão do snapshot;
+ * - o snapshot já é atualizado aqui, então o refetch seguinte NÃO reanima;
+ * - eventos que não mudam `assigned_to` (título, status…) não geram nada.
+ */
+export function transferFromRealtime(
+  snapshot: AssignmentSnapshot | null | undefined,
+  row: {
+    id: string;
+    title?: string | null;
+    assignedTo: string | null;
+    oldAssignedTo?: string | null;
+  },
+): { event: TransferEvent | null; snapshot: AssignmentSnapshot | null } {
+  if (!snapshot || !row?.id) return { event: null, snapshot: snapshot ?? null };
+  const before = snapshot[row.id];
+  if (!before) return { event: null, snapshot };
+
+  const from = row.oldAssignedTo ?? before.assignedTo;
+  const to = row.assignedTo;
+  const title = row.title || before.title;
+
+  const nextSnapshot: AssignmentSnapshot = {
+    ...snapshot,
+    [row.id]: { id: row.id, title, assignedTo: to },
+  };
+
+  if (!from || !to || from === to) return { event: null, snapshot: nextSnapshot };
+  return { event: { demandId: row.id, title, fromUserId: from, toUserId: to }, snapshot: nextSnapshot };
+}

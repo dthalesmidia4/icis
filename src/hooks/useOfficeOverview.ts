@@ -8,7 +8,9 @@ import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { resolvePresence, type PresenceResult } from "@/lib/officePresence";
 import {
+  cardAreaMismatch,
   groupSchedulesByUser,
+  resolvePresenceArea,
   resolveUserWindows,
   type AreaScheduleRow,
   type ScheduleAreaFilter,
@@ -54,6 +56,8 @@ export interface OfficeStationData {
   loadRatio: number;
   /** Presença derivada (mesa, cafeteria, almoço oficial, disponível). */
   presence: PresenceResult;
+  /** Diagnóstico: card atual é de área sem janela ativa agora (não afeta presença). */
+  cardAreaMismatch: boolean;
 }
 
 export interface OfficeOverview {
@@ -275,18 +279,29 @@ export function useOfficeOverview(
         operational.find((c) => c.id !== current?.id) ||
         null;
 
-      // Área usada para validar a janela: card no monitor > próximo > filtro da tela.
-      const presenceArea: ScheduleAreaFilter =
-        areaFilter !== "all"
-          ? areaFilter
-          : ((current?.workArea || next?.workArea || "all") as ScheduleAreaFilter);
+      // PRESENÇA HUMANA: na visão `Todas` é a UNIÃO das áreas alocadas no dia.
+      // A área do card no monitor NUNCA torna alguém em expediente `off_shift`.
+      const userRows = schedulesByUser[collaborator.userId] || [];
+      const presenceArea: ScheduleAreaFilter = resolvePresenceArea(
+        areaFilter as ScheduleAreaFilter,
+      );
 
       const { windows } = resolveUserWindows({
-        rows: schedulesByUser[collaborator.userId] || [],
+        rows: userRows,
         weekday: clock.weekday,
         area: presenceArea,
         workHours,
       });
+
+      // Sinal apenas diagnóstico (não altera presença).
+      const areaMismatch = cardAreaMismatch({
+        rows: userRows,
+        weekday: clock.weekday,
+        cardArea: current?.workArea ?? null,
+        nowMinutes: clock.minutes,
+        workHours,
+      });
+
 
       const presence = resolvePresence({
         now,
@@ -304,6 +319,7 @@ export function useOfficeOverview(
         awaitingClientCount,
         loadRatio: 0,
         presence,
+        cardAreaMismatch: areaMismatch,
       } satisfies OfficeStationData;
     });
 

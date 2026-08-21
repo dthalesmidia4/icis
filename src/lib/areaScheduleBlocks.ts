@@ -105,3 +105,30 @@ export function planApplyDayToWeek(params: {
     });
   return { toDelete, toInsert };
 }
+
+/**
+ * Comita um período pendente (draft ainda não salvo) e SÓ DEPOIS monta o plano
+ * a partir de uma leitura fresca das linhas persistidas.
+ *
+ * Isso elimina o race do `aplicar seg → ter-sex`: o clique podia acontecer antes
+ * do `onBlur` do draft, e o plano era montado sem o período recém-digitado.
+ */
+export async function commitAndPlanApplyWeek(params: {
+  /** Commit do draft válido da célula de origem (retorna false se falhar). */
+  pendingCommit?: (() => Promise<boolean>) | null;
+  /** Leitura fresca das linhas persistidas do usuário/área. */
+  fetchRows: () => Promise<ScheduleBlock[]>;
+  userId: string;
+  area: string;
+  sourceWeekday: number;
+  targetWeekdays: number[];
+}): Promise<{ plan: ApplyWeekPlan; rows: ScheduleBlock[]; sourceCount: number }> {
+  const { pendingCommit, fetchRows, userId, area, sourceWeekday, targetWeekdays } = params;
+  if (pendingCommit) {
+    const ok = await pendingCommit();
+    if (!ok) throw new Error("Não foi possível salvar o período pendente");
+  }
+  const rows = await fetchRows();
+  const plan = planApplyDayToWeek({ rows, userId, area, sourceWeekday, targetWeekdays });
+  return { plan, rows, sourceCount: blocksForCell(rows, userId, sourceWeekday, area).length };
+}
