@@ -1,4 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
+
+// O contrato é testado com deps injetadas; o client real nunca é usado.
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+
 import { smartAdministrativeReassign } from "./smartReassign";
 
 const CARD: any = {
