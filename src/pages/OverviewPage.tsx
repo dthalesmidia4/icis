@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Building2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import OverviewModeSwitch from "@/components/overview/OverviewModeSwitch";
@@ -42,12 +43,17 @@ export default function OverviewPage({ forcedMode }: OverviewPageProps) {
   const selector = <OverviewModeSwitch mode={mode} onChange={changeMode} />;
 
   if (mode === "operacional") {
-    return <KanbanCentralPage modeSelector={selector} />;
+    return <KanbanCentralPage modeSelector={selector} headerTitle="Visão geral das Tarefas" />;
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <KanbanCentralPage headerOnly modeSelector={selector} />
+      <KanbanCentralPage
+        headerOnly
+        modeSelector={selector}
+        headerTitle="Escritório virtual"
+        headerIcon={<Building2 className="h-5 w-5 text-primary" />}
+      />
       <div className="min-h-0 flex-1 px-3 sm:px-4">
         <Office />
       </div>
