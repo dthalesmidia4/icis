@@ -80,15 +80,11 @@ export const OfficeDesk = memo(function OfficeDesk({
   const slots = assignDeskSlots(deskObjects);
   const now = useNowTick(60_000);
   // A demanda em andamento fica no monitor: a pilha mostra só o restante da fila.
-  const monitorId = (current || next)?.id ?? null;
-  const groups = useMemo(() => {
-    const todayISO = new Date(now).toLocaleDateString("en-CA");
-    return groupOfficeQueue(
-      station.queue.filter((c) => c.id !== monitorId),
-      { todayISO, visibleLimit: 4, maxGroups: 2 },
-    );
-  }, [station.queue, monitorId, now]);
-  const queueRest = groups.reduce((sum, g) => sum + g.total, 0);
+  const monitorId = monitorCard?.id ?? null;
+  const queueRest = useMemo(
+    () => station.queue.filter((c) => c.id !== monitorId).length,
+    [station.queue, monitorId],
+  );
   // Destino válido: existe arraste em curso e o card não é desta própria mesa.
   const canReceive =
     !!draggingCardId && !!onDropCard && !station.queue.some((c) => c.id === draggingCardId);
