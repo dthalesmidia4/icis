@@ -32,12 +32,20 @@ export function deskPerRow(count: number): number {
 
 /** Largura base (px) da estação antes da escala de profundidade. */
 export function deskBaseWidth(count: number): number {
-  if (count <= 2) return 340;
-  if (count <= 4) return 300;
-  if (count <= 8) return 244;
-  if (count <= 12) return 208;
-  return 184;
+  if (count <= 2) return 372;
+  if (count <= 4) return 332;
+  if (count <= 8) return 272;
+  if (count <= 12) return 232;
+  return 200;
 }
+
+/**
+ * Faixa vertical útil da sala: a fileira do fundo encosta logo abaixo da parede
+ * das janelas (~20% da altura) e a da frente termina perto da base. Assim o
+ * ambiente ocupa a tela inteira em vez de ficar acumulado na metade de baixo.
+ */
+const TOP_BAND_PCT = 40;
+const BOTTOM_BAND_PCT = 97;
 
 export function computeDeskSlots(count: number): DeskSlot[] {
   if (count <= 0) return [];
@@ -50,9 +58,9 @@ export function computeDeskSlots(count: number): DeskSlot[] {
     const inRow = Math.min(perRow, count - row * perRow);
     const posInRow = i % perRow;
 
-    const rowT = rows > 1 ? row / (rows - 1) : 0.55;
-    const topPct = 50 + rowT * 44;
-    const scale = rows > 1 ? 0.78 + rowT * 0.26 : 1;
+    const rowT = rows > 1 ? row / (rows - 1) : 0.6;
+    const topPct = TOP_BAND_PCT + rowT * (BOTTOM_BAND_PCT - TOP_BAND_PCT);
+    const scale = rows > 1 ? 0.82 + rowT * 0.26 : 1.06;
 
     // Fileiras do fundo recuam levemente para dentro (perspectiva).
     const inset = 8 + (1 - rowT) * 6;
