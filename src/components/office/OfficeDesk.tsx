@@ -82,7 +82,16 @@ export const OfficeDesk = memo(function OfficeDesk({
         ? "Fora do expediente"
         : "Próximo";
   const monitorCard = current || next;
-  const slots = assignDeskSlots(deskObjects);
+  // Cada slot tem posição FÍSICA distinta no tampo (esquerda / pé do monitor /
+  // faixa direita) — nunca todos empilhados ao lado da pilha.
+  const objectBySlot = useMemo(() => {
+    const map: Partial<Record<DeskSlotName, DeskObjectKey>> = {};
+    assignDeskSlots(deskObjects).forEach(({ slot, key }) => {
+      map[slot] = key;
+    });
+    return map;
+  }, [deskObjects]);
+
   const now = useNowTick(60_000);
   // A demanda em andamento fica no monitor: a pilha mostra só o restante da fila.
   const monitorId = monitorCard?.id ?? null;
