@@ -22,6 +22,9 @@ import {
 } from "@/lib/officeTransfers";
 import { useOfficeDeskPreferences } from "@/hooks/useOfficeDeskPreferences";
 import { useAuth } from "@/hooks/useAuth";
+import { toast as sonnerToast } from "sonner";
+import { smartAdministrativeReassign } from "@/lib/smartReassign";
+import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
 
 
 const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
@@ -67,6 +70,88 @@ export default function Office() {
     onDemandEvent: handleDemandEvent,
   });
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
+  const { requestExit, dialog: exitGuardDialog } = useExecutionExitGuard();
+
+  // ---------- drag-and-drop de transferência (fluxo canônico de reassign) ----------
+  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
+
+  const stageLabelOf = useCallback(
+    (key: string) => cards.find((c) => c.functionKey === key)?.stageLabel || key,
+    [cards],
+  );
+
+  /**
+   * Soltar um card na estação de outro colaborador. NUNCA grava `assigned_to`
+   * direto: passa pelo guard de saída de passagem + `smartAdministrativeReassign`
+   * (validação de função/etapa, conflito de agenda, histórico e realtime).
+   */
+  const handleDropCard = useCallback(
+    async (demandId: string, targetUserId: string) => {
+      setDraggingCardId(null);
+      if (transferring) return;
+      const card = cards.find((c) => c.id === demandId);
+      if (!card || card.assignedTo === targetUserId) return;
+      const targetName =
+        stations.find((s) => s.collaborator.userId === targetUserId)?.collaborator.fullName ||
+        "colaborador";
+
+      setTransferring(true);
+      try {
+        let result: Awaited<ReturnType<typeof smartAdministrativeReassign>> | null = null;
+        const guard = await requestExit({
+          demandId,
+          reason: "office_drag",
+          actionLabel: "Transferir",
+          cardLabel: card.title,
+          perform: async () => {
+            result = await smartAdministrativeReassign({
+              tenantId: tenantId || "",
+              card: {
+                id: card.id,
+                title: card.title,
+                tenant_id: tenantId || null,
+                assigned_to: card.assignedTo,
+                additional_assignees: card.additionalAssignees,
+                current_function_key: card.functionKey,
+                demand_type: card.demandType,
+                demand_type_key: card.demandTypeKey,
+                origin: card.origin,
+                work_area: card.workArea,
+                due_date: card.dueDate,
+                due_time: card.dueTime,
+                delivery_date: card.deliveryDate,
+                delivery_time: card.deliveryTime,
+                publish_date: card.publishDate,
+                publish_time: card.publishTime,
+                is_daily_card: card.isDailyCard,
+              },
+              targetUserId,
+              targetUserName: targetName,
+              functionLabel: card.stageLabel,
+              stageLabelOf,
+              historySource: "office_drag",
+            });
+            return result.status === "applied" ? "success" : "failure";
+          },
+        });
+        if (!result) return; // cancelado no aviso: nada foi gravado
+        const applied = result as Awaited<ReturnType<typeof smartAdministrativeReassign>>;
+        if (applied.status !== "applied" || guard.outcome !== "success") {
+          sonnerToast.error(applied.message);
+          return;
+        }
+        applied.softMessages.forEach((m) => sonnerToast.warning(m));
+        sonnerToast.success(applied.message);
+      } catch (e) {
+        console.error("[office] transfer error", e);
+        sonnerToast.error("Erro ao transferir demanda");
+      } finally {
+        setTransferring(false);
+      }
+    },
+    [cards, stations, tenantId, requestExit, stageLabelOf, transferring],
+  );
 
   // ---------- animação de transferência (apenas representação visual) ----------
   const worldRef = useRef<HTMLElement>(null);
@@ -194,6 +279,10 @@ export default function Office() {
                   isSelf={!!user && user.id === station.collaborator.userId}
                   onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
+                  draggingCardId={draggingCardId}
+                  onDragCardStart={setDraggingCardId}
+                  onDragCardEnd={() => setDraggingCardId(null)}
+                  onDropCard={handleDropCard}
                 />
               </div>
             ))}
@@ -224,6 +313,10 @@ export default function Office() {
                     isSelf={!!user && user.id === station.collaborator.userId}
                     onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
+                  draggingCardId={draggingCardId}
+                  onDragCardStart={setDraggingCardId}
+                  onDragCardEnd={() => setDraggingCardId(null)}
+                  onDropCard={handleDropCard}
                   />
                 </div>
               );
@@ -248,6 +341,8 @@ export default function Office() {
         onClose={() => setOpenCardId(null)}
         onPersisted={refetch}
       />
+
+      {exitGuardDialog}
     </div>
   );
 }
