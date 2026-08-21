@@ -41,7 +41,17 @@ export const OfficeDesk = memo(function OfficeDesk({
   const { collaborator, current, next, queueCount, awaitingClientCount, presence } = station;
   const [editing, setEditing] = useState(false);
   const working = presence.state === "working_now" && !!current;
-  const away = presence.state === "micro_break";
+  const onBreak = presence.state === "official_break";
+  const offShift = presence.state === "off_shift";
+  // Cadeira vazia: micro-pausa (café), intervalo oficial e fora do expediente.
+  const away = presence.state === "micro_break" || onBreak || offShift;
+  const statusLabel = working
+    ? "Em andamento"
+    : onBreak
+      ? "Intervalo"
+      : offShift
+        ? "Fora do expediente"
+        : "Próximo";
   const monitorCard = current || next;
   const slots = assignDeskSlots(deskObjects);
 
