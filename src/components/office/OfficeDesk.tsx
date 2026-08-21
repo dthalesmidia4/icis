@@ -23,6 +23,8 @@ interface OfficeDeskProps {
   /** É a mesa do usuário logado (única que pode ser personalizada). */
   isSelf?: boolean;
   onSaveDeskObjects?: (objects: DeskObjectKey[]) => void | Promise<unknown>;
+  /** Registra a pilha desta mesa como origem/destino da animação. */
+  registerStackAnchor?: (userId: string, el: HTMLElement | null) => void;
 }
 
 /**
@@ -37,7 +39,9 @@ export const OfficeDesk = memo(function OfficeDesk({
   deskObjects = [],
   isSelf = false,
   onSaveDeskObjects,
+  registerStackAnchor,
 }: OfficeDeskProps) {
+
   const { collaborator, current, next, queueCount, awaitingClientCount, presence } = station;
   const [editing, setEditing] = useState(false);
   const working = presence.state === "working_now" && !!current;
@@ -158,7 +162,13 @@ export const OfficeDesk = memo(function OfficeDesk({
             awaitingClientCount={awaitingClientCount}
             collaboratorName={collaborator.fullName}
             onOpenQueue={() => onOpenQueue(collaborator.userId)}
+            anchorRef={
+              registerStackAnchor
+                ? (el) => registerStackAnchor(collaborator.userId, el)
+                : undefined
+            }
           />
+
         </div>
       </div>
 

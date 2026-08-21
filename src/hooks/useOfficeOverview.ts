@@ -58,6 +58,8 @@ export interface OfficeStationData {
 
 export interface OfficeOverview {
   stations: OfficeStationData[];
+  /** Cards do tenant já filtrados por área (usado pelo detector de transferência). */
+  cards: OfficeCard[];
   totals: {
     people: number;
     working: number;
@@ -67,6 +69,7 @@ export interface OfficeOverview {
   loading: boolean;
   refetch: () => void;
 }
+
 
 interface RawDemand {
   id: string;
@@ -169,6 +172,28 @@ export function useOfficeOverview(
     enabled: !!tenantId,
     onChange: () => fetchAll(),
   });
+
+  // Mudanças de expediente (`Alocação por área`) refletem no escritório sem reload.
+  useEffect(() => {
+    if (!tenantId) return;
+    const channel = supabase
+      .channel(`rt-user-area-schedules-${tenantId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "user_area_schedules",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => fetchAll(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId, fetchAll]);
+
 
   const cards = useMemo<OfficeCard[]>(() => {
     return demands
@@ -307,10 +332,12 @@ export function useOfficeOverview(
 
   return {
     stations,
+    cards,
     totals,
     loading: loading || loadingCollaborators,
     refetch: fetchAll,
   };
+
 }
 
 export default useOfficeOverview;

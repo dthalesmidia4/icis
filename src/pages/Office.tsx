@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,17 @@ import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
 import OfficeCardOverlay from "@/components/office/OfficeCardOverlay";
 import CoffeeCorner from "@/components/office/CoffeeCorner";
+import OfficeTransferLayer, { type QueuedTransfer } from "@/components/office/OfficeTransferLayer";
+import {
+  buildAssignmentSnapshot,
+  dedupeTransfers,
+  detectTransfers,
+  transferKey,
+  type AssignmentSnapshot,
+} from "@/lib/officeTransfers";
 import { useOfficeDeskPreferences } from "@/hooks/useOfficeDeskPreferences";
 import { useAuth } from "@/hooks/useAuth";
+
 
 const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
   { id: "all", label: "Todas" },
@@ -36,8 +45,43 @@ export default function Office() {
   const [queueUserId, setQueueUserId] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
 
-  const { stations, totals, loading, refetch } = useOfficeOverview(tenantId, area);
+  const { stations, cards, totals, loading, refetch } = useOfficeOverview(tenantId, area);
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
+
+  // ---------- animação de transferência (apenas representação visual) ----------
+  const worldRef = useRef<HTMLElement>(null);
+  const stackAnchors = useRef<Map<string, HTMLElement>>(new Map());
+  const snapshotRef = useRef<AssignmentSnapshot | null>(null);
+  const recentRef = useRef<Record<string, number>>({});
+  const [transfers, setTransfers] = useState<QueuedTransfer[]>([]);
+
+  const registerStackAnchor = useCallback((userId: string, el: HTMLElement | null) => {
+    if (el) stackAnchors.current.set(userId, el);
+    else stackAnchors.current.delete(userId);
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const next = buildAssignmentSnapshot(cards);
+    // Primeira carga (e troca de filtro/reload) apenas registra o baseline.
+    const detected = detectTransfers(snapshotRef.current, next);
+    snapshotRef.current = next;
+    if (detected.length === 0) return;
+    const { events, recent } = dedupeTransfers(detected, recentRef.current, Date.now());
+    recentRef.current = recent;
+    if (events.length === 0) return;
+    const stamp = Date.now();
+    setTransfers((prev) => [
+      ...prev.slice(-12),
+      ...events.map((e) => ({ ...e, key: `${transferKey(e)}:${stamp}` })),
+    ]);
+  }, [cards, loading]);
+
+  // Trocar o filtro de área recompõe as estações: reinicia o baseline.
+  useEffect(() => {
+    snapshotRef.current = null;
+  }, [area]);
+
 
   // Quem está em micro-pausa aparece na cafeteria (a mesa continua na sala).
   const atCoffee = useMemo(
@@ -98,12 +142,21 @@ export default function Office() {
 
       {/* ---------- Cenário ---------- */}
       <OfficeWorld
+        containerRef={worldRef}
         upperZone={
           <div className="pointer-events-auto absolute right-3 top-[19%] z-40 hidden sm:block sm:right-8">
             <CoffeeCorner people={loading ? [] : atCoffee} />
           </div>
         }
+        overlay={
+          <OfficeTransferLayer
+            containerRef={worldRef}
+            anchors={stackAnchors}
+            events={transfers}
+          />
+        }
       >
+
         {loading ? (
           <div className="grid h-full grid-cols-2 items-end gap-8 p-8 sm:grid-cols-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -126,6 +179,7 @@ export default function Office() {
                   deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
                   isSelf={!!user && user.id === station.collaborator.userId}
                   onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
+                  registerStackAnchor={registerStackAnchor}
                 />
               </div>
             ))}
@@ -155,6 +209,7 @@ export default function Office() {
                     deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
                     isSelf={!!user && user.id === station.collaborator.userId}
                     onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
+                  registerStackAnchor={registerStackAnchor}
                   />
                 </div>
               );
