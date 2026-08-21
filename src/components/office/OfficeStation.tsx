@@ -55,7 +55,7 @@ export const OfficeStation = memo(function OfficeStation({
           <span
             className={cn(
               "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card",
-              working ? "bg-primary" : "bg-muted-foreground/40",
+              working ? "bg-primary animate-pulse motion-reduce:animate-none" : "bg-muted-foreground/40",
             )}
           />
         </div>
@@ -75,7 +75,7 @@ export const OfficeStation = memo(function OfficeStation({
           disabled={!monitorCard}
           className={cn(
             "w-full rounded-lg border-2 bg-background/90 p-3 text-left transition-shadow",
-            working ? "border-primary/50 animate-pulse motion-reduce:animate-none" : "border-border",
+            working ? "border-primary/50 shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]" : "border-border",
             monitorCard ? "hover:shadow-md" : "cursor-default opacity-80",
           )}
         >
