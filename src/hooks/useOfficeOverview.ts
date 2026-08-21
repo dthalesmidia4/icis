@@ -7,6 +7,13 @@ import { useNowTick } from "@/hooks/useNowTick";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { resolvePresence, type PresenceResult } from "@/lib/officePresence";
+import {
+  groupSchedulesByUser,
+  resolveUserWindows,
+  type AreaScheduleRow,
+  type ScheduleAreaFilter,
+} from "@/lib/officeSchedule";
+import { zonedClockParts } from "@/lib/reorderSequence";
 import { isClientWaitingFunction, normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
 
 
