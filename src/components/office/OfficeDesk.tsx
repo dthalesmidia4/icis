@@ -42,9 +42,9 @@ export const OfficeDesk = memo(function OfficeDesk({
       </div>
 
       {/* objetos sobre o tampo */}
-      <div className="relative z-20 -mb-1 flex items-end justify-between gap-1.5 px-2">
+      <div className="relative z-20 -mb-1 flex items-end justify-between gap-1 px-3">
         {/* monitor */}
-        <div className="flex min-w-0 flex-col items-center" style={{ flexBasis: "62%" }}>
+        <div className="ml-1 flex min-w-0 flex-col items-center" style={{ width: "58%" }}>
           <button
             type="button"
             onClick={() => monitorCard && onOpenCard(monitorCard.id)}

@@ -51,7 +51,7 @@ export function computeDeskSlots(count: number): DeskSlot[] {
     const posInRow = i % perRow;
 
     const rowT = rows > 1 ? row / (rows - 1) : 0.55;
-    const topPct = 34 + rowT * 58;
+    const topPct = 50 + rowT * 44;
     const scale = rows > 1 ? 0.78 + rowT * 0.26 : 1;
 
     // Fileiras do fundo recuam levemente para dentro (perspectiva).

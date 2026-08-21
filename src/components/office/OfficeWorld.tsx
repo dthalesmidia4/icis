@@ -18,7 +18,7 @@ export default function OfficeWorld({ children, upperZone }: OfficeWorldProps) {
   return (
     <section
       aria-label="Planta do escritório"
-      className="relative flex min-h-[calc(100vh-11rem)] flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/60 via-muted/25 to-muted/45"
+      className="relative flex min-h-[calc(100vh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/60 via-muted/25 to-muted/45"
     >
       {upperZone}
 
