@@ -141,6 +141,16 @@ export default function Office() {
         }
         applied.softMessages.forEach((m) => sonnerToast.warning(m));
         sonnerToast.success(applied.message);
+        // Dispara a animação já aqui (não depende do realtime chegar); o dedupe
+        // evita repetir quando o evento/refetch trouxer a mesma transferência.
+        if (card.assignedTo && card.assignedTo !== targetUserId) {
+          enqueueRef.current({
+            demandId: card.id,
+            title: card.title,
+            fromUserId: card.assignedTo,
+            toUserId: targetUserId,
+          });
+        }
       } catch (e) {
         console.error("[office] transfer error", e);
         sonnerToast.error("Erro ao transferir demanda");
@@ -150,6 +160,11 @@ export default function Office() {
     },
     [cards, stations, tenantId, requestExit, stageLabelOf, transferring],
   );
+
+  // Arraste por ponteiro: long-press/movimento inicia, mesa sob o cursor recebe.
+  const { drag, startPress, consumeClickSuppression } = useOfficeCardDrag({
+    onDrop: handleDropCard,
+  });
 
   // ---------- animação de transferência (apenas representação visual) ----------
   const worldRef = useRef<HTMLElement>(null);
