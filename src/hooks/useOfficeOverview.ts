@@ -310,10 +310,12 @@ export function useOfficeOverview(
 
   return {
     stations,
+    cards,
     totals,
     loading: loading || loadingCollaborators,
     refetch: fetchAll,
   };
+
 }
 
 export default useOfficeOverview;
