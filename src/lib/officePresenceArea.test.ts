@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/dailyCards", () => ({
+  fetchHolidaysInRange: vi.fn(async () => new Set<string>()),
+}));
 import {
   cardAreaMismatch,
   resolvePresenceArea,
