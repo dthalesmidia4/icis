@@ -284,7 +284,7 @@ export function useOfficeOverview(
 
     const max = raw.reduce((m, s) => Math.max(m, s.queueCount), 0);
     return raw.map((s) => ({ ...s, loadRatio: max > 0 ? s.queueCount / max : 0 }));
-  }, [cards, collaborators, activeDispatchIds, now, workHours]);
+  }, [cards, collaborators, activeDispatchIds, now, workHours, schedulesByUser, areaFilter]);
 
   const totals = useMemo(() => {
     const queued = new Set<string>();
