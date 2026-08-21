@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
-import { computeDeskSlots, deskBaseWidth } from "@/lib/officeLayout";
+import { computeDeskSlots, deskBaseWidth, deskMonitorWidthPct } from "@/lib/officeLayout";
 import OfficeWorld from "@/components/office/OfficeWorld";
 import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
@@ -242,7 +242,13 @@ export default function Office() {
     return () => ro.disconnect();
   }, []);
 
-  const slots = useMemo(() => computeDeskSlots(stations.length, worldSize), [stations.length, worldSize]);
+  // A cafeteria só existe em >= sm (desktop): nessa faixa ela reserva o canto
+  // superior direito e o layout precisa desviar a estação do fundo à direita.
+  const slots = useMemo(
+    () => computeDeskSlots(stations.length, worldSize, { coffeeCorner: !isMobile }),
+    [stations.length, worldSize, isMobile],
+  );
+  const monitorPct = useMemo(() => deskMonitorWidthPct(worldSize), [worldSize]);
   const baseWidth = useMemo(() => deskBaseWidth(stations.length, worldSize), [stations.length, worldSize]);
 
 
@@ -309,6 +315,7 @@ export default function Office() {
                   onOpenQueue={setQueueUserId}
                   deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
                   isSelf={!!user && user.id === station.collaborator.userId}
+                  monitorPct={monitorPct}
                   onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
                   draggingCardId={drag?.cardId ?? null}
@@ -343,6 +350,7 @@ export default function Office() {
                     onOpenQueue={setQueueUserId}
                     deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
                     isSelf={!!user && user.id === station.collaborator.userId}
+                  monitorPct={monitorPct}
                     onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
                   draggingCardId={drag?.cardId ?? null}
