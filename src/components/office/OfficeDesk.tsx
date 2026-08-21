@@ -277,9 +277,9 @@ export const OfficeDesk = memo(function OfficeDesk({
           style={{ clipPath: "polygon(3% 0, 97% 0, 100% 100%, 0 100%)" }}
         />
         <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/50 px-2 pb-1 pt-[3px] shadow-[0_6px_10px_-8px_hsl(var(--foreground)/0.6)]">
-          {/* plaquinha frontal apenas com o nome (contador vive na pilha) */}
+          {/* plaquinha frontal com o nome + acesso à personalização (só o dono) */}
           <div className="flex items-center justify-center gap-1">
-            <p className="max-w-[80%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
+            <p className="max-w-[70%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
               {collaborator.fullName}
             </p>
             {onBreak && presence.returnsAt && (
@@ -287,7 +287,25 @@ export const OfficeDesk = memo(function OfficeDesk({
                 retorna {presence.returnsAt}
               </span>
             )}
+            {isSelf && onSaveDeskObjects && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label="Personalizar mesa"
+                title="Personalizar mesa"
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-0.5 rounded-full border px-1 py-[1px] text-[8px] font-semibold leading-4 transition-colors",
+                  deskObjects.length === 0
+                    ? "border-primary/60 bg-primary/10 text-primary hover:bg-primary/20"
+                    : "border-border bg-background/80 text-muted-foreground hover:border-primary/60 hover:text-foreground",
+                )}
+              >
+                <Settings2 className="h-2.5 w-2.5" />
+                {deskObjects.length === 0 && <span>Personalizar mesa</span>}
+              </button>
+            )}
           </div>
+
 
           {progress !== null && (
             <div
