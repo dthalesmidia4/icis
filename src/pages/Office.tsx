@@ -76,6 +76,19 @@ export default function Office() {
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
 
+  // Rede de segurança: qualquer fim de arraste limpa o destaque das mesas
+  // (evita o retângulo azul preso quando o drag é cancelado).
+  useEffect(() => {
+    if (!draggingCardId) return;
+    const clear = () => setDraggingCardId(null);
+    window.addEventListener("dragend", clear);
+    window.addEventListener("drop", clear);
+    return () => {
+      window.removeEventListener("dragend", clear);
+      window.removeEventListener("drop", clear);
+    };
+  }, [draggingCardId]);
+
   const stageLabelOf = useCallback(
     (key: string) => cards.find((c) => c.functionKey === key)?.stageLabel || key,
     [cards],
