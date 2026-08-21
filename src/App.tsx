@@ -335,6 +335,7 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+
       <Route path="/demandas-completas" element={
         <ProtectedRoute>
           <RequireTenant>
