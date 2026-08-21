@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, CalendarDays, HeartPulse, History, LayoutGrid, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import CreateColumnModal from "@/components/CreateColumnModal";
+
+// Montado apenas sob clique — evita custo no primeiro acesso ao Escritório.
+const LazyCreateColumnModal = lazy(() => import("@/components/CreateColumnModal"));
 import NewDemandAction from "@/components/overview/NewDemandAction";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
@@ -275,14 +277,16 @@ export default function OverviewHeader({
         {modeSelector}
       </div>
 
-      {managesPipeline && effectivePipelineId && (
-        <CreateColumnModal
-          open={statusModalOpen}
-          onOpenChange={setStatusModalOpen}
-          pipelineId={effectivePipelineId}
-          onSuccess={() => onStatusCreated?.()}
-          existingPositions={existingPositions || []}
-        />
+      {managesPipeline && effectivePipelineId && statusModalOpen && (
+        <Suspense fallback={null}>
+          <LazyCreateColumnModal
+            open={statusModalOpen}
+            onOpenChange={setStatusModalOpen}
+            pipelineId={effectivePipelineId}
+            onSuccess={() => onStatusCreated?.()}
+            existingPositions={existingPositions || []}
+          />
+        </Suspense>
       )}
     </div>
   );
