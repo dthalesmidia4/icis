@@ -120,9 +120,16 @@ export const OfficeDesk = memo(function OfficeDesk({
           "ring-2 ring-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.15)]",
       )}
     >
-      {/* ---------- tudo que fica APOIADO/ATRÁS do tampo ---------- */}
-      <div className="relative z-30 -mb-[8px] flex items-end justify-between gap-1 px-2">
+      {/* ---------- tudo que fica APOIADO/ATRÁS do tampo ----------
+          3 zonas estáveis: [personagem + objeto esquerdo] [monitor compacto]
+          [objeto direito + fila]. O monitor tem largura com teto (nunca flex-1),
+          garantindo faixa lateral útil para a pilha e os acessórios. */}
+      <div
+        className="relative z-30 -mb-[8px] grid items-end gap-1 px-2"
+        style={{ gridTemplateColumns: `auto minmax(0, ${monitorPct}%) minmax(58px, auto)` }}
+      >
         {/* personagem ao lado do monitor (com cadeira discreta atrás) */}
+
         <div className="relative flex shrink-0 flex-col items-center pb-[2px]">
           {away ? (
             <span aria-hidden="true" className="flex flex-col items-center opacity-70">
