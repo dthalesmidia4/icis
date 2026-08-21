@@ -44,6 +44,7 @@ import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
 import { publicationNotice, saveDemandPublication } from "@/lib/demandPublication";
 import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
+import { smartAdministrativeReassign } from "@/lib/smartReassign";
 import { isClientFacingFunction, isEvaluationFunction } from "@/lib/flowFunctions";
 import ExecutionExitDialog from "@/components/demands/ExecutionExitDialog";
 import {
@@ -1785,7 +1786,9 @@ export default function TaskCard({
   ]);
 
 
-  const assigneeOptions = eligibleAssignees
+  // Card salvo: TODO colaborador é opção (o remapeamento administrativo resolve
+  // a etapa). Só o rascunho filtra, porque ali a etapa inicial é obrigatória.
+  const assigneeOptions = isDraft && eligibleAssignees
     ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
     : collaborators;
 
@@ -3641,54 +3644,45 @@ export default function TaskCard({
                           onCardChange({ ...card, assigned_to: newVal, current_function_key: draftStage });
                           return;
                         }
-                        // Ponto único: função da etapa + ocupação de agenda (mesma área e entre áreas).
-                        const evaluation = await evaluateReassign({
-                          tenantId: card.tenant_id || "",
-                          card: card as any,
-                          newAssignedTo: newVal || null,
-                          collaboratorName: nome,
-                        });
-                        if (!evaluation.allowed) {
-                          if (evaluation.blockedBy === "schedule") {
-                            setAssignConflict({
-                              newAssignedTo: newVal || null,
-                              targetName: nome,
-                              conflicts: evaluation.hard,
-                              suggestion: evaluation.suggestion,
-                              nextFunctionKey: evaluation.nextFunctionKey,
-                            });
-                          } else {
-                            toast.error(evaluation.message || "Transferência bloqueada");
-                          }
-                          return;
-                        }
-                        const nextFn = evaluation.nextFunctionKey;
-                        evaluation.softMessages.forEach((m) => toast.warning(m));
-                        if (evaluation.remapMessage) toast.info(evaluation.remapMessage);
-                        // Ponto único de gravação: desarquiva e tira do status final
-                        // quando o card volta ao fluxo, além de registrar o histórico.
-                        let reassignRes: Awaited<ReturnType<typeof applyReassign>> | null = null;
+                        // CONTRATO ÚNICO de transferência administrativa:
+                        // remapeia a etapa e reagenda automaticamente quando possível;
+                        // só bloqueia quando não existe solução segura.
+                        let smart: Awaited<ReturnType<typeof smartAdministrativeReassign>> | null = null;
                         await runExecutionExitGuarded("Transferir", async () => {
-                          reassignRes = await applyReassign({
-                            tenantId: card.tenant_id,
+                          smart = await smartAdministrativeReassign({
+                            tenantId: card.tenant_id as string,
                             card: card as any,
-                            newAssignedTo: newVal || null,
-                            nextFunctionKey: nextFn,
-                            direction: evaluation.direction,
+                            targetUserId: newVal || null,
+                            targetUserName: nome,
+                            functionLabel: card.current_function_key
+                              ? flowFunctionNames[card.current_function_key] || undefined
+                              : undefined,
+                            stageLabelOf: (k) => flowFunctionNames[k] || k,
                             historySource: "task_card",
                           });
-                          return reassignFailureMessage(reassignRes) ? "failure" : "success";
+                          return smart.status === "applied" ? "success" : "failure";
                         });
-                        if (!reassignRes) return;
-                        const reassignFailure = reassignFailureMessage(reassignRes);
-                        if (reassignFailure) {
-                          console.error("[TaskCard] applyReassign", reassignRes);
-                          toast.error(reassignFailure);
+                        if (!smart) return;
+                        const outcome = smart as Awaited<ReturnType<typeof smartAdministrativeReassign>>;
+                        outcome.softMessages.forEach((m) => toast.warning(m));
+                        if (outcome.status !== "applied") {
+                          toast.error(outcome.message);
                           return;
                         }
-                        onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
-
-
+                        toast.success(outcome.message);
+                        onCardChange({
+                          ...card,
+                          assigned_to: newVal || null,
+                          current_function_key: outcome.nextFunctionKey,
+                          ...(outcome.finalSchedule
+                            ? {
+                                due_date: outcome.finalSchedule.due_date,
+                                due_time: outcome.finalSchedule.due_time,
+                                delivery_date: outcome.finalSchedule.delivery_date,
+                                delivery_time: outcome.finalSchedule.delivery_time,
+                              }
+                            : {}),
+                        } as any);
                       }}
                       disabled={readOnly || (isDraft && !(card as any).demand_type_key)}
                     >
@@ -3704,17 +3698,35 @@ export default function TaskCard({
                       <SelectContent>
                         <SelectItem value="__none__">Sem responsável</SelectItem>
                         {/*
-                          Colaboradores incompatíveis continuam visíveis, mas desabilitados
-                          com o motivo — esconder gerava a dúvida "onde foi meu colega?".
+                          CARD SALVO: NUNCA pré-bloquear colaborador. O resolvedor
+                          administrativo ainda pode remapear a etapa — quem decide é
+                          o contrato `smartAdministrativeReassign`. Aqui só antecipamos
+                          o ajuste ("Planejar → Criar roteiro") como informação.
+                          RASCUNHO: a etapa inicial é obrigatória, então o item fica
+                          desabilitado quando não existe etapa inicial possível.
                         */}
                         {collaborators.map((c) => {
-                          const eligible = !eligibleAssignees || eligibleAssignees.has(c.id) || c.id === card?.assigned_to;
+                          const resolution = draftAssigneeResolution[c.id];
+                          const resolvedKey = resolution?.functionKey ?? null;
+                          const willRemap =
+                            !isDraft &&
+                            !!resolvedKey &&
+                            !!card.current_function_key &&
+                            resolvedKey !== card.current_function_key;
+                          const draftBlocked =
+                            isDraft && !!eligibleAssignees && !eligibleAssignees.has(c.id) && c.id !== card?.assigned_to;
                           return (
-                            <SelectItem key={c.id} value={c.id} disabled={!eligible}>
+                            <SelectItem key={c.id} value={c.id} disabled={draftBlocked}>
                               <span className="flex items-center gap-2">
-                                <span className={cn(!eligible && "text-muted-foreground")}>{c.name}</span>
-                                {!eligible && (
-                                  <span className="text-[10px] text-muted-foreground">Sem etapa compatível</span>
+                                <span className={cn(draftBlocked && "text-muted-foreground")}>{c.name}</span>
+                                {draftBlocked && (
+                                  <span className="text-[10px] text-muted-foreground">Sem etapa inicial compatível</span>
+                                )}
+                                {willRemap && (
+                                  <span className="text-[10px] text-primary">
+                                    etapa será ajustada para{" "}
+                                    {resolution?.functionName || flowFunctionNames[resolvedKey] || resolvedKey}
+                                  </span>
                                 )}
                               </span>
                             </SelectItem>
