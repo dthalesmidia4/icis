@@ -30,6 +30,8 @@ export interface OfficeCard {
   isDailyCard: boolean;
   /** Timestamp de início (due_date + due_time) ou null. */
   startTs: number | null;
+  /** Timestamp de fim previsto (delivery_date + delivery_time) ou null. */
+  endTs: number | null;
   isLate: boolean;
 }
 
@@ -41,8 +43,10 @@ export interface OfficeStationData {
   queue: OfficeCard[];
   queueCount: number;
   awaitingClientCount: number;
-  /** Carga relativa (0..1) ao maior volume da tela. */
+  /** Carga relativa (0..1) ao maior volume da tela — NÃO é progresso. */
   loadRatio: number;
+  /** Presença derivada (mesa, cafeteria, almoço oficial, disponível). */
+  presence: PresenceResult;
 }
 
 export interface OfficeOverview {
@@ -96,6 +100,7 @@ export function useOfficeOverview(
   const now = useNowTick(60_000);
   const { collaborators, loading: loadingCollaborators } = useCollaborators(tenantId);
   const { activeDispatchIds } = useActiveDispatchIds(tenantId);
+  const { config: workHours } = useWorkHoursConfig(tenantId);
 
   const [demands, setDemands] = useState<RawDemand[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
@@ -173,6 +178,7 @@ export function useOfficeOverview(
           deliveryTime: d.delivery_time,
           isDailyCard: !!d.is_daily_card,
           startTs,
+          endTs: toTs(d.delivery_date, d.delivery_time),
           isLate: !!startTs && startTs < now && !isClientWaitingFunction(key),
         } satisfies OfficeCard;
       })
@@ -225,6 +231,12 @@ export function useOfficeOverview(
         operational.find((c) => c.id !== current?.id) ||
         null;
 
+      const presence = resolvePresence({
+        now,
+        workHours,
+        queue: operational.map((c) => ({ id: c.id, startTs: c.startTs, endTs: c.endTs })),
+      });
+
       return {
         collaborator,
         current,
@@ -233,12 +245,13 @@ export function useOfficeOverview(
         queueCount: operational.length,
         awaitingClientCount,
         loadRatio: 0,
+        presence,
       } satisfies OfficeStationData;
     });
 
     const max = raw.reduce((m, s) => Math.max(m, s.queueCount), 0);
     return raw.map((s) => ({ ...s, loadRatio: max > 0 ? s.queueCount / max : 0 }));
-  }, [cards, collaborators, activeDispatchIds, now]);
+  }, [cards, collaborators, activeDispatchIds, now, workHours]);
 
   const totals = useMemo(() => {
     const queued = new Set<string>();
