@@ -218,10 +218,6 @@ export const OfficeDesk = memo(function OfficeDesk({
             <DeskObject key={slot} objectKey={key} size={22} />
           ))}
           <PaperStack
-            groups={groups}
-            onOpenCard={onOpenCard}
-            onDragCardStart={onDragCardStart}
-            onDragCardEnd={onDragCardEnd}
             queueCount={queueRest}
             awaitingClientCount={awaitingClientCount}
             collaboratorName={collaborator.fullName}
