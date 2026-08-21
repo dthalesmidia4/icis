@@ -207,11 +207,28 @@ export function deskBaseWidth(count: number, size: WorldSize = DEFAULT_SIZE): nu
 /** Faixa vertical útil para composições genéricas (5+ estações). */
 const GENERIC_MIN_ROW_GAP_PCT = 22;
 
-export function computeDeskSlots(count: number, size: WorldSize = DEFAULT_SIZE): DeskSlot[] {
+export interface DeskSlotOptions {
+  /** A cafeteria está visível (desktop) e reserva o canto superior direito. */
+  coffeeCorner?: boolean;
+}
+
+export function computeDeskSlots(
+  count: number,
+  size: WorldSize = DEFAULT_SIZE,
+  options: DeskSlotOptions = {},
+): DeskSlot[] {
   if (count <= 0) return [];
   const profile = resolveOfficeProfile(size);
   const perRow = deskPerRow(count);
   const rows = Math.ceil(count / perRow);
+  const width = size.width || DEFAULT_SIZE.width;
+  const base = deskBaseWidth(count, size);
+  // Centro máximo permitido na FILEIRA DO FUNDO (a única na faixa do café).
+  // Assimetria proposital: a fileira da frente continua livre.
+  const backRightMaxPct = options.coffeeCorner
+    ? ((coffeeZoneLeftPx(width) - (base * profile.scaleBack) / 2) / width) * 100
+    : 100;
+
 
   // Âncoras verticais: 1 fileira usa a da frente; 2 fileiras usam as duas
   // âncoras do perfil (gap real de 34-38 pontos em desktop); 3+ distribuem
