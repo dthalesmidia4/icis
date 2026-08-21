@@ -1,4 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// `reorderSequence` (usado por officePresence/officeSchedule) importa dailyCards,
+// que carrega o client Supabase — mockado aqui como nos demais testes puros.
+vi.mock("@/lib/dailyCards", () => ({
+  fetchHolidaysInRange: vi.fn(async () => new Set<string>()),
+}));
+
 import { resolvePresence } from "@/lib/officePresence";
 import {
   groupSchedulesByUser,
