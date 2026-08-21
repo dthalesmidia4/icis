@@ -126,9 +126,14 @@ export const OfficeDesk = memo(function OfficeDesk({
                   {current?.isLate && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-destructive" />}
                 </div>
                 <p className="line-clamp-2 text-[11px] font-semibold leading-tight">{monitorCard.title}</p>
-                <p className="truncate text-[9px] leading-tight text-muted-foreground">
-                  {monitorCard.clientName || "Sem cliente"} · {monitorCard.stageLabel}
+                {/* Etapa PRIMEIRO: nunca some por causa do nome da empresa. */}
+                <p className="flex items-baseline gap-1 text-[9px] leading-tight">
+                  <span className="shrink-0 font-semibold text-foreground">{monitorCard.stageLabel}</span>
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    para {monitorCard.clientName || "Sem cliente"}
+                  </span>
                 </p>
+
                 {timeLabel(monitorCard.dueDate, monitorCard.dueTime) && (
                   <p className="flex items-center gap-0.5 text-[8px] leading-tight text-muted-foreground">
                     <Clock className="h-2 w-2" />

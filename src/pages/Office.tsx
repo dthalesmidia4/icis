@@ -144,8 +144,10 @@ export default function Office() {
         containerRef={worldRef}
         hud={
           <>
-            {/* Métricas — overlay compacto (NÃO é um segundo header) */}
-            <div className="pointer-events-none absolute left-3 top-3 z-40 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/50 bg-background/70 px-2.5 py-1.5 backdrop-blur-[2px]">
+            {/* Uma ÚNICA faixa de conteúdo do cenário: métricas + filtro de área.
+                O header estrutural (título, ações e toggle de visão) é único e
+                vive acima, fora do cenário. */}
+            <div className="pointer-events-auto absolute left-3 top-3 z-40 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/50 bg-background/70 px-2.5 py-1.5 backdrop-blur-[2px]">
               {metrics.map((m) => (
                 <div key={m.label} className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <m.icon className="h-3 w-3" />
@@ -153,27 +155,29 @@ export default function Office() {
                   <span>{m.label}</span>
                 </div>
               ))}
-            </div>
 
-            {/* Filtro de área — overlay compacto */}
-            <div className="pointer-events-auto absolute right-3 top-3 z-40 flex rounded-lg border border-border/50 bg-background/70 p-0.5 backdrop-blur-[2px]">
-              {AREA_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setArea(tab.id)}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    area === tab.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              <span aria-hidden="true" className="h-4 w-px bg-border" />
+
+              <div className="flex">
+                {AREA_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setArea(tab.id)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                      area === tab.id
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </>
+
         }
         upperZone={
           <div className="pointer-events-auto absolute right-3 top-[24%] z-30 hidden sm:block sm:right-8">

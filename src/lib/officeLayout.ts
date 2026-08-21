@@ -78,14 +78,19 @@ export function computeDeskSlots(count: number): DeskSlot[] {
  * faixa é a quantidade de camadas e um passo levemente maior.
  * 3, 9 e 35 precisam parecer claramente diferentes.
  */
+/**
+ * Volume visual da pilha. Regra: a quantidade de folhas NUNCA passa do número
+ * real de demandas — 1 demanda = 1 folha (nunca duas pilhas). De 2 a 5 vira uma
+ * pilha mais evidente; acima de 5 cresce; a partir de 16 o badge fica em alerta.
+ */
 export function paperStackShape(
   queueCount: number,
 ): { sheets: number; step: number; overload: boolean } {
   if (queueCount <= 0) return { sheets: 0, step: 0, overload: false };
-  if (queueCount <= 3) return { sheets: queueCount + 1, step: 3, overload: false };
-  if (queueCount <= 8) return { sheets: 5, step: 3.2, overload: false };
-  if (queueCount <= 15) return { sheets: 6, step: 3.6, overload: false };
+  if (queueCount <= 5) return { sheets: Math.min(queueCount, 3), step: 3.2, overload: false };
+  if (queueCount <= 15) return { sheets: 5, step: 3.6, overload: false };
   if (queueCount <= 24) return { sheets: 7, step: 4, overload: true };
   return { sheets: 8, step: 4.4, overload: true };
 }
+
 

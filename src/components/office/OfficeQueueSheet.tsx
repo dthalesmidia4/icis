@@ -49,9 +49,13 @@ export function OfficeQueueSheet({ station, open, onOpenChange, onOpenCard }: Of
                   )}
                 </div>
                 <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug">{card.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {card.clientName || "Sem cliente"} · {card.stageLabel}
+                <p className="flex items-baseline gap-1 text-xs">
+                  <span className="shrink-0 font-semibold text-foreground">{card.stageLabel}</span>
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    para {card.clientName || "Sem cliente"}
+                  </span>
                 </p>
+
                 <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Clock className="h-3 w-3" /> {timeLabel(card.dueDate, card.dueTime)}
                 </p>
