@@ -346,8 +346,9 @@ export default function Office() {
           setQueueUserId(null);
           setOpenCardId(id);
         }}
-        onDragCardStart={setDraggingCardId}
-        onDragCardEnd={() => setDraggingCardId(null)}
+        onPressCard={startPress}
+        consumeClickSuppression={consumeClickSuppression}
+        dragging={!!drag}
       />
 
       <OfficeCardOverlay
