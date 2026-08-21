@@ -249,7 +249,10 @@ export default function Office() {
     [stations.length, worldSize, isMobile],
   );
   const monitorPct = useMemo(() => deskMonitorWidthPct(worldSize), [worldSize]);
-  const baseWidth = useMemo(() => deskBaseWidth(stations.length, worldSize), [stations.length, worldSize]);
+  const baseWidth = useMemo(
+    () => deskBaseWidth(stations.length, worldSize, { coffeeCorner: !isMobile }),
+    [stations.length, worldSize, isMobile],
+  );
 
 
   return (
