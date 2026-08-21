@@ -118,5 +118,22 @@ export function useCollaborators(tenantId: string | null | undefined) {
     load();
   }, [load]);
 
+  // Foto/nome do colaborador é canônico em `profiles`. Sem isso a nova foto só
+  // apareceria no `/escritorio` após sair e voltar à tela.
+  useEffect(() => {
+    if (!tenantId) return;
+    const channel = supabase
+      .channel(`collaborators-profiles-${tenantId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `tenant_id=eq.${tenantId}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId, load]);
+
   return { collaborators, loading, error, refresh: load };
 }
