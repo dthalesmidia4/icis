@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useCollaborators } from "@/hooks/useCollaborators";
@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   blocksForCell,
+  commitAndPlanApplyWeek,
   describeGaps,
   planApplyDayToWeek,
   validateBlock,
@@ -71,6 +72,16 @@ export function AreaAllocationTab() {
   const [loading, setLoading] = useState(true);
   const [busyCell, setBusyCell] = useState<string | null>(null);
   const [savingDefault, setSavingDefault] = useState<string | null>(null);
+  /** Drafts VÁLIDOS ainda não persistidos, por célula (`user:weekday:area`). */
+  const pendingDrafts = useRef<Map<string, () => Promise<boolean>>>(new Map());
+
+  const registerPendingCommit = useCallback(
+    (cellKey: string, commit: (() => Promise<boolean>) | null) => {
+      if (commit) pendingDrafts.current.set(cellKey, commit);
+      else pendingDrafts.current.delete(cellKey);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!agencyId) return;
@@ -195,51 +206,78 @@ export function AreaAllocationTab() {
   /** Copia TODOS os blocos de segunda para ter–sex (substitui, sem duplicar). */
   const copyMondayToWeek = async (userId: string, area: WorkArea) => {
     if (!agencyId) return;
-    const source = blocksForCell(rows, userId, 1, area);
-    if (source.length === 0) {
-      toast.error("Cadastre os períodos de segunda primeiro");
-      return;
-    }
-    const plan = planApplyDayToWeek({
-      rows,
-      userId,
-      area,
-      sourceWeekday: 1,
-      targetWeekdays: [2, 3, 4, 5],
-    });
-    setBusyCell(`${userId}:week:${area}`);
-    if (plan.toDelete.length > 0) {
-      const { error } = await supabase
-        .from("user_area_schedules")
-        .delete()
-        .in("id", plan.toDelete);
-      if (error) {
-        setBusyCell(null);
-        toast.error("Erro ao limpar os dias de destino");
+    const weekKey = `${userId}:week:${area}`;
+    setBusyCell(weekKey);
+    try {
+      // 1) comita o período recém-digitado de segunda (se houver) e só então
+      // 2) monta o plano a partir de uma leitura FRESCA do banco.
+      const { plan, rows: freshRows, sourceCount } = await commitAndPlanApplyWeek({
+        pendingCommit: pendingDrafts.current.get(`${userId}:1:${area}`) || null,
+        fetchRows: async () => {
+          const { data, error } = await supabase
+            .from("user_area_schedules")
+            .select("id, user_id, work_area, weekday, start_time, end_time")
+            .eq("tenant_id", agencyId)
+            .eq("user_id", userId)
+            .eq("work_area", area);
+          if (error) throw error;
+          return ((data as any[]) || []).map(normalizeRow);
+        },
+        userId,
+        area,
+        sourceWeekday: 1,
+        targetWeekdays: [2, 3, 4, 5],
+      });
+
+      if (sourceCount === 0) {
+        toast.error("Cadastre os períodos de segunda primeiro");
         return;
       }
+
+      if (plan.toDelete.length > 0) {
+        const { error } = await supabase
+          .from("user_area_schedules")
+          .delete()
+          .in("id", plan.toDelete);
+        if (error) {
+          toast.error("Erro ao limpar os dias de destino");
+          return;
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("user_area_schedules")
+        .insert(
+          plan.toInsert.map((b) => ({
+            tenant_id: agencyId,
+            user_id: userId,
+            work_area: area,
+            weekday: b.weekday,
+            start_time: b.start_time,
+            end_time: b.end_time,
+          })),
+        )
+        .select("id, user_id, work_area, weekday, start_time, end_time");
+      if (error || !data) {
+        toast.error("Erro ao aplicar os períodos");
+        return;
+      }
+
+      const deleted = new Set(plan.toDelete);
+      const inserted = data.map(normalizeRow);
+      const freshIds = new Set(freshRows.map((r) => r.id));
+      setRows((prev) => [
+        // linhas de OUTRO usuário/área permanecem; as desta área vêm frescas do DB.
+        ...prev.filter((r) => !freshIds.has(r.id) && !(r.user_id === userId && r.work_area === area)),
+        ...freshRows.filter((r) => !deleted.has(r.id)),
+        ...inserted,
+      ]);
+      toast.success(`${sourceCount} período(s) aplicados a ter–sex`);
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao aplicar os períodos");
+    } finally {
+      setBusyCell(null);
     }
-    const { data, error } = await supabase
-      .from("user_area_schedules")
-      .insert(
-        plan.toInsert.map((b) => ({
-          tenant_id: agencyId,
-          user_id: userId,
-          work_area: area,
-          weekday: b.weekday,
-          start_time: b.start_time,
-          end_time: b.end_time,
-        })),
-      )
-      .select("id, user_id, work_area, weekday, start_time, end_time");
-    setBusyCell(null);
-    if (error || !data) {
-      toast.error("Erro ao aplicar os períodos");
-      return;
-    }
-    const deleted = new Set(plan.toDelete);
-    setRows((prev) => [...prev.filter((r) => !deleted.has(r.id)), ...data.map(normalizeRow)]);
-    toast.success(`${source.length} período(s) aplicados a ter–sex`);
   };
 
   if (loading || loadingCollabs) {
@@ -347,8 +385,9 @@ export function AreaAllocationTab() {
                             </span>
                             <button
                               type="button"
+                              disabled={!!busyCell}
                               onClick={() => copyMondayToWeek(selected.userId, a.key)}
-                              className="text-[9px] text-muted-foreground hover:text-foreground underline"
+                              className="text-[9px] text-muted-foreground hover:text-foreground underline disabled:opacity-50"
                               title="Copiar TODOS os períodos de segunda para ter–sex"
                             >
                               aplicar seg → ter-sex
@@ -370,6 +409,8 @@ export function AreaAllocationTab() {
                           return (
                             <td key={a.key} className="p-2">
                               <ScheduleCell
+                                cellKey={cellKey}
+                                registerPendingCommit={registerPendingCommit}
                                 blocks={cellBlocks}
                                 busy={busyCell === cellKey || busyCell === `${selected.userId}:week:${a.key}`}
                                 onAdd={(s, e) => addBlock(selected.userId, wd.n, a.key, s, e)}
@@ -393,12 +434,16 @@ export function AreaAllocationTab() {
 }
 
 function ScheduleCell({
+  cellKey,
+  registerPendingCommit,
   blocks,
   busy,
   onAdd,
   onUpdate,
   onRemove,
 }: {
+  cellKey: string;
+  registerPendingCommit: (cellKey: string, commit: (() => Promise<boolean>) | null) => void;
   blocks: ScheduleBlock[];
   busy: boolean;
   onAdd: (start: string, end: string) => Promise<boolean>;
@@ -408,13 +453,20 @@ function ScheduleCell({
   const [draft, setDraft] = useState<{ start: string; end: string } | null>(null);
   const gaps = describeGaps(blocks);
 
-  const commitDraft = async () => {
-    if (!draft) return;
-    // Nunca persistir registro vazio/incompleto.
-    if (!draft.start || !draft.end) return;
+  const commitDraft = useCallback(async (): Promise<boolean> => {
+    if (!draft || !draft.start || !draft.end) return true; // nada válido a salvar
     const ok = await onAdd(draft.start, draft.end);
     if (ok) setDraft(null);
-  };
+    return ok;
+  }, [draft, onAdd]);
+
+  // Enquanto o draft está VÁLIDO mas não persistido, ele fica registrado no
+  // parent: `aplicar seg → ter-sex` aguarda esse commit antes de montar o plano.
+  useEffect(() => {
+    const valid = !!draft?.start && !!draft?.end;
+    registerPendingCommit(cellKey, valid ? commitDraft : null);
+    return () => registerPendingCommit(cellKey, null);
+  }, [cellKey, draft?.start, draft?.end, commitDraft, registerPendingCommit]);
 
   return (
     <div className="space-y-1">
@@ -444,7 +496,7 @@ function ScheduleCell({
             value={draft.end}
             disabled={busy}
             onChange={(ev) => setDraft({ ...draft, end: ev.target.value })}
-            onBlur={commitDraft}
+            onBlur={() => void commitDraft()}
             className="h-8 w-[95px] text-xs px-1"
           />
           <Button
