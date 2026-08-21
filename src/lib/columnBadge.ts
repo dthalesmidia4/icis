@@ -12,10 +12,13 @@
  */
 
 export interface BadgeCountableCard {
-  id: string;
+  /** Demanda real. */
+  id?: string | null;
+  /** Item ainda sem demanda gravada (cards de avaliação usam `key`). */
+  key?: string | null;
 }
 
-/** IDs únicos entre todos os agrupamentos visíveis da coluna. */
+/** Identidades únicas entre todos os agrupamentos visíveis da coluna. */
 export function countColumnBadge(
   groups: Array<ReadonlyArray<BadgeCountableCard> | null | undefined>,
 ): number {
@@ -23,7 +26,8 @@ export function countColumnBadge(
   for (const group of groups) {
     if (!group) continue;
     for (const card of group) {
-      if (card?.id) ids.add(card.id);
+      const identity = card?.id || card?.key;
+      if (identity) ids.add(identity);
     }
   }
   return ids.size;
