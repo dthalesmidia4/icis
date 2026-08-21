@@ -200,7 +200,11 @@ export function useOfficeOverview(
       .filter((c) => (areaFilter === "all" ? true : c.workArea === areaFilter));
   }, [demands, clientNames, stageLabels, areaFilter, now]);
 
+  const schedulesByUser = useMemo(() => groupSchedulesByUser(scheduleRows), [scheduleRows]);
+
   const stations = useMemo<OfficeStationData[]>(() => {
+    // Relógio de parede canônico do expediente (nunca o timezone do browser).
+    const clock = zonedClockParts(new Date(now), workHours.tz);
     const byUser = new Map<string, OfficeCard[]>();
     const push = (uid: string | null | undefined, card: OfficeCard) => {
       if (!uid) return;
