@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LayoutGrid, Users, Play, Layers, Hourglass } from "lucide-react";
+import { Users, Play, Layers, Hourglass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
