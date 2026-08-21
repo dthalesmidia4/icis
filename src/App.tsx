@@ -1,4 +1,3 @@
-import OfficePreviewTmp from "@/pages/__OfficePreviewTmp";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -336,7 +335,6 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
-      <Route path="/__office-preview-tmp" element={<OfficePreviewTmp />} />
 
       <Route path="/demandas-completas" element={
         <ProtectedRoute>
