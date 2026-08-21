@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, CalendarDays, HeartPulse, History, LayoutGrid, MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
