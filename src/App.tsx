@@ -335,6 +335,8 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/__office-preview-tmp" element={<OfficePreviewTmp />} />
+
       <Route path="/demandas-completas" element={
         <ProtectedRoute>
           <RequireTenant>
