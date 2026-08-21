@@ -4,8 +4,11 @@ import { useCollaborators, type Collaborator } from "@/hooks/useCollaborators";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { useRealtimeDemands } from "@/hooks/realtime/useRealtimeDemands";
 import { useNowTick } from "@/hooks/useNowTick";
+import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
+import { resolvePresence, type PresenceResult } from "@/lib/officePresence";
 import { isClientWaitingFunction, normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
+
 
 export type OfficeAreaFilter = "all" | WorkArea;
 
