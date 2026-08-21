@@ -58,6 +58,8 @@ export interface OfficeStationData {
 
 export interface OfficeOverview {
   stations: OfficeStationData[];
+  /** Cards do tenant já filtrados por área (usado pelo detector de transferência). */
+  cards: OfficeCard[];
   totals: {
     people: number;
     working: number;
@@ -67,6 +69,7 @@ export interface OfficeOverview {
   loading: boolean;
   refetch: () => void;
 }
+
 
 interface RawDemand {
   id: string;
