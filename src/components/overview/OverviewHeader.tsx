@@ -1,9 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Activity, CalendarDays, HeartPulse, History, LayoutGrid, Plus } from "lucide-react";
+import { Activity, CalendarDays, HeartPulse, History, LayoutGrid, MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Montado apenas sob clique — evita custo no primeiro acesso ao Escritório.
 const LazyCreateColumnModal = lazy(() => import("@/components/CreateColumnModal"));
