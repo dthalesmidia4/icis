@@ -8,6 +8,8 @@ interface PaperStackProps {
   awaitingClientCount: number;
   collaboratorName: string;
   onOpenQueue: () => void;
+  /** Âncora da pilha para a animação de transferência (registry por userId). */
+  anchorRef?: (el: HTMLElement | null) => void;
 }
 
 /**
@@ -20,6 +22,7 @@ export const PaperStack = memo(function PaperStack({
   awaitingClientCount,
   collaboratorName,
   onOpenQueue,
+  anchorRef,
 }: PaperStackProps) {
   const { sheets, step, overload } = paperStackShape(queueCount);
   const stackHeight = Math.max(6, sheets * step + 5);
@@ -28,11 +31,13 @@ export const PaperStack = memo(function PaperStack({
     <div className="flex items-end gap-1.5">
       <button
         type="button"
+        ref={anchorRef}
         onClick={onOpenQueue}
         aria-label={`${queueCount} demandas na fila de ${collaboratorName}`}
         title={`${queueCount} na fila`}
         className="group/stack flex flex-col items-center justify-end rounded-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring"
       >
+
         <span className="relative block w-[32px]" style={{ height: stackHeight }}>
           {sheets === 0 ? (
             <span className="absolute bottom-0 left-0 h-[3px] w-[30px] rounded-[2px] border border-dashed border-foreground/25" />
