@@ -93,19 +93,25 @@ export default function OverviewHeader({
   // Clientes com demandas ativas — consulta mínima, só ao abrir o popover.
   const loadClients = useCallback(async () => {
     if (clients || !tenantId) return;
-    const { data } = await supabase
-      .from("demands")
-      .select("client_id, tenant_companies!demands_client_id_fkey(name, fantasy_name)")
-      .eq("tenant_id", tenantId)
-      .is("archived_at", null)
-      .eq("is_draft", false);
+    const [{ data: rows }, { data: companies }] = await Promise.all([
+      supabase
+        .from("demands")
+        .select("client_id")
+        .eq("tenant_id", tenantId)
+        .is("archived_at", null)
+        .eq("is_draft", false),
+      supabase.from("tenant_companies").select("id, name, fantasy_name").eq("tenant_id", tenantId),
+    ]);
+    const names = new Map<string, string>();
+    ((companies || []) as any[]).forEach((c) => {
+      if (c?.id) names.set(c.id, c.fantasy_name || c.name || "Cliente");
+    });
     const counts = new Map<string, OverviewHeaderClient>();
-    ((data || []) as any[]).forEach((row) => {
+    ((rows || []) as any[]).forEach((row) => {
       if (!row?.client_id) return;
-      const name = row.tenant_companies?.fantasy_name || row.tenant_companies?.name || "Cliente";
       const prev = counts.get(row.client_id);
       if (prev) prev.count += 1;
-      else counts.set(row.client_id, { id: row.client_id, name, count: 1 });
+      else counts.set(row.client_id, { id: row.client_id, name: names.get(row.client_id) || "Cliente", count: 1 });
     });
     setOwnClients(Array.from(counts.values()));
   }, [clients, tenantId]);
