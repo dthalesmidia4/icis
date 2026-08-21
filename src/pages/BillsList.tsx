@@ -11,6 +11,8 @@ import { ptBR } from "date-fns/locale";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import BillFormModal, { type BillData } from "@/components/BillFormModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { resolveBillAttachmentUrl } from "@/lib/billAttachments";
+
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -58,12 +60,21 @@ export default function BillsList() {
     fetchBills();
   }, [agencyId, selectedMonth, selectedYear]);
 
-  const handlePreview = (e: React.MouseEvent, url: string, name: string) => {
+  const handlePreview = async (e: React.MouseEvent, stored: string, name: string) => {
     e.stopPropagation();
-    setPreviewUrl(url);
+    const signed = await resolveBillAttachmentUrl(stored);
+    if (!signed) return;
+    setPreviewUrl(signed);
     setPreviewName(name);
     setPreviewOpen(true);
   };
+
+  const handleDownload = async (e: React.MouseEvent, stored: string) => {
+    e.stopPropagation();
+    const signed = await resolveBillAttachmentUrl(stored);
+    if (signed) window.open(signed, "_blank", "noopener,noreferrer");
+  };
+
 
   const handleRowClick = (bill: BillData) => {
     setEditingBill(bill);
