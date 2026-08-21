@@ -173,6 +173,28 @@ export function useOfficeOverview(
     onChange: () => fetchAll(),
   });
 
+  // Mudanças de expediente (`Alocação por área`) refletem no escritório sem reload.
+  useEffect(() => {
+    if (!tenantId) return;
+    const channel = supabase
+      .channel(`rt-user-area-schedules-${tenantId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "user_area_schedules",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => fetchAll(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId, fetchAll]);
+
+
   const cards = useMemo<OfficeCard[]>(() => {
     return demands
       .map((d) => {
