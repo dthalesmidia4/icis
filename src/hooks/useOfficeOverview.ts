@@ -29,13 +29,24 @@ export interface OfficeCard {
   assignedTo: string | null;
   additionalAssignees: string[];
   functionKey: string | null;
+  /**
+   * Etapa exibida: nome da função operacional quando existe e, quando o card
+   * ainda não tem função (ex.: "Planejamento"), o nome da COLUNA/status que a
+   * Visão Geral já mostra. Nunca "Sem etapa" havendo etapa reconhecível.
+   */
   stageLabel: string;
+  /** Nome da coluna (pipeline_statuses) — fallback canônico da etapa. */
+  statusName: string | null;
   demandType: string | null;
+  demandTypeKey: string | null;
+  origin: string | null;
   workArea: WorkArea;
   dueDate: string | null;
   dueTime: string | null;
   deliveryDate: string | null;
   deliveryTime: string | null;
+  publishDate: string | null;
+  publishTime: string | null;
   isDailyCard: boolean;
   /** Timestamp de início (due_date + due_time) ou null. */
   startTs: number | null;
@@ -43,6 +54,7 @@ export interface OfficeCard {
   endTs: number | null;
   isLate: boolean;
 }
+
 
 export interface OfficeStationData {
   collaborator: Collaborator;
