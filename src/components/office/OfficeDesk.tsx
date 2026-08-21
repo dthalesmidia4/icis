@@ -90,6 +90,9 @@ export const OfficeDesk = memo(function OfficeDesk({
 
   // Barra discreta na base da mesa: SÓ o card atual, progresso temporal real.
   const progress = current ? cardProgress(current.startTs, current.endTs, now) : null;
+  // ATRASO VISUAL ÚNICO: borda do monitor e ícone usam o MESMO sinal da barra
+  // (prazo estourado), nunca o "início já passou" — senão fica vermelho sem atraso.
+  const overdue = progress !== null && progress >= 1;
 
 
   return (
@@ -151,7 +154,7 @@ export const OfficeDesk = memo(function OfficeDesk({
               "relative w-full overflow-hidden rounded-[4px] border-[3px] bg-card px-1.5 py-1 text-left transition-[border-color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring",
               // Semântica única com a barra da mesa: azul normal, vermelho só em atraso.
               working ? "border-primary/60" : "border-foreground/15",
-              current?.isLate && "border-destructive/60",
+              overdue && "border-destructive/60",
               monitorCard
                 ? "hover:border-primary/70 hover:shadow-[0_0_0_2px_hsl(var(--primary)/0.2)]"
                 : "cursor-default",
@@ -177,7 +180,7 @@ export const OfficeDesk = memo(function OfficeDesk({
                     {statusLabel}
                     {working && <span className="animate-office-caret motion-reduce:animate-none">▌</span>}
                   </span>
-                  {current?.isLate && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-destructive" />}
+                  {overdue && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-destructive" />}
                 </div>
                 <p className="line-clamp-2 text-[11px] font-semibold leading-tight">{monitorCard.title}</p>
                 {/* Etapa PRIMEIRO: nunca some por causa do nome da empresa. */}

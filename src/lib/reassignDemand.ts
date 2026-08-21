@@ -10,7 +10,7 @@
  * Conflito duro NUNCA é gravado: a decisão volta para a UI.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { userHasFunction } from "@/lib/clientStageAssignments";
+import { userHasFunction, fetchUserAllowedFunctionKeys } from "@/lib/clientStageAssignments";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
@@ -131,17 +131,39 @@ export async function evaluateReassign(params: {
         resolved = null;
       }
 
-      const usableStage =
+      let usableStage =
         !!resolved &&
         resolved !== currentKey &&
         (await userHasFunction(tenantId, newAssignedTo, resolved, (card.work_area as any) ?? undefined));
 
+      // ÚLTIMO RECURSO: o resolvedor não achou etapa (ou devolveu uma que o
+      // destinatário não exerce). Em vez de bloquear a transferência, escolhemos
+      // a etapa habilitada MAIS PRÓXIMA dele na área — primeiro à frente, senão
+      // atrás. Só bloqueia quando ele não tem NENHUMA função na área (aí o
+      // próprio banco recusaria a gravação).
       if (!usableStage) {
+        const fallback = await pickNearestAllowedStage(
+          tenantId,
+          (card.work_area as any) ?? undefined,
+          currentKey,
+          await fetchUserAllowedFunctionKeys(
+            tenantId,
+            newAssignedTo,
+            (card.work_area as any) ?? undefined,
+          ),
+        );
+        if (fallback) {
+          resolved = fallback;
+          usableStage = true;
+        }
+      }
+
+      if (!usableStage || !resolved) {
         return {
           ...base,
           allowed: false,
           blockedBy: "function",
-          message: `${nome} não tem etapa OPERACIONAL habilitada compatível com "${stageLabel}" na área ${areaLabel}`,
+          message: `${nome} não tem nenhuma etapa OPERACIONAL habilitada na área ${areaLabel} (compatível com "${stageLabel}")`,
         };
       }
 
@@ -207,6 +229,49 @@ export async function evaluateReassign(params: {
 
   return { ...base, nextFunctionKey, functionRemapped, direction, remapMessage, softMessages };
 }
+
+/**
+ * Etapa habilitada mais próxima do destinatário na área do card.
+ * Preferência: menor salto PARA FRENTE; se não houver nenhuma à frente, a mais
+ * próxima atrás. Nunca devolve a etapa atual nem chaves fora do fluxo da área.
+ */
+async function pickNearestAllowedStage(
+  tenantId: string,
+  workArea: string | null | undefined,
+  currentKey: string,
+  allowedKeys: Set<string>,
+): Promise<string | null> {
+  if (!tenantId || allowedKeys.size === 0) return null;
+  const area = workArea === "sistemas" ? "sistemas" : "midia";
+  const { data } = await (supabase.from("flow_functions") as any)
+    .select("function_key, position")
+    .eq("tenant_id", tenantId)
+    .eq("work_area", area)
+    .order("position", { ascending: true });
+  const rows = (data || []) as Array<{ function_key: string; position: number }>;
+  const currentPos = rows.find((r) => r.function_key === currentKey)?.position;
+
+  const candidates = rows.filter(
+    (r) => r.function_key !== currentKey && allowedKeys.has(r.function_key),
+  );
+  if (candidates.length === 0) {
+    // Sem fluxo cadastrado para comparar: qualquer função habilitada serve.
+    const any = [...allowedKeys].filter((k) => k !== currentKey);
+    return any[0] ?? null;
+  }
+  if (currentPos == null) return candidates[0].function_key;
+
+  const forward = candidates
+    .filter((r) => r.position > currentPos)
+    .sort((a, b) => a.position - b.position);
+  if (forward.length > 0) return forward[0].function_key;
+
+  const backward = candidates
+    .filter((r) => r.position < currentPos)
+    .sort((a, b) => b.position - a.position);
+  return backward[0]?.function_key ?? null;
+}
+
 
 /** Compara a posição de duas etapas na área para saber se houve regressão. */
 async function stageDirection(
