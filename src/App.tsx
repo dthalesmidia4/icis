@@ -1,8 +1,10 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { TenantProvider } from "./contexts/TenantContext";
 import { SelectedClientProvider } from "./contexts/SelectedClientContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -11,57 +13,58 @@ import { RequireTenant } from "./components/RequireTenant";
 import { RequireRole } from "./components/RequireRole";
 import { Layout } from "./components/Layout";
 import Home from "./pages/Home";
-import ClientHub from "./pages/ClientHub";
 import Auth from "./pages/Auth";
-import CompanyRegistration from "./pages/CompanyRegistration";
-import AdminDashboard from "./pages/AdminDashboard";
-import AgencySetup from "./pages/AgencySetup";
-import ClientList from "./pages/ClientList";
-import ClientDetails from "./pages/ClientDetails";
-import StrategyCreation from "./pages/StrategyCreation";
-import GenerateQuestions from "./pages/GenerateQuestions";
-import DevHub from "./pages/DevHub";
-import DevSocialTokens from "./pages/DevSocialTokens";
-import DevPrompts from "./pages/DevPrompts";
-import DevApis from "./pages/DevApis";
-import DevWebhooks from "./pages/DevWebhooks";
-import Financial from "./pages/Financial";
-import BillsList from "./pages/BillsList";
-import BillsDueByDate from "./pages/BillsDueByDate";
-import ToolExpenses from "./pages/ToolExpenses";
-import PlatformLogins from "./pages/PlatformLogins";
-
-import PlanPeriod from "./pages/PlanPeriod";
-import CronogramaGlobal from "./pages/CronogramaGlobal";
-import ProfileSettings from "./pages/ProfileSettings";
-import Kanban from "./pages/Kanban";
-import MyCompany from "./pages/MyCompany";
-import CompanyProfile from "./pages/CompanyProfile";
-import TeamMembers from "./pages/TeamMembers";
-import InviteMember from "./pages/InviteMember";
-import RemoveMember from "./pages/RemoveMember";
-import ClientRegistrations from "./pages/ClientRegistrations";
-import GuideClientList from "./pages/GuideClientList";
-import StrategyClientList from "./pages/StrategyClientList";
-import PeriodClientList from "./pages/PeriodClientList";
-
-import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
-import CompletedDemands from "./pages/CompletedDemands";
-import LeituraHub from "./pages/LeituraHub";
-import EmployeeAnamnesis from "./pages/EmployeeAnamnesis";
-import ApproveCards from "./pages/ApproveCards";
-import RejectedCards from "./pages/RejectedCards";
-import ContentHistory from "./pages/ContentHistory";
-import CollaboratorDemands from "./pages/CollaboratorDemands";
-import Settings from "./pages/Settings";
-import VideoReferencesLibrary from "./pages/VideoReferencesLibrary";
-import ClientEvolution from "./pages/ClientEvolution";
-import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
-import SystemsClients from "./pages/SystemsClients";
-import SystemsCommercial from "./pages/SystemsCommercial";
-import OverviewPage from "./pages/OverviewPage";
 
+// Code splitting global de rotas: cada página pesada vira um chunk próprio e
+// só é baixada quando a rota é realmente visitada. `Home`, `Auth` e `NotFound`
+// seguem eager por serem o caminho de primeira entrada/login e o fallback 404.
+const ClientHub = lazy(() => import("./pages/ClientHub"));
+const CompanyRegistration = lazy(() => import("./pages/CompanyRegistration"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AgencySetup = lazy(() => import("./pages/AgencySetup"));
+const ClientList = lazy(() => import("./pages/ClientList"));
+const ClientDetails = lazy(() => import("./pages/ClientDetails"));
+const StrategyCreation = lazy(() => import("./pages/StrategyCreation"));
+const GenerateQuestions = lazy(() => import("./pages/GenerateQuestions"));
+const DevHub = lazy(() => import("./pages/DevHub"));
+const DevSocialTokens = lazy(() => import("./pages/DevSocialTokens"));
+const DevPrompts = lazy(() => import("./pages/DevPrompts"));
+const DevApis = lazy(() => import("./pages/DevApis"));
+const DevWebhooks = lazy(() => import("./pages/DevWebhooks"));
+const Financial = lazy(() => import("./pages/Financial"));
+const BillsList = lazy(() => import("./pages/BillsList"));
+const BillsDueByDate = lazy(() => import("./pages/BillsDueByDate"));
+const ToolExpenses = lazy(() => import("./pages/ToolExpenses"));
+const PlatformLogins = lazy(() => import("./pages/PlatformLogins"));
+const PlanPeriod = lazy(() => import("./pages/PlanPeriod"));
+const CronogramaGlobal = lazy(() => import("./pages/CronogramaGlobal"));
+const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
+const Kanban = lazy(() => import("./pages/Kanban"));
+const MyCompany = lazy(() => import("./pages/MyCompany"));
+const CompanyProfile = lazy(() => import("./pages/CompanyProfile"));
+const TeamMembers = lazy(() => import("./pages/TeamMembers"));
+const InviteMember = lazy(() => import("./pages/InviteMember"));
+const RemoveMember = lazy(() => import("./pages/RemoveMember"));
+const ClientRegistrations = lazy(() => import("./pages/ClientRegistrations"));
+const GuideClientList = lazy(() => import("./pages/GuideClientList"));
+const StrategyClientList = lazy(() => import("./pages/StrategyClientList"));
+const PeriodClientList = lazy(() => import("./pages/PeriodClientList"));
+const InstallApp = lazy(() => import("./pages/InstallApp"));
+const CompletedDemands = lazy(() => import("./pages/CompletedDemands"));
+const LeituraHub = lazy(() => import("./pages/LeituraHub"));
+const EmployeeAnamnesis = lazy(() => import("./pages/EmployeeAnamnesis"));
+const ApproveCards = lazy(() => import("./pages/ApproveCards"));
+const RejectedCards = lazy(() => import("./pages/RejectedCards"));
+const ContentHistory = lazy(() => import("./pages/ContentHistory"));
+const CollaboratorDemands = lazy(() => import("./pages/CollaboratorDemands"));
+const Settings = lazy(() => import("./pages/Settings"));
+const VideoReferencesLibrary = lazy(() => import("./pages/VideoReferencesLibrary"));
+const ClientEvolution = lazy(() => import("./pages/ClientEvolution"));
+const CustomerSuccessSistemas = lazy(() => import("./pages/CustomerSuccessSistemas"));
+const SystemsClients = lazy(() => import("./pages/SystemsClients"));
+const SystemsCommercial = lazy(() => import("./pages/SystemsCommercial"));
+const OverviewPage = lazy(() => import("./pages/OverviewPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,9 +75,17 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Fallback único e leve para todas as rotas lazy. */
+const RouteFallback = () => (
+  <div className="flex min-h-[60vh] items-center justify-center">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
+
 function AppRoutes() {
   return (
-    <Routes>
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
       <Route path="/auth" element={<Auth />} />
       <Route path="/profile-settings" element={
         <ProtectedRoute>
@@ -528,7 +539,8 @@ function AppRoutes() {
       } />
       <Route path="/install" element={<InstallApp />} />
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }
 
