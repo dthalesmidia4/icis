@@ -209,6 +209,26 @@ export const OfficeDesk = memo(function OfficeDesk({
             )}
           </div>
 
+          {progress !== null && (
+            <div
+              className="mx-auto mt-[3px] h-[3px] w-[72%] overflow-hidden rounded-full bg-foreground/12 dark:bg-foreground/20"
+              role="progressbar"
+              aria-label={`Progresso da demanda atual de ${collaborator.fullName}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress * 100)}
+            >
+              <span
+                className={cn(
+                  "block h-full rounded-full transition-[width] duration-500",
+                  current?.isLate ? "bg-destructive/70" : "bg-primary/70",
+                )}
+                style={{ width: `${Math.max(4, Math.round(progress * 100))}%` }}
+              />
+            </div>
+          )}
+
+
           {isSelf && onSaveDeskObjects && (
             <button
               type="button"
