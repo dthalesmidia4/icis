@@ -60,7 +60,16 @@ export default function OfficeWorld({
           ))}
         </div>
 
+        {/* quadro/janela pequena central (elemento leve restaurado) */}
+        <div className="absolute left-[40%] top-[26%] hidden md:block">
+          <div className="h-12 w-16 rounded-sm border-2 border-foreground/15 bg-gradient-to-br from-primary/10 to-background/50">
+            <div className="mx-auto h-full w-[2px] bg-foreground/10" />
+          </div>
+          <div className="mx-auto mt-1 h-[2px] w-10 rounded bg-foreground/15" />
+        </div>
+
         {/* prateleira com pastas */}
+
         <div className="absolute right-[16%] top-[34%] w-28">
           <div className="flex items-end gap-1 pl-1">
             <span className="h-6 w-1.5 rounded-sm bg-primary/50" />
