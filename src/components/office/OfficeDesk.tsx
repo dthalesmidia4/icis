@@ -3,7 +3,7 @@ import { AlertTriangle, Clock, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfficeStationData } from "@/hooks/useOfficeOverview";
 import OfficeCharacter from "./OfficeCharacter";
-import PaperStack, { QueueBadge } from "./PaperStack";
+import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
 import { assignDeskSlots, type DeskObjectKey } from "@/lib/officeDeskObjects";
@@ -141,7 +141,7 @@ export const OfficeDesk = memo(function OfficeDesk({
         {/* objetos pessoais + pilha física da fila */}
         <div className="flex shrink-0 items-end gap-1 pb-[2px]">
           {slots.map(({ slot, key }) => (
-            <DeskObject key={slot} objectKey={key} size={18} />
+            <DeskObject key={slot} objectKey={key} size={22} />
           ))}
           <PaperStack
             queueCount={queueCount}
@@ -160,16 +160,11 @@ export const OfficeDesk = memo(function OfficeDesk({
           style={{ clipPath: "polygon(3% 0, 97% 0, 100% 100%, 0 100%)" }}
         />
         <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/50 px-2 pb-1 pt-[3px] shadow-[0_6px_10px_-8px_hsl(var(--foreground)/0.6)]">
-          {/* plaquinha frontal com o nome + contador da fila (embaixo) */}
+          {/* plaquinha frontal apenas com o nome (contador vive na pilha) */}
           <div className="flex items-center justify-center gap-1">
-            <p className="max-w-[60%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
+            <p className="max-w-[80%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
               {collaborator.fullName}
             </p>
-            <QueueBadge
-              queueCount={queueCount}
-              collaboratorName={collaborator.fullName}
-              onOpenQueue={() => onOpenQueue(collaborator.userId)}
-            />
           </div>
 
           {isSelf && onSaveDeskObjects && (
@@ -178,9 +173,10 @@ export const OfficeDesk = memo(function OfficeDesk({
               onClick={() => setEditing(true)}
               aria-label="Personalizar mesa"
               title="Personalizar mesa"
-              className="absolute right-1 top-1 rounded-full border border-border bg-background/85 p-[3px] text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/desk:opacity-100"
+              className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded-full border border-border bg-background/90 px-1 py-[2px] text-[8px] font-semibold text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
             >
               <Settings2 className="h-2.5 w-2.5" />
+              {deskObjects.length === 0 && <span className="hidden sm:inline">Personalizar</span>}
             </button>
           )}
         </div>
