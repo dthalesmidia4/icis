@@ -101,6 +101,44 @@ const toTs = (date?: string | null, time?: string | null): number | null => {
   return Number.isFinite(ts) ? ts : null;
 };
 
+const DEMAND_COLUMNS =
+  "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, work_area, due_date, due_time, delivery_date, delivery_time, released_at, status_id, is_daily_card";
+
+/** Projeta uma linha realtime de `demands` no shape mínimo usado pelo escritório. */
+const projectDemand = (row: Record<string, any>): RawDemand => ({
+  id: row.id,
+  title: row.title ?? null,
+  client_id: row.client_id ?? null,
+  assigned_to: row.assigned_to ?? null,
+  additional_assignees: Array.isArray(row.additional_assignees) ? row.additional_assignees : null,
+  current_function_key: row.current_function_key ?? null,
+  demand_type: row.demand_type ?? null,
+  work_area: row.work_area ?? null,
+  due_date: row.due_date ?? null,
+  due_time: row.due_time ?? null,
+  delivery_date: row.delivery_date ?? null,
+  delivery_time: row.delivery_time ?? null,
+  released_at: row.released_at ?? null,
+  status_id: row.status_id ?? null,
+  is_daily_card: row.is_daily_card ?? null,
+});
+
+/** Elegibilidade idêntica ao filtro da carga inicial. */
+const isEligible = (row: Record<string, any>) => !row.archived_at && row.is_draft === false;
+
+export interface UseOfficeOverviewOptions {
+  /**
+   * Evento bruto de `demands` da ÚNICA assinatura realtime do escritório.
+   * Usado pela animação de transferência sem abrir um segundo canal.
+   */
+  onDemandEvent?: (event: {
+    type: "INSERT" | "UPDATE" | "DELETE";
+    id: string;
+    new: Record<string, any> | null;
+    old: Record<string, any> | null;
+  }) => void;
+}
+
 /**
  * Leitura agregada (READ-ONLY) das demandas ativas para a tela "Escritório".
  * Reaproveita a semântica da Visão Geral: dispatch ativo sai da fila,
@@ -110,6 +148,7 @@ const toTs = (date?: string | null, time?: string | null): number | null => {
 export function useOfficeOverview(
   tenantId: string | null | undefined,
   areaFilter: OfficeAreaFilter = "all",
+  options: UseOfficeOverviewOptions = {},
 ): OfficeOverview {
   const now = useNowTick(60_000);
   const { collaborators, loading: loadingCollaborators } = useCollaborators(tenantId);
@@ -122,62 +161,116 @@ export function useOfficeOverview(
   const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
+  const onDemandEventRef = useRef(options.onDemandEvent);
+  useEffect(() => {
+    onDemandEventRef.current = options.onDemandEvent;
+  }, [options.onDemandEvent]);
+
+  // ---------- fontes independentes (nunca recarregadas juntas) ----------
+  const loadDemands = useCallback(async () => {
+    if (!tenantId) {
+      setDemands([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("demands")
+      .select(DEMAND_COLUMNS)
+      .eq("tenant_id", tenantId)
+      .is("archived_at", null)
+      .eq("is_draft", false);
+    if (error) console.error("[useOfficeOverview] demands error", error);
+    setDemands(((data || []) as unknown as RawDemand[]) ?? []);
+  }, [tenantId]);
+
+  const loadCompanies = useCallback(async () => {
+    if (!tenantId) return setClientNames({});
+    const { data } = await supabase
+      .from("tenant_companies")
+      .select("id, name")
+      .eq("tenant_id", tenantId);
+    const names: Record<string, string> = {};
+    ((data || []) as any[]).forEach((c) => {
+      if (c?.id) names[c.id] = c.name || "";
+    });
+    setClientNames(names);
+  }, [tenantId]);
+
+  const loadFunctions = useCallback(async () => {
+    if (!tenantId) return setStageLabels({});
+    const { data } = await supabase
+      .from("flow_functions")
+      .select("function_key, name")
+      .eq("tenant_id", tenantId);
+    const labels: Record<string, string> = {};
+    ((data || []) as any[]).forEach((f) => {
+      if (f?.function_key) labels[f.function_key] = f.name || f.function_key;
+    });
+    setStageLabels(labels);
+  }, [tenantId]);
+
+  const loadSchedules = useCallback(async () => {
+    if (!tenantId) return setScheduleRows([]);
+    // Expediente REAL por usuário/área/dia — uma única query por tenant.
+    const { data } = await supabase
+      .from("user_area_schedules")
+      .select("user_id, work_area, weekday, start_time, end_time")
+      .eq("tenant_id", tenantId);
+    setScheduleRows(((data || []) as unknown as AreaScheduleRow[]) ?? []);
+  }, [tenantId]);
+
+  /** Carga inicial (mount / troca de tenant): única vez que tudo é buscado. */
   const fetchAll = useCallback(async () => {
     if (!tenantId) {
       setDemands([]);
       setLoading(false);
       return;
     }
-    const [{ data: rows, error }, { data: companies }, { data: functions }, { data: schedules }] =
-      await Promise.all([
-        supabase
-          .from("demands")
-          .select(
-            "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, work_area, due_date, due_time, delivery_date, delivery_time, released_at, status_id, is_daily_card",
-          )
-          .eq("tenant_id", tenantId)
-          .is("archived_at", null)
-          .eq("is_draft", false),
-        supabase.from("tenant_companies").select("id, name").eq("tenant_id", tenantId),
-        supabase.from("flow_functions").select("function_key, name").eq("tenant_id", tenantId),
-        // Expediente REAL por usuário/área/dia — uma única query por tenant.
-        supabase
-          .from("user_area_schedules")
-          .select("user_id, work_area, weekday, start_time, end_time")
-          .eq("tenant_id", tenantId),
-      ]);
-
-    if (error) console.error("[useOfficeOverview] demands error", error);
-
-    setDemands(((rows || []) as unknown as RawDemand[]) ?? []);
-    setScheduleRows(((schedules || []) as unknown as AreaScheduleRow[]) ?? []);
-
-    const names: Record<string, string> = {};
-    ((companies || []) as any[]).forEach((c) => {
-      if (c?.id) names[c.id] = c.name || "";
-    });
-    setClientNames(names);
-
-    const labels: Record<string, string> = {};
-    ((functions || []) as any[]).forEach((f) => {
-      if (f?.function_key) labels[f.function_key] = f.name || f.function_key;
-    });
-    setStageLabels(labels);
+    await Promise.all([loadDemands(), loadCompanies(), loadFunctions(), loadSchedules()]);
     setLoading(false);
-  }, [tenantId]);
+  }, [tenantId, loadDemands, loadCompanies, loadFunctions, loadSchedules]);
 
   useEffect(() => {
     setLoading(true);
     fetchAll();
   }, [fetchAll]);
 
+  // ÚNICA assinatura de `demands` do escritório: alimenta dados + animação.
   useRealtimeDemands({
     tenantId: tenantId || null,
     enabled: !!tenantId,
-    onChange: () => fetchAll(),
+    scopeKey: "office",
+    onChange: (event) => {
+      // 1) representação visual (transferência) recebe o evento cru primeiro.
+      onDemandEventRef.current?.(event);
+
+      // 2) patch incremental — nenhum refetch de companies/functions/schedules.
+      const { type, id, new: rowNew } = event;
+      if (!id) return;
+      if (type === "DELETE") {
+        setDemands((prev) => prev.filter((d) => d.id !== id));
+        return;
+      }
+      if (!rowNew || !("title" in rowNew)) {
+        // payload insuficiente: refaz SOMENTE demands.
+        loadDemands();
+        return;
+      }
+      if (!isEligible(rowNew)) {
+        setDemands((prev) => prev.filter((d) => d.id !== id));
+        return;
+      }
+      const projected = projectDemand(rowNew);
+      setDemands((prev) => {
+        const idx = prev.findIndex((d) => d.id === id);
+        if (idx === -1) return [...prev, projected];
+        const next = prev.slice();
+        next[idx] = projected;
+        return next;
+      });
+    },
   });
 
-  // Mudanças de expediente (`Alocação por área`) refletem no escritório sem reload.
+  // Mudanças de expediente (`Alocação por área`) refazem SOMENTE schedules.
   useEffect(() => {
     if (!tenantId) return;
     const channel = supabase
@@ -190,13 +283,14 @@ export function useOfficeOverview(
           table: "user_area_schedules",
           filter: `tenant_id=eq.${tenantId}`,
         },
-        () => fetchAll(),
+        () => loadSchedules(),
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenantId, fetchAll]);
+  }, [tenantId, loadSchedules]);
+
 
 
   const cards = useMemo<OfficeCard[]>(() => {
