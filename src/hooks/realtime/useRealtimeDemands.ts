@@ -16,6 +16,8 @@ export interface UseRealtimeDemandsOptions {
     old: Record<string, any> | null;
   }) => void;
   enabled?: boolean;
+  /** Sufixo do canal — permite duas assinaturas independentes no mesmo escopo. */
+  scopeKey?: string;
 }
 
 /**
@@ -29,6 +31,7 @@ export function useRealtimeDemands({
   assignedTo,
   onChange,
   enabled = true,
+  scopeKey,
 }: UseRealtimeDemandsOptions) {
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -39,7 +42,7 @@ export function useRealtimeDemands({
     if (!enabled || !tenantId) return;
 
     const scope = [tenantId, clientId ?? "*", periodPlanId ?? "*", assignedTo ?? "*"].join("-");
-    const channelName = `rt-demands-${scope}`;
+    const channelName = `rt-demands-${scope}${scopeKey ? `-${scopeKey}` : ""}`;
 
     const handle = (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
       const type = payload.eventType as DemandRealtimeEvent;
@@ -76,5 +79,5 @@ export function useRealtimeDemands({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenantId, clientId, periodPlanId, assignedTo, enabled]);
+  }, [tenantId, clientId, periodPlanId, assignedTo, enabled, scopeKey]);
 }
