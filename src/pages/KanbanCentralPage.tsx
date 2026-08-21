@@ -726,6 +726,10 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
     // Cards na etapa canônica `publicar` ("Publicar agendado") NUNCA aparecem na
     // Visão Geral — nem na busca: eles têm tela própria (Home → Agendamentos).
     baseCards = baseCards.filter(card => !isScheduledPublishStage(card as any));
+    // `revisar_publicacao` já está agendado: só aparece quando chega a data de
+    // publicação, para o responsável conferir e prosseguir para "Entregar".
+    baseCards = baseCards.filter(card => !isPendingScheduledReview(card as any));
+
     // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
     // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
     // Durante uma busca ativa, nada é escondido por dispatch: quem procura
