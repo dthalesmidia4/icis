@@ -1786,7 +1786,9 @@ export default function TaskCard({
   ]);
 
 
-  const assigneeOptions = eligibleAssignees
+  // Card salvo: TODO colaborador é opção (o remapeamento administrativo resolve
+  // a etapa). Só o rascunho filtra, porque ali a etapa inicial é obrigatória.
+  const assigneeOptions = isDraft && eligibleAssignees
     ? collaborators.filter((c) => eligibleAssignees.has(c.id) || c.id === card?.assigned_to)
     : collaborators;
 
