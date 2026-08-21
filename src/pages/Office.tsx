@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,7 +39,6 @@ const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
  * para a Visão Geral) — a lógica de dados vem de `useOfficeOverview`.
  */
 export default function Office() {
-  const navigate = useNavigate();
   const { tenantId } = useTenant();
   const { user } = useAuth();
   const isMobile = useIsMobile();
