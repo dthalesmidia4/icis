@@ -175,6 +175,11 @@ export const OfficeDesk = memo(function OfficeDesk({
             <p className="max-w-[80%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
               {collaborator.fullName}
             </p>
+            {onBreak && presence.returnsAt && (
+              <span className="shrink-0 text-[8px] leading-4 text-muted-foreground">
+                retorna {presence.returnsAt}
+              </span>
+            )}
           </div>
 
           {isSelf && onSaveDeskObjects && (
