@@ -72,11 +72,17 @@ export function computeDeskSlots(count: number): DeskSlot[] {
   return slots;
 }
 
-/** Camadas de folhas desenhadas + rótulo do total (a fila real pode ser muito maior). */
-export function paperStackShape(queueCount: number): { sheets: number; step: number } {
-  if (queueCount <= 0) return { sheets: 0, step: 0 };
-  if (queueCount <= 3) return { sheets: Math.min(queueCount, 3), step: 4 };
-  if (queueCount <= 8) return { sheets: 5, step: 5 };
-  if (queueCount <= 15) return { sheets: 7, step: 6 };
-  return { sheets: 8, step: 7.5 };
+/**
+ * Faixas de volume da pilha: cada faixa tem altura claramente distinta
+ * (3, 9 e 32 precisam parecer diferentes) com no máximo 8 camadas no DOM.
+ */
+export function paperStackShape(
+  queueCount: number,
+): { sheets: number; step: number; overload: boolean } {
+  if (queueCount <= 0) return { sheets: 0, step: 0, overload: false };
+  if (queueCount <= 3) return { sheets: queueCount, step: 3, overload: false };
+  if (queueCount <= 8) return { sheets: 5, step: 4.5, overload: false };
+  if (queueCount <= 15) return { sheets: 6, step: 7, overload: false };
+  if (queueCount <= 24) return { sheets: 7, step: 9.5, overload: true };
+  return { sheets: 8, step: 12, overload: true };
 }

@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { cn } from "@/lib/utils";
 
-const initialsOf = (name: string) =>
+export const initialsOf = (name: string) =>
   name
     .split(" ")
     .filter(Boolean)
@@ -12,69 +12,104 @@ const initialsOf = (name: string) =>
 interface OfficeCharacterProps {
   name: string;
   avatarUrl?: string | null;
-  /** Está com card em andamento (postura de digitação + animação leve). */
+  /** Postura de digitação (microanimação nos braços). */
   working: boolean;
+  /** Largura total do personagem em px (escala com a mesa). */
+  size?: number;
+  /** Personagem em pé (cafeteria) — sem cadeira, braço segurando caneca. */
+  standing?: boolean;
 }
 
 /**
- * Personagem 2D sentado: cadeira, torso, braços apontando ao teclado e cabeça
- * com avatar/iniciais. Escala pensada para caber na mesa (não é um avatar solto).
+ * Personagem 2D. Sentado, o conjunto cadeira+torso fica logo atrás do tampo,
+ * de modo que o torso é parcialmente encoberto pela mesa e só a cabeça (com a
+ * foto do perfil) aparece acima do monitor. Em pé, é usado na cafeteria.
  */
 export const OfficeCharacter = memo(function OfficeCharacter({
   name,
   avatarUrl,
   working,
+  size = 52,
+  standing = false,
 }: OfficeCharacterProps) {
+  const head = Math.round(size * 0.52);
+  const torsoW = Math.round(size * 0.72);
+  const torsoH = Math.round(size * (standing ? 0.62 : 0.5));
+
   return (
-    <div className="pointer-events-none relative flex w-[54px] flex-col items-center">
-      {/* cabeça */}
+    <div
+      className="pointer-events-none relative flex flex-col items-center"
+      style={{ width: size }}
+      aria-hidden="true"
+    >
+      {/* cabeça (foto do perfil quando existir) */}
       <span
         className={cn(
-          "relative z-20 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 bg-muted text-[9px] font-bold text-muted-foreground",
+          "relative z-30 flex items-center justify-center overflow-hidden rounded-full border-2 bg-muted font-bold text-muted-foreground",
           working ? "border-primary/70" : "border-border",
         )}
+        style={{ height: head, width: head, fontSize: Math.max(8, Math.round(head * 0.34)) }}
       >
         {avatarUrl ? (
-          <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          <img src={avatarUrl} alt="" loading="lazy" className="h-full w-full object-cover object-center" />
         ) : (
           initialsOf(name)
         )}
       </span>
 
-      {/* torso + braços */}
+      {/* torso + braços chegando à altura do tampo/teclado */}
       <span
-        aria-hidden="true"
         className={cn(
-          "relative z-10 -mt-1.5 h-8 w-[38px] rounded-t-[42%] rounded-b-sm",
+          "relative z-20 rounded-t-[45%] rounded-b-sm",
           working ? "bg-primary/85" : "bg-muted-foreground/50",
         )}
+        style={{ width: torsoW, height: torsoH, marginTop: -Math.round(head * 0.16) }}
       >
-        <span className="absolute left-1/2 top-1 h-2 w-3.5 -translate-x-1/2 rounded-b-full bg-background/40" />
-        {/* braço esquerdo */}
+        <span className="absolute left-1/2 top-1 h-2 w-3 -translate-x-1/2 rounded-b-full bg-background/40" />
         <span
           className={cn(
-            "absolute -left-3 top-3 h-1.5 w-5 origin-right rotate-[-16deg] rounded-full",
+            "absolute rounded-full",
             working ? "bg-primary/70" : "bg-muted-foreground/45",
-            working && "animate-office-typing motion-reduce:animate-none",
+            working && !standing && "animate-office-typing motion-reduce:animate-none",
           )}
+          style={{
+            left: -Math.round(size * 0.2),
+            top: Math.round(torsoH * 0.32),
+            width: Math.round(size * 0.38),
+            height: Math.max(4, Math.round(size * 0.1)),
+            transform: `rotate(${standing ? -34 : 18}deg)`,
+            transformOrigin: "right center",
+          }}
         />
-        {/* braço direito */}
         <span
           className={cn(
-            "absolute -right-3 top-3.5 h-1.5 w-5 origin-left rotate-[16deg] rounded-full",
+            "absolute rounded-full",
             working ? "bg-primary/70" : "bg-muted-foreground/45",
-            working && "animate-office-typing motion-reduce:animate-none",
+            working && !standing && "animate-office-typing motion-reduce:animate-none",
           )}
-          style={working ? { animationDelay: "220ms" } : undefined}
+          style={{
+            right: -Math.round(size * 0.2),
+            top: Math.round(torsoH * 0.38),
+            width: Math.round(size * 0.38),
+            height: Math.max(4, Math.round(size * 0.1)),
+            transform: "rotate(-18deg)",
+            transformOrigin: "left center",
+            animationDelay: working ? "220ms" : undefined,
+          }}
         />
       </span>
 
-      {/* cadeira: encosto atrás, assento e base */}
-      <span aria-hidden="true" className="relative z-0 flex flex-col items-center">
-        <span className="h-1.5 w-11 rounded-sm bg-foreground/30 dark:bg-foreground/35" />
-        <span className="h-3 w-1.5 bg-foreground/25 dark:bg-foreground/30" />
-        <span className="h-1 w-8 rounded-full bg-foreground/25 dark:bg-foreground/30" />
-      </span>
+      {!standing && (
+        /* encosto da cadeira aparece atrás dos ombros */
+        <span
+          className="absolute z-10 rounded-t-md bg-foreground/25 dark:bg-foreground/30"
+          style={{
+            width: Math.round(size * 0.86),
+            height: Math.round(size * 0.46),
+            top: Math.round(head * 0.62),
+          }}
+        />
+      )}
     </div>
   );
 });
