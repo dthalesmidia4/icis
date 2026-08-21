@@ -22,7 +22,6 @@ import {
   type AssignmentSnapshot,
   type TransferEvent,
 } from "@/lib/officeTransfers";
-import { useRealtimeDemands } from "@/hooks/realtime/useRealtimeDemands";
 import { useOfficeDeskPreferences } from "@/hooks/useOfficeDeskPreferences";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -46,7 +45,29 @@ export default function Office() {
   const [queueUserId, setQueueUserId] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
 
-  const { stations, cards, totals, loading, refetch } = useOfficeOverview(tenantId, area);
+  // Detector de transferência: alimentado pela ÚNICA assinatura realtime do
+  // escritório (dentro de `useOfficeOverview`), sem abrir um segundo canal.
+  const handleDemandEvent = useCallback(
+    (event: { type: string; id: string; new: Record<string, any> | null; old: Record<string, any> | null }) => {
+      if (event.type !== "UPDATE" || !event.new) return;
+      const rowNew = event.new;
+      const rowOld = event.old;
+      const { event: transfer, snapshot } = transferFromRealtime(snapshotRef.current, {
+        id: event.id,
+        title: (rowNew.title as string) || null,
+        assignedTo: (rowNew.assigned_to as string) ?? null,
+        oldAssignedTo:
+          rowOld && "assigned_to" in rowOld ? ((rowOld.assigned_to as string) ?? null) : undefined,
+      });
+      snapshotRef.current = snapshot;
+      if (transfer) enqueueRef.current(transfer);
+    },
+    [],
+  );
+
+  const { stations, cards, totals, loading, refetch } = useOfficeOverview(tenantId, area, {
+    onDemandEvent: handleDemandEvent,
+  });
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
 
   // ---------- animação de transferência (apenas representação visual) ----------
@@ -74,25 +95,11 @@ export default function Office() {
     ]);
   }, []);
 
-  // CAMINHO PRINCIPAL (latência mínima): anima direto no UPDATE realtime,
-  // sem esperar o roundtrip do refetch que atualiza pilhas/monitores.
-  useRealtimeDemands({
-    tenantId: tenantId || null,
-    enabled: !!tenantId,
-    scopeKey: "office-transfers",
-    onChange: ({ type, id, new: rowNew, old: rowOld }) => {
-      if (type !== "UPDATE" || !rowNew) return;
-      const { event, snapshot } = transferFromRealtime(snapshotRef.current, {
-        id,
-        title: (rowNew.title as string) || null,
-        assignedTo: (rowNew.assigned_to as string) ?? null,
-        oldAssignedTo:
-          rowOld && "assigned_to" in rowOld ? ((rowOld.assigned_to as string) ?? null) : undefined,
-      });
-      snapshotRef.current = snapshot;
-      if (event) enqueue([event]);
-    },
-  });
+  // Ponte estável para o callback realtime (evita recriar a assinatura).
+  const enqueueRef = useRef<(event: TransferEvent) => void>(() => {});
+  useEffect(() => {
+    enqueueRef.current = (event: TransferEvent) => enqueue([event]);
+  }, [enqueue]);
 
   // FALLBACK: detector por snapshot depois do refetch (cobre eventos perdidos).
   useEffect(() => {
@@ -132,43 +139,45 @@ export default function Office() {
   ];
 
   return (
-    <div className="space-y-2">
-      {/* ---------- HUD compacto ---------- */}
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <h1 className="text-lg font-bold tracking-tight sm:text-xl">Escritório</h1>
-          {metrics.map((m) => (
-            <div key={m.label} className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <m.icon className="h-3 w-3" />
-              <span className="text-xs font-semibold tabular-nums text-foreground">{m.value}</span>
-              <span>{m.label}</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-border p-0.5">
-            {AREA_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setArea(tab.id)}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  area === tab.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
-
+    <div>
       {/* ---------- Cenário ---------- */}
       <OfficeWorld
         containerRef={worldRef}
+        hud={
+          <>
+            {/* Métricas — overlay compacto (NÃO é um segundo header) */}
+            <div className="pointer-events-none absolute left-3 top-3 z-40 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/50 bg-background/70 px-2.5 py-1.5 backdrop-blur-[2px]">
+              {metrics.map((m) => (
+                <div key={m.label} className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <m.icon className="h-3 w-3" />
+                  <span className="text-xs font-semibold tabular-nums text-foreground">{m.value}</span>
+                  <span>{m.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Filtro de área — overlay compacto */}
+            <div className="pointer-events-auto absolute right-3 top-3 z-40 flex rounded-lg border border-border/50 bg-background/70 p-0.5 backdrop-blur-[2px]">
+              {AREA_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setArea(tab.id)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    area === tab.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </>
+        }
         upperZone={
-          <div className="pointer-events-auto absolute right-3 top-[19%] z-40 hidden sm:block sm:right-8">
+          <div className="pointer-events-auto absolute right-3 top-[24%] z-30 hidden sm:block sm:right-8">
             <CoffeeCorner people={loading ? [] : atCoffee} />
           </div>
         }
