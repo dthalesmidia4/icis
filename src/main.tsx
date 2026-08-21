@@ -1,6 +1,9 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { exposeBuildSentinel } from "./lib/buildVersion";
+
+exposeBuildSentinel();
 
 const rootElement = document.getElementById("root");
 
@@ -8,19 +11,20 @@ if (rootElement) {
   createRoot(rootElement).render(<App />);
 }
 
-// Desregistra qualquer Service Worker antigo (que servia versões em cache) e
-// limpa caches residuais. Não registra nenhum SW novo — evita loops e impede
-// que o preview continue preso em builds antigos.
+// Rede de segurança: se algum Service Worker legado ainda estiver registrado
+// (ou controlando a página), remove registros e Cache Storage. NUNCA registra
+// um novo worker e NUNCA toca em localStorage/IndexedDB/cookies (sessão).
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-  const cleanupReloadKey = "icis-sw-cleanup-reload-2026-07-28";
+  const KILL_VERSION = "2026-08-21-2";
+  const reloadKey = `icis-sw-cleanup-reload-${KILL_VERSION}`;
   const cleanupParam = "__icis_cache_bust";
 
   const reloadFromNetwork = () => {
-    if (sessionStorage.getItem(cleanupReloadKey) === "done") return;
+    if (sessionStorage.getItem(reloadKey) === "done") return;
 
-    sessionStorage.setItem(cleanupReloadKey, "done");
+    sessionStorage.setItem(reloadKey, "done");
     const url = new URL(window.location.href);
-    url.searchParams.set(cleanupParam, Date.now().toString());
+    url.searchParams.set(cleanupParam, KILL_VERSION);
     window.location.replace(url.toString());
   };
 
@@ -28,7 +32,7 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
     const url = new URL(window.location.href);
     let changed = false;
 
-    [cleanupParam, "__icis_sw_cleanup"].forEach((param) => {
+    [cleanupParam, "__icis_sw_cleanup", "__icis_legacy_sw_cleanup"].forEach((param) => {
       if (url.searchParams.has(param)) {
         url.searchParams.delete(param);
         changed = true;
@@ -44,7 +48,8 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
   navigator.serviceWorker
     .getRegistrations()
     .then(async (regs) => {
-      const hadRegistrations = regs.length > 0;
+      const hadRegistrations = regs.length > 0 || !!navigator.serviceWorker.controller;
+
       await Promise.allSettled(
         regs.map((registration) =>
           registration
@@ -59,7 +64,7 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
         await Promise.allSettled(names.map((name) => caches.delete(name)));
       }
 
-      if (navigator.serviceWorker.controller || hadRegistrations) {
+      if (hadRegistrations) {
         reloadFromNetwork();
         return;
       }

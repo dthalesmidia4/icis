@@ -11,6 +11,8 @@ import { ptBR } from "date-fns/locale";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import BillFormModal, { type BillData } from "@/components/BillFormModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { resolveBillAttachmentUrl } from "@/lib/billAttachments";
+
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -58,12 +60,21 @@ export default function BillsList() {
     fetchBills();
   }, [agencyId, selectedMonth, selectedYear]);
 
-  const handlePreview = (e: React.MouseEvent, url: string, name: string) => {
+  const handlePreview = async (e: React.MouseEvent, stored: string, name: string) => {
     e.stopPropagation();
-    setPreviewUrl(url);
+    const signed = await resolveBillAttachmentUrl(stored);
+    if (!signed) return;
+    setPreviewUrl(signed);
     setPreviewName(name);
     setPreviewOpen(true);
   };
+
+  const handleDownload = async (e: React.MouseEvent, stored: string) => {
+    e.stopPropagation();
+    const signed = await resolveBillAttachmentUrl(stored);
+    if (signed) window.open(signed, "_blank", "noopener,noreferrer");
+  };
+
 
   const handleRowClick = (bill: BillData) => {
     setEditingBill(bill);
@@ -193,17 +204,16 @@ export default function BillsList() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <a
-                              href={bill.attachment_url}
-                              download={bill.attachment_name || "anexo"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Baixar"
+                              onClick={(e) => handleDownload(e, bill.attachment_url!)}
                             >
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Baixar">
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </a>
+                              <Download className="h-4 w-4" />
+                            </Button>
+
                           </div>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>

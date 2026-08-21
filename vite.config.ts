@@ -21,10 +21,15 @@ export default defineConfig(({ mode }) => ({
       Expires: "0",
     },
   },
+  define: {
+    // Sentinela de build: permite confirmar exatamente qual build o browser executa.
+    __ICIS_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
   ].filter(Boolean),
+
 
   resolve: {
     alias: {

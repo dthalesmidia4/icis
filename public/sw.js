@@ -1,14 +1,17 @@
-// Definitive kill-switch service worker.
+// ICIS kill-switch service worker (one-way cleanup).
 //
-// Old PWA builds may still control the preview and keep serving app bundles from
-// Cache Storage. This worker intentionally replaces any legacy worker registered
-// at this path, deletes every origin cache, reloads controlled tabs through the
-// network once, and unregisters itself. The current app does not register a new
-// worker, so this is a one-way cleanup path.
+// This file exists ONLY to take over any legacy PWA/offline worker that was
+// historically registered at this path and remove it deterministically.
+// The app never registers a functional service worker anymore.
+//
+// Bump ICIS_SW_KILL_VERSION on every change: the byte-diff is what makes the
+// browser's update check adopt this worker instead of keeping the old one.
+const ICIS_SW_KILL_VERSION = "2026-08-21-2";
 const CLEANUP_PARAM = "__icis_sw_cleanup";
 
 self.addEventListener("install", () => self.skipWaiting());
 
+// Navigations must ALWAYS hit the network. Never cache-first.
 self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request, { cache: "reload" }));
@@ -19,6 +22,8 @@ self.addEventListener("activate", (event) =>
   event.waitUntil(
     (async () => {
       try {
+        // Only Cache Storage + SW registration are touched.
+        // localStorage / IndexedDB / cookies (auth session) are never cleared.
         const cacheNames = await caches.keys();
         await Promise.allSettled(cacheNames.map((name) => caches.delete(name)));
         await self.clients.claim();
@@ -31,10 +36,9 @@ self.addEventListener("activate", (event) =>
         await Promise.allSettled(
           windowClients.map((client) => {
             const url = new URL(client.url);
-            if (url.origin !== self.location.origin || url.searchParams.has(CLEANUP_PARAM)) {
-              return undefined;
-            }
-            url.searchParams.set(CLEANUP_PARAM, Date.now().toString());
+            if (url.origin !== self.location.origin) return undefined;
+            if (url.searchParams.get(CLEANUP_PARAM) === ICIS_SW_KILL_VERSION) return undefined;
+            url.searchParams.set(CLEANUP_PARAM, ICIS_SW_KILL_VERSION);
             return client.navigate(url.toString());
           }),
         );

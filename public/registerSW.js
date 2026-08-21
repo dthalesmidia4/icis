@@ -1,16 +1,18 @@
-// Legacy PWA registration neutralizer.
-// If an old build still loads /registerSW.js, this file performs the same
-// cleanup as the app bootstrap instead of registering another worker.
+// Legacy PWA registration neutralizer (versioned).
+//
+// Old builds may still request /registerSW.js. Instead of registering a worker,
+// this file hands control to the kill-switch worker and reloads once.
 (function () {
-  var RELOAD_KEY = "icis-registersw-cleanup-2026-07-28";
+  var ICIS_SW_KILL_VERSION = "2026-08-21-2";
+  var RELOAD_KEY = "icis-registersw-cleanup-" + ICIS_SW_KILL_VERSION;
   var CLEANUP_PARAM = "__icis_legacy_sw_cleanup";
 
-  function reloadFromNetwork() {
+  function reloadOnce() {
     try {
       if (sessionStorage.getItem(RELOAD_KEY) === "done") return;
       sessionStorage.setItem(RELOAD_KEY, "done");
       var url = new URL(window.location.href);
-      url.searchParams.set(CLEANUP_PARAM, Date.now().toString());
+      url.searchParams.set(CLEANUP_PARAM, ICIS_SW_KILL_VERSION);
       window.location.replace(url.toString());
     } catch (error) {
       window.location.reload();
@@ -23,7 +25,7 @@
     navigator.serviceWorker
       .getRegistrations()
       .then(function (registrations) {
-        var hadRegistrations = registrations.length > 0;
+        var had = registrations.length > 0 || !!navigator.serviceWorker.controller;
         return Promise.allSettled(
           registrations.map(function (registration) {
             return Promise.resolve()
@@ -37,23 +39,23 @@
               });
           }),
         ).then(function () {
-          return hadRegistrations;
+          return had;
         });
       })
-      .then(function (hadRegistrations) {
-        if (!("caches" in window)) return hadRegistrations;
+      .then(function (had) {
+        if (!("caches" in window)) return had;
         return caches.keys().then(function (names) {
           return Promise.allSettled(
             names.map(function (name) {
               return caches.delete(name);
             }),
           ).then(function () {
-            return hadRegistrations;
+            return had;
           });
         });
       })
-      .then(function (hadRegistrations) {
-        if (navigator.serviceWorker.controller || hadRegistrations) reloadFromNetwork();
+      .then(function (had) {
+        if (had) reloadOnce();
       })
       .catch(function () {});
   }

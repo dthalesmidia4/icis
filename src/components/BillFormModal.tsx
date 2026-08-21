@@ -152,12 +152,11 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
           .upload(path, file);
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
-          .from("bill-attachments")
-          .getPublicUrl(path);
-        attachmentUrl = urlData.publicUrl;
+        // Bucket privado: guardamos o path e geramos URL assinada na leitura.
+        attachmentUrl = path;
         attachmentName = file.name;
       }
+
 
       const payload: Record<string, any> = {
         name: name.trim(),
@@ -280,12 +279,11 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
           .upload(path, file);
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
-          .from("bill-attachments")
-          .getPublicUrl(path);
-        attachmentUrl = urlData.publicUrl;
+        // Bucket privado: guardamos o path e geramos URL assinada na leitura.
+        attachmentUrl = path;
         attachmentName = file.name;
       }
+
 
       const { error } = await supabase
         .from("bills_payable")
