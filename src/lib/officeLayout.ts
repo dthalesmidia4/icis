@@ -70,7 +70,7 @@ export function computeDeskSlots(count: number): DeskSlot[] {
 
     slots.push({
       leftPct: Math.min(94, Math.max(6, leftPct)),
-      topPct: Math.min(96, topPct + jitter(i, 1.4)),
+      topPct: Math.min(BOTTOM_BAND_PCT, Math.max(TOP_BAND_PCT - 2, topPct + jitter(i, 1.4))),
       scale,
       z: 10 + row * 10,
       row,
