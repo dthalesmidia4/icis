@@ -19,6 +19,8 @@ import { HUB_SECTIONS, CLIENT_HUB_BUTTONS } from '@/hooks/useHubPermissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAgencyRole } from '@/hooks/useAgencyRole';
 import { INVITE_ROLE_OPTIONS, MANAGER_AREA_LABELS, MANAGER_AREA_OPTIONS, type ValidAgencyRole } from '@/lib/constants/roles';
+import { useAuth } from '@/hooks/useAuth';
+import MemberAvatarUpload from '@/components/team/MemberAvatarUpload';
 
 interface TeamMember {
   id: string;
@@ -514,12 +516,18 @@ export default function TeamMembers() {
             <Card key={member.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={member.avatar_url || undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {getInitials(member.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <MemberAvatarUpload
+                    userId={member.id}
+                    fullName={member.full_name}
+                    avatarUrl={member.avatar_url}
+                    initials={getInitials(member.full_name)}
+                    editable={member.id === currentUserId}
+                    onChanged={(url) =>
+                      setMembers((prev) =>
+                        prev.map((m) => (m.id === member.id ? { ...m, avatar_url: url } : m)),
+                      )
+                    }
+                  />
                   <div>
                     <h3 className="font-semibold">{member.full_name}</h3>
                     {canEditRoles && member.role !== 'super_admin' ? (
