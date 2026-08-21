@@ -326,6 +326,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/escritorio" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Office />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/demandas-completas" element={
         <ProtectedRoute>
           <RequireTenant>
