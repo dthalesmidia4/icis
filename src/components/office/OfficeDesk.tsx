@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { AlertTriangle, Clock, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfficeStationData } from "@/hooks/useOfficeOverview";
+import { useNowTick } from "@/hooks/useNowTick";
 import OfficeCharacter from "./OfficeCharacter";
 import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
@@ -13,6 +14,13 @@ const timeLabel = (date?: string | null, time?: string | null) => {
   const [, m, d] = date.split("-");
   return `${d}/${m}${time ? ` ${time.slice(0, 5)}` : ""}`;
 };
+
+/** Progresso temporal do card atual (0..1) — nunca reflete volume de fila. */
+const cardProgress = (start: number | null, end: number | null, now: number): number | null => {
+  if (!start || !end || end <= start) return null;
+  return Math.min(1, Math.max(0, (now - start) / (end - start)));
+};
+
 
 interface OfficeDeskProps {
   station: OfficeStationData;
@@ -58,6 +66,10 @@ export const OfficeDesk = memo(function OfficeDesk({
         : "Próximo";
   const monitorCard = current || next;
   const slots = assignDeskSlots(deskObjects);
+  const now = useNowTick(60_000);
+  // Barra discreta na base da mesa: SÓ o card atual, progresso temporal real.
+  const progress = current ? cardProgress(current.startTs, current.endTs, now) : null;
+
 
   return (
     <div className="group/desk relative w-full select-none">
@@ -196,6 +208,26 @@ export const OfficeDesk = memo(function OfficeDesk({
               </span>
             )}
           </div>
+
+          {progress !== null && (
+            <div
+              className="mx-auto mt-[3px] h-[3px] w-[72%] overflow-hidden rounded-full bg-foreground/12 dark:bg-foreground/20"
+              role="progressbar"
+              aria-label={`Progresso da demanda atual de ${collaborator.fullName}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress * 100)}
+            >
+              <span
+                className={cn(
+                  "block h-full rounded-full transition-[width] duration-500",
+                  current?.isLate ? "bg-destructive/70" : "bg-primary/70",
+                )}
+                style={{ width: `${Math.max(4, Math.round(progress * 100))}%` }}
+              />
+            </div>
+          )}
+
 
           {isSelf && onSaveDeskObjects && (
             <button
