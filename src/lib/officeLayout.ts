@@ -51,7 +51,37 @@ const SAFE_GUTTER_PX = 28;
 /** Largura mínima aceitável de estação antes de aproximar mesas. */
 const MIN_BASE_WIDTH = 196;
 
+/**
+ * ZONA RESERVADA DA CAFETERIA (canto superior direito da sala).
+ * `CoffeeCorner` tem ~214px de largura e é ancorado em `right-8` (32px) dentro
+ * do mundo, no topo (24% da altura) — ou seja, ele ocupa a MESMA faixa vertical
+ * da fileira do fundo. O anti-colisão entre mesas não enxergava isso, então a
+ * estação superior direita entrava visualmente no balcão.
+ */
+export const COFFEE_WIDTH_PX = 214;
+export const COFFEE_RIGHT_OFFSET_PX = 32;
+/** Margem visual segura pedida (24–40px). */
+export const COFFEE_SAFE_MARGIN_PX = 32;
+
+/** Coordenada X (px) onde a zona útil da cafeteria começa. */
+export function coffeeZoneLeftPx(worldWidth: number): number {
+  return worldWidth - (COFFEE_RIGHT_OFFSET_PX + COFFEE_WIDTH_PX + COFFEE_SAFE_MARGIN_PX);
+}
+
+/**
+ * Largura relativa do monitor dentro da estação. O monitor deixou de usar
+ * `flex-1` (absorvia todo o tampo): agora tem teto explícito, sobrando faixa
+ * estável para personagem/objetos à esquerda e fila/objetos à direita.
+ */
+export const MONITOR_MAX_PCT = 62;
+export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
+  const profile = resolveOfficeProfile(size);
+  // Ultrawide pode crescer discretamente, sem voltar ao aspecto horizontal.
+  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 60 : 57;
+}
+
 const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
+
 
 export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProfile {
   const width = size.width || DEFAULT_SIZE.width;
