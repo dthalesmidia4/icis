@@ -320,6 +320,7 @@ export function useOfficeOverview(
         const area = normalizeWorkArea(d.work_area);
         const startTs = toTs(d.due_date, d.due_time);
         const key = d.current_function_key || null;
+        const statusName = d.status_id ? statusNames[d.status_id] || null : null;
         return {
           id: d.id,
           title: d.title || "Sem título",
@@ -328,13 +329,19 @@ export function useOfficeOverview(
           assignedTo: d.assigned_to,
           additionalAssignees: Array.isArray(d.additional_assignees) ? d.additional_assignees : [],
           functionKey: key,
-          stageLabel: key ? stageLabels[key] || key : "Sem etapa",
+          // Etapa: função operacional > nome da coluna (Visão Geral) > nada.
+          stageLabel: (key ? stageLabels[key] || key : statusName) || "Sem etapa",
+          statusName,
           demandType: d.demand_type,
+          demandTypeKey: d.demand_type_key,
+          origin: d.origin,
           workArea: area,
           dueDate: d.due_date,
           dueTime: d.due_time,
           deliveryDate: d.delivery_date,
           deliveryTime: d.delivery_time,
+          publishDate: d.publish_date,
+          publishTime: d.publish_time,
           isDailyCard: !!d.is_daily_card,
           startTs,
           endTs: toTs(d.delivery_date, d.delivery_time),
@@ -342,7 +349,8 @@ export function useOfficeOverview(
         } satisfies OfficeCard;
       })
       .filter((c) => (areaFilter === "all" ? true : c.workArea === areaFilter));
-  }, [demands, clientNames, stageLabels, areaFilter, now]);
+  }, [demands, clientNames, stageLabels, statusNames, areaFilter, now]);
+
 
   const schedulesByUser = useMemo(() => groupSchedulesByUser(scheduleRows), [scheduleRows]);
 
