@@ -69,18 +69,17 @@ export function OfficeQueueSheet({
                 <button
                   key={card.id}
                   type="button"
-                  draggable={!!onDragCardStart}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("text/plain", card.id);
-                    e.dataTransfer.effectAllowed = "move";
-                    onDragCardStart?.(card.id);
-                    setDragging(true);
+                  onPointerDown={(e) =>
+                    onPressCard?.(e, {
+                      id: card.id,
+                      title: card.title,
+                      fromUserId: station?.collaborator.userId || "",
+                    })
+                  }
+                  onClick={() => {
+                    if (consumeClickSuppression?.()) return;
+                    onOpenCard(card.id);
                   }}
-                  onDragEnd={() => {
-                    setDragging(false);
-                    onDragCardEnd?.();
-                  }}
-                  onClick={() => onOpenCard(card.id)}
                   className="w-full cursor-grab rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/50 active:cursor-grabbing"
                 >
                   <div className="flex items-center justify-between gap-2">
