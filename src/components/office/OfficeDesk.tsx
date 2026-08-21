@@ -31,6 +31,8 @@ interface OfficeDeskProps {
   /** É a mesa do usuário logado (única que pode ser personalizada). */
   isSelf?: boolean;
   onSaveDeskObjects?: (objects: DeskObjectKey[]) => void | Promise<unknown>;
+  /** Largura relativa (%) do monitor dentro da estação (vem do perfil do mundo). */
+  monitorPct?: number;
   /** Registra a pilha desta mesa como origem/destino da animação. */
   registerStackAnchor?: (userId: string, el: HTMLElement | null) => void;
   /** Card sendo arrastado no escritório (destaca destinos válidos). */
@@ -42,6 +44,7 @@ interface OfficeDeskProps {
   /** Suprime o clique quando o gesto virou arraste. */
   consumeClickSuppression?: () => boolean;
 }
+
 
 /**
  * Estação física: personagem AO LADO do monitor (sempre visível, com braços
