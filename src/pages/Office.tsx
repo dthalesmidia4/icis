@@ -72,22 +72,8 @@ export default function Office() {
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
   const { requestExit, dialog: exitGuardDialog } = useExecutionExitGuard();
 
-  // ---------- drag-and-drop de transferência (fluxo canônico de reassign) ----------
-  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
+  // ---------- arraste por ponteiro (fluxo canônico de reassign) ----------
   const [transferring, setTransferring] = useState(false);
-
-  // Rede de segurança: qualquer fim de arraste limpa o destaque das mesas
-  // (evita o retângulo azul preso quando o drag é cancelado).
-  useEffect(() => {
-    if (!draggingCardId) return;
-    const clear = () => setDraggingCardId(null);
-    window.addEventListener("dragend", clear);
-    window.addEventListener("drop", clear);
-    return () => {
-      window.removeEventListener("dragend", clear);
-      window.removeEventListener("drop", clear);
-    };
-  }, [draggingCardId]);
 
   const stageLabelOf = useCallback(
     (key: string) => cards.find((c) => c.functionKey === key)?.stageLabel || key,
@@ -101,7 +87,6 @@ export default function Office() {
    */
   const handleDropCard = useCallback(
     async (demandId: string, targetUserId: string) => {
-      setDraggingCardId(null);
       if (transferring) return;
       const card = cards.find((c) => c.id === demandId);
       if (!card || card.assignedTo === targetUserId) return;
