@@ -180,7 +180,7 @@ export const OfficeDesk = memo(function OfficeDesk({
                     {statusLabel}
                     {working && <span className="animate-office-caret motion-reduce:animate-none">▌</span>}
                   </span>
-                  {current?.isLate && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-destructive" />}
+                  {overdue && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-destructive" />}
                 </div>
                 <p className="line-clamp-2 text-[11px] font-semibold leading-tight">{monitorCard.title}</p>
                 {/* Etapa PRIMEIRO: nunca some por causa do nome da empresa. */}
