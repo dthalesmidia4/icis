@@ -691,6 +691,20 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
     }));
   }, [cards]);
 
+  // Clientes com demandas ativas — alimenta a "Evolução das demandas" do header.
+  const evolutionClients = useMemo<OverviewHeaderClient[]>(() => {
+    const counts = new Map<string, OverviewHeaderClient>();
+    cards.forEach((c) => {
+      if (!c.clientId) return;
+      const prev = counts.get(c.clientId);
+      if (prev) prev.count += 1;
+      else counts.set(c.clientId, { id: c.clientId, name: c.clientName || "Cliente", count: 1 });
+    });
+    return Array.from(counts.values());
+  }, [cards]);
+
+
+
   // Filtrar cards por cliente, período e status
   const filteredCards = useMemo(() => {
     let baseCards = selectedPeriodFilter === "all" ? [...cards, ...archivedCards] : cards;
