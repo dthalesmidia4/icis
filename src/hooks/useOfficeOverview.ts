@@ -275,18 +275,29 @@ export function useOfficeOverview(
         operational.find((c) => c.id !== current?.id) ||
         null;
 
-      // Área usada para validar a janela: card no monitor > próximo > filtro da tela.
-      const presenceArea: ScheduleAreaFilter =
-        areaFilter !== "all"
-          ? areaFilter
-          : ((current?.workArea || next?.workArea || "all") as ScheduleAreaFilter);
+      // PRESENÇA HUMANA: na visão `Todas` é a UNIÃO das áreas alocadas no dia.
+      // A área do card no monitor NUNCA torna alguém em expediente `off_shift`.
+      const userRows = schedulesByUser[collaborator.userId] || [];
+      const presenceArea: ScheduleAreaFilter = resolvePresenceArea(
+        areaFilter as ScheduleAreaFilter,
+      );
 
       const { windows } = resolveUserWindows({
-        rows: schedulesByUser[collaborator.userId] || [],
+        rows: userRows,
         weekday: clock.weekday,
         area: presenceArea,
         workHours,
       });
+
+      // Sinal apenas diagnóstico (não altera presença).
+      const areaMismatch = cardAreaMismatch({
+        rows: userRows,
+        weekday: clock.weekday,
+        cardArea: current?.workArea ?? null,
+        nowMinutes: clock.minutes,
+        workHours,
+      });
+
 
       const presence = resolvePresence({
         now,
