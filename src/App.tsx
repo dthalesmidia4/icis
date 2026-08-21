@@ -62,6 +62,7 @@ import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
 import SystemsClients from "./pages/SystemsClients";
 import SystemsCommercial from "./pages/SystemsCommercial";
 import Office from "./pages/Office";
+import OverviewPage from "./pages/OverviewPage";
 
 
 const queryClient = new QueryClient({
@@ -317,11 +318,20 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/visao-geral" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <OverviewPage />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/kanban-central" element={
         <ProtectedRoute>
           <RequireTenant>
             <Layout>
-              <KanbanCentralPage />
+              <OverviewPage forcedMode="operacional" />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
@@ -330,7 +340,7 @@ function AppRoutes() {
         <ProtectedRoute>
           <RequireTenant>
             <Layout>
-              <Office />
+              <OverviewPage forcedMode="escritorio" />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

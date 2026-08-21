@@ -71,6 +71,12 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
     requiresClient: true
   },
   
+  '/visao-geral': {
+    items: [
+      { label: 'Home', href: '/home', icon: Home },
+      { label: 'Visão Geral', icon: LayoutGrid }
+    ]
+  },
   '/kanban-central': {
     items: [
       { label: 'Home', href: '/home', icon: Home },

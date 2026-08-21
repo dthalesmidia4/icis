@@ -56,7 +56,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     id: 'kanban',
     title: "Visão Geral das Tarefas",
     icon: LayoutGrid,
-    route: "/kanban-central",
+    route: "/visao-geral",
   },
   {
     id: 'schedule',
