@@ -523,7 +523,7 @@ export default function TeamMembers() {
                     fullName={member.full_name}
                     avatarUrl={member.avatar_url}
                     initials={getInitials(member.full_name)}
-                    editable={member.id === currentUserId}
+                    editable={member.id === currentUserId || canEditRoles}
                     onChanged={(url) =>
                       setMembers((prev) =>
                         prev.map((m) => (m.id === member.id ? { ...m, avatar_url: url } : m)),
