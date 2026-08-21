@@ -204,17 +204,16 @@ export default function BillsList() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <a
-                              href={bill.attachment_url}
-                              download={bill.attachment_name || "anexo"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Baixar"
+                              onClick={(e) => handleDownload(e, bill.attachment_url!)}
                             >
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Baixar">
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </a>
+                              <Download className="h-4 w-4" />
+                            </Button>
+
                           </div>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>

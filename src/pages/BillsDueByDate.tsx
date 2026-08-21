@@ -10,6 +10,8 @@ import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import BillFormModal, { type BillData } from "@/components/BillFormModal";
+import { resolveBillAttachmentUrl } from "@/lib/billAttachments";
+
 
 export default function BillsDueByDate() {
   const { offset } = useParams<{ offset: string }>();
@@ -47,12 +49,21 @@ export default function BillsDueByDate() {
     fetchBills();
   }, [agencyId, targetDateStr]);
 
-  const handlePreview = (e: React.MouseEvent, url: string, name: string) => {
+  const handlePreview = async (e: React.MouseEvent, stored: string, name: string) => {
     e.stopPropagation();
-    setPreviewUrl(url);
+    const signed = await resolveBillAttachmentUrl(stored);
+    if (!signed) return;
+    setPreviewUrl(signed);
     setPreviewName(name);
     setPreviewOpen(true);
   };
+
+  const handleDownload = async (e: React.MouseEvent, stored: string) => {
+    e.stopPropagation();
+    const signed = await resolveBillAttachmentUrl(stored);
+    if (signed) window.open(signed, "_blank", "noopener,noreferrer");
+  };
+
 
   const handleRowClick = (bill: BillData) => {
     setEditingBill(bill);
