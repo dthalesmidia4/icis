@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LayoutGrid, Users, Play, Layers, Hourglass } from "lucide-react";
+import { LayoutGrid, Users, Play, Layers, Hourglass, Coffee } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
@@ -12,6 +12,9 @@ import OfficeWorld from "@/components/office/OfficeWorld";
 import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
 import OfficeCardOverlay from "@/components/office/OfficeCardOverlay";
+import CoffeeCorner from "@/components/office/CoffeeCorner";
+import { useOfficeDeskPreferences } from "@/hooks/useOfficeDeskPreferences";
+import { useAuth } from "@/hooks/useAuth";
 
 const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
   { id: "all", label: "Todas" },
@@ -27,12 +30,20 @@ const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
 export default function Office() {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
+  const { user } = useAuth();
   const isMobile = useIsMobile();
   const [area, setArea] = useState<OfficeAreaFilter>("all");
   const [queueUserId, setQueueUserId] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
 
   const { stations, totals, loading, refetch } = useOfficeOverview(tenantId, area);
+  const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
+
+  // Quem está em micro-pausa aparece na cafeteria (a mesa continua na sala).
+  const atCoffee = useMemo(
+    () => stations.filter((s) => s.presence.state === "micro_break"),
+    [stations],
+  );
 
   const activeStation = useMemo(
     () => stations.find((s) => s.collaborator.userId === queueUserId) || null,
@@ -47,6 +58,7 @@ export default function Office() {
     { label: "trabalhando", value: totals.working, icon: Play },
     { label: "na fila", value: totals.queued, icon: Layers },
     { label: "aguardando cliente", value: totals.awaitingClient, icon: Hourglass },
+    { label: "no café", value: atCoffee.length, icon: Coffee },
   ];
 
   return (
@@ -86,7 +98,15 @@ export default function Office() {
       </header>
 
       {/* ---------- Cenário ---------- */}
-      <OfficeWorld>
+      <OfficeWorld
+        upperZone={
+          !loading && atCoffee.length > 0 ? (
+            <div className="pointer-events-auto absolute right-3 top-3 z-40 sm:right-6 sm:top-6">
+              <CoffeeCorner people={atCoffee} />
+            </div>
+          ) : undefined
+        }
+      >
         {loading ? (
           <div className="grid h-full grid-cols-2 items-end gap-8 p-8 sm:grid-cols-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -102,7 +122,14 @@ export default function Office() {
           <div className="flex flex-col gap-6 px-4 pb-6 pt-10">
             {stations.map((station) => (
               <div key={station.collaborator.userId} className="mx-auto w-full max-w-[300px]">
-                <OfficeDesk station={station} onOpenCard={setOpenCardId} onOpenQueue={setQueueUserId} />
+                <OfficeDesk
+                  station={station}
+                  onOpenCard={setOpenCardId}
+                  onOpenQueue={setQueueUserId}
+                  deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
+                  isSelf={!!user && user.id === station.collaborator.userId}
+                  onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
+                />
               </div>
             ))}
           </div>
@@ -124,7 +151,14 @@ export default function Office() {
                     transformOrigin: "bottom center",
                   }}
                 >
-                  <OfficeDesk station={station} onOpenCard={setOpenCardId} onOpenQueue={setQueueUserId} />
+                  <OfficeDesk
+                    station={station}
+                    onOpenCard={setOpenCardId}
+                    onOpenQueue={setQueueUserId}
+                    deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
+                    isSelf={!!user && user.id === station.collaborator.userId}
+                    onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
+                  />
                 </div>
               );
             })}
