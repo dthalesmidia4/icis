@@ -238,9 +238,23 @@ export function useOfficeOverview(
         operational.find((c) => c.id !== current?.id) ||
         null;
 
+      // Área usada para validar a janela: card no monitor > próximo > filtro da tela.
+      const presenceArea: ScheduleAreaFilter =
+        areaFilter !== "all"
+          ? areaFilter
+          : ((current?.workArea || next?.workArea || "all") as ScheduleAreaFilter);
+
+      const { windows } = resolveUserWindows({
+        rows: schedulesByUser[collaborator.userId] || [],
+        weekday: clock.weekday,
+        area: presenceArea,
+        workHours,
+      });
+
       const presence = resolvePresence({
         now,
-        workHours,
+        windows,
+        tz: workHours.tz,
         queue: operational.map((c) => ({ id: c.id, startTs: c.startTs, endTs: c.endTs })),
       });
 
