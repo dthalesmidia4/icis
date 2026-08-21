@@ -7,37 +7,94 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <script>
-      // Kill-switch inline: força atualização/desregistro de qualquer Service Worker
-      // legado que ainda esteja servindo bundles antigos. Roda antes de qualquer módulo.
+      // TAKEOVER DETERMINÍSTICO DE SERVICE WORKER LEGADO.
+      //
+      // Um SW antigo pode interceptar a navegação e devolver um index.html/bundle
+      // do Cache Storage. Só desregistrar não basta: precisamos FORÇAR o takeover
+      // registrando o kill-switch versionado no mesmo escopo "/" e então recarregar
+      // uma única vez pela rede. Nunca limpa localStorage/IndexedDB/cookies.
       (function () {
+        var KILL_VERSION = "2026-08-21-2";
+        var RELOAD_KEY = "icis-sw-killswitch-reloaded-" + KILL_VERSION;
+        var PARAM = "__icis_kill";
+
         try {
           if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-          var RELOAD_KEY = "icis-sw-killswitch-reloaded";
-          var hadController = !!navigator.serviceWorker.controller;
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            if (!regs || regs.length === 0) return;
-            return Promise.all(
-              regs.map(function (r) {
-                return Promise.resolve()
-                  .then(function () { return r.update().catch(function () {}); })
-                  .then(function () { return r.unregister().catch(function () { return false; }); });
+
+          var reloadedOnce = false;
+          try { reloadedOnce = sessionStorage.getItem(RELOAD_KEY) === "1"; } catch (e) {}
+
+          function reloadOnce() {
+            if (reloadedOnce) return;
+            try { sessionStorage.setItem(RELOAD_KEY, "1"); } catch (e) {}
+            var url = new URL(window.location.href);
+            url.searchParams.set(PARAM, KILL_VERSION);
+            window.location.replace(url.toString());
+          }
+
+          function clearCaches() {
+            if (!("caches" in window)) return Promise.resolve();
+            return caches
+              .keys()
+              .then(function (names) {
+                return Promise.all(
+                  names.map(function (n) {
+                    return caches.delete(n).catch(function () { return false; });
+                  })
+                );
               })
-            );
-          }).then(function () {
-            if ("caches" in window) {
-              return caches.keys().then(function (names) {
-                return Promise.all(names.map(function (n) { return caches.delete(n).catch(function () { return false; }); }));
-              });
-            }
-          }).then(function () {
-            if (hadController && sessionStorage.getItem(RELOAD_KEY) !== "1") {
-              sessionStorage.setItem(RELOAD_KEY, "1");
-              window.location.reload();
-            }
+              .catch(function () {});
+          }
+
+          function withTimeout(promise, ms) {
+            return Promise.race([
+              promise,
+              new Promise(function (resolve) { setTimeout(resolve, ms); })
+            ]);
+          }
+
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            var hadController = !!navigator.serviceWorker.controller;
+            var hadRegistrations = !!regs && regs.length > 0;
+
+            if (!hadController && !hadRegistrations) return clearCaches();
+
+            // 1) Força o takeover: registra o kill-switch versionado em "/".
+            return navigator.serviceWorker
+              .register("/sw.js?icis_kill=" + KILL_VERSION, { scope: "/", updateViaCache: "none" })
+              .then(function (reg) {
+                return reg.update().catch(function () {});
+              })
+              .catch(function () {})
+              // 2) Aguarda troca de controller / ready, com timeout seguro.
+              .then(function () {
+                return withTimeout(
+                  new Promise(function (resolve) {
+                    navigator.serviceWorker.addEventListener("controllerchange", resolve, { once: true });
+                    navigator.serviceWorker.ready.then(resolve).catch(resolve);
+                  }),
+                  4000
+                );
+              })
+              // 3) Remove qualquer registration restante.
+              .then(function () {
+                return navigator.serviceWorker.getRegistrations().then(function (all) {
+                  return Promise.all(
+                    (all || []).map(function (r) {
+                      return r.unregister().catch(function () { return false; });
+                    })
+                  );
+                });
+              })
+              .catch(function () {})
+              // 4) Limpa Cache Storage e recarrega UMA única vez.
+              .then(clearCaches)
+              .then(function () { reloadOnce(); });
           }).catch(function () {});
         } catch (e) { /* noop */ }
       })();
     </script>
+
 
     <title>ICIS - Gestão Inteligente de Marketing</title>
     <meta name="description" content="Plataforma completa de automação e gestão de marketing com IA. Crie planos personalizados, organize tarefas em Kanban e impulsione seu negócio." />
