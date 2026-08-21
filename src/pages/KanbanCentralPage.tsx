@@ -2679,8 +2679,10 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, head
             <Plus className="h-4 w-4 mr-1" />
             Nova Demanda
           </Button>
+          {modeSelector}
         </div>
       </div>
+
 
       {!headerOnly && (
       <>
