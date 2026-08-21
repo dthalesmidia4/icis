@@ -116,7 +116,7 @@ export const OfficeDesk = memo(function OfficeDesk({
                       working ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
                     )}
                   >
-                    {working ? "Em andamento" : "Próximo"}
+                    {statusLabel}
                     {working && <span className="animate-office-caret motion-reduce:animate-none">▌</span>}
                   </span>
                   {current?.isLate && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-destructive" />}
