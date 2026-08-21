@@ -236,8 +236,13 @@ export const OfficeDesk = memo(function OfficeDesk({
               </div>
             )}
           </button>
-          {/* pé do monitor + teclado */}
-          <span aria-hidden="true" className="h-1.5 w-4 bg-foreground/25" />
+          {/* pé do monitor + teclado (com slot CENTER-SIDE ao lado do pé) */}
+          <div className="flex items-end gap-[3px]">
+            {objectBySlot["center-side"] && (
+              <DeskObject objectKey={objectBySlot["center-side"]} size={22} />
+            )}
+            <span aria-hidden="true" className="h-1.5 w-4 bg-foreground/25" />
+          </div>
           <span aria-hidden="true" className="h-[3px] w-10 rounded-sm bg-foreground/30" />
           <span
             aria-hidden="true"
@@ -245,11 +250,10 @@ export const OfficeDesk = memo(function OfficeDesk({
           />
         </div>
 
-        {/* objetos pessoais + pilha física da fila */}
-        <div className="flex shrink-0 items-end gap-1 pb-[2px]">
-          {slots.map(({ slot, key }) => (
-            <DeskObject key={slot} objectKey={key} size={22} />
-          ))}
+        {/* faixa direita ESTÁVEL: objeto direito + pilha física da fila */}
+        <div className="flex shrink-0 items-end justify-end gap-1 pb-[2px]">
+          {objectBySlot.right && <DeskObject objectKey={objectBySlot.right} size={24} />}
+
           <PaperStack
             queueCount={queueRest}
             awaitingClientCount={awaitingClientCount}
