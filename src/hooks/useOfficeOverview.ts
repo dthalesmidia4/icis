@@ -121,22 +121,29 @@ export function useOfficeOverview(
       setLoading(false);
       return;
     }
-    const [{ data: rows, error }, { data: companies }, { data: functions }] = await Promise.all([
-      supabase
-        .from("demands")
-        .select(
-          "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, work_area, due_date, due_time, delivery_date, delivery_time, released_at, status_id, is_daily_card",
-        )
-        .eq("tenant_id", tenantId)
-        .is("archived_at", null)
-        .eq("is_draft", false),
-      supabase.from("tenant_companies").select("id, name").eq("tenant_id", tenantId),
-      supabase.from("flow_functions").select("function_key, name").eq("tenant_id", tenantId),
-    ]);
+    const [{ data: rows, error }, { data: companies }, { data: functions }, { data: schedules }] =
+      await Promise.all([
+        supabase
+          .from("demands")
+          .select(
+            "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, work_area, due_date, due_time, delivery_date, delivery_time, released_at, status_id, is_daily_card",
+          )
+          .eq("tenant_id", tenantId)
+          .is("archived_at", null)
+          .eq("is_draft", false),
+        supabase.from("tenant_companies").select("id, name").eq("tenant_id", tenantId),
+        supabase.from("flow_functions").select("function_key, name").eq("tenant_id", tenantId),
+        // Expediente REAL por usuário/área/dia — uma única query por tenant.
+        supabase
+          .from("user_area_schedules")
+          .select("user_id, work_area, weekday, start_time, end_time")
+          .eq("tenant_id", tenantId),
+      ]);
 
     if (error) console.error("[useOfficeOverview] demands error", error);
 
     setDemands(((rows || []) as unknown as RawDemand[]) ?? []);
+    setScheduleRows(((schedules || []) as unknown as AreaScheduleRow[]) ?? []);
 
     const names: Record<string, string> = {};
     ((companies || []) as any[]).forEach((c) => {
