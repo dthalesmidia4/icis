@@ -292,10 +292,10 @@ export default function Office() {
                   isSelf={!!user && user.id === station.collaborator.userId}
                   onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
-                  draggingCardId={draggingCardId}
-                  onDragCardStart={setDraggingCardId}
-                  onDragCardEnd={() => setDraggingCardId(null)}
-                  onDropCard={handleDropCard}
+                  draggingCardId={drag?.cardId ?? null}
+                  isDropTarget={drag?.targetUserId === station.collaborator.userId}
+                  onPressCard={startPress}
+                  consumeClickSuppression={consumeClickSuppression}
                 />
               </div>
             ))}
