@@ -90,6 +90,9 @@ export const OfficeDesk = memo(function OfficeDesk({
 
   // Barra discreta na base da mesa: SÓ o card atual, progresso temporal real.
   const progress = current ? cardProgress(current.startTs, current.endTs, now) : null;
+  // ATRASO VISUAL ÚNICO: borda do monitor e ícone usam o MESMO sinal da barra
+  // (prazo estourado), nunca o "início já passou" — senão fica vermelho sem atraso.
+  const overdue = progress !== null && progress >= 1;
 
 
   return (
