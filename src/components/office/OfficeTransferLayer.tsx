@@ -17,7 +17,7 @@ interface OfficeTransferLayerProps {
 }
 
 const MAX_CONCURRENT = 3;
-const DURATION = 800;
+const DURATION = 4200;
 
 /**
  * Camada de OVERLAY do escritório: desenha um "ghost card" (folha física) que
@@ -48,7 +48,7 @@ export default function OfficeTransferLayer({
       el.classList.add(kind === "nudge" ? "office-nudge" : "office-bounce");
       const t = window.setTimeout(
         () => el.classList.remove(kind === "nudge" ? "office-nudge" : "office-bounce"),
-        520,
+        1600,
       );
       const undo = () => window.clearTimeout(t);
       cleanups.current.add(undo);
