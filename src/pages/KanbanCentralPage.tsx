@@ -214,9 +214,13 @@ interface KanbanCentralPageProps {
   headerOnly?: boolean;
   /** Seletor de modo da Visão Geral, injetado dentro da barra principal. */
   modeSelector?: ReactNode;
+  /** Título exibido na barra principal (segue o modo ativo da Visão Geral). */
+  headerTitle?: string;
+  /** Ícone exibido na barra principal (segue o modo ativo). */
+  headerIcon?: ReactNode;
 }
 
-const KanbanCentralPage = ({ headerOnly = false, modeSelector }: KanbanCentralPageProps) => {
+const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, headerIcon }: KanbanCentralPageProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { isSuperAdmin, isAgencyManager, isAgencyAdmin, isLoading: roleLoading } = useAgencyRole();
@@ -2396,18 +2400,20 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector }: KanbanCentralPa
   return (
     <div className="mt-4 px-3 sm:px-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-4 gap-x-3 gap-y-2 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="p-2 bg-primary/10 rounded-lg">
-            <LayoutGrid className="h-5 w-5 text-primary" />
+            {headerIcon || <LayoutGrid className="h-5 w-5 text-primary" />}
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-            Visão geral das Tarefas
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate">
+            {headerTitle || "Visão geral das Tarefas"}
           </h2>
-          <Badge variant="secondary">
-            {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
-          </Badge>
-          {focusedColumnId && (() => {
+          {!headerOnly && (
+            <Badge variant="secondary">
+              {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
+            </Badge>
+          )}
+          {!headerOnly && focusedColumnId && (() => {
             const focusName = collaborators.find((c) => c.userId === focusedColumnId)?.fullName || "Colaborador";
             return (
               <div className="flex items-center gap-2 pl-3 ml-1 border-l border-border/60 animate-fade-in">
@@ -2429,9 +2435,7 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector }: KanbanCentralPa
           })()}
         </div>
 
-        {modeSelector}
-
-        <div className="flex items-center gap-2">
+        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -2675,8 +2679,10 @@ const KanbanCentralPage = ({ headerOnly = false, modeSelector }: KanbanCentralPa
             <Plus className="h-4 w-4 mr-1" />
             Nova Demanda
           </Button>
+          {modeSelector}
         </div>
       </div>
+
 
       {!headerOnly && (
       <>
