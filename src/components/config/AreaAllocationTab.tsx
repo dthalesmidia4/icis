@@ -117,7 +117,7 @@ export function AreaAllocationTab() {
     if (!agencyId) return false;
     const existing = blocksForCell(rows, userId, weekday, area);
     const check = validateBlock(existing, { start, end });
-    if (!check.ok) {
+    if (check.ok === false) {
       toast.error(check.error);
       return false;
     }
@@ -148,7 +148,7 @@ export function AreaAllocationTab() {
   const updateBlock = async (block: ScheduleBlock, start: string, end: string) => {
     const existing = blocksForCell(rows, block.user_id, block.weekday, block.work_area);
     const check = validateBlock(existing, { start, end }, block.id);
-    if (!check.ok) {
+    if (check.ok === false) {
       toast.error(check.error);
       return;
     }
