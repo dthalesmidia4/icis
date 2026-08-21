@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
 interface OfficeWorldProps {
   children: ReactNode;
@@ -7,6 +7,10 @@ interface OfficeWorldProps {
    * (ex.: área de descanso). Não renderiza nada quando ausente.
    */
   upperZone?: ReactNode;
+  /** Camada de overlay livre (ex.: animação de transferência). */
+  overlay?: ReactNode;
+  /** Referência do container, usada para coordenadas relativas do overlay. */
+  containerRef?: RefObject<HTMLElement>;
 }
 
 /**
@@ -14,13 +18,21 @@ interface OfficeWorldProps {
  * perspectiva e uma camada livre onde as mesas são posicionadas.
  * Somente CSS/SVG — nenhuma imagem externa.
  */
-export default function OfficeWorld({ children, upperZone }: OfficeWorldProps) {
+export default function OfficeWorld({
+  children,
+  upperZone,
+  overlay,
+  containerRef,
+}: OfficeWorldProps) {
   return (
     <section
+      ref={containerRef as RefObject<HTMLElement> as any}
       aria-label="Planta do escritório"
       className="relative flex min-h-[calc(100vh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/60 via-muted/25 to-muted/45"
     >
       {upperZone}
+      {overlay}
+
 
       {/* ---------- Parede ---------- */}
       <div
