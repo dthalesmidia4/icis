@@ -1,12 +1,13 @@
-import { useCallback, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { Button } from "@/components/ui/button";
-import TaskCard from "@/components/TaskCard";
+
+// Caminho crítico do Escritório: o TaskCard (e todo o seu grafo de dependências)
+// só é baixado/montado quando o usuário abre o rascunho de fato.
+const LazyTaskCard = lazy(() => import("@/components/TaskCard"));
 import { supabase } from "@/integrations/supabase/client";
 import { draftClientChangePatch } from "@/lib/draftDemand";
-import { ensureExecutionRun } from "@/lib/demandExecution";
-import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 interface NewDemandActionProps {
   tenantId: string | null | undefined;
@@ -200,11 +201,15 @@ export default function NewDemandAction({ tenantId, onCreated }: NewDemandAction
           return;
         }
 
-        if (tenantId) await recordOriginTouchpoint(tenantId, result.demand_id);
+        if (tenantId) {
+          const { recordOriginTouchpoint } = await import("@/lib/recordTouchpoint");
+          await recordOriginTouchpoint(tenantId, result.demand_id);
+        }
 
         const itemTexts = (extras?.executionItemTexts || []).filter(Boolean);
         if (itemTexts.length > 0 && tenantId) {
           try {
+            const { ensureExecutionRun } = await import("@/lib/demandExecution");
             const run = await ensureExecutionRun({
               tenantId,
               demandId: result.demand_id,
@@ -246,8 +251,10 @@ export default function NewDemandAction({ tenantId, onCreated }: NewDemandAction
         Nova Demanda
       </Button>
 
-      <TaskCard
-        open={open}
+      {open && (
+        <Suspense fallback={null}>
+          <LazyTaskCard
+            open={open}
         onOpenChange={(next) => {
           if (!next) discard();
         }}
@@ -266,8 +273,10 @@ export default function NewDemandAction({ tenantId, onCreated }: NewDemandAction
         onSave={async () => {}}
         onFileUpload={async () => {}}
         onRemoveAttachment={async () => {}}
-        onDelete={() => discard()}
-      />
+            onDelete={() => discard()}
+          />
+        </Suspense>
+      )}
     </>
   );
 }
