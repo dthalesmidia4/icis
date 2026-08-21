@@ -66,6 +66,10 @@ export const OfficeDesk = memo(function OfficeDesk({
         : "Próximo";
   const monitorCard = current || next;
   const slots = assignDeskSlots(deskObjects);
+  const now = useNowTick(60_000);
+  // Barra discreta na base da mesa: SÓ o card atual, progresso temporal real.
+  const progress = current ? cardProgress(current.startTs, current.endTs, now) : null;
+
 
   return (
     <div className="group/desk relative w-full select-none">
