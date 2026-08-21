@@ -271,14 +271,22 @@ export function computeDeskSlots(
       leftPct = inset + stepX * (posInRow + 0.5) + jitter(i + row, profile.jitterPct * 1.5);
     }
 
+    // Zona reservada: só a fileira do fundo (row 0) e só a estação mais à
+    // direita dela precisam terminar antes do balcão do café.
+    const isBackRow = row === 0 && rows > 1;
+    const isRightmost = posInRow === inRow - 1;
+    const clamped =
+      isBackRow && isRightmost && inRow > 1 ? Math.min(leftPct, backRightMaxPct) : leftPct;
+
     slots.push({
-      leftPct: Math.min(94, Math.max(6, leftPct)),
+      leftPct: Math.min(94, Math.max(6, clamped)),
       topPct,
       scale,
       z: 10 + row * 10,
       row,
     });
   }
+
 
   return slots;
 }
