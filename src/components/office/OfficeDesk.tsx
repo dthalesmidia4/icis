@@ -7,7 +7,7 @@ import OfficeCharacter from "./OfficeCharacter";
 import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
-import { assignDeskSlots, type DeskObjectKey } from "@/lib/officeDeskObjects";
+import { assignDeskSlots, type DeskObjectKey, type DeskSlotName } from "@/lib/officeDeskObjects";
 
 const timeLabel = (date?: string | null, time?: string | null) => {
   if (!date) return null;
@@ -31,6 +31,8 @@ interface OfficeDeskProps {
   /** É a mesa do usuário logado (única que pode ser personalizada). */
   isSelf?: boolean;
   onSaveDeskObjects?: (objects: DeskObjectKey[]) => void | Promise<unknown>;
+  /** Largura relativa (%) do monitor dentro da estação (vem do perfil do mundo). */
+  monitorPct?: number;
   /** Registra a pilha desta mesa como origem/destino da animação. */
   registerStackAnchor?: (userId: string, el: HTMLElement | null) => void;
   /** Card sendo arrastado no escritório (destaca destinos válidos). */
@@ -42,6 +44,7 @@ interface OfficeDeskProps {
   /** Suprime o clique quando o gesto virou arraste. */
   consumeClickSuppression?: () => boolean;
 }
+
 
 /**
  * Estação física: personagem AO LADO do monitor (sempre visível, com braços
@@ -55,6 +58,8 @@ export const OfficeDesk = memo(function OfficeDesk({
   deskObjects = [],
   isSelf = false,
   onSaveDeskObjects,
+  monitorPct = 57,
+
   registerStackAnchor,
   draggingCardId = null,
   isDropTarget = false,
@@ -77,7 +82,16 @@ export const OfficeDesk = memo(function OfficeDesk({
         ? "Fora do expediente"
         : "Próximo";
   const monitorCard = current || next;
-  const slots = assignDeskSlots(deskObjects);
+  // Cada slot tem posição FÍSICA distinta no tampo (esquerda / pé do monitor /
+  // faixa direita) — nunca todos empilhados ao lado da pilha.
+  const objectBySlot = useMemo(() => {
+    const map: Partial<Record<DeskSlotName, DeskObjectKey>> = {};
+    assignDeskSlots(deskObjects).forEach(({ slot, key }) => {
+      map[slot] = key;
+    });
+    return map;
+  }, [deskObjects]);
+
   const now = useNowTick(60_000);
   // A demanda em andamento fica no monitor: a pilha mostra só o restante da fila.
   const monitorId = monitorCard?.id ?? null;
@@ -106,10 +120,19 @@ export const OfficeDesk = memo(function OfficeDesk({
           "ring-2 ring-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.15)]",
       )}
     >
-      {/* ---------- tudo que fica APOIADO/ATRÁS do tampo ---------- */}
-      <div className="relative z-30 -mb-[8px] flex items-end justify-between gap-1 px-2">
+      {/* ---------- tudo que fica APOIADO/ATRÁS do tampo ----------
+          3 zonas estáveis: [personagem + objeto esquerdo] [monitor compacto]
+          [objeto direito + fila]. O monitor tem largura com teto (nunca flex-1),
+          garantindo faixa lateral útil para a pilha e os acessórios. */}
+      <div
+        className="relative z-30 -mb-[8px] grid items-end gap-1 px-2"
+        style={{ gridTemplateColumns: `auto minmax(0, ${monitorPct}%) minmax(58px, auto)` }}
+      >
         {/* personagem ao lado do monitor (com cadeira discreta atrás) */}
+
+        <div className="flex shrink-0 items-end gap-[3px]">
         <div className="relative flex shrink-0 flex-col items-center pb-[2px]">
+
           {away ? (
             <span aria-hidden="true" className="flex flex-col items-center opacity-70">
               <span className="h-8 w-9 rounded-t-md bg-foreground/20 dark:bg-foreground/25" />
@@ -131,9 +154,17 @@ export const OfficeDesk = memo(function OfficeDesk({
             </>
           )}
         </div>
+          {/* slot ESQUERDO: sobre o tampo, entre personagem e monitor */}
+          {objectBySlot.left && (
+            <div className="pb-[2px]">
+              <DeskObject objectKey={objectBySlot.left} size={24} />
+            </div>
+          )}
+        </div>
+
 
         {/* monitor */}
-        <div className="flex min-w-0 flex-1 flex-col items-center">
+        <div className="flex min-w-0 flex-col items-center">
           <button
             type="button"
             onPointerDown={(e) => {
@@ -205,8 +236,13 @@ export const OfficeDesk = memo(function OfficeDesk({
               </div>
             )}
           </button>
-          {/* pé do monitor + teclado */}
-          <span aria-hidden="true" className="h-1.5 w-4 bg-foreground/25" />
+          {/* pé do monitor + teclado (com slot CENTER-SIDE ao lado do pé) */}
+          <div className="flex items-end gap-[3px]">
+            {objectBySlot["center-side"] && (
+              <DeskObject objectKey={objectBySlot["center-side"]} size={22} />
+            )}
+            <span aria-hidden="true" className="h-1.5 w-4 bg-foreground/25" />
+          </div>
           <span aria-hidden="true" className="h-[3px] w-10 rounded-sm bg-foreground/30" />
           <span
             aria-hidden="true"
@@ -214,11 +250,10 @@ export const OfficeDesk = memo(function OfficeDesk({
           />
         </div>
 
-        {/* objetos pessoais + pilha física da fila */}
-        <div className="flex shrink-0 items-end gap-1 pb-[2px]">
-          {slots.map(({ slot, key }) => (
-            <DeskObject key={slot} objectKey={key} size={22} />
-          ))}
+        {/* faixa direita ESTÁVEL: objeto direito + pilha física da fila */}
+        <div className="flex shrink-0 items-end justify-end gap-1 pb-[2px]">
+          {objectBySlot.right && <DeskObject objectKey={objectBySlot.right} size={24} />}
+
           <PaperStack
             queueCount={queueRest}
             awaitingClientCount={awaitingClientCount}
@@ -242,9 +277,9 @@ export const OfficeDesk = memo(function OfficeDesk({
           style={{ clipPath: "polygon(3% 0, 97% 0, 100% 100%, 0 100%)" }}
         />
         <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/50 px-2 pb-1 pt-[3px] shadow-[0_6px_10px_-8px_hsl(var(--foreground)/0.6)]">
-          {/* plaquinha frontal apenas com o nome (contador vive na pilha) */}
+          {/* plaquinha frontal com o nome + acesso à personalização (só o dono) */}
           <div className="flex items-center justify-center gap-1">
-            <p className="max-w-[80%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
+            <p className="max-w-[70%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
               {collaborator.fullName}
             </p>
             {onBreak && presence.returnsAt && (
@@ -252,7 +287,25 @@ export const OfficeDesk = memo(function OfficeDesk({
                 retorna {presence.returnsAt}
               </span>
             )}
+            {isSelf && onSaveDeskObjects && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label="Personalizar mesa"
+                title="Personalizar mesa"
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-0.5 rounded-full border px-1 py-[1px] text-[8px] font-semibold leading-4 transition-colors",
+                  deskObjects.length === 0
+                    ? "border-primary/60 bg-primary/10 text-primary hover:bg-primary/20"
+                    : "border-border bg-background/80 text-muted-foreground hover:border-primary/60 hover:text-foreground",
+                )}
+              >
+                <Settings2 className="h-2.5 w-2.5" />
+                {deskObjects.length === 0 && <span>Personalizar mesa</span>}
+              </button>
+            )}
           </div>
+
 
           {progress !== null && (
             <div
@@ -275,18 +328,6 @@ export const OfficeDesk = memo(function OfficeDesk({
           )}
 
 
-          {isSelf && onSaveDeskObjects && (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              aria-label="Personalizar mesa"
-              title="Personalizar mesa"
-              className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded-full border border-border bg-background/90 px-1 py-[2px] text-[8px] font-semibold text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
-            >
-              <Settings2 className="h-2.5 w-2.5" />
-              {deskObjects.length === 0 && <span className="hidden sm:inline">Personalizar</span>}
-            </button>
-          )}
         </div>
         {/* pernas */}
         <div aria-hidden="true" className="flex justify-between px-3">

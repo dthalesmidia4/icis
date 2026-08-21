@@ -51,7 +51,37 @@ const SAFE_GUTTER_PX = 28;
 /** Largura mínima aceitável de estação antes de aproximar mesas. */
 const MIN_BASE_WIDTH = 196;
 
+/**
+ * ZONA RESERVADA DA CAFETERIA (canto superior direito da sala).
+ * `CoffeeCorner` tem ~214px de largura e é ancorado em `right-8` (32px) dentro
+ * do mundo, no topo (24% da altura) — ou seja, ele ocupa a MESMA faixa vertical
+ * da fileira do fundo. O anti-colisão entre mesas não enxergava isso, então a
+ * estação superior direita entrava visualmente no balcão.
+ */
+export const COFFEE_WIDTH_PX = 214;
+export const COFFEE_RIGHT_OFFSET_PX = 32;
+/** Margem visual segura pedida (24–40px). */
+export const COFFEE_SAFE_MARGIN_PX = 32;
+
+/** Coordenada X (px) onde a zona útil da cafeteria começa. */
+export function coffeeZoneLeftPx(worldWidth: number): number {
+  return worldWidth - (COFFEE_RIGHT_OFFSET_PX + COFFEE_WIDTH_PX + COFFEE_SAFE_MARGIN_PX);
+}
+
+/**
+ * Largura relativa do monitor dentro da estação. O monitor deixou de usar
+ * `flex-1` (absorvia todo o tampo): agora tem teto explícito, sobrando faixa
+ * estável para personagem/objetos à esquerda e fila/objetos à direita.
+ */
+export const MONITOR_MAX_PCT = 62;
+export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
+  const profile = resolveOfficeProfile(size);
+  // Ultrawide pode crescer discretamente, sem voltar ao aspecto horizontal.
+  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 60 : 57;
+}
+
 const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
+
 
 export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProfile {
   const width = size.width || DEFAULT_SIZE.width;
@@ -177,11 +207,28 @@ export function deskBaseWidth(count: number, size: WorldSize = DEFAULT_SIZE): nu
 /** Faixa vertical útil para composições genéricas (5+ estações). */
 const GENERIC_MIN_ROW_GAP_PCT = 22;
 
-export function computeDeskSlots(count: number, size: WorldSize = DEFAULT_SIZE): DeskSlot[] {
+export interface DeskSlotOptions {
+  /** A cafeteria está visível (desktop) e reserva o canto superior direito. */
+  coffeeCorner?: boolean;
+}
+
+export function computeDeskSlots(
+  count: number,
+  size: WorldSize = DEFAULT_SIZE,
+  options: DeskSlotOptions = {},
+): DeskSlot[] {
   if (count <= 0) return [];
   const profile = resolveOfficeProfile(size);
   const perRow = deskPerRow(count);
   const rows = Math.ceil(count / perRow);
+  const width = size.width || DEFAULT_SIZE.width;
+  const base = deskBaseWidth(count, size);
+  // Centro máximo permitido na FILEIRA DO FUNDO (a única na faixa do café).
+  // Assimetria proposital: a fileira da frente continua livre.
+  const backRightMaxPct = options.coffeeCorner
+    ? ((coffeeZoneLeftPx(width) - (base * profile.scaleBack) / 2) / width) * 100
+    : 100;
+
 
   // Âncoras verticais: 1 fileira usa a da frente; 2 fileiras usam as duas
   // âncoras do perfil (gap real de 34-38 pontos em desktop); 3+ distribuem
@@ -224,14 +271,22 @@ export function computeDeskSlots(count: number, size: WorldSize = DEFAULT_SIZE):
       leftPct = inset + stepX * (posInRow + 0.5) + jitter(i + row, profile.jitterPct * 1.5);
     }
 
+    // Zona reservada: só a fileira do fundo (row 0) e só a estação mais à
+    // direita dela precisam terminar antes do balcão do café.
+    const isBackRow = row === 0 && rows > 1;
+    const isRightmost = posInRow === inRow - 1;
+    const clamped =
+      isBackRow && isRightmost && inRow > 1 ? Math.min(leftPct, backRightMaxPct) : leftPct;
+
     slots.push({
-      leftPct: Math.min(94, Math.max(6, leftPct)),
+      leftPct: Math.min(94, Math.max(6, clamped)),
       topPct,
       scale,
       z: 10 + row * 10,
       row,
     });
   }
+
 
   return slots;
 }
