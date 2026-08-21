@@ -57,6 +57,8 @@ interface ClientButtonPermission {
 export default function TeamMembers() {
   const navigate = useNavigate();
   const { agencyId, isLoading: agencyLoading } = useAgency();
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [columns, setColumns] = useState<PipelineStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
