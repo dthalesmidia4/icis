@@ -45,8 +45,8 @@ export default function OfficeWorld({
       />
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[20%] h-[3px] bg-foreground/10" />
 
-      {/* decoração da parede em escala coerente com as mesas */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[20%] hidden sm:block">
+      {/* decoração da parede: leve, para não competir com os cards das mesas */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[20%] hidden opacity-70 sm:block">
         {/* janelas */}
         <div className="absolute left-[6%] top-[22%] flex gap-3">
           {[0, 1].map((i) => (
@@ -59,8 +59,7 @@ export default function OfficeWorld({
             </div>
           ))}
         </div>
-        {/* quadro */}
-        <div className="absolute left-[42%] top-[30%] h-12 w-16 rounded-sm border-2 border-foreground/15 bg-background/50" />
+
         {/* prateleira com pastas */}
         <div className="absolute right-[16%] top-[34%] w-28">
           <div className="flex items-end gap-1 pl-1">

@@ -17,6 +17,8 @@ import {
 } from "@/lib/officeSchedule";
 import { zonedClockParts } from "@/lib/reorderSequence";
 import { isClientWaitingFunction, normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
+import { isPendingScheduledReview, operationalToday } from "@/lib/scheduledPublishStage";
+
 
 
 export type OfficeAreaFilter = "all" | WorkArea;
@@ -380,6 +382,8 @@ export function useOfficeOverview(
 
   const stations = useMemo<OfficeStationData[]>(() => {
     // Relógio de parede canônico do expediente (nunca o timezone do browser).
+    const today = operationalToday(new Date(now), workHours.tz);
+
     const clock = zonedClockParts(new Date(now), workHours.tz);
     const byUser = new Map<string, OfficeCard[]>();
     const push = (uid: string | null | undefined, card: OfficeCard) => {
@@ -398,8 +402,18 @@ export function useOfficeOverview(
       const awaitingClientCount = all.filter((c) => isClientWaitingFunction(c.functionKey)).length;
 
       const operational = all
-        .filter((c) => !isClientWaitingFunction(c.functionKey) && !activeDispatchIds.has(c.id))
+        .filter(
+          (c) =>
+            !isClientWaitingFunction(c.functionKey) &&
+            !activeDispatchIds.has(c.id) &&
+            // Conferência de publicação só entra na mesa a partir da data.
+            !isPendingScheduledReview(
+              { current_function_key: c.functionKey, publish_date: c.publishDate },
+              today,
+            ),
+        )
         .sort((a, b) => (a.startTs ?? Infinity) - (b.startTs ?? Infinity));
+
 
       const { currentId, nextId } = resolveCurrentAndNext(
         operational.map((c) => ({

@@ -6,7 +6,11 @@
  * diferente — foi assim que "Lúcia 37" apareceu como "66" na alocação em massa.
  */
 
-import { isScheduledPublishStage } from "@/lib/scheduledPublishStage";
+import {
+  isScheduledPublishStage,
+  isPendingScheduledReview,
+  operationalToday,
+} from "@/lib/scheduledPublishStage";
 
 export interface CountableDemandRow {
   id: string;
@@ -14,6 +18,7 @@ export interface CountableDemandRow {
   assigned_to?: string | null;
   archived_at?: string | null;
   is_draft?: boolean | null;
+  publish_date?: string | null;
 }
 
 export interface OperationalCounts {
@@ -39,14 +44,22 @@ export function countOperationalDemands(
   rows: CountableDemandRow[],
   userId: string,
   activeDispatchIds: Set<string> | ReadonlySet<string>,
+  today: string = operationalToday(),
 ): OperationalCounts {
   let total = 0;
   let scheduled = 0;
   for (const row of rows) {
     if (!isActiveOwnedRow(row, userId)) continue;
     total += 1;
-    // Fora da fila operacional: dispatch ativo OU etapa canônica `publicar`.
-    if (activeDispatchIds.has(row.id) || isScheduledPublishStage(row)) scheduled += 1;
+    // Fora da fila operacional: dispatch ativo, etapa canônica `publicar` ou
+    // conferência de publicação (`revisar_publicacao`) com data futura.
+    if (
+      activeDispatchIds.has(row.id) ||
+      isScheduledPublishStage(row) ||
+      isPendingScheduledReview(row, today)
+    ) {
+      scheduled += 1;
+    }
   }
   return {
     totalActiveDemandCount: total,
@@ -54,6 +67,7 @@ export function countOperationalDemands(
     operationalDemandCount: total - scheduled,
   };
 }
+
 
 /** Texto secundário canônico: `+29 com publicação agendada · 66 ativas no total`. */
 export function describeCollaboratorCounts(counts: OperationalCounts): string | null {
