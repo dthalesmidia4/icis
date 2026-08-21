@@ -400,8 +400,18 @@ export function useOfficeOverview(
       const awaitingClientCount = all.filter((c) => isClientWaitingFunction(c.functionKey)).length;
 
       const operational = all
-        .filter((c) => !isClientWaitingFunction(c.functionKey) && !activeDispatchIds.has(c.id))
+        .filter(
+          (c) =>
+            !isClientWaitingFunction(c.functionKey) &&
+            !activeDispatchIds.has(c.id) &&
+            // Conferência de publicação só entra na mesa a partir da data.
+            !isPendingScheduledReview(
+              { current_function_key: c.functionKey, publish_date: c.publishDate },
+              today,
+            ),
+        )
         .sort((a, b) => (a.startTs ?? Infinity) - (b.startTs ?? Infinity));
+
 
       const { currentId, nextId } = resolveCurrentAndNext(
         operational.map((c) => ({
