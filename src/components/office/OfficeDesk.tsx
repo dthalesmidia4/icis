@@ -328,18 +328,6 @@ export const OfficeDesk = memo(function OfficeDesk({
           )}
 
 
-          {isSelf && onSaveDeskObjects && (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              aria-label="Personalizar mesa"
-              title="Personalizar mesa"
-              className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded-full border border-border bg-background/90 px-1 py-[2px] text-[8px] font-semibold text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
-            >
-              <Settings2 className="h-2.5 w-2.5" />
-              {deskObjects.length === 0 && <span className="hidden sm:inline">Personalizar</span>}
-            </button>
-          )}
         </div>
         {/* pernas */}
         <div aria-hidden="true" className="flex justify-between px-3">
