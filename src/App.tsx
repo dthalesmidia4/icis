@@ -61,6 +61,7 @@ import ClientEvolution from "./pages/ClientEvolution";
 import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
 import SystemsClients from "./pages/SystemsClients";
 import SystemsCommercial from "./pages/SystemsCommercial";
+import Office from "./pages/Office";
 
 
 const queryClient = new QueryClient({
@@ -321,6 +322,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <KanbanCentralPage />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/escritorio" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Office />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
