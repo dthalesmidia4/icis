@@ -142,12 +142,21 @@ export default function Office() {
 
       {/* ---------- Cenário ---------- */}
       <OfficeWorld
+        containerRef={worldRef}
         upperZone={
           <div className="pointer-events-auto absolute right-3 top-[19%] z-40 hidden sm:block sm:right-8">
             <CoffeeCorner people={loading ? [] : atCoffee} />
           </div>
         }
+        overlay={
+          <OfficeTransferLayer
+            containerRef={worldRef}
+            anchors={stackAnchors}
+            events={transfers}
+          />
+        }
       >
+
         {loading ? (
           <div className="grid h-full grid-cols-2 items-end gap-8 p-8 sm:grid-cols-3">
             {Array.from({ length: 4 }).map((_, i) => (
