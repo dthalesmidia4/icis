@@ -48,7 +48,7 @@ export default function OverviewPage({ forcedMode }: OverviewPageProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <KanbanCentralPage headerOnly modeSelector={selector} />
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 px-3 sm:px-4">
         <Office />
       </div>
     </div>
