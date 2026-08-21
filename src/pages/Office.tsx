@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTenant } from "@/contexts/TenantContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Play, Layers, Hourglass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
@@ -64,7 +63,7 @@ export default function Office() {
     [],
   );
 
-  const { stations, cards, totals, loading, refetch } = useOfficeOverview(tenantId, area, {
+  const { stations, cards, loading, refetch } = useOfficeOverview(tenantId, area, {
     onDemandEvent: handleDemandEvent,
   });
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
@@ -130,13 +129,6 @@ export default function Office() {
   const slots = useMemo(() => computeDeskSlots(stations.length), [stations.length]);
   const baseWidth = deskBaseWidth(stations.length);
 
-  const metrics = [
-    { label: "pessoas", value: totals.people, icon: Users },
-    { label: "trabalhando", value: totals.working, icon: Play },
-    { label: "na fila", value: totals.queued, icon: Layers },
-    { label: "aguardando cliente", value: totals.awaitingClient, icon: Hourglass },
-  ];
-
   return (
     <div>
       {/* ---------- Cenário ---------- */}
@@ -144,41 +136,26 @@ export default function Office() {
         containerRef={worldRef}
         hud={
           <>
-            {/* HUD discreto no canto inferior direito: métricas + filtro de área.
-                O header estrutural (título, ações e toggle de visão) é único e
-                vive acima, fora do cenário. */}
-            <div className="pointer-events-auto absolute bottom-2 right-2 z-40 flex max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-x-2.5 gap-y-1 rounded-lg border border-border/40 bg-background/45 px-2 py-1 opacity-70 backdrop-blur-[2px] transition-opacity hover:opacity-100">
-
-              {metrics.map((m) => (
-                <div key={m.label} className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <m.icon className="h-3 w-3" />
-                  <span className="text-xs font-semibold tabular-nums text-foreground">{m.value}</span>
-                  <span>{m.label}</span>
-                </div>
+            {/* Apenas o filtro de área permanece no cenário (HUD de métricas
+                foi removido para reduzir poluição visual). */}
+            <div className="pointer-events-auto absolute bottom-2 right-2 z-40 flex rounded-lg border border-border/40 bg-background/45 p-0.5 opacity-70 backdrop-blur-[2px] transition-opacity hover:opacity-100">
+              {AREA_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setArea(tab.id)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    area === tab.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  {tab.label}
+                </button>
               ))}
-
-              <span aria-hidden="true" className="h-4 w-px bg-border" />
-
-              <div className="flex">
-                {AREA_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setArea(tab.id)}
-                    className={cn(
-                      "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-                      area === tab.id
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
             </div>
           </>
-
         }
         upperZone={
           <div className="pointer-events-auto absolute right-3 top-[24%] z-30 hidden sm:block sm:right-8">

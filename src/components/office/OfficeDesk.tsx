@@ -221,7 +221,8 @@ export const OfficeDesk = memo(function OfficeDesk({
               <span
                 className={cn(
                   "block h-full rounded-full transition-[width] duration-500",
-                  current?.isLate ? "bg-destructive/70" : "bg-primary/70",
+                  // Vermelho SÓ quando o tempo já venceu e o card continua na mesa.
+                  progress >= 1 ? "bg-destructive/70" : "bg-primary/70",
                 )}
                 style={{ width: `${Math.max(4, Math.round(progress * 100))}%` }}
               />

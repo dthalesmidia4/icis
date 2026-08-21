@@ -32,7 +32,7 @@ export const OfficeCharacter = memo(function OfficeCharacter({
   size = 52,
   standing = false,
 }: OfficeCharacterProps) {
-  const head = Math.round(size * 0.52);
+  const head = Math.round(size * 0.6);
   const torsoW = Math.round(size * 0.72);
   const torsoH = Math.round(size * (standing ? 0.62 : 0.5));
 
