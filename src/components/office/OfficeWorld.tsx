@@ -7,6 +7,8 @@ interface OfficeWorldProps {
    * (ex.: área de descanso). Não renderiza nada quando ausente.
    */
   upperZone?: ReactNode;
+  /** HUD flutuante sobre a cena (métricas, filtro de área). */
+  hud?: ReactNode;
   /** Camada de overlay livre (ex.: animação de transferência). */
   overlay?: ReactNode;
   /** Referência do container, usada para coordenadas relativas do overlay. */
@@ -20,6 +22,7 @@ interface OfficeWorldProps {
  */
 export default function OfficeWorld({
   children,
+  hud,
   upperZone,
   overlay,
   containerRef,
@@ -30,6 +33,7 @@ export default function OfficeWorld({
       aria-label="Planta do escritório"
       className="relative flex min-h-[calc(100vh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/60 via-muted/25 to-muted/45"
     >
+      {hud}
       {upperZone}
       {overlay}
 
