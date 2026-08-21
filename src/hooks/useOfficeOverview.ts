@@ -110,6 +110,7 @@ export function useOfficeOverview(
   const { config: workHours } = useWorkHoursConfig(tenantId);
 
   const [demands, setDemands] = useState<RawDemand[]>([]);
+  const [scheduleRows, setScheduleRows] = useState<AreaScheduleRow[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
