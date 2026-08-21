@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect, type ReactNode } from "react";
 import { draftClientChangePatch } from "@/lib/draftDemand";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -209,7 +209,14 @@ const getDisplayDemandType = (
   return null;
 };
 
-const KanbanCentralPage = () => {
+interface KanbanCentralPageProps {
+  /** Renderiza apenas a barra principal compartilhada (usada pelo Escritório virtual). */
+  headerOnly?: boolean;
+  /** Seletor de modo da Visão Geral, injetado dentro da barra principal. */
+  modeSelector?: ReactNode;
+}
+
+const KanbanCentralPage = ({ headerOnly = false, modeSelector }: KanbanCentralPageProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { isSuperAdmin, isAgencyManager, isAgencyAdmin, isLoading: roleLoading } = useAgencyRole();
@@ -2422,6 +2429,8 @@ const KanbanCentralPage = () => {
           })()}
         </div>
 
+        {modeSelector}
+
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -2668,6 +2677,9 @@ const KanbanCentralPage = () => {
           </Button>
         </div>
       </div>
+
+      {!headerOnly && (
+      <>
 
       {/* Search + Filters button */}
       {(() => {
@@ -4332,6 +4344,8 @@ const KanbanCentralPage = () => {
         onReschedule={handleConflictReschedule}
         rescheduling={reschedulingConflict}
       />
+      </>
+      )}
     </div>
   );
 };
