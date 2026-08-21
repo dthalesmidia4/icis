@@ -35,10 +35,12 @@ interface OfficeDeskProps {
   registerStackAnchor?: (userId: string, el: HTMLElement | null) => void;
   /** Card sendo arrastado no escritório (destaca destinos válidos). */
   draggingCardId?: string | null;
-  onDragCardStart?: (cardId: string) => void;
-  onDragCardEnd?: () => void;
-  /** Soltar na estação: transferência pelo fluxo canônico de reassign. */
-  onDropCard?: (cardId: string, targetUserId: string) => void;
+  /** Esta mesa é o alvo sob o cursor no arraste atual. */
+  isDropTarget?: boolean;
+  /** Inicia o arraste por ponteiro do card no monitor. */
+  onPressCard?: (e: React.PointerEvent, card: { id: string; title: string; fromUserId: string }) => void;
+  /** Suprime o clique quando o gesto virou arraste. */
+  consumeClickSuppression?: () => boolean;
 }
 
 /**
