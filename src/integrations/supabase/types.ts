@@ -3107,6 +3107,10 @@ export type Database = {
         Args: { _enabled: boolean; _limit: number; _tenant_id: string }
         Returns: Json
       }
+      storage_path_access_allowed: {
+        Args: { _object_name: string }
+        Returns: boolean
+      }
       use_invitation: {
         Args: { _code: string; _user_id: string }
         Returns: Json
