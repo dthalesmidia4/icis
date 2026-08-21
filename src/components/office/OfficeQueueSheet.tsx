@@ -9,6 +9,9 @@ interface OfficeQueueSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenCard: (cardId: string) => void;
+  /** Segurar/arrastar um card daqui: o painel fecha para liberar as mesas. */
+  onDragCardStart?: (cardId: string) => void;
+  onDragCardEnd?: () => void;
 }
 
 const timeLabel = (date?: string | null, time?: string | null) => {
@@ -18,7 +21,14 @@ const timeLabel = (date?: string | null, time?: string | null) => {
 };
 
 /** Painel lateral read-only com a fila de execução de um colaborador. */
-export function OfficeQueueSheet({ station, open, onOpenChange, onOpenCard }: OfficeQueueSheetProps) {
+export function OfficeQueueSheet({
+  station,
+  open,
+  onOpenChange,
+  onOpenCard,
+  onDragCardStart,
+  onDragCardEnd,
+}: OfficeQueueSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md">
@@ -39,8 +49,17 @@ export function OfficeQueueSheet({ station, open, onOpenChange, onOpenCard }: Of
               <button
                 key={card.id}
                 type="button"
+                draggable={!!onDragCardStart}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", card.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  onDragCardStart?.(card.id);
+                  // Oculta o painel para o usuário alcançar as outras mesas.
+                  onOpenChange(false);
+                }}
+                onDragEnd={() => onDragCardEnd?.()}
                 onClick={() => onOpenCard(card.id)}
-                className="w-full rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/50"
+                className="w-full cursor-grab rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/50 active:cursor-grabbing"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-medium text-muted-foreground">#{index + 1}</span>
