@@ -64,6 +64,7 @@ import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
+import { countColumnBadge, describeColumnBadge } from "@/lib/columnBadge";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { ensureExecutionRun } from "@/lib/demandExecution";
