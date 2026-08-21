@@ -154,6 +154,14 @@ export const OfficeDesk = memo(function OfficeDesk({
             </>
           )}
         </div>
+          {/* slot ESQUERDO: sobre o tampo, entre personagem e monitor */}
+          {objectBySlot.left && (
+            <div className="pb-[2px]">
+              <DeskObject objectKey={objectBySlot.left} size={24} />
+            </div>
+          )}
+        </div>
+
 
         {/* monitor */}
         <div className="flex min-w-0 flex-1 flex-col items-center">
