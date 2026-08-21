@@ -255,24 +255,24 @@ export default function NewDemandAction({ tenantId, onCreated }: NewDemandAction
         <Suspense fallback={null}>
           <LazyTaskCard
             open={open}
-        onOpenChange={(next) => {
-          if (!next) discard();
-        }}
-        isDraft
-        card={card}
-        onCardChange={(next) => setCard(next as any)}
-        onDraftSave={save}
-        savingDraft={saving}
-        onDraftDiscard={discard}
-        draftClients={clients}
-        onDraftClientChange={(clientId, clientName) =>
-          setCard((prev: any) =>
+            onOpenChange={(next) => {
+              if (!next) discard();
+            }}
+            isDraft
+            card={card}
+            onCardChange={(next) => setCard(next as any)}
+            onDraftSave={save}
+            savingDraft={saving}
+            onDraftDiscard={discard}
+            draftClients={clients}
+            onDraftClientChange={(clientId, clientName) =>
+              setCard((prev: any) =>
             prev ? { ...prev, clientId, clientName, ...draftClientChangePatch() } : prev,
-          )
-        }
-        onSave={async () => {}}
-        onFileUpload={async () => {}}
-        onRemoveAttachment={async () => {}}
+              )
+            }
+            onSave={async () => {}}
+            onFileUpload={async () => {}}
+            onRemoveAttachment={async () => {}}
             onDelete={() => discard()}
           />
         </Suspense>
