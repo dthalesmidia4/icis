@@ -41,12 +41,12 @@ export default function OfficeWorld({
       {/* ---------- Parede ---------- */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[26%] bg-gradient-to-b from-background/85 to-background/10"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[20%] bg-gradient-to-b from-background/85 to-background/10"
       />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[26%] h-[3px] bg-foreground/10" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[20%] h-[3px] bg-foreground/10" />
 
       {/* decoração da parede em escala coerente com as mesas */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[26%] hidden sm:block">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[20%] hidden sm:block">
         {/* janelas */}
         <div className="absolute left-[6%] top-[22%] flex gap-3">
           {[0, 1].map((i) => (
@@ -80,13 +80,13 @@ export default function OfficeWorld({
       </div>
 
       {/* armário e planta encostados na parede */}
-      <div aria-hidden="true" className="pointer-events-none absolute left-[3%] top-[24%] hidden sm:block">
+      <div aria-hidden="true" className="pointer-events-none absolute left-[3%] top-[18%] hidden sm:block">
         <div className="h-16 w-12 rounded-sm bg-gradient-to-b from-muted-foreground/25 to-muted-foreground/10">
           <div className="mx-auto mt-2 h-[2px] w-8 bg-foreground/15" />
           <div className="mx-auto mt-4 h-[2px] w-8 bg-foreground/15" />
         </div>
       </div>
-      <div aria-hidden="true" className="pointer-events-none absolute right-[3%] top-[22%] hidden flex-col items-center sm:flex">
+      <div aria-hidden="true" className="pointer-events-none absolute right-[3%] top-[16%] hidden flex-col items-center sm:flex">
         <span className="h-7 w-1 rounded bg-foreground/25" />
         <span className="-mt-8 h-6 w-6 -rotate-45 rounded-full bg-primary/30" />
         <span className="-mt-3 ml-5 h-5 w-5 rotate-45 rounded-full bg-primary/25" />
@@ -96,7 +96,7 @@ export default function OfficeWorld({
       {/* ---------- Piso ---------- */}
       <svg
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 top-[26%] h-auto w-full text-foreground/[0.07]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 top-[20%] h-auto w-full text-foreground/[0.07]"
       >
         <defs>
           <pattern
