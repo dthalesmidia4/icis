@@ -61,6 +61,7 @@ import ClientEvolution from "./pages/ClientEvolution";
 import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
 import SystemsClients from "./pages/SystemsClients";
 import SystemsCommercial from "./pages/SystemsCommercial";
+import Office from "./pages/Office";
 
 
 const queryClient = new QueryClient({
