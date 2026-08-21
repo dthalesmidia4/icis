@@ -174,13 +174,51 @@ export function deskPerRow(count: number): number {
 }
 
 /**
- * Largura base (px) da estação, já reduzida quando o footprint real
- * (largura * escala + margem) não caberia entre os centros da fileira.
+ * RESPIRO HORIZONTAL. `SAFE_GUTTER_PX` é o mínimo ABSOLUTO (anti-colisão);
+ * `comfortGapPx` é o respiro DESEJADO entre footprints — proporcional à sala,
+ * porque 56px de folga em 1366 lê diferente de 56px em 2560.
  */
-export function deskBaseWidth(count: number, size: WorldSize = DEFAULT_SIZE): number {
+const COMFORT_GAP_MIN_PX = 56;
+const COMFORT_GAP_MAX_PX = 120;
+export function comfortGapPx(size: WorldSize = DEFAULT_SIZE): number {
+  const width = size.width || DEFAULT_SIZE.width;
+  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.05)));
+}
+
+/**
+ * Downscale progressivo do 2x2 em desktop comum/large: quanto mais apertada a
+ * largura útil, menor a estação — sem breakpoint brusco e sem aproximar os
+ * centros. Ultrawide não entra aqui (fica com o tamanho maior).
+ */
+const TIGHT_WIDTH_PX = 1300;
+const ROOMY_WIDTH_PX = 1700;
+/** Redução máxima admitida por aperto (mantém legibilidade do card atual). */
+export const MAX_DOWNSCALE = 0.14;
+
+function tightnessFactor(size: WorldSize): number {
+  const width = size.width || DEFAULT_SIZE.width;
+  if (width >= ROOMY_WIDTH_PX) return 1;
+  const t = Math.max(0, Math.min(1, (width - TIGHT_WIDTH_PX) / (ROOMY_WIDTH_PX - TIGHT_WIDTH_PX)));
+  // t=0 (apertado) → 1 - MAX_DOWNSCALE ; t=1 (folgado) → 1
+  return 1 - MAX_DOWNSCALE * (1 - t);
+}
+
+/**
+ * Largura base (px) da estação. Ordem de decisão: (1) largura do perfil,
+ * (2) downscale progressivo por aperto no 2x2, (3) clamp pelo respiro
+ * desejado entre footprints, (4) clamp pela zona da cafeteria na fileira do
+ * fundo, (5) piso absoluto anti-colisão. Reduzir a estação SEMPRE vem antes de
+ * aproximar os centros.
+ */
+export function deskBaseWidth(
+  count: number,
+  size: WorldSize = DEFAULT_SIZE,
+  options: DeskSlotOptions = {},
+): number {
   const profile = resolveOfficeProfile(size);
   const width = size.width || DEFAULT_SIZE.width;
   const perRow = deskPerRow(count);
+  const ultrawide = profile.id === "ultrawide" || profile.id === "ultrawideShort";
   let base = profile.baseWidth;
 
   // Mais de 2 por fileira: reduz proporcionalmente antes de qualquer clamp.
@@ -188,7 +226,14 @@ export function deskBaseWidth(count: number, size: WorldSize = DEFAULT_SIZE): nu
   else if (perRow >= 4) base *= 0.66;
   if (count <= 2) base *= 1.06;
 
-  // Anti-colisão: separação mínima entre centros vira largura máxima possível.
+  const desired = base;
+  // (2) Aperto real: só no 2x2 de desktop/large, nunca no ultrawide.
+  if (!ultrawide && perRow === 2 && count > 2) base *= tightnessFactor(size);
+
+  const scaleMax = Math.max(profile.scaleFront, profile.scaleBack);
+  const gap = comfortGapPx(size);
+
+  // Separação entre centros da fileira (a menor das duas fileiras).
   const sepPct =
     perRow === 1
       ? 100
@@ -198,11 +243,28 @@ export function deskBaseWidth(count: number, size: WorldSize = DEFAULT_SIZE): nu
             profile.centersFront[1] - profile.centersFront[0],
           ) - profile.jitterPct * 2
         : (100 - 2 * (8 + 6)) / perRow;
-  const availablePx = (sepPct / 100) * width - SAFE_GUTTER_PX;
-  const maxBase = availablePx / Math.max(profile.scaleFront, profile.scaleBack);
+  const sepPx = (sepPct / 100) * width;
 
-  return Math.round(Math.max(MIN_BASE_WIDTH, Math.min(base, maxBase)));
+  // (3) Respiro desejado e (5) piso absoluto viram tetos de largura.
+  const comfortBase = (sepPx - gap) / scaleMax;
+  const hardBase = (sepPx - SAFE_GUTTER_PX) / scaleMax;
+
+  // (4) Cafeteria: entre o centro da mesa esquerda do fundo e o início da zona
+  // do café precisam caber 1,5 footprints + respiro.
+  let coffeeBase = Number.POSITIVE_INFINITY;
+  if (options.coffeeCorner && perRow >= 2) {
+    const centerLeftPx = (profile.centersBack[0] / 100) * width;
+    coffeeBase = (coffeeZoneLeftPx(width) - centerLeftPx - gap) / (1.5 * profile.scaleBack);
+  }
+
+  // Nunca encolher além do necessário: o piso de conforto é o downscale máximo.
+  const floor = Math.max(MIN_BASE_WIDTH, desired * (1 - MAX_DOWNSCALE));
+  const target = Math.min(base, comfortBase, coffeeBase);
+  const withFloor = Math.max(target, Math.min(floor, base));
+
+  return Math.round(Math.max(MIN_BASE_WIDTH, Math.min(withFloor, hardBase)));
 }
+
 
 /** Faixa vertical útil para composições genéricas (5+ estações). */
 const GENERIC_MIN_ROW_GAP_PCT = 22;
