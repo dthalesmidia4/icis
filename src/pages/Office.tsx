@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast as sonnerToast } from "sonner";
 import { smartAdministrativeReassign } from "@/lib/smartReassign";
 import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
+import { useOfficeCardDrag } from "@/hooks/useOfficeCardDrag";
 
 
 const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
