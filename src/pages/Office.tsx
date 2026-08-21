@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,17 @@ import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
 import OfficeCardOverlay from "@/components/office/OfficeCardOverlay";
 import CoffeeCorner from "@/components/office/CoffeeCorner";
+import OfficeTransferLayer, { type QueuedTransfer } from "@/components/office/OfficeTransferLayer";
+import {
+  buildAssignmentSnapshot,
+  dedupeTransfers,
+  detectTransfers,
+  transferKey,
+  type AssignmentSnapshot,
+} from "@/lib/officeTransfers";
 import { useOfficeDeskPreferences } from "@/hooks/useOfficeDeskPreferences";
 import { useAuth } from "@/hooks/useAuth";
+
 
 const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
   { id: "all", label: "Todas" },
