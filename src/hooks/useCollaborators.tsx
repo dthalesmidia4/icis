@@ -68,7 +68,7 @@ export function useCollaborators(tenantId: string | null | undefined) {
         supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
         supabase
           .from("demands")
-          .select("id, assigned_to, archived_at, is_draft, current_function_key")
+          .select("id, assigned_to, archived_at, is_draft, current_function_key, publish_date")
           .eq("tenant_id", tenantId)
           .is("archived_at", null)
           .eq("is_draft", false)
