@@ -216,7 +216,25 @@ export function useOfficeOverview(
     setClientNames(names);
   }, [tenantId]);
 
+  /**
+   * Nomes das colunas do pipeline: fallback de etapa dos cards sem
+   * `current_function_key` (ex.: "Planejamento"), igual à Visão Geral.
+   */
+  const loadStatuses = useCallback(async () => {
+    if (!tenantId) return setStatusNames({});
+    const { data } = await supabase
+      .from("pipeline_statuses")
+      .select("id, name")
+      .eq("tenant_id", tenantId);
+    const names: Record<string, string> = {};
+    ((data || []) as any[]).forEach((s) => {
+      if (s?.id) names[s.id] = s.name || "";
+    });
+    setStatusNames(names);
+  }, [tenantId]);
+
   const loadFunctions = useCallback(async () => {
+
     if (!tenantId) return setStageLabels({});
     const { data } = await supabase
       .from("flow_functions")
