@@ -214,9 +214,13 @@ interface KanbanCentralPageProps {
   headerOnly?: boolean;
   /** Seletor de modo da Visão Geral, injetado dentro da barra principal. */
   modeSelector?: ReactNode;
+  /** Título exibido na barra principal (segue o modo ativo da Visão Geral). */
+  headerTitle?: string;
+  /** Ícone exibido na barra principal (segue o modo ativo). */
+  headerIcon?: ReactNode;
 }
 
-const KanbanCentralPage = ({ headerOnly = false, modeSelector }: KanbanCentralPageProps) => {
+const KanbanCentralPage = ({ headerOnly = false, modeSelector, headerTitle, headerIcon }: KanbanCentralPageProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { isSuperAdmin, isAgencyManager, isAgencyAdmin, isLoading: roleLoading } = useAgencyRole();
