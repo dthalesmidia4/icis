@@ -95,11 +95,15 @@ interface RawDemand {
   additional_assignees: string[] | null;
   current_function_key: string | null;
   demand_type: string | null;
+  demand_type_key: string | null;
+  origin: string | null;
   work_area: string | null;
   due_date: string | null;
   due_time: string | null;
   delivery_date: string | null;
   delivery_time: string | null;
+  publish_date: string | null;
+  publish_time: string | null;
   released_at: string | null;
   status_id: string | null;
   is_daily_card?: boolean | null;
@@ -114,7 +118,7 @@ const toTs = (date?: string | null, time?: string | null): number | null => {
 };
 
 const DEMAND_COLUMNS =
-  "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, work_area, due_date, due_time, delivery_date, delivery_time, released_at, status_id, is_daily_card";
+  "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, demand_type_key, origin, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, released_at, status_id, is_daily_card";
 
 /** Projeta uma linha realtime de `demands` no shape mínimo usado pelo escritório. */
 const projectDemand = (row: Record<string, any>): RawDemand => ({
@@ -125,15 +129,20 @@ const projectDemand = (row: Record<string, any>): RawDemand => ({
   additional_assignees: Array.isArray(row.additional_assignees) ? row.additional_assignees : null,
   current_function_key: row.current_function_key ?? null,
   demand_type: row.demand_type ?? null,
+  demand_type_key: row.demand_type_key ?? null,
+  origin: row.origin ?? null,
   work_area: row.work_area ?? null,
   due_date: row.due_date ?? null,
   due_time: row.due_time ?? null,
   delivery_date: row.delivery_date ?? null,
   delivery_time: row.delivery_time ?? null,
+  publish_date: row.publish_date ?? null,
+  publish_time: row.publish_time ?? null,
   released_at: row.released_at ?? null,
   status_id: row.status_id ?? null,
   is_daily_card: row.is_daily_card ?? null,
 });
+
 
 /** Elegibilidade idêntica ao filtro da carga inicial. */
 const isEligible = (row: Record<string, any>) => !row.archived_at && row.is_draft === false;
