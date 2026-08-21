@@ -56,6 +56,8 @@ export interface OfficeStationData {
   loadRatio: number;
   /** Presença derivada (mesa, cafeteria, almoço oficial, disponível). */
   presence: PresenceResult;
+  /** Diagnóstico: card atual é de área sem janela ativa agora (não afeta presença). */
+  cardAreaMismatch: boolean;
 }
 
 export interface OfficeOverview {
