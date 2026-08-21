@@ -44,6 +44,7 @@ import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
 import { publicationNotice, saveDemandPublication } from "@/lib/demandPublication";
 import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
+import { smartAdministrativeReassign } from "@/lib/smartReassign";
 import { isClientFacingFunction, isEvaluationFunction } from "@/lib/flowFunctions";
 import ExecutionExitDialog from "@/components/demands/ExecutionExitDialog";
 import {
