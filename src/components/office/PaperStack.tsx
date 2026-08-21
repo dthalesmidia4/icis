@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Inbox, Layers } from "lucide-react";
+import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { paperStackShape } from "@/lib/officeLayout";
 
@@ -11,9 +11,9 @@ interface PaperStackProps {
 }
 
 /**
- * Pilha física de folhas apoiada no tampo: leitura principal do VOLUME de
- * trabalho (não é progresso). Camadas sobrepostas (compactas) por faixa e o
- * número real SEMPRE embaixo da pilha, nunca acima do card do monitor.
+ * Pilha física de folhas apoiada no tampo + contador IMEDIATAMENTE ABAIXO da
+ * pilha (parte visual da própria pilha, nunca junto ao nome do colaborador).
+ * Volume alto (16+) sinaliza em vermelho/destructive apenas no badge.
  */
 export const PaperStack = memo(function PaperStack({
   queueCount,
@@ -46,6 +46,17 @@ export const PaperStack = memo(function PaperStack({
             ))
           )}
         </span>
+        {/* contador da pilha: encostado logo abaixo dela, sobre o tampo */}
+        <span
+          className={cn(
+            "-mt-[1px] inline-flex min-w-[18px] items-center justify-center rounded-full border px-1 text-[9px] font-bold leading-[13px] tabular-nums shadow-sm",
+            overload
+              ? "border-destructive/60 bg-destructive text-destructive-foreground"
+              : "border-border bg-background/95 text-foreground",
+          )}
+        >
+          {queueCount}
+        </span>
       </button>
 
       {awaitingClientCount > 0 && (
@@ -56,43 +67,15 @@ export const PaperStack = memo(function PaperStack({
           title={`${awaitingClientCount} aguardando cliente`}
           className="flex flex-col items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="text-[8px] font-semibold leading-3 tabular-nums text-muted-foreground">
-            {awaitingClientCount}
-          </span>
           <span className="flex h-[12px] w-[22px] items-end justify-center rounded-[2px] border border-dashed border-foreground/30 bg-background/70">
             <Inbox className="h-2.5 w-2.5 text-muted-foreground" />
+          </span>
+          <span className="text-[8px] font-semibold leading-3 tabular-nums text-muted-foreground">
+            {awaitingClientCount}
           </span>
         </button>
       )}
     </div>
-  );
-});
-
-/** Contador da fila — renderizado NA BASE da mesa, ligado à pilha. */
-export const QueueBadge = memo(function QueueBadge({
-  queueCount,
-  collaboratorName,
-  onOpenQueue,
-}: {
-  queueCount: number;
-  collaboratorName: string;
-  onOpenQueue: () => void;
-}) {
-  const { overload } = paperStackShape(queueCount);
-  return (
-    <button
-      type="button"
-      onClick={onOpenQueue}
-      aria-label={`${queueCount} demandas na fila de ${collaboratorName}`}
-      title={`${queueCount} na fila de ${collaboratorName}`}
-      className={cn(
-        "inline-flex items-center gap-0.5 rounded-full border bg-background/90 px-1.5 text-[9px] font-bold leading-4 tabular-nums shadow-sm outline-none transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring",
-        overload ? "border-primary/50 text-primary" : "border-border text-foreground",
-      )}
-    >
-      <Layers className="h-2 w-2" />
-      {queueCount}
-    </button>
   );
 });
 
