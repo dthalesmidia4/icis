@@ -180,6 +180,7 @@ export function useOfficeOverview(
   const [scheduleRows, setScheduleRows] = useState<AreaScheduleRow[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
+  const [statusNames, setStatusNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const onDemandEventRef = useRef(options.onDemandEvent);
@@ -222,8 +223,7 @@ export function useOfficeOverview(
    */
   const loadStatuses = useCallback(async () => {
     if (!tenantId) return setStatusNames({});
-    const { data } = await supabase
-      .from("pipeline_statuses")
+    const { data } = await (supabase.from("pipeline_statuses") as any)
       .select("id, name")
       .eq("tenant_id", tenantId);
     const names: Record<string, string> = {};
@@ -264,9 +264,15 @@ export function useOfficeOverview(
       setLoading(false);
       return;
     }
-    await Promise.all([loadDemands(), loadCompanies(), loadFunctions(), loadSchedules()]);
+    await Promise.all([
+      loadDemands(),
+      loadCompanies(),
+      loadFunctions(),
+      loadStatuses(),
+      loadSchedules(),
+    ]);
     setLoading(false);
-  }, [tenantId, loadDemands, loadCompanies, loadFunctions, loadSchedules]);
+  }, [tenantId, loadDemands, loadCompanies, loadFunctions, loadStatuses, loadSchedules]);
 
   useEffect(() => {
     setLoading(true);
