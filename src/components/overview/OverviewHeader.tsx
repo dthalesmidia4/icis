@@ -154,8 +154,8 @@ export default function OverviewHeader({
   const effectivePipelineId = pipelineId || ownPipelineId;
 
   return (
-    <div className="flex items-center justify-between mb-4 gap-x-3 gap-y-2 flex-wrap">
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="mb-4 flex flex-nowrap items-center justify-between gap-3 overflow-x-auto">
+      <div className="flex shrink-0 items-center gap-3 min-w-0">
         <div className="p-2 bg-primary/10 rounded-lg">
           {icon || <LayoutGrid className="h-5 w-5 text-primary" />}
         </div>
@@ -163,7 +163,8 @@ export default function OverviewHeader({
         {extra}
       </div>
 
-      <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-nowrap items-center justify-end gap-2">
+
         <Button
           variant="outline"
           size="sm"
