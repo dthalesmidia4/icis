@@ -317,6 +317,7 @@ export function useOfficeOverview(
         awaitingClientCount,
         loadRatio: 0,
         presence,
+        cardAreaMismatch: areaMismatch,
       } satisfies OfficeStationData;
     });
 
