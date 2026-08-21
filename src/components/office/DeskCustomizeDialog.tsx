@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import DeskObject from "./DeskObject";
 import {
@@ -24,6 +25,7 @@ interface DeskCustomizeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   value: DeskObjectKey[];
+  /** Deve retornar `{ error }` quando o banco recusar (RLS/rede). */
   onSave: (objects: DeskObjectKey[]) => void | Promise<unknown>;
 }
 
@@ -43,8 +45,14 @@ export default function DeskCustomizeDialog({
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(selected);
+    // Nunca fechar como "salvo" se o banco recusou: o hook devolve { error }.
+    const result = (await onSave(selected)) as { error?: unknown } | void;
     setSaving(false);
+    if (result && typeof result === "object" && "error" in result && result.error) {
+      toast.error("Não foi possível salvar a personalização da mesa");
+      return;
+    }
+    toast.success("Mesa personalizada");
     onOpenChange(false);
   };
 
