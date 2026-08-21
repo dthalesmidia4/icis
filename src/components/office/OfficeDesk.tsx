@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { AlertTriangle, Clock, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfficeStationData } from "@/hooks/useOfficeOverview";
+import { useNowTick } from "@/hooks/useNowTick";
 import OfficeCharacter from "./OfficeCharacter";
 import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
@@ -13,6 +14,13 @@ const timeLabel = (date?: string | null, time?: string | null) => {
   const [, m, d] = date.split("-");
   return `${d}/${m}${time ? ` ${time.slice(0, 5)}` : ""}`;
 };
+
+/** Progresso temporal do card atual (0..1) — nunca reflete volume de fila. */
+const cardProgress = (start: number | null, end: number | null, now: number): number | null => {
+  if (!start || !end || end <= start) return null;
+  return Math.min(1, Math.max(0, (now - start) / (end - start)));
+};
+
 
 interface OfficeDeskProps {
   station: OfficeStationData;
