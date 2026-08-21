@@ -162,7 +162,13 @@ export const OfficeDesk = memo(function OfficeDesk({
             awaitingClientCount={awaitingClientCount}
             collaboratorName={collaborator.fullName}
             onOpenQueue={() => onOpenQueue(collaborator.userId)}
+            anchorRef={
+              registerStackAnchor
+                ? (el) => registerStackAnchor(collaborator.userId, el)
+                : undefined
+            }
           />
+
         </div>
       </div>
 
