@@ -522,8 +522,6 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
 
   const navigate = useNavigate();
   const { setSelectedClient } = useSelectedClient();
-  const [evolutionPopoverOpen, setEvolutionPopoverOpen] = useState(false);
-  const [evolutionSearch, setEvolutionSearch] = useState("");
   const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
   const { cards: pendingEvalCards, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
   // Relógio reativo (virada de dia / atraso não podem ficar congelados na sessão)
