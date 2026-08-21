@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTenant } from "@/contexts/TenantContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Play, Layers, Hourglass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
@@ -64,7 +63,7 @@ export default function Office() {
     [],
   );
 
-  const { stations, cards, totals, loading, refetch } = useOfficeOverview(tenantId, area, {
+  const { stations, cards, loading, refetch } = useOfficeOverview(tenantId, area, {
     onDemandEvent: handleDemandEvent,
   });
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
@@ -129,13 +128,6 @@ export default function Office() {
 
   const slots = useMemo(() => computeDeskSlots(stations.length), [stations.length]);
   const baseWidth = deskBaseWidth(stations.length);
-
-  const metrics = [
-    { label: "pessoas", value: totals.people, icon: Users },
-    { label: "trabalhando", value: totals.working, icon: Play },
-    { label: "na fila", value: totals.queued, icon: Layers },
-    { label: "aguardando cliente", value: totals.awaitingClient, icon: Hourglass },
-  ];
 
   return (
     <div>
