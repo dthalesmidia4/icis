@@ -3107,6 +3107,10 @@ export type Database = {
         Args: { _enabled: boolean; _limit: number; _tenant_id: string }
         Returns: Json
       }
+      set_team_member_avatar: {
+        Args: { _avatar_url: string; _target_user_id: string }
+        Returns: undefined
+      }
       storage_path_access_allowed: {
         Args: { _object_name: string }
         Returns: boolean
