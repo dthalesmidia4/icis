@@ -164,7 +164,7 @@ export const OfficeDesk = memo(function OfficeDesk({
 
 
         {/* monitor */}
-        <div className="flex min-w-0 flex-1 flex-col items-center">
+        <div className="flex min-w-0 flex-col items-center">
           <button
             type="button"
             onPointerDown={(e) => {
