@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_DOWNSCALE,
   MONITOR_MAX_PCT,
+  comfortGapPx,
   coffeeZoneLeftPx,
   computeDeskSlots,
   deskBaseWidth,
@@ -126,5 +128,78 @@ describe("acessórios da mesa", () => {
       "plant",
       "lamp",
     ]);
+  });
+});
+
+
+describe("downscale responsivo do 2x2", () => {
+  const gapFor = (
+    size: { width: number; height: number },
+    opts: { coffeeCorner?: boolean } = {},
+  ) => {
+    const slots = computeDeskSlots(4, size, opts);
+    const base = deskBaseWidth(4, size, opts);
+    const rows = [0, 1].map((row) =>
+      slots.filter((s) => s.row === row).sort((a, b) => a.leftPct - b.leftPct),
+    );
+    return rows.map(([a, b]) => {
+      const centerGapPx = ((b.leftPct - a.leftPct) / 100) * size.width;
+      return centerGapPx - (base * a.scale) / 2 - (base * b.scale) / 2;
+    });
+  };
+
+  it("desktop apertado mantém o respiro mínimo confortável", () => {
+    for (const width of [1120, 1280, 1366, 1440]) {
+      const size = { width, height: 660 };
+      const gaps = gapFor(size, { coffeeCorner: true });
+      for (const g of gaps) expect(g).toBeGreaterThanOrEqual(comfortGapPx(size) - 2);
+    }
+  });
+
+  it("desktop large tem respiro sem encolher demais", () => {
+    const size = { width: 1600, height: 780 };
+    const gaps = gapFor(size, { coffeeCorner: true });
+    for (const g of gaps) expect(g).toBeGreaterThanOrEqual(comfortGapPx(size));
+    // 1600 já está na faixa folgada: nenhum downscale por aperto.
+    expect(deskBaseWidth(4, size)).toBe(374);
+  });
+
+  it("redução por aperto fica dentro do teto e é progressiva", () => {
+    const tight = deskBaseWidth(4, { width: 1280, height: 660 });
+    const mid = deskBaseWidth(4, { width: 1500, height: 720 });
+    const roomy = deskBaseWidth(4, { width: 1700, height: 820 });
+    expect(tight).toBeLessThan(mid);
+    expect(mid).toBeLessThanOrEqual(roomy);
+    // Nunca além do teto de redução em relação à largura do perfil.
+    expect(tight).toBeGreaterThanOrEqual(Math.round(344 * (1 - MAX_DOWNSCALE)) - 1);
+  });
+
+  it("ultrawide não encolhe sem necessidade", () => {
+    for (const [width, height] of [
+      [2560, 1080],
+      [3440, 1440],
+    ] as Array<[number, number]>) {
+      const size = { width, height };
+      const profile = resolveOfficeProfile(size);
+      expect(deskBaseWidth(4, size, { coffeeCorner: true })).toBe(profile.baseWidth);
+      const gaps = gapFor(size, { coffeeCorner: true });
+      for (const g of gaps) expect(g).toBeGreaterThan(comfortGapPx(size));
+    }
+  });
+
+  it("nenhuma sobreposição e café protegido em toda a faixa", () => {
+    for (const width of [1120, 1280, 1366, 1440, 1600, 1920, 2560, 3440]) {
+      const size = { width, height: width < 1900 ? 700 : 1080 };
+      const gaps = gapFor(size, { coffeeCorner: true });
+      for (const g of gaps) expect(g).toBeGreaterThan(0);
+
+      const slots = computeDeskSlots(4, size, { coffeeCorner: true });
+      const base = deskBaseWidth(4, size, { coffeeCorner: true });
+      const backRight = slots
+        .filter((s) => s.row === 0)
+        .reduce((a, b) => (b.leftPct > a.leftPct ? b : a));
+      const rightEdge = (backRight.leftPct / 100) * width + (base * backRight.scale) / 2;
+      expect(rightEdge).toBeLessThanOrEqual(coffeeZoneLeftPx(width));
+    }
   });
 });
