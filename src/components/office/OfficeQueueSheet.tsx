@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Clock } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,9 +10,11 @@ interface OfficeQueueSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenCard: (cardId: string) => void;
-  /** Segurar/arrastar um card daqui: o painel se oculta para liberar as mesas. */
-  onDragCardStart?: (cardId: string) => void;
-  onDragCardEnd?: () => void;
+  /** Segurar um card daqui inicia o arraste por ponteiro. */
+  onPressCard?: (e: React.PointerEvent, card: { id: string; title: string; fromUserId: string }) => void;
+  consumeClickSuppression?: () => boolean;
+  /** Arraste em curso: o painel se oculta (sem desmontar) para liberar as mesas. */
+  dragging?: boolean;
 }
 
 const timeLabel = (date?: string | null, time?: string | null) => {
@@ -25,32 +26,18 @@ const timeLabel = (date?: string | null, time?: string | null) => {
 /**
  * Painel lateral read-only com a fila de um colaborador.
  *
- * Ele é NÃO-MODAL e é apenas OCULTADO durante o arraste (nunca desmontado):
- * desmontar a folha em pleno drag cancela o HTML5 drag-and-drop e deixa
- * destaque preso nas mesas.
+ * Ele é NÃO-MODAL e apenas OCULTADO durante o arraste (nunca desmontado):
+ * desmontar em pleno gesto quebraria o arraste e deixaria destaque preso.
  */
 export function OfficeQueueSheet({
   station,
   open,
   onOpenChange,
   onOpenCard,
-  onDragCardStart,
-  onDragCardEnd,
+  onPressCard,
+  consumeClickSuppression,
+  dragging = false,
 }: OfficeQueueSheetProps) {
-  const [dragging, setDragging] = useState(false);
-
-  // Rede de segurança: qualquer fim de arraste na janela restaura o painel.
-  useEffect(() => {
-    if (!dragging) return;
-    const clear = () => setDragging(false);
-    window.addEventListener("dragend", clear);
-    window.addEventListener("drop", clear);
-    return () => {
-      window.removeEventListener("dragend", clear);
-      window.removeEventListener("drop", clear);
-    };
-  }, [dragging]);
-
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogPrimitive.Portal>
@@ -82,18 +69,17 @@ export function OfficeQueueSheet({
                 <button
                   key={card.id}
                   type="button"
-                  draggable={!!onDragCardStart}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("text/plain", card.id);
-                    e.dataTransfer.effectAllowed = "move";
-                    onDragCardStart?.(card.id);
-                    setDragging(true);
+                  onPointerDown={(e) =>
+                    onPressCard?.(e, {
+                      id: card.id,
+                      title: card.title,
+                      fromUserId: station?.collaborator.userId || "",
+                    })
+                  }
+                  onClick={() => {
+                    if (consumeClickSuppression?.()) return;
+                    onOpenCard(card.id);
                   }}
-                  onDragEnd={() => {
-                    setDragging(false);
-                    onDragCardEnd?.();
-                  }}
-                  onClick={() => onOpenCard(card.id)}
                   className="w-full cursor-grab rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/50 active:cursor-grabbing"
                 >
                   <div className="flex items-center justify-between gap-2">

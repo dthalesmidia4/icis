@@ -35,10 +35,12 @@ interface OfficeDeskProps {
   registerStackAnchor?: (userId: string, el: HTMLElement | null) => void;
   /** Card sendo arrastado no escritório (destaca destinos válidos). */
   draggingCardId?: string | null;
-  onDragCardStart?: (cardId: string) => void;
-  onDragCardEnd?: () => void;
-  /** Soltar na estação: transferência pelo fluxo canônico de reassign. */
-  onDropCard?: (cardId: string, targetUserId: string) => void;
+  /** Esta mesa é o alvo sob o cursor no arraste atual. */
+  isDropTarget?: boolean;
+  /** Inicia o arraste por ponteiro do card no monitor. */
+  onPressCard?: (e: React.PointerEvent, card: { id: string; title: string; fromUserId: string }) => void;
+  /** Suprime o clique quando o gesto virou arraste. */
+  consumeClickSuppression?: () => boolean;
 }
 
 /**
@@ -55,14 +57,13 @@ export const OfficeDesk = memo(function OfficeDesk({
   onSaveDeskObjects,
   registerStackAnchor,
   draggingCardId = null,
-  onDragCardStart,
-  onDragCardEnd,
-  onDropCard,
+  isDropTarget = false,
+  onPressCard,
+  consumeClickSuppression,
 }: OfficeDeskProps) {
 
   const { collaborator, current, next, queueCount, awaitingClientCount, presence } = station;
   const [editing, setEditing] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const working = presence.state === "working_now" && !!current;
   const onBreak = presence.state === "official_break";
   const offShift = presence.state === "off_shift";
@@ -85,8 +86,7 @@ export const OfficeDesk = memo(function OfficeDesk({
     [station.queue, monitorId],
   );
   // Destino válido: existe arraste em curso e o card não é desta própria mesa.
-  const canReceive =
-    !!draggingCardId && !!onDropCard && !station.queue.some((c) => c.id === draggingCardId);
+  const canReceive = !!draggingCardId && !station.queue.some((c) => c.id === draggingCardId);
 
   // Barra discreta na base da mesa: SÓ o card atual, progresso temporal real.
   const progress = current ? cardProgress(current.startTs, current.endTs, now) : null;
@@ -94,25 +94,14 @@ export const OfficeDesk = memo(function OfficeDesk({
 
   return (
     <div
+      data-office-desk-user={collaborator.userId}
       className={cn(
         "group/desk relative w-full select-none rounded-lg transition-shadow",
         canReceive && "ring-2 ring-primary/40",
-        dragOver && canReceive && "ring-2 ring-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.15)]",
+        isDropTarget &&
+          canReceive &&
+          "ring-2 ring-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.15)]",
       )}
-      onDragOver={(e) => {
-        if (!canReceive) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        if (!dragOver) setDragOver(true);
-      }}
-      onDragLeave={() => dragOver && setDragOver(false)}
-      onDrop={(e) => {
-        if (!canReceive) return;
-        e.preventDefault();
-        setDragOver(false);
-        const id = e.dataTransfer.getData("text/plain") || draggingCardId;
-        if (id) onDropCard?.(id, collaborator.userId);
-      }}
     >
       {/* ---------- tudo que fica APOIADO/ATRÁS do tampo ---------- */}
       <div className="relative z-30 -mb-[8px] flex items-end justify-between gap-1 px-2">
@@ -144,15 +133,18 @@ export const OfficeDesk = memo(function OfficeDesk({
         <div className="flex min-w-0 flex-1 flex-col items-center">
           <button
             type="button"
-            draggable={!!monitorCard && !!onDropCard}
-            onDragStart={(e) => {
-              if (!monitorCard) return;
-              e.dataTransfer.setData("text/plain", monitorCard.id);
-              e.dataTransfer.effectAllowed = "move";
-              onDragCardStart?.(monitorCard.id);
+            onPointerDown={(e) => {
+              if (!monitorCard || !onPressCard) return;
+              onPressCard(e, {
+                id: monitorCard.id,
+                title: monitorCard.title,
+                fromUserId: collaborator.userId,
+              });
             }}
-            onDragEnd={() => onDragCardEnd?.()}
-            onClick={() => monitorCard && onOpenCard(monitorCard.id)}
+            onClick={() => {
+              if (consumeClickSuppression?.()) return;
+              if (monitorCard) onOpenCard(monitorCard.id);
+            }}
             disabled={!monitorCard}
             aria-label={monitorCard ? `Abrir card ${monitorCard.title}` : "Monitor em standby"}
             className={cn(

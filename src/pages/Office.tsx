@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast as sonnerToast } from "sonner";
 import { smartAdministrativeReassign } from "@/lib/smartReassign";
 import { useExecutionExitGuard } from "@/hooks/useExecutionExitGuard";
+import { useOfficeCardDrag } from "@/hooks/useOfficeCardDrag";
 
 
 const AREA_TABS: { id: OfficeAreaFilter; label: string }[] = [
@@ -72,22 +73,8 @@ export default function Office() {
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
   const { requestExit, dialog: exitGuardDialog } = useExecutionExitGuard();
 
-  // ---------- drag-and-drop de transferência (fluxo canônico de reassign) ----------
-  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
+  // ---------- arraste por ponteiro (fluxo canônico de reassign) ----------
   const [transferring, setTransferring] = useState(false);
-
-  // Rede de segurança: qualquer fim de arraste limpa o destaque das mesas
-  // (evita o retângulo azul preso quando o drag é cancelado).
-  useEffect(() => {
-    if (!draggingCardId) return;
-    const clear = () => setDraggingCardId(null);
-    window.addEventListener("dragend", clear);
-    window.addEventListener("drop", clear);
-    return () => {
-      window.removeEventListener("dragend", clear);
-      window.removeEventListener("drop", clear);
-    };
-  }, [draggingCardId]);
 
   const stageLabelOf = useCallback(
     (key: string) => cards.find((c) => c.functionKey === key)?.stageLabel || key,
@@ -101,7 +88,6 @@ export default function Office() {
    */
   const handleDropCard = useCallback(
     async (demandId: string, targetUserId: string) => {
-      setDraggingCardId(null);
       if (transferring) return;
       const card = cards.find((c) => c.id === demandId);
       if (!card || card.assignedTo === targetUserId) return;
@@ -156,6 +142,16 @@ export default function Office() {
         }
         applied.softMessages.forEach((m) => sonnerToast.warning(m));
         sonnerToast.success(applied.message);
+        // Dispara a animação já aqui (não depende do realtime chegar); o dedupe
+        // evita repetir quando o evento/refetch trouxer a mesma transferência.
+        if (card.assignedTo && card.assignedTo !== targetUserId) {
+          enqueueRef.current({
+            demandId: card.id,
+            title: card.title,
+            fromUserId: card.assignedTo,
+            toUserId: targetUserId,
+          });
+        }
       } catch (e) {
         console.error("[office] transfer error", e);
         sonnerToast.error("Erro ao transferir demanda");
@@ -165,6 +161,11 @@ export default function Office() {
     },
     [cards, stations, tenantId, requestExit, stageLabelOf, transferring],
   );
+
+  // Arraste por ponteiro: long-press/movimento inicia, mesa sob o cursor recebe.
+  const { drag, startPress, consumeClickSuppression } = useOfficeCardDrag({
+    onDrop: handleDropCard,
+  });
 
   // ---------- animação de transferência (apenas representação visual) ----------
   const worldRef = useRef<HTMLElement>(null);
@@ -292,10 +293,10 @@ export default function Office() {
                   isSelf={!!user && user.id === station.collaborator.userId}
                   onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
-                  draggingCardId={draggingCardId}
-                  onDragCardStart={setDraggingCardId}
-                  onDragCardEnd={() => setDraggingCardId(null)}
-                  onDropCard={handleDropCard}
+                  draggingCardId={drag?.cardId ?? null}
+                  isDropTarget={drag?.targetUserId === station.collaborator.userId}
+                  onPressCard={startPress}
+                  consumeClickSuppression={consumeClickSuppression}
                 />
               </div>
             ))}
@@ -326,10 +327,10 @@ export default function Office() {
                     isSelf={!!user && user.id === station.collaborator.userId}
                     onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
-                  draggingCardId={draggingCardId}
-                  onDragCardStart={setDraggingCardId}
-                  onDragCardEnd={() => setDraggingCardId(null)}
-                  onDropCard={handleDropCard}
+                  draggingCardId={drag?.cardId ?? null}
+                  isDropTarget={drag?.targetUserId === station.collaborator.userId}
+                  onPressCard={startPress}
+                  consumeClickSuppression={consumeClickSuppression}
                   />
                 </div>
               );
@@ -346,8 +347,9 @@ export default function Office() {
           setQueueUserId(null);
           setOpenCardId(id);
         }}
-        onDragCardStart={setDraggingCardId}
-        onDragCardEnd={() => setDraggingCardId(null)}
+        onPressCard={startPress}
+        consumeClickSuppression={consumeClickSuppression}
+        dragging={!!drag}
       />
 
       <OfficeCardOverlay
@@ -356,6 +358,17 @@ export default function Office() {
         onClose={() => setOpenCardId(null)}
         onPersisted={refetch}
       />
+
+      {/* Ghost do card sob o cursor (pointer-events-none para o elementFromPoint
+          continuar enxergando as mesas embaixo). */}
+      {drag && (
+        <div
+          className="pointer-events-none fixed z-[100] max-w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-primary/60 bg-card/95 px-2 py-1 text-[11px] font-medium text-foreground shadow-lg"
+          style={{ left: drag.x, top: drag.y, transform: "translate(-50%, -50%) rotate(-3deg)" }}
+        >
+          <span className="line-clamp-2">{drag.title}</span>
+        </div>
+      )}
 
       {exitGuardDialog}
     </div>
