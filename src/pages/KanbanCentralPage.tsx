@@ -3170,11 +3170,26 @@ const KanbanCentralPage = () => {
                               <span className="text-base font-bold text-foreground truncate">
                                 {column.name}
                               </span>
-                              <Badge variant="secondary" className="text-xs">
-                                {focusKind
-                                  ? (columnCards.length + evaluateCards.length + awaitingCards.length + reviewCards.length)
-                                  : allColumnCards.length}
-                              </Badge>
+                              {(() => {
+                                // Badge = IDs ÚNICOS dos agrupamentos que esta coluna
+                                // realmente mostra (nunca a métrica global do hook).
+                                const badge = countColumnBadge(
+                                  focusKind
+                                    ? [columnCards, reviewCards, awaitingCards, evaluateCards]
+                                    : [allColumnCards],
+                                );
+                                const total = collaborators.find((c) => c.userId === columnUserId)
+                                  ?.totalActiveDemandCount;
+                                return (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs"
+                                    title={describeColumnBadge({ badge, totalActiveDemandCount: total ?? null })}
+                                  >
+                                    {badge}
+                                  </Badge>
+                                );
+                              })()}
                               {isFocusToggle && (
                                 <Focus
                                   className={cn(
