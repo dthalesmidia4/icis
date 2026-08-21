@@ -333,6 +333,8 @@ export default function Office() {
           setQueueUserId(null);
           setOpenCardId(id);
         }}
+        onDragCardStart={setDraggingCardId}
+        onDragCardEnd={() => setDraggingCardId(null)}
       />
 
       <OfficeCardOverlay

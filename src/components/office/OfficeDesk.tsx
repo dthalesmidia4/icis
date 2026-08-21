@@ -8,7 +8,6 @@ import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
 import { assignDeskSlots, type DeskObjectKey } from "@/lib/officeDeskObjects";
-import { groupOfficeQueue } from "@/lib/officeQueueGroups";
 
 const timeLabel = (date?: string | null, time?: string | null) => {
   if (!date) return null;
@@ -80,15 +79,11 @@ export const OfficeDesk = memo(function OfficeDesk({
   const slots = assignDeskSlots(deskObjects);
   const now = useNowTick(60_000);
   // A demanda em andamento fica no monitor: a pilha mostra só o restante da fila.
-  const monitorId = (current || next)?.id ?? null;
-  const groups = useMemo(() => {
-    const todayISO = new Date(now).toLocaleDateString("en-CA");
-    return groupOfficeQueue(
-      station.queue.filter((c) => c.id !== monitorId),
-      { todayISO, visibleLimit: 4, maxGroups: 2 },
-    );
-  }, [station.queue, monitorId, now]);
-  const queueRest = groups.reduce((sum, g) => sum + g.total, 0);
+  const monitorId = monitorCard?.id ?? null;
+  const queueRest = useMemo(
+    () => station.queue.filter((c) => c.id !== monitorId).length,
+    [station.queue, monitorId],
+  );
   // Destino válido: existe arraste em curso e o card não é desta própria mesa.
   const canReceive =
     !!draggingCardId && !!onDropCard && !station.queue.some((c) => c.id === draggingCardId);
@@ -149,6 +144,14 @@ export const OfficeDesk = memo(function OfficeDesk({
         <div className="flex min-w-0 flex-1 flex-col items-center">
           <button
             type="button"
+            draggable={!!monitorCard && !!onDropCard}
+            onDragStart={(e) => {
+              if (!monitorCard) return;
+              e.dataTransfer.setData("text/plain", monitorCard.id);
+              e.dataTransfer.effectAllowed = "move";
+              onDragCardStart?.(monitorCard.id);
+            }}
+            onDragEnd={() => onDragCardEnd?.()}
             onClick={() => monitorCard && onOpenCard(monitorCard.id)}
             disabled={!monitorCard}
             aria-label={monitorCard ? `Abrir card ${monitorCard.title}` : "Monitor em standby"}
@@ -222,10 +225,6 @@ export const OfficeDesk = memo(function OfficeDesk({
             <DeskObject key={slot} objectKey={key} size={22} />
           ))}
           <PaperStack
-            groups={groups}
-            onOpenCard={onOpenCard}
-            onDragCardStart={onDragCardStart}
-            onDragCardEnd={onDragCardEnd}
             queueCount={queueRest}
             awaitingClientCount={awaitingClientCount}
             collaboratorName={collaborator.fullName}
