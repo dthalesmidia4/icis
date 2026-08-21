@@ -133,15 +133,18 @@ export const OfficeDesk = memo(function OfficeDesk({
         <div className="flex min-w-0 flex-1 flex-col items-center">
           <button
             type="button"
-            draggable={!!monitorCard && !!onDropCard}
-            onDragStart={(e) => {
-              if (!monitorCard) return;
-              e.dataTransfer.setData("text/plain", monitorCard.id);
-              e.dataTransfer.effectAllowed = "move";
-              onDragCardStart?.(monitorCard.id);
+            onPointerDown={(e) => {
+              if (!monitorCard || !onPressCard) return;
+              onPressCard(e, {
+                id: monitorCard.id,
+                title: monitorCard.title,
+                fromUserId: collaborator.userId,
+              });
             }}
-            onDragEnd={() => onDragCardEnd?.()}
-            onClick={() => monitorCard && onOpenCard(monitorCard.id)}
+            onClick={() => {
+              if (consumeClickSuppression?.()) return;
+              if (monitorCard) onOpenCard(monitorCard.id);
+            }}
             disabled={!monitorCard}
             aria-label={monitorCard ? `Abrir card ${monitorCard.title}` : "Monitor em standby"}
             className={cn(
