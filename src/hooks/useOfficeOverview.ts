@@ -29,13 +29,24 @@ export interface OfficeCard {
   assignedTo: string | null;
   additionalAssignees: string[];
   functionKey: string | null;
+  /**
+   * Etapa exibida: nome da função operacional quando existe e, quando o card
+   * ainda não tem função (ex.: "Planejamento"), o nome da COLUNA/status que a
+   * Visão Geral já mostra. Nunca "Sem etapa" havendo etapa reconhecível.
+   */
   stageLabel: string;
+  /** Nome da coluna (pipeline_statuses) — fallback canônico da etapa. */
+  statusName: string | null;
   demandType: string | null;
+  demandTypeKey: string | null;
+  origin: string | null;
   workArea: WorkArea;
   dueDate: string | null;
   dueTime: string | null;
   deliveryDate: string | null;
   deliveryTime: string | null;
+  publishDate: string | null;
+  publishTime: string | null;
   isDailyCard: boolean;
   /** Timestamp de início (due_date + due_time) ou null. */
   startTs: number | null;
@@ -43,6 +54,7 @@ export interface OfficeCard {
   endTs: number | null;
   isLate: boolean;
 }
+
 
 export interface OfficeStationData {
   collaborator: Collaborator;
@@ -83,11 +95,15 @@ interface RawDemand {
   additional_assignees: string[] | null;
   current_function_key: string | null;
   demand_type: string | null;
+  demand_type_key: string | null;
+  origin: string | null;
   work_area: string | null;
   due_date: string | null;
   due_time: string | null;
   delivery_date: string | null;
   delivery_time: string | null;
+  publish_date: string | null;
+  publish_time: string | null;
   released_at: string | null;
   status_id: string | null;
   is_daily_card?: boolean | null;
@@ -102,7 +118,7 @@ const toTs = (date?: string | null, time?: string | null): number | null => {
 };
 
 const DEMAND_COLUMNS =
-  "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, work_area, due_date, due_time, delivery_date, delivery_time, released_at, status_id, is_daily_card";
+  "id, title, client_id, assigned_to, additional_assignees, current_function_key, demand_type, demand_type_key, origin, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, released_at, status_id, is_daily_card";
 
 /** Projeta uma linha realtime de `demands` no shape mínimo usado pelo escritório. */
 const projectDemand = (row: Record<string, any>): RawDemand => ({
@@ -113,15 +129,20 @@ const projectDemand = (row: Record<string, any>): RawDemand => ({
   additional_assignees: Array.isArray(row.additional_assignees) ? row.additional_assignees : null,
   current_function_key: row.current_function_key ?? null,
   demand_type: row.demand_type ?? null,
+  demand_type_key: row.demand_type_key ?? null,
+  origin: row.origin ?? null,
   work_area: row.work_area ?? null,
   due_date: row.due_date ?? null,
   due_time: row.due_time ?? null,
   delivery_date: row.delivery_date ?? null,
   delivery_time: row.delivery_time ?? null,
+  publish_date: row.publish_date ?? null,
+  publish_time: row.publish_time ?? null,
   released_at: row.released_at ?? null,
   status_id: row.status_id ?? null,
   is_daily_card: row.is_daily_card ?? null,
 });
+
 
 /** Elegibilidade idêntica ao filtro da carga inicial. */
 const isEligible = (row: Record<string, any>) => !row.archived_at && row.is_draft === false;
@@ -159,6 +180,7 @@ export function useOfficeOverview(
   const [scheduleRows, setScheduleRows] = useState<AreaScheduleRow[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
+  const [statusNames, setStatusNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const onDemandEventRef = useRef(options.onDemandEvent);
@@ -195,7 +217,24 @@ export function useOfficeOverview(
     setClientNames(names);
   }, [tenantId]);
 
+  /**
+   * Nomes das colunas do pipeline: fallback de etapa dos cards sem
+   * `current_function_key` (ex.: "Planejamento"), igual à Visão Geral.
+   */
+  const loadStatuses = useCallback(async () => {
+    if (!tenantId) return setStatusNames({});
+    const { data } = await (supabase.from("pipeline_statuses") as any)
+      .select("id, name")
+      .eq("tenant_id", tenantId);
+    const names: Record<string, string> = {};
+    ((data || []) as any[]).forEach((s) => {
+      if (s?.id) names[s.id] = s.name || "";
+    });
+    setStatusNames(names);
+  }, [tenantId]);
+
   const loadFunctions = useCallback(async () => {
+
     if (!tenantId) return setStageLabels({});
     const { data } = await supabase
       .from("flow_functions")
@@ -225,9 +264,15 @@ export function useOfficeOverview(
       setLoading(false);
       return;
     }
-    await Promise.all([loadDemands(), loadCompanies(), loadFunctions(), loadSchedules()]);
+    await Promise.all([
+      loadDemands(),
+      loadCompanies(),
+      loadFunctions(),
+      loadStatuses(),
+      loadSchedules(),
+    ]);
     setLoading(false);
-  }, [tenantId, loadDemands, loadCompanies, loadFunctions, loadSchedules]);
+  }, [tenantId, loadDemands, loadCompanies, loadFunctions, loadStatuses, loadSchedules]);
 
   useEffect(() => {
     setLoading(true);
@@ -299,6 +344,7 @@ export function useOfficeOverview(
         const area = normalizeWorkArea(d.work_area);
         const startTs = toTs(d.due_date, d.due_time);
         const key = d.current_function_key || null;
+        const statusName = d.status_id ? statusNames[d.status_id] || null : null;
         return {
           id: d.id,
           title: d.title || "Sem título",
@@ -307,13 +353,19 @@ export function useOfficeOverview(
           assignedTo: d.assigned_to,
           additionalAssignees: Array.isArray(d.additional_assignees) ? d.additional_assignees : [],
           functionKey: key,
-          stageLabel: key ? stageLabels[key] || key : "Sem etapa",
+          // Etapa: função operacional > nome da coluna (Visão Geral) > nada.
+          stageLabel: (key ? stageLabels[key] || key : statusName) || "Sem etapa",
+          statusName,
           demandType: d.demand_type,
+          demandTypeKey: d.demand_type_key,
+          origin: d.origin,
           workArea: area,
           dueDate: d.due_date,
           dueTime: d.due_time,
           deliveryDate: d.delivery_date,
           deliveryTime: d.delivery_time,
+          publishDate: d.publish_date,
+          publishTime: d.publish_time,
           isDailyCard: !!d.is_daily_card,
           startTs,
           endTs: toTs(d.delivery_date, d.delivery_time),
@@ -321,7 +373,8 @@ export function useOfficeOverview(
         } satisfies OfficeCard;
       })
       .filter((c) => (areaFilter === "all" ? true : c.workArea === areaFilter));
-  }, [demands, clientNames, stageLabels, areaFilter, now]);
+  }, [demands, clientNames, stageLabels, statusNames, areaFilter, now]);
+
 
   const schedulesByUser = useMemo(() => groupSchedulesByUser(scheduleRows), [scheduleRows]);
 

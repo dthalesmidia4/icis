@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { AlertTriangle, Clock, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfficeStationData } from "@/hooks/useOfficeOverview";
@@ -8,6 +8,7 @@ import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
 import { assignDeskSlots, type DeskObjectKey } from "@/lib/officeDeskObjects";
+import { groupOfficeQueue } from "@/lib/officeQueueGroups";
 
 const timeLabel = (date?: string | null, time?: string | null) => {
   if (!date) return null;
@@ -33,6 +34,12 @@ interface OfficeDeskProps {
   onSaveDeskObjects?: (objects: DeskObjectKey[]) => void | Promise<unknown>;
   /** Registra a pilha desta mesa como origem/destino da animação. */
   registerStackAnchor?: (userId: string, el: HTMLElement | null) => void;
+  /** Card sendo arrastado no escritório (destaca destinos válidos). */
+  draggingCardId?: string | null;
+  onDragCardStart?: (cardId: string) => void;
+  onDragCardEnd?: () => void;
+  /** Soltar na estação: transferência pelo fluxo canônico de reassign. */
+  onDropCard?: (cardId: string, targetUserId: string) => void;
 }
 
 /**
@@ -48,10 +55,15 @@ export const OfficeDesk = memo(function OfficeDesk({
   isSelf = false,
   onSaveDeskObjects,
   registerStackAnchor,
+  draggingCardId = null,
+  onDragCardStart,
+  onDragCardEnd,
+  onDropCard,
 }: OfficeDeskProps) {
 
   const { collaborator, current, next, queueCount, awaitingClientCount, presence } = station;
   const [editing, setEditing] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const working = presence.state === "working_now" && !!current;
   const onBreak = presence.state === "official_break";
   const offShift = presence.state === "off_shift";
@@ -67,12 +79,46 @@ export const OfficeDesk = memo(function OfficeDesk({
   const monitorCard = current || next;
   const slots = assignDeskSlots(deskObjects);
   const now = useNowTick(60_000);
+  // A demanda em andamento fica no monitor: a pilha mostra só o restante da fila.
+  const monitorId = (current || next)?.id ?? null;
+  const groups = useMemo(() => {
+    const todayISO = new Date(now).toLocaleDateString("en-CA");
+    return groupOfficeQueue(
+      station.queue.filter((c) => c.id !== monitorId),
+      { todayISO, visibleLimit: 4, maxGroups: 2 },
+    );
+  }, [station.queue, monitorId, now]);
+  const queueRest = groups.reduce((sum, g) => sum + g.total, 0);
+  // Destino válido: existe arraste em curso e o card não é desta própria mesa.
+  const canReceive =
+    !!draggingCardId && !!onDropCard && !station.queue.some((c) => c.id === draggingCardId);
+
   // Barra discreta na base da mesa: SÓ o card atual, progresso temporal real.
   const progress = current ? cardProgress(current.startTs, current.endTs, now) : null;
 
 
   return (
-    <div className="group/desk relative w-full select-none">
+    <div
+      className={cn(
+        "group/desk relative w-full select-none rounded-lg transition-shadow",
+        canReceive && "ring-2 ring-primary/40",
+        dragOver && canReceive && "ring-2 ring-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.15)]",
+      )}
+      onDragOver={(e) => {
+        if (!canReceive) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (!dragOver) setDragOver(true);
+      }}
+      onDragLeave={() => dragOver && setDragOver(false)}
+      onDrop={(e) => {
+        if (!canReceive) return;
+        e.preventDefault();
+        setDragOver(false);
+        const id = e.dataTransfer.getData("text/plain") || draggingCardId;
+        if (id) onDropCard?.(id, collaborator.userId);
+      }}
+    >
       {/* ---------- tudo que fica APOIADO/ATRÁS do tampo ---------- */}
       <div className="relative z-30 -mb-[8px] flex items-end justify-between gap-1 px-2">
         {/* personagem ao lado do monitor (com cadeira discreta atrás) */}
@@ -108,7 +154,8 @@ export const OfficeDesk = memo(function OfficeDesk({
             aria-label={monitorCard ? `Abrir card ${monitorCard.title}` : "Monitor em standby"}
             className={cn(
               "relative w-full overflow-hidden rounded-[4px] border-[3px] bg-card px-1.5 py-1 text-left transition-[border-color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              working ? "border-foreground/30" : "border-foreground/15",
+              // Semântica única com a barra da mesa: azul normal, vermelho só em atraso.
+              working ? "border-primary/60" : "border-foreground/15",
               current?.isLate && "border-destructive/60",
               monitorCard
                 ? "hover:border-primary/70 hover:shadow-[0_0_0_2px_hsl(var(--primary)/0.2)]"
@@ -175,7 +222,11 @@ export const OfficeDesk = memo(function OfficeDesk({
             <DeskObject key={slot} objectKey={key} size={22} />
           ))}
           <PaperStack
-            queueCount={queueCount}
+            groups={groups}
+            onOpenCard={onOpenCard}
+            onDragCardStart={onDragCardStart}
+            onDragCardEnd={onDragCardEnd}
+            queueCount={queueRest}
             awaitingClientCount={awaitingClientCount}
             collaboratorName={collaborator.fullName}
             onOpenQueue={() => onOpenQueue(collaborator.userId)}

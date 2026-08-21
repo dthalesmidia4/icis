@@ -1,68 +1,110 @@
 import { memo } from "react";
 import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { paperStackShape } from "@/lib/officeLayout";
+import type { OfficeQueueGroup } from "@/lib/officeQueueGroups";
+import type { OfficeCard } from "@/hooks/useOfficeOverview";
 
 interface PaperStackProps {
+  /** Mini-pilhas por agrupamento (mesma regra da Visão Geral). */
+  groups: OfficeQueueGroup<OfficeCard>[];
   queueCount: number;
   awaitingClientCount: number;
   collaboratorName: string;
   onOpenQueue: () => void;
+  onOpenCard?: (cardId: string) => void;
+  /** Início do arraste de uma folha (transferência entre mesas). */
+  onDragCardStart?: (cardId: string) => void;
+  onDragCardEnd?: () => void;
   /** Âncora da pilha para a animação de transferência (registry por userId). */
   anchorRef?: (el: HTMLElement | null) => void;
 }
 
 /**
- * Pilha física de folhas apoiada no tampo + contador IMEDIATAMENTE ABAIXO da
- * pilha (parte visual da própria pilha, nunca junto ao nome do colaborador).
- * Volume alto (16+) sinaliza em vermelho/destructive apenas no badge.
+ * FILA VISUAL INTERATIVA (leve): cada agrupamento vira uma mini-pilha com
+ * folhas nomeadas. O DOM é constante — no máximo `visible` folhas por grupo,
+ * o excedente aparece como `+N`. Nada de TaskCard aqui.
  */
 export const PaperStack = memo(function PaperStack({
+  groups,
   queueCount,
   awaitingClientCount,
   collaboratorName,
   onOpenQueue,
+  onOpenCard,
+  onDragCardStart,
+  onDragCardEnd,
   anchorRef,
 }: PaperStackProps) {
-  const { sheets, step, overload } = paperStackShape(queueCount);
-  const stackHeight = Math.max(6, sheets * step + 5);
+  const overload = queueCount >= 16;
+  const empty = queueCount === 0;
 
   return (
     <div className="flex items-end gap-1.5">
-      <button
-        type="button"
-        ref={anchorRef}
-        onClick={onOpenQueue}
-        aria-label={`${queueCount} demandas na fila de ${collaboratorName}`}
-        title={`${queueCount} na fila`}
-        className="group/stack flex flex-col items-center justify-end rounded-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring"
-      >
+      <div ref={anchorRef} className="flex max-w-[150px] items-end gap-1">
+        {empty ? (
+          <button
+            type="button"
+            onClick={onOpenQueue}
+            aria-label={`Fila vazia de ${collaboratorName}`}
+            title="Fila vazia"
+            className="flex flex-col items-center gap-[2px] rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="h-[3px] w-[30px] rounded-[2px] border border-dashed border-foreground/25" />
+            <span className="inline-flex min-w-[18px] items-center justify-center rounded-full border border-border bg-background/95 px-1 text-[9px] font-bold leading-[13px] tabular-nums">
+              0
+            </span>
+          </button>
+        ) : (
+          groups.map((group) => (
+            <div key={group.key} className="flex w-[58px] flex-col items-stretch gap-[1px]">
+              {/* folhas nomeadas (de cima para baixo) */}
+              <div className="flex flex-col-reverse gap-[1px]">
+                {group.visible.map((card) => (
+                  <button
+                    key={card.id}
+                    type="button"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", card.id);
+                      e.dataTransfer.effectAllowed = "move";
+                      onDragCardStart?.(card.id);
+                    }}
+                    onDragEnd={() => onDragCardEnd?.()}
+                    onClick={() => onOpenCard?.(card.id)}
+                    title={`${card.stageLabel} · ${card.title}`}
+                    className={cn(
+                      "block w-full cursor-grab truncate rounded-[2px] border border-border bg-card px-[2px] text-left text-[7px] font-medium leading-[11px]",
+                      "shadow-[0_1px_1px_-1px_hsl(var(--foreground)/0.5)] outline-none transition-colors",
+                      "hover:border-primary/60 hover:text-primary focus-visible:ring-1 focus-visible:ring-ring active:cursor-grabbing",
+                    )}
+                  >
+                    {card.title}
+                  </button>
+                ))}
+              </div>
 
-        <span className="relative block w-[32px]" style={{ height: stackHeight }}>
-          {sheets === 0 ? (
-            <span className="absolute bottom-0 left-0 h-[3px] w-[30px] rounded-[2px] border border-dashed border-foreground/25" />
-          ) : (
-            Array.from({ length: sheets }).map((_, i) => (
-              <span
-                key={i}
-                className="absolute h-[5px] w-[28px] rounded-[2px] border border-border bg-card shadow-[0_1px_1px_-1px_hsl(var(--foreground)/0.5)] transition-colors group-hover/stack:border-primary/50"
-                style={{ bottom: i * step, left: (i % 3) * 1.2 }}
-              />
-            ))
-          )}
-        </span>
-        {/* contador da pilha: encostado logo abaixo dela, sobre o tampo */}
-        <span
-          className={cn(
-            "-mt-[1px] inline-flex min-w-[18px] items-center justify-center rounded-full border px-1 text-[9px] font-bold leading-[13px] tabular-nums shadow-sm",
-            overload
-              ? "border-destructive/60 bg-destructive text-destructive-foreground"
-              : "border-border bg-background/95 text-foreground",
-          )}
-        >
-          {queueCount}
-        </span>
-      </button>
+              <button
+                type="button"
+                onClick={onOpenQueue}
+                aria-label={`${group.total} demandas em ${group.label} na fila de ${collaboratorName}`}
+                className="flex items-center justify-between gap-[2px] rounded-[2px] px-[2px] text-[7px] leading-[11px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <span className="truncate font-semibold text-muted-foreground">{group.label}</span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full border px-[3px] font-bold tabular-nums",
+                    overload
+                      ? "border-destructive/60 bg-destructive text-destructive-foreground"
+                      : "border-border bg-background/95 text-foreground",
+                  )}
+                >
+                  {group.overflow > 0 ? `+${group.overflow}` : group.total}
+                </span>
+              </button>
+            </div>
+          ))
+        )}
+      </div>
 
       {awaitingClientCount > 0 && (
         <button
