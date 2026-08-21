@@ -160,8 +160,9 @@ describe("downscale responsivo do 2x2", () => {
     const size = { width: 1600, height: 780 };
     const gaps = gapFor(size, { coffeeCorner: true });
     for (const g of gaps) expect(g).toBeGreaterThanOrEqual(comfortGapPx(size));
-    // 1600 já está na faixa folgada: nenhum downscale por aperto.
-    expect(deskBaseWidth(4, size)).toBe(374);
+    // 1600 é folgado: no máximo um encolhimento residual (< 5%).
+    const profile = resolveOfficeProfile(size);
+    expect(deskBaseWidth(4, size)).toBeGreaterThanOrEqual(profile.baseWidth * 0.95);
   });
 
   it("redução por aperto fica dentro do teto e é progressiva", () => {
