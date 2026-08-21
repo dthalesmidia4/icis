@@ -6,8 +6,11 @@
  * diferente — foi assim que "Lúcia 37" apareceu como "66" na alocação em massa.
  */
 
+import { isScheduledPublishStage } from "@/lib/scheduledPublishStage";
+
 export interface CountableDemandRow {
   id: string;
+  current_function_key?: string | null;
   assigned_to?: string | null;
   archived_at?: string | null;
   is_draft?: boolean | null;
@@ -42,7 +45,8 @@ export function countOperationalDemands(
   for (const row of rows) {
     if (!isActiveOwnedRow(row, userId)) continue;
     total += 1;
-    if (activeDispatchIds.has(row.id)) scheduled += 1;
+    // Fora da fila operacional: dispatch ativo OU etapa canônica `publicar`.
+    if (activeDispatchIds.has(row.id) || isScheduledPublishStage(row)) scheduled += 1;
   }
   return {
     totalActiveDemandCount: total,
