@@ -89,6 +89,10 @@ export const OfficeDesk = memo(function OfficeDesk({
     );
   }, [station.queue, monitorId, now]);
   const queueRest = groups.reduce((sum, g) => sum + g.total, 0);
+  // Destino válido: existe arraste em curso e o card não é desta própria mesa.
+  const canReceive =
+    !!draggingCardId && !!onDropCard && !station.queue.some((c) => c.id === draggingCardId);
+
   // Barra discreta na base da mesa: SÓ o card atual, progresso temporal real.
   const progress = current ? cardProgress(current.startTs, current.endTs, now) : null;
 
