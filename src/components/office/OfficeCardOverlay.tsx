@@ -1,4 +1,8 @@
-import DemandDrawer from "@/components/client-hub/DemandDrawer";
+import { Suspense, lazy } from "react";
+
+// O TaskCard completo (via DemandDrawer) é o maior grafo do app: só é baixado
+// quando o usuário abre um card sobre o cenário, nunca no load do Escritório.
+const LazyDemandDrawer = lazy(() => import("@/components/client-hub/DemandDrawer"));
 
 interface OfficeCardOverlayProps {
   demandId: string | null;
@@ -18,7 +22,15 @@ export default function OfficeCardOverlay({
   onClose,
   onPersisted,
 }: OfficeCardOverlayProps) {
+  if (!demandId) return null;
   return (
-    <DemandDrawer demandId={demandId} tenantId={tenantId} onClose={onClose} onPersisted={onPersisted} />
+    <Suspense fallback={null}>
+      <LazyDemandDrawer
+        demandId={demandId}
+        tenantId={tenantId}
+        onClose={onClose}
+        onPersisted={onPersisted}
+      />
+    </Suspense>
   );
 }
