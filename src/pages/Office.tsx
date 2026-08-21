@@ -359,6 +359,17 @@ export default function Office() {
         onPersisted={refetch}
       />
 
+      {/* Ghost do card sob o cursor (pointer-events-none para o elementFromPoint
+          continuar enxergando as mesas embaixo). */}
+      {drag && (
+        <div
+          className="pointer-events-none fixed z-[100] max-w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-primary/60 bg-card/95 px-2 py-1 text-[11px] font-medium text-foreground shadow-lg"
+          style={{ left: drag.x, top: drag.y, transform: "translate(-50%, -50%) rotate(-3deg)" }}
+        >
+          <span className="line-clamp-2">{drag.title}</span>
+        </div>
+      )}
+
       {exitGuardDialog}
     </div>
   );
