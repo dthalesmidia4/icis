@@ -97,12 +97,27 @@ export default {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" },
         },
+        "office-typing": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-1.5px)" },
+        },
+        "office-screen-glow": {
+          "0%, 100%": { opacity: "0.35" },
+          "50%": { opacity: "0.7" },
+        },
+        "office-caret": {
+          "0%, 45%": { opacity: "1" },
+          "55%, 100%": { opacity: "0.15" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
         "shimmer": "shimmer 1.5s ease-in-out infinite",
+        "office-typing": "office-typing 0.85s ease-in-out infinite",
+        "office-screen-glow": "office-screen-glow 3.2s ease-in-out infinite",
+        "office-caret": "office-caret 1.1s steps(1, end) infinite",
       },
     },
   },
