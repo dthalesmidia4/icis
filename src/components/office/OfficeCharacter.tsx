@@ -42,20 +42,31 @@ export const OfficeCharacter = memo(function OfficeCharacter({
       style={{ width: size }}
       aria-hidden="true"
     >
-      {/* cabeça (foto do perfil quando existir) */}
+      {/* cabeça (foto do perfil quando existir) — tamanho idêntico com e sem foto */}
       <span
         className={cn(
-          "relative z-30 flex items-center justify-center overflow-hidden rounded-full border-2 bg-muted font-bold text-muted-foreground",
+          "relative z-30 block shrink-0 overflow-hidden rounded-full border-2 bg-muted",
           working ? "border-primary/70" : "border-border",
         )}
-        style={{ height: head, width: head, fontSize: Math.max(8, Math.round(head * 0.34)) }}
+        style={{ height: head, width: head, boxSizing: "border-box" }}
       >
         {avatarUrl ? (
-          <img src={avatarUrl} alt="" loading="lazy" className="h-full w-full object-cover object-center" />
+          <img
+            src={avatarUrl}
+            alt=""
+            loading="lazy"
+            className="absolute inset-0 h-full w-full rounded-full object-cover object-center"
+          />
         ) : (
-          initialsOf(name)
+          <span
+            className="absolute inset-0 flex items-center justify-center font-bold leading-none text-muted-foreground"
+            style={{ fontSize: Math.max(8, Math.round(head * 0.34)) }}
+          >
+            {initialsOf(name)}
+          </span>
         )}
       </span>
+
 
       {/* torso + braços chegando à altura do tampo/teclado */}
       <span
