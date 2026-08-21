@@ -258,7 +258,7 @@ export function useOfficeOverview(
     const awaiting = new Set<string>();
     let working = 0;
     stations.forEach((s) => {
-      if (s.current) working += 1;
+      if (s.presence.state === "working_now") working += 1;
       s.queue.forEach((c) => queued.add(c.id));
     });
     cards.forEach((c) => {
