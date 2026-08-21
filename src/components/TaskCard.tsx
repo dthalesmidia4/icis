@@ -3641,54 +3641,45 @@ export default function TaskCard({
                           onCardChange({ ...card, assigned_to: newVal, current_function_key: draftStage });
                           return;
                         }
-                        // Ponto único: função da etapa + ocupação de agenda (mesma área e entre áreas).
-                        const evaluation = await evaluateReassign({
-                          tenantId: card.tenant_id || "",
-                          card: card as any,
-                          newAssignedTo: newVal || null,
-                          collaboratorName: nome,
-                        });
-                        if (!evaluation.allowed) {
-                          if (evaluation.blockedBy === "schedule") {
-                            setAssignConflict({
-                              newAssignedTo: newVal || null,
-                              targetName: nome,
-                              conflicts: evaluation.hard,
-                              suggestion: evaluation.suggestion,
-                              nextFunctionKey: evaluation.nextFunctionKey,
-                            });
-                          } else {
-                            toast.error(evaluation.message || "Transferência bloqueada");
-                          }
-                          return;
-                        }
-                        const nextFn = evaluation.nextFunctionKey;
-                        evaluation.softMessages.forEach((m) => toast.warning(m));
-                        if (evaluation.remapMessage) toast.info(evaluation.remapMessage);
-                        // Ponto único de gravação: desarquiva e tira do status final
-                        // quando o card volta ao fluxo, além de registrar o histórico.
-                        let reassignRes: Awaited<ReturnType<typeof applyReassign>> | null = null;
+                        // CONTRATO ÚNICO de transferência administrativa:
+                        // remapeia a etapa e reagenda automaticamente quando possível;
+                        // só bloqueia quando não existe solução segura.
+                        let smart: Awaited<ReturnType<typeof smartAdministrativeReassign>> | null = null;
                         await runExecutionExitGuarded("Transferir", async () => {
-                          reassignRes = await applyReassign({
-                            tenantId: card.tenant_id,
+                          smart = await smartAdministrativeReassign({
+                            tenantId: card.tenant_id as string,
                             card: card as any,
-                            newAssignedTo: newVal || null,
-                            nextFunctionKey: nextFn,
-                            direction: evaluation.direction,
+                            targetUserId: newVal || null,
+                            targetUserName: nome,
+                            functionLabel: card.current_function_key
+                              ? flowFunctionNames[card.current_function_key] || undefined
+                              : undefined,
+                            stageLabelOf: (k) => flowFunctionNames[k] || k,
                             historySource: "task_card",
                           });
-                          return reassignFailureMessage(reassignRes) ? "failure" : "success";
+                          return smart.status === "applied" ? "success" : "failure";
                         });
-                        if (!reassignRes) return;
-                        const reassignFailure = reassignFailureMessage(reassignRes);
-                        if (reassignFailure) {
-                          console.error("[TaskCard] applyReassign", reassignRes);
-                          toast.error(reassignFailure);
+                        if (!smart) return;
+                        const outcome = smart as Awaited<ReturnType<typeof smartAdministrativeReassign>>;
+                        outcome.softMessages.forEach((m) => toast.warning(m));
+                        if (outcome.status !== "applied") {
+                          toast.error(outcome.message);
                           return;
                         }
-                        onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
-
-
+                        toast.success(outcome.message);
+                        onCardChange({
+                          ...card,
+                          assigned_to: newVal || null,
+                          current_function_key: outcome.nextFunctionKey,
+                          ...(outcome.finalSchedule
+                            ? {
+                                due_date: outcome.finalSchedule.due_date,
+                                due_time: outcome.finalSchedule.due_time,
+                                delivery_date: outcome.finalSchedule.delivery_date,
+                                delivery_time: outcome.finalSchedule.delivery_time,
+                              }
+                            : {}),
+                        } as any);
                       }}
                       disabled={readOnly || (isDraft && !(card as any).demand_type_key)}
                     >
