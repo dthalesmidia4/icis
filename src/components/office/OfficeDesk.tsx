@@ -130,7 +130,9 @@ export const OfficeDesk = memo(function OfficeDesk({
       >
         {/* personagem ao lado do monitor (com cadeira discreta atrás) */}
 
+        <div className="flex shrink-0 items-end gap-[3px]">
         <div className="relative flex shrink-0 flex-col items-center pb-[2px]">
+
           {away ? (
             <span aria-hidden="true" className="flex flex-col items-center opacity-70">
               <span className="h-8 w-9 rounded-t-md bg-foreground/20 dark:bg-foreground/25" />
