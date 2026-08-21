@@ -1,4 +1,13 @@
 import { describe, expect, it, beforeEach } from "vitest";
+const store = new Map<string, string>();
+(globalThis as any).window = {
+  localStorage: {
+    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+    setItem: (k: string, v: string) => void store.set(k, v),
+    clear: () => store.clear(),
+  },
+};
+
 import {
   DEFAULT_OVERVIEW_MODE,
   isOverviewMode,
