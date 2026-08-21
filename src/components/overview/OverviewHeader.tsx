@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, CalendarDays, HeartPulse, History, LayoutGrid, MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,6 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// Montado apenas sob clique — evita custo no primeiro acesso ao Escritório.
-const LazyCreateColumnModal = lazy(() => import("@/components/CreateColumnModal"));
 import NewDemandAction from "@/components/overview/NewDemandAction";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
@@ -70,28 +68,6 @@ export default function OverviewHeader({
   const [evolutionOpen, setEvolutionOpen] = useState(false);
   const [evolutionSearch, setEvolutionSearch] = useState("");
   const [ownClients, setOwnClients] = useState<OverviewHeaderClient[]>([]);
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [ownPipelineId, setOwnPipelineId] = useState<string>("");
-
-  const managesPipeline = !onNewStatus;
-
-  // Pipeline padrão: carregado só quando o header é responsável pelo Novo Status.
-  useEffect(() => {
-    if (!managesPipeline || !tenantId || pipelineId) return;
-    let alive = true;
-    supabase
-      .from("pipelines")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("is_default", true)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (alive && data?.id) setOwnPipelineId(data.id);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [managesPipeline, tenantId, pipelineId]);
 
   // Clientes com demandas ativas — consulta mínima, só ao abrir o popover.
   const loadClients = useCallback(async () => {
@@ -151,8 +127,6 @@ export default function OverviewHeader({
     }
     navigate("/client-evolution", { state: { from: "/visao-geral" } });
   };
-
-  const effectivePipelineId = pipelineId || ownPipelineId;
 
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
