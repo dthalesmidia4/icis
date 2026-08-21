@@ -225,8 +225,26 @@ export default function Office() {
     [stations, queueUserId],
   );
 
-  const slots = useMemo(() => computeDeskSlots(stations.length), [stations.length]);
-  const baseWidth = deskBaseWidth(stations.length);
+  // Tamanho REAL do mundo (medido só no resize, nunca por frame): define o
+  // perfil responsivo das mesas (desktop / large / ultrawide).
+  const [worldSize, setWorldSize] = useState({ width: 1440, height: 860 });
+  useEffect(() => {
+    const el = worldRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (!rect) return;
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      setWorldSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const slots = useMemo(() => computeDeskSlots(stations.length, worldSize), [stations.length, worldSize]);
+  const baseWidth = useMemo(() => deskBaseWidth(stations.length, worldSize), [stations.length, worldSize]);
+
 
   return (
     <div>
