@@ -18,9 +18,12 @@ import {
   buildAssignmentSnapshot,
   dedupeTransfers,
   detectTransfers,
+  transferFromRealtime,
   transferKey,
   type AssignmentSnapshot,
+  type TransferEvent,
 } from "@/lib/officeTransfers";
+import { useRealtimeDemands } from "@/hooks/realtime/useRealtimeDemands";
 import { useOfficeDeskPreferences } from "@/hooks/useOfficeDeskPreferences";
 import { useAuth } from "@/hooks/useAuth";
 
