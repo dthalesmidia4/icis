@@ -244,7 +244,6 @@ export function useOfficeOverview(
     stations.forEach((s) => {
       if (s.current) working += 1;
       s.queue.forEach((c) => queued.add(c.id));
-      s.queue.length; // no-op para clareza
     });
     cards.forEach((c) => {
       if (isClientWaitingFunction(c.functionKey)) awaiting.add(c.id);

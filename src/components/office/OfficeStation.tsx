@@ -75,7 +75,7 @@ export const OfficeStation = memo(function OfficeStation({
           disabled={!monitorCard}
           className={cn(
             "w-full rounded-lg border-2 bg-background/90 p-3 text-left transition-shadow",
-            working ? "border-primary/50" : "border-border",
+            working ? "border-primary/50 animate-pulse motion-reduce:animate-none" : "border-border",
             monitorCard ? "hover:shadow-md" : "cursor-default opacity-80",
           )}
         >
