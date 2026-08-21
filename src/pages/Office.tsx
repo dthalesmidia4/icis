@@ -144,10 +144,11 @@ export default function Office() {
         containerRef={worldRef}
         hud={
           <>
-            {/* Uma ÚNICA faixa de conteúdo do cenário: métricas + filtro de área.
+            {/* HUD discreto no canto inferior direito: métricas + filtro de área.
                 O header estrutural (título, ações e toggle de visão) é único e
                 vive acima, fora do cenário. */}
-            <div className="pointer-events-auto absolute left-3 top-3 z-40 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/50 bg-background/70 px-2.5 py-1.5 backdrop-blur-[2px]">
+            <div className="pointer-events-auto absolute bottom-2 right-2 z-40 flex max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-x-2.5 gap-y-1 rounded-lg border border-border/40 bg-background/45 px-2 py-1 opacity-70 backdrop-blur-[2px] transition-opacity hover:opacity-100">
+
               {metrics.map((m) => (
                 <div key={m.label} className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <m.icon className="h-3 w-3" />
