@@ -131,17 +131,39 @@ export async function evaluateReassign(params: {
         resolved = null;
       }
 
-      const usableStage =
+      let usableStage =
         !!resolved &&
         resolved !== currentKey &&
         (await userHasFunction(tenantId, newAssignedTo, resolved, (card.work_area as any) ?? undefined));
 
+      // ÚLTIMO RECURSO: o resolvedor não achou etapa (ou devolveu uma que o
+      // destinatário não exerce). Em vez de bloquear a transferência, escolhemos
+      // a etapa habilitada MAIS PRÓXIMA dele na área — primeiro à frente, senão
+      // atrás. Só bloqueia quando ele não tem NENHUMA função na área (aí o
+      // próprio banco recusaria a gravação).
       if (!usableStage) {
+        const fallback = await pickNearestAllowedStage(
+          tenantId,
+          (card.work_area as any) ?? undefined,
+          currentKey,
+          await fetchUserAllowedFunctionKeys(
+            tenantId,
+            newAssignedTo,
+            (card.work_area as any) ?? undefined,
+          ),
+        );
+        if (fallback) {
+          resolved = fallback;
+          usableStage = true;
+        }
+      }
+
+      if (!usableStage || !resolved) {
         return {
           ...base,
           allowed: false,
           blockedBy: "function",
-          message: `${nome} não tem etapa OPERACIONAL habilitada compatível com "${stageLabel}" na área ${areaLabel}`,
+          message: `${nome} não tem nenhuma etapa OPERACIONAL habilitada na área ${areaLabel} (compatível com "${stageLabel}")`,
         };
       }
 
