@@ -45,8 +45,43 @@ export default function Office() {
   const [queueUserId, setQueueUserId] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
 
-  const { stations, totals, loading, refetch } = useOfficeOverview(tenantId, area);
+  const { stations, cards, totals, loading, refetch } = useOfficeOverview(tenantId, area);
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
+
+  // ---------- animação de transferência (apenas representação visual) ----------
+  const worldRef = useRef<HTMLElement>(null);
+  const stackAnchors = useRef<Map<string, HTMLElement>>(new Map());
+  const snapshotRef = useRef<AssignmentSnapshot | null>(null);
+  const recentRef = useRef<Record<string, number>>({});
+  const [transfers, setTransfers] = useState<QueuedTransfer[]>([]);
+
+  const registerStackAnchor = useCallback((userId: string, el: HTMLElement | null) => {
+    if (el) stackAnchors.current.set(userId, el);
+    else stackAnchors.current.delete(userId);
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const next = buildAssignmentSnapshot(cards);
+    // Primeira carga (e troca de filtro/reload) apenas registra o baseline.
+    const detected = detectTransfers(snapshotRef.current, next);
+    snapshotRef.current = next;
+    if (detected.length === 0) return;
+    const { events, recent } = dedupeTransfers(detected, recentRef.current, Date.now());
+    recentRef.current = recent;
+    if (events.length === 0) return;
+    const stamp = Date.now();
+    setTransfers((prev) => [
+      ...prev.slice(-12),
+      ...events.map((e) => ({ ...e, key: `${transferKey(e)}:${stamp}` })),
+    ]);
+  }, [cards, loading]);
+
+  // Trocar o filtro de área recompõe as estações: reinicia o baseline.
+  useEffect(() => {
+    snapshotRef.current = null;
+  }, [area]);
+
 
   // Quem está em micro-pausa aparece na cafeteria (a mesa continua na sala).
   const atCoffee = useMemo(
