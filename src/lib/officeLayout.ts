@@ -284,7 +284,7 @@ export function computeDeskSlots(
   const perRow = deskPerRow(count);
   const rows = Math.ceil(count / perRow);
   const width = size.width || DEFAULT_SIZE.width;
-  const base = deskBaseWidth(count, size);
+  const base = deskBaseWidth(count, size, options);
   // Centro máximo permitido na FILEIRA DO FUNDO (a única na faixa do café).
   // Assimetria proposital: a fileira da frente continua livre.
   const backRightMaxPct = options.coffeeCorner
