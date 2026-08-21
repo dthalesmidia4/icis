@@ -83,6 +83,8 @@ import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
 
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
+import { isScheduledPublishStage, isOutOfOperationalBoard } from "@/lib/scheduledPublishStage";
+
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { ClipboardCheck, CheckSquare } from "lucide-react";
@@ -698,6 +700,9 @@ const KanbanCentralPage = () => {
     }
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
+    // Cards na etapa canônica `publicar` ("Publicar agendado") NUNCA aparecem na
+    // Visão Geral — nem na busca: eles têm tela própria (Home → Agendamentos).
+    baseCards = baseCards.filter(card => !isScheduledPublishStage(card as any));
     // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
     // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
     // Durante uma busca ativa, nada é escondido por dispatch: quem procura
@@ -705,6 +710,7 @@ const KanbanCentralPage = () => {
     if (!isSearching) {
       baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
     }
+
     // Fila de liberação: SÓ quando ativada, demandas não liberadas deixam de
     // existir para quem não é gestor. Fila desativada => nada é escondido.
     if (!canManageQueue && queueActive && !isSearching) {
@@ -4245,7 +4251,7 @@ const KanbanCentralPage = () => {
               if (!belongs) return false;
               // Excluir arquivados e cards com publicação agendada (fora da coluna operacional)
               if ((c as any).isArchived) return false;
-              if (activeDispatchIds.has(c.id)) return false;
+              if (isOutOfOperationalBoard(c as any, activeDispatchIds)) return false;
               return true;
             })
 
