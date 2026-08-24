@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FinanceItem, FinanceOccurrence, MonthRow } from "./financeModel";
+import { FinanceItem, FinanceOccurrence, MonthRow, formatBRL } from "./financeModel";
 import {
   buildAttentionInsights,
   isCardCharge,
@@ -179,7 +179,7 @@ describe("bloco de atenção", () => {
     const b = row({ key: "b", item: item({ id: "b", kind: "expense", payment_method: "Boleto" }), dueDate: "2026-08-10", amountBrl: 100 });
     const insights = buildAttentionInsights({ rows: [a, b], statements: [], today: TODAY, cardsById });
     const overdue = insights.find((i) => i.id === "overdue");
-    expect(overdue?.title).toBe("2 pagamentos atrasados · R$ 328,99");
+    expect(overdue?.title).toBe(`2 pagamentos atrasados · ${formatBRL(328.99)}`);
   });
 });
 
@@ -218,7 +218,7 @@ describe("atenção = somente exceções", () => {
     const insights = buildAttentionInsights({ rows: [conta, ferramenta], statements: [], today: TODAY, cardsById });
     expect(insights.filter((i) => i.id.startsWith("overdue"))).toHaveLength(1);
     const overdue = insights.find((i) => i.id === "overdue");
-    expect(overdue?.title).toBe("2 pagamentos atrasados · R$ 150,00");
+    expect(overdue?.title).toBe(`2 pagamentos atrasados · ${formatBRL(150)}`);
     expect(overdue?.domain).toBe("accounts");
   });
 
