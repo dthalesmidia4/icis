@@ -54,12 +54,15 @@ import {
   formatBRL,
   isStatementRow,
 } from "@/lib/financeModel";
+import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
 import {
   AttentionInsight,
   RowStatusContext,
   PaymentQueueEntry,
   buildAttentionInsights,
+  buildPaidComposition,
   buildPaymentQueue,
+  formatDayMonth,
   isDirectPayableRow,
   isSubscriptionsDomainItem,
   monthFullLabel,
@@ -188,6 +191,9 @@ export default function Financial() {
     () => buildPaymentQueue({ rows, statements, today, cardsById }),
     [rows, statements, today, cardsById],
   );
+
+  /** Relação pago x em aberto — derivada apenas dos totais, nunca persistida. */
+  const composition = useMemo(() => buildPaidComposition(totals), [totals]);
 
   const openItemModal = (item: FinanceItem | null, kind?: FinanceKind) => {
     setEditingItem(item);
@@ -340,7 +346,9 @@ export default function Financial() {
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
-      {!isCurrentMonth && (
+      {isCurrentMonth ? (
+        <span className="text-sm text-muted-foreground">Hoje, {formatDayMonth(today)}</span>
+      ) : (
         <Button
           variant="ghost"
           size="sm"
@@ -360,7 +368,6 @@ export default function Financial() {
       view: "accounts" as View,
       icon: Receipt,
       title: "Contas a pagar",
-      description: "Veja vencimentos e marque pagamentos diretos.",
       meta:
         accountsSummary.pending === 1
           ? "1 pendente"
@@ -370,7 +377,6 @@ export default function Financial() {
       view: "cards" as View,
       icon: CreditCard,
       title: "Cartões e faturas",
-      description: "Veja faturas, limites e cobranças de cada cartão.",
       meta:
         cardsSummary.incomplete > 0
           ? `${cardsSummary.count} ${cardsSummary.count === 1 ? "cartão" : "cartões"} · ${cardsSummary.incomplete} ${
@@ -382,7 +388,6 @@ export default function Financial() {
       view: "subscriptions" as View,
       icon: Repeat,
       title: "Assinaturas e ferramentas",
-      description: "Gerencie gastos recorrentes, ferramentas e pacotes.",
       meta:
         subscriptionsSummary.count === 1
           ? "1 ativa"
