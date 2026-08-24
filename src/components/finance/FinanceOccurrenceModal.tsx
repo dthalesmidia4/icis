@@ -131,18 +131,34 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
         <DialogHeader>
           <DialogTitle>{row.item.name}</DialogTitle>
           <DialogDescription>
-            {installmentRowLabel(row) ? `${installmentRowLabel(row)} · ` : ""}
-            {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
-            {row.projected && " · ainda não lançado neste mês"}
+            {isInstallmentRow(row) ? (
+              <>
+                {installmentHeaderLine(row) ?? installmentRowLabel(row) ?? "Parcelamento"}
+                <br />
+                {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
+                {installmentProjectedNote(row) && (
+                  <>
+                    <br />
+                    {installmentProjectedNote(row)}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
+                {row.projected && " · ainda não lançado neste mês"}
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Valor real ({row.currency})</Label>
+              <Label>{occurrenceAmountLabel(row)}</Label>
               <Input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="0,00" />
             </div>
+
             {row.currency === "USD" ? (
               <div>
                 <Label>Câmbio do mês</Label>
