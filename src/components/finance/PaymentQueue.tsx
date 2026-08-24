@@ -19,10 +19,10 @@ interface Props {
   onSelect: (entry: PaymentQueueEntry) => void;
 }
 
-export const PAYMENT_QUEUE_PREVIEW = 5;
+const PAYMENT_QUEUE_PREVIEW = 5;
 
 /** Contexto textual leve — substitui a pill pesada. */
-export function entryContextLabel(entry: PaymentQueueEntry): string {
+function entryContextLabel(entry: PaymentQueueEntry): string {
   return entry.type === "statement" ? "Fatura do cartão" : "Conta direta";
 }
 
