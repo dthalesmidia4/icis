@@ -1,37 +1,30 @@
 /**
- * Central Financeira — tela única.
+ * Central Financeira — história vertical:
+ * 1. Como está o mês?  2. O que precisa de atenção?  3. Quero ver detalhes.
  *
- * Mês competência + filtros rápidos + movimentação real + faturas de cartão +
- * cadastro permanente. Nada de meses pré-criados: o futuro é projeção.
+ * Progressive disclosure: a primeira leitura é simples; filtros e detalhes
+ * aparecem só quando pedidos. Nada de "modo simples/avançado".
  */
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Settings2,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  Paperclip,
-  Power,
-  Pencil,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings2, AlertTriangle, SlidersHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
 import StatementPanel from "@/components/finance/StatementPanel";
+import AttentionPanel from "@/components/finance/AttentionPanel";
+import MonthAccountsList from "@/components/finance/MonthAccountsList";
+import RegistrationsPanel from "@/components/finance/RegistrationsPanel";
 import { useFinance, currentCompetence, todayISO } from "@/hooks/useFinance";
 import { useFinanceAccess } from "@/hooks/useFinanceAccess";
 import { addMonths } from "@/lib/financeCardCycle";
@@ -40,23 +33,45 @@ import {
   FinanceItem,
   KIND_LABELS,
   MonthRow,
-  QUICK_FILTERS,
-  QuickFilter,
-  RECURRENCE_LABELS,
   StatementGroup,
   applyQuickFilter,
-  effectivePaid,
   filterByCostCenter,
   filterByKind,
   formatBRL,
-  formatCurrencyValue,
-  formatDateBR,
   isStatementRow,
 } from "@/lib/financeModel";
+import {
+  AttentionInsight,
+  RowStatusContext,
+  buildAttentionInsights,
+  monthFullLabel,
+  resolveRowStatus,
+} from "@/lib/financeRowStatus";
 
 const MONTH_LABELS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+/** Visão inicial simples de "Contas do mês". */
+type MainView = "to_pay" | "paid" | "all";
+
+const MAIN_VIEWS: { value: MainView; label: string }[] = [
+  { value: "to_pay", label: "A pagar" },
+  { value: "paid", label: "Pagas" },
+  { value: "all", label: "Todas" },
+];
+
+/** Filtros avançados, escondidos até serem pedidos. */
+type AdvancedFilter = "none" | "today" | "tomorrow" | "overdue" | "next7" | "recurring";
+
+const ADVANCED_FILTERS: { value: AdvancedFilter; label: string }[] = [
+  { value: "none", label: "Sem filtro de data" },
+  { value: "today", label: "Hoje" },
+  { value: "tomorrow", label: "Amanhã" },
+  { value: "overdue", label: "Atrasadas" },
+  { value: "next7", label: "Próximos 7 dias" },
+  { value: "recurring", label: "Recorrentes" },
 ];
 
 export default function Financial() {
@@ -71,10 +86,13 @@ export default function Financial() {
     saveOccurrence, togglePaid, payStatement, saveSettings, saveItem, setItemActive,
   } = finance;
 
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [tab, setTab] = useState("contas");
+  const [mainView, setMainView] = useState<MainView>("to_pay");
+  const [advanced, setAdvanced] = useState<AdvancedFilter>("none");
   const [costCenter, setCostCenter] = useState("all");
   const [kindFilter, setKindFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FinanceItem | null>(null);
@@ -82,12 +100,46 @@ export default function Financial() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [budgetInput, setBudgetInput] = useState("");
   const [rateInput, setRateInput] = useState("");
+  const [focusCardId, setFocusCardId] = useState<string | null>(null);
+  const [highlightIncomplete, setHighlightIncomplete] = useState(false);
+
+  const cardsById = useMemo(() => new Map(cards.map((c) => [c.id, c])), [cards]);
+  const statusContext = useMemo<RowStatusContext>(
+    () => ({ rows, today, cardsById }),
+    [rows, today, cardsById],
+  );
+
+  const operationalRows = useMemo(() => rows.filter((row) => !isStatementRow(row)), [rows]);
+
+  const insights = useMemo(
+    () => buildAttentionInsights({ rows, statements, today, cardsById }),
+    [rows, statements, today, cardsById],
+  );
+
+  const advancedActiveCount = useMemo(
+    () =>
+      (advanced !== "none" ? 1 : 0) + (costCenter !== "all" ? 1 : 0) + (kindFilter !== "all" ? 1 : 0),
+    [advanced, costCenter, kindFilter],
+  );
 
   const visibleRows = useMemo(() => {
-    let result = rows.filter((row) => !isStatementRow(row));
-    result = applyQuickFilter(result, quickFilter, today);
+    let result = operationalRows;
+
+    if (mainView === "to_pay") {
+      result = result.filter((row) => resolveRowStatus(row, statusContext).kind !== "paid");
+    } else if (mainView === "paid") {
+      result = result.filter((row) => resolveRowStatus(row, statusContext).kind === "paid");
+    }
+
+    if (advanced === "overdue") {
+      result = result.filter((row) => resolveRowStatus(row, statusContext).kind === "overdue");
+    } else if (advanced !== "none") {
+      result = applyQuickFilter(result, advanced, today);
+    }
+
     result = filterByCostCenter(result, costCenter);
     result = filterByKind(result, kindFilter);
+
     const term = search.trim().toLowerCase();
     if (term) {
       result = result.filter(
@@ -98,12 +150,19 @@ export default function Financial() {
       );
     }
     return result;
-  }, [rows, quickFilter, costCenter, kindFilter, search, today]);
+  }, [operationalRows, mainView, advanced, costCenter, kindFilter, search, today, statusContext]);
+
+  const pendingCount = useMemo(
+    () => operationalRows.filter((row) => resolveRowStatus(row, statusContext).kind !== "paid").length,
+    [operationalRows, statusContext],
+  );
 
   const budgetUsage = useMemo(() => {
     if (!settings.monthlyBudgetBrl) return null;
     return Math.min(100, Math.round((totals.expected / settings.monthlyBudgetBrl) * 100));
   }, [settings.monthlyBudgetBrl, totals.expected]);
+
+  const monthLabel = monthFullLabel(competence);
 
   const openSettings = () => {
     setBudgetInput(settings.monthlyBudgetBrl != null ? String(settings.monthlyBudgetBrl) : "");
@@ -121,6 +180,28 @@ export default function Financial() {
     if (group.statementRow) setOccurrenceRow(group.statementRow);
   };
 
+  const handleInsightAction = (insight: AttentionInsight) => {
+    const action = insight.action;
+    if (!action) return;
+    if (action.type === "filter_overdue") {
+      setTab("contas");
+      setMainView("to_pay");
+      setAdvanced("overdue");
+      setCostCenter("all");
+      setKindFilter("all");
+      return;
+    }
+    if (action.type === "open_cards") {
+      setTab("cartoes");
+      setHighlightIncomplete(true);
+      setFocusCardId(null);
+      return;
+    }
+    setTab("cartoes");
+    setHighlightIncomplete(false);
+    setFocusCardId(action.cardId);
+  };
+
   if (accessLoading) return <LoadingScreen title="Verificando acesso ao Financeiro..." />;
 
   if (!canAccess) {
@@ -136,15 +217,18 @@ export default function Financial() {
     );
   }
 
+  const overBudget =
+    settings.monthlyBudgetBrl != null ? totals.expected - settings.monthlyBudgetBrl : null;
+
   return (
-    <div className="pb-12">
+    <div className="pb-16">
       <PageHeader
         title="Financeiro"
-        subtitle="Central única de contas, ferramentas e faturas"
+        subtitle="Veja o que foi pago, o que ainda vence e como estão os gastos do mês."
         backTo="/"
         actions={[
           {
-            label: "Novo cadastro",
+            label: "Adicionar",
             onClick: () => {
               setEditingItem(null);
               setItemModalOpen(true);
@@ -152,245 +236,230 @@ export default function Financial() {
             icon: <Plus className="w-4 h-4" />,
           },
           {
-            label: "Configurações",
+            label: "Ajustes do financeiro",
             onClick: openSettings,
             icon: <Settings2 className="w-4 h-4" />,
-            variant: "outline",
+            variant: "ghost",
           },
         ]}
       />
 
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Competência */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setCompetence(addMonths(competence, -1))}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <div className="text-center min-w-[180px]">
-              <p className="text-lg font-bold">
-                {MONTH_LABELS[competence.month - 1]} {competence.year}
-              </p>
-              <p className="text-xs text-muted-foreground">Competência</p>
+      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-10">
+        {/* ============================ 1. O MÊS ============================ */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10"
+                aria-label="Mês anterior"
+                onClick={() => setCompetence(addMonths(competence, -1))}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="text-center min-w-[170px]">
+                <p className="text-lg font-bold">
+                  {MONTH_LABELS[competence.month - 1]} {competence.year}
+                </p>
+                <p className="text-sm text-muted-foreground">Resumo deste mês</p>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10"
+                aria-label="Mês seguinte"
+                onClick={() => setCompetence(addMonths(competence, 1))}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
-            <Button variant="outline" size="icon" onClick={() => setCompetence(addMonths(competence, 1))}>
-              <ChevronRight className="w-4 h-4" />
+            <Button variant="ghost" size="sm" className="min-h-10" onClick={() => setCompetence(currentCompetence())}>
+              Mês atual
             </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setCompetence(currentCompetence())}>
-            Mês atual
-          </Button>
-        </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <Card className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Previsto</p>
-            <p className="text-xl font-bold">{formatBRL(totals.expected)}</p>
-            <p className="text-xs text-muted-foreground">sem faturas de cartão</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Pago</p>
-            <p className="text-xl font-bold text-primary">{formatBRL(totals.paid)}</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Em aberto</p>
-            <p className="text-xl font-bold">{formatBRL(totals.open)}</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Ferramentas e IA</p>
-            <p className="text-xl font-bold">{formatBRL(totals.toolsAndAi)}</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Faturas do mês</p>
-            <p className="text-xl font-bold">{formatBRL(totals.statements)}</p>
-            <p className="text-xs text-muted-foreground">saída de caixa</p>
-          </Card>
-        </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Card className="p-5">
+              <p className="text-sm text-muted-foreground">A pagar</p>
+              <p className="text-2xl font-bold">{formatBRL(totals.open)}</p>
+              <p className="text-sm text-muted-foreground">
+                {pendingCount === 1 ? "1 conta pendente" : `${pendingCount} contas pendentes`}
+              </p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-muted-foreground">Já pago</p>
+              <p className="text-2xl font-bold text-primary">{formatBRL(totals.paid)}</p>
+              <p className="text-sm text-muted-foreground">até agora em {monthLabel}</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-muted-foreground">Total do mês</p>
+              <p className="text-2xl font-bold">{formatBRL(totals.expected)}</p>
+              <p className="text-sm text-muted-foreground">
+                {settings.monthlyBudgetBrl != null && overBudget != null
+                  ? overBudget > 0
+                    ? `${formatBRL(overBudget)} acima do planejado`
+                    : `${formatBRL(Math.abs(overBudget))} abaixo do planejado`
+                  : "todas as despesas previstas"}
+              </p>
+            </Card>
+          </div>
 
-        {settings.monthlyBudgetBrl != null && (
-          <Card className="p-4">
-            <div className="flex items-center justify-between text-sm mb-2">
-              <span className="font-medium">
-                Orçamento mensal · {formatBRL(settings.monthlyBudgetBrl)}
-              </span>
-              <span className={totals.expected > settings.monthlyBudgetBrl ? "text-destructive font-semibold" : "text-muted-foreground"}>
-                {formatBRL(totals.expected)} previstos
-                {totals.expected > settings.monthlyBudgetBrl && " · acima do orçamento"}
-              </span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full rounded-full ${totals.expected > settings.monthlyBudgetBrl ? "bg-destructive" : "bg-primary"}`}
-                style={{ width: `${budgetUsage ?? 0}%` }}
-              />
-            </div>
-          </Card>
-        )}
+          {settings.monthlyBudgetBrl != null && (
+            <Card className="p-5 space-y-2">
+              <p className="text-sm text-foreground">
+                Orçamento de {monthLabel}: <strong>{formatBRL(settings.monthlyBudgetBrl)}</strong>
+              </p>
+              <p className="text-sm text-foreground">
+                Gasto previsto: <strong>{formatBRL(totals.expected)}</strong>
+              </p>
+              <p className={`text-sm font-semibold ${overBudget! > 0 ? "text-destructive" : "text-primary"}`}>
+                {overBudget! > 0
+                  ? `${formatBRL(overBudget!)} acima do planejado`
+                  : `${formatBRL(Math.abs(overBudget!))} abaixo do planejado`}
+              </p>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${overBudget! > 0 ? "bg-destructive" : "bg-primary"}`}
+                  style={{ width: `${budgetUsage ?? 0}%` }}
+                />
+              </div>
+            </Card>
+          )}
+        </section>
 
-        <Tabs defaultValue="movimentacao">
+        {/* ========================= 2. ATENÇÃO ========================= */}
+        <AttentionPanel insights={insights} onAction={handleInsightAction} />
+
+        {/* ========================= 3. DETALHES ======================== */}
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="movimentacao">Movimentação</TabsTrigger>
-            <TabsTrigger value="faturas">Faturas ({statements.length})</TabsTrigger>
-            <TabsTrigger value="cadastros">Cadastros ({items.length})</TabsTrigger>
+            <TabsTrigger value="contas">Contas do mês</TabsTrigger>
+            <TabsTrigger value="cartoes">Cartões</TabsTrigger>
+            <TabsTrigger value="cadastros">Contas fixas e assinaturas</TabsTrigger>
           </TabsList>
 
-          {/* ------------------------- MOVIMENTAÇÃO ------------------------- */}
-          <TabsContent value="movimentacao" className="space-y-4 mt-4">
-            <div className="flex flex-wrap gap-2">
-              {QUICK_FILTERS.map((filter) => (
+          {/* --------------------- CONTAS DO MÊS --------------------- */}
+          <TabsContent value="contas" className="space-y-4 mt-5">
+            <div className="flex flex-wrap items-center gap-2">
+              {MAIN_VIEWS.map((view) => (
                 <Button
-                  key={filter.value}
+                  key={view.value}
                   size="sm"
-                  variant={quickFilter === filter.value ? "default" : "outline"}
-                  onClick={() => setQuickFilter(filter.value)}
+                  className="min-h-10"
+                  variant={mainView === view.value ? "default" : "outline"}
+                  onClick={() => setMainView(view.value)}
                 >
-                  {filter.label}
+                  {view.label}
                 </Button>
               ))}
-            </div>
 
-            <div className="flex flex-wrap gap-3">
               <Input
-                placeholder="Buscar por nome, finalidade ou categoria..."
+                placeholder="Buscar conta..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="max-w-xs"
+                className="h-10 w-full sm:w-56"
               />
-              <Select value={costCenter} onValueChange={setCostCenter}>
-                <SelectTrigger className="w-[190px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os centros de custo</SelectItem>
-                  {Object.entries(COST_CENTER_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={kindFilter} onValueChange={setKindFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os tipos</SelectItem>
-                  <SelectItem value="expense">{KIND_LABELS.expense}</SelectItem>
-                  <SelectItem value="tool">{KIND_LABELS.tool}</SelectItem>
-                  <SelectItem value="package">{KIND_LABELS.package}</SelectItem>
-                </SelectContent>
-              </Select>
+
+              <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="min-h-10">
+                    <SlidersHorizontal className="w-4 h-4 mr-2" />
+                    Filtros
+                    {advancedActiveCount > 0 && (
+                      <Badge className="ml-2 bg-primary/10 text-primary border-primary/30" variant="outline">
+                        {advancedActiveCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[280px] space-y-4">
+                  <div>
+                    <Label className="text-sm">Data</Label>
+                    <Select value={advanced} onValueChange={(v) => setAdvanced(v as AdvancedFilter)}>
+                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ADVANCED_FILTERS.map((f) => (
+                          <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm">Centro de custo</Label>
+                    <Select value={costCenter} onValueChange={setCostCenter}>
+                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {Object.entries(COST_CENTER_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm">Tipo</Label>
+                    <Select value={kindFilter} onValueChange={setKindFilter}>
+                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="expense">{KIND_LABELS.expense}</SelectItem>
+                        <SelectItem value="tool">{KIND_LABELS.tool}</SelectItem>
+                        <SelectItem value="package">{KIND_LABELS.package}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full min-h-10"
+                    onClick={() => {
+                      setAdvanced("none");
+                      setCostCenter("all");
+                      setKindFilter("all");
+                    }}
+                  >
+                    Limpar filtros
+                  </Button>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            <Card className="overflow-hidden">
-              {loading ? (
-                <div className="flex justify-center py-16">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                </div>
-              ) : visibleRows.length === 0 ? (
-                <p className="text-center py-16 text-muted-foreground">
-                  Nenhum lançamento para este filtro neste mês.
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow>
-                        <TableHead className="text-xs uppercase tracking-wider font-bold">Item</TableHead>
-                        <TableHead className="text-xs uppercase tracking-wider font-bold">Vencimento</TableHead>
-                        <TableHead className="text-xs uppercase tracking-wider font-bold">Centro</TableHead>
-                        <TableHead className="text-xs uppercase tracking-wider font-bold">Pagamento</TableHead>
-                        <TableHead className="text-xs uppercase tracking-wider font-bold text-right">Valor</TableHead>
-                        <TableHead className="text-xs uppercase tracking-wider font-bold">Situação</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {visibleRows.map((row) => {
-                        const paid = effectivePaid(row, rows);
-                        const ref = row.dueDate ?? row.chargeDate;
-                        const overdue = !paid && !!ref && ref < today;
-                        return (
-                          <TableRow
-                            key={row.key}
-                            className="cursor-pointer"
-                            onClick={() => setOccurrenceRow(row)}
-                          >
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{row.item.name}</span>
-                                {overlaps.has(row.item.id) && (
-                                  <Badge variant="outline" className="text-destructive border-destructive/40">
-                                    Duplicidade
-                                  </Badge>
-                                )}
-                                {row.occurrence?.attachment_url && <Paperclip className="w-3 h-3 text-muted-foreground" />}
-                              </div>
-                              {row.item.purpose && (
-                                <p className="text-xs text-muted-foreground">{row.item.purpose}</p>
-                              )}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">{formatDateBR(ref)}</TableCell>
-                            <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                              {COST_CENTER_LABELS[row.item.cost_center] ?? row.item.cost_center}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                              {row.cardItemId
-                                ? cards.find((c) => c.id === row.cardItemId)?.name ?? "Cartão"
-                                : row.item.payment_method ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap">
-                              <span className="font-semibold">{formatBRL(row.amountBrl)}</span>
-                              {row.currency === "USD" && (
-                                <p className="text-xs text-muted-foreground">
-                                  {formatCurrencyValue(row.amountOriginal, "USD")}
-                                </p>
-                              )}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {paid ? (
-                                <Badge className="bg-primary/10 text-primary border-primary/30">
-                                  <CheckCircle2 className="w-3 h-3 mr-1" /> Pago
-                                </Badge>
-                              ) : overdue ? (
-                                <Badge variant="destructive">
-                                  <AlertTriangle className="w-3 h-3 mr-1" /> Atrasada
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline">
-                                  <Clock className="w-3 h-3 mr-1" />
-                                  {row.projected ? "Previsto" : "Em aberto"}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap">
-                              {!row.cardItemId && (
-                                <Button
-                                  size="sm"
-                                  variant={paid ? "outline" : "default"}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    togglePaid(row, !paid);
-                                  }}
-                                >
-                                  {paid ? "Desfazer" : "Pagar"}
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </Card>
+            <MonthAccountsList
+              rows={visibleRows}
+              statusContext={statusContext}
+              cards={cards}
+              overlaps={overlaps}
+              today={today}
+              loading={loading}
+              emptyMessage={
+                mainView === "to_pay"
+                  ? "Nada pendente com esses filtros neste mês."
+                  : "Nenhuma conta para este filtro neste mês."
+              }
+              onOpenRow={setOccurrenceRow}
+              onTogglePaid={togglePaid}
+              onEditItem={(item) => {
+                setEditingItem(item);
+                setItemModalOpen(true);
+              }}
+            />
           </TabsContent>
 
-          {/* ---------------------------- FATURAS ---------------------------- */}
-          <TabsContent value="faturas" className="mt-4">
+          {/* ------------------------- CARTÕES ------------------------- */}
+          <TabsContent value="cartoes" className="mt-5">
             {statements.length === 0 ? (
-              <Card className="p-10 text-center text-muted-foreground">
-                Nenhum cartão cadastrado. Crie um cadastro do tipo “Cartão” para acompanhar faturas.
+              <Card className="p-10 text-center text-sm text-muted-foreground">
+                Nenhum cartão cadastrado. Use “+ Adicionar” e escolha “Cartão de crédito” para
+                acompanhar suas faturas.
               </Card>
             ) : (
               <StatementPanel
                 groups={statements}
+                competence={competence}
+                today={today}
+                focusCardId={focusCardId}
+                highlightIncomplete={highlightIncomplete}
                 onOpenRow={setOccurrenceRow}
                 onOpenStatement={handleOpenStatement}
                 onPayStatement={handlePayStatement}
@@ -398,83 +467,20 @@ export default function Financial() {
             )}
           </TabsContent>
 
-          {/* --------------------------- CADASTROS -------------------------- */}
-          <TabsContent value="cadastros" className="mt-4">
-            <Card className="overflow-hidden">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-muted/50">
-                    <TableRow>
-                      <TableHead className="text-xs uppercase tracking-wider font-bold">Nome</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider font-bold">Tipo</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider font-bold">Recorrência</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider font-bold">Centro</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider font-bold text-right">Referência</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider font-bold">Situação</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item) => (
-                      <TableRow key={item.id} className={item.active ? "" : "opacity-60"}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{item.name}</span>
-                            {overlaps.has(item.id) && (
-                              <Badge variant="outline" className="text-destructive border-destructive/40">
-                                Já incluída em {overlaps.get(item.id)!.join(", ")}
-                              </Badge>
-                            )}
-                          </div>
-                          {item.purpose && <p className="text-xs text-muted-foreground">{item.purpose}</p>}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-sm">{KIND_LABELS[item.kind] ?? item.kind}</TableCell>
-                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                          {RECURRENCE_LABELS[item.recurrence_type] ?? item.recurrence_type}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                          {COST_CENTER_LABELS[item.cost_center] ?? item.cost_center}
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap">
-                          {item.kind === "included_resource" ? (
-                            <span className="text-xs text-muted-foreground">incluso no pacote</span>
-                          ) : (
-                            <>
-                              <span>{formatBRL(item.default_amount_brl)}</span>
-                              {item.currency === "USD" && (
-                                <p className="text-xs text-muted-foreground">
-                                  {formatCurrencyValue(item.default_amount_original, "USD")}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={item.active ? "outline" : "secondary"}>
-                            {item.active ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingItem(item);
-                              setItemModalOpen(true);
-                            }}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => setItemActive(item.id, !item.active)}>
-                            <Power className={`w-4 h-4 ${item.active ? "text-destructive" : "text-primary"}`} />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
+          {/* --------------- CONTAS FIXAS E ASSINATURAS --------------- */}
+          <TabsContent value="cadastros" className="mt-5">
+            <RegistrationsPanel
+              items={items}
+              cards={cards}
+              overlaps={overlaps}
+              competence={competence}
+              toolsAndAiTotal={totals.toolsAndAi}
+              onEdit={(item) => {
+                setEditingItem(item);
+                setItemModalOpen(true);
+              }}
+              onToggleActive={setItemActive}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -500,19 +506,46 @@ export default function Financial() {
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Configurações do Financeiro</DialogTitle>
+            <DialogTitle>Ajustes do financeiro</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <Label>Orçamento mensal (R$)</Label>
-              <Input value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)} inputMode="decimal" />
+              <Input value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)} inputMode="decimal" className="h-10" />
             </div>
             <div>
-              <Label>Câmbio padrão (R$ por US$)</Label>
-              <Input value={rateInput} onChange={(e) => setRateInput(e.target.value)} inputMode="decimal" />
-              <p className="text-xs text-muted-foreground mt-1">
+              <Label>Câmbio de referência (R$ por US$)</Label>
+              <Input value={rateInput} onChange={(e) => setRateInput(e.target.value)} inputMode="decimal" className="h-10" />
+              <p className="text-sm text-muted-foreground mt-1">
                 Usado apenas quando o mês não tem câmbio próprio informado.
               </p>
+            </div>
+
+            <div className="rounded-lg border p-3 space-y-2">
+              <p className="text-sm font-medium">Cartões que precisam de configuração</p>
+              {statements.filter((g) => g.configIncomplete).length === 0 ? (
+                <p className="text-sm text-muted-foreground">Todos os cartões estão configurados.</p>
+              ) : (
+                statements
+                  .filter((g) => g.configIncomplete)
+                  .map((g) => (
+                    <div key={g.card.id} className="flex items-center justify-between gap-2">
+                      <span className="text-sm truncate">{g.card.name}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="min-h-10"
+                        onClick={() => {
+                          setSettingsOpen(false);
+                          setEditingItem(g.card);
+                          setItemModalOpen(true);
+                        }}
+                      >
+                        Completar
+                      </Button>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
           <DialogFooter>
