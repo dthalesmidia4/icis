@@ -21,6 +21,7 @@ import {
   KIND_LABELS,
   PAYMENT_METHODS,
   RECURRENCE_LABELS,
+  cardDisplayLabel,
   formatBRL,
 } from "@/lib/financeModel";
 
@@ -59,6 +60,7 @@ export default function FinanceItemFormModal({
   open,
   onOpenChange,
   item,
+  initialKind,
   cards,
   packages,
   defaultUsdRate,
@@ -81,6 +83,7 @@ export default function FinanceItemFormModal({
   const [parentItemId, setParentItemId] = useState<string>(NONE);
   const [bankName, setBankName] = useState("");
   const [cardLast4, setCardLast4] = useState("");
+  const [cardLimit, setCardLimit] = useState("");
   const [closingDay, setClosingDay] = useState("");
   const [statementDueDay, setStatementDueDay] = useState("");
   const [subscriptionDate, setSubscriptionDate] = useState("");
@@ -93,9 +96,9 @@ export default function FinanceItemFormModal({
 
   useEffect(() => {
     if (!open) return;
-    setStep(item ? "form" : "intent");
+    setStep(item || initialKind ? "form" : "intent");
     setShowMore(false);
-    setKind((item?.kind as FinanceKind) ?? "expense");
+    setKind((item?.kind as FinanceKind) ?? initialKind ?? "expense");
     setName(item?.name ?? "");
     setPurpose(item?.purpose ?? "");
     setCategory(item?.category ?? "");
@@ -120,12 +123,13 @@ export default function FinanceItemFormModal({
     setParentItemId(item?.parent_item_id ?? NONE);
     setBankName(item?.bank_name ?? "");
     setCardLast4(item?.card_last4 ?? "");
+    setCardLimit(item?.card_limit_brl != null ? String(item.card_limit_brl) : "");
     setClosingDay(item?.statement_closing_day != null ? String(item.statement_closing_day) : "");
     setStatementDueDay(item?.statement_due_day != null ? String(item.statement_due_day) : "");
     setSubscriptionDate(item?.subscription_date ?? "");
     setLink(item?.link ?? "");
     setNotes(item?.notes ?? "");
-  }, [open, item]);
+  }, [open, item, initialKind]);
 
   const isCard = kind === "card";
   const isIncluded = kind === "included_resource";
@@ -161,6 +165,7 @@ export default function FinanceItemFormModal({
       parent_item_id: isIncluded && parentItemId !== NONE ? parentItemId : null,
       bank_name: isCard ? bankName.trim() || null : null,
       card_last4: isCard ? cardLast4.trim() || null : null,
+      card_limit_brl: isCard ? numberOrNull(cardLimit) : null,
       statement_closing_day: isCard ? dayOrNull(closingDay) : null,
       statement_due_day: isCard ? dayOrNull(statementDueDay) : null,
       subscription_date: subscriptionDate || null,
@@ -283,6 +288,18 @@ export default function FinanceItemFormModal({
                   <Label>Final do cartão</Label>
                   <Input value={cardLast4} onChange={(e) => setCardLast4(e.target.value)} placeholder="7587" maxLength={4} />
                 </div>
+                <div className="col-span-2">
+                  <Label>Limite do cartão (R$)</Label>
+                  <Input
+                    value={cardLimit}
+                    onChange={(e) => setCardLimit(e.target.value)}
+                    placeholder="5.000,00"
+                    inputMode="decimal"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Opcional. É o limite do cartão — não é o orçamento mensal da agência.
+                  </p>
+                </div>
                 <div>
                   <Label>Dia de fechamento</Label>
                   <Input value={closingDay} onChange={(e) => setClosingDay(e.target.value)} placeholder="10" inputMode="numeric" />
@@ -373,7 +390,7 @@ export default function FinanceItemFormModal({
                     <SelectContent>
                       <SelectItem value={NONE}>Nenhum</SelectItem>
                       {cards.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        <SelectItem key={c.id} value={c.id}>{cardDisplayLabel(c)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
