@@ -2996,15 +2996,24 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
               ? allColumnCards.filter((c) => !isClientWaitingFunction(c.current_function_key))
               : allColumnCards;
 
+            // Planejar: SEMPRE agrupado (mesmo com 1 card), fora da coluna
+            // principal e fora de "Em revisão" (só modo ativo).
+            const planningCardsBase = !isHistoryMode
+              ? nonAwaitingCards.filter((c) => isPlanningFunction(c.current_function_key))
+              : [];
+            const nonPlanningCards = !isHistoryMode
+              ? nonAwaitingCards.filter((c) => !isPlanningFunction(c.current_function_key))
+              : nonAwaitingCards;
+
             // Revisão: agrupar SE houver 3 ou mais cards em função de revisão neste colaborador (só modo ativo)
             const reviewCandidateCards = !isHistoryMode
-              ? nonAwaitingCards.filter((c) => isReviewFunction(c.current_function_key))
+              ? nonPlanningCards.filter((c) => isReviewFunction(c.current_function_key))
               : [];
             const shouldGroupReview = reviewCandidateCards.length >= 3;
             const reviewCardsBase = shouldGroupReview ? reviewCandidateCards : [];
             const columnCardsBase = shouldGroupReview
-              ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key))
-              : nonAwaitingCards;
+              ? nonPlanningCards.filter((c) => !isReviewFunction(c.current_function_key))
+              : nonPlanningCards;
 
             // Avaliar: cards planejados aguardando aprovação atribuídos a esse colaborador
             const evaluateCardsBase = !isHistoryMode
@@ -3013,7 +3022,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
 
             // Aplicar overrides do modo foco (isola exatamente 1 agrupamento por sub-coluna)
             const columnCards = focusKind
-              ? (focusKind === 'production' ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key)) : [])
+              ? (focusKind === 'production' ? nonPlanningCards.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key)) : [])
               : columnCardsBase;
             const evaluateCards = focusKind
               ? (focusKind === 'evaluate' ? evaluateCardsBase : [])
@@ -3024,6 +3033,9 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
             const reviewCardsUnsorted = focusKind
               ? (focusKind === 'review' ? reviewCandidateCards : [])
               : reviewCardsBase;
+            const planningCardsUnsorted = focusKind
+              ? (focusKind === 'planning' ? planningCardsBase : [])
+              : planningCardsBase;
 
             // --- Ordenação cronológica dos agrupamentos ---
             const startKeyOf = (c: CentralKanbanCard): string =>
@@ -3031,6 +3043,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
             const sortChrono = (list: CentralKanbanCard[]) =>
               [...list].sort((a, b) => startKeyOf(a).localeCompare(startKeyOf(b)));
             const reviewCards = sortChrono(reviewCardsUnsorted);
+            const planningCards = sortChrono(planningCardsUnsorted);
             const awaitingCardsSorted = sortChrono(awaitingCards);
             const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
               (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
