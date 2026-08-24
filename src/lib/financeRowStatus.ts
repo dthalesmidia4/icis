@@ -20,6 +20,7 @@ import {
   cardDisplayLabel,
   cycleGapLabel,
   formatBRL,
+  isCostBearing,
   isStatementRow,
   missingCycleFields,
 } from "./financeModel";
@@ -227,12 +228,21 @@ export function overdueDirectRows(rows: MonthRow[], ctx: RowStatusContext): Mont
 /* -------------------------------------------------------------------------- */
 
 /**
- * `Contas a pagar`: somente contas/despesas que o usuário paga diretamente.
- * Ferramentas, pacotes, faturas e cobranças no cartão NÃO pertencem aqui.
+ * `Contas a pagar` = FILA DE PAGAMENTOS DIRETOS, não filtro contábil por kind.
+ *
+ * Entra toda obrigação que o usuário paga diretamente (Pix, boleto,
+ * transferência, débito, dinheiro) e que representa saída real de caixa —
+ * inclusive uma ferramenta/assinatura paga fora do cartão.
+ * Não entra: fatura, cobrança no cartão e item sem custo próprio.
  */
-export function isAccountsDomainRow(row: MonthRow): boolean {
-  return row.item.kind === "expense" && isDirectObligation(row);
+export function isDirectPayableRow(row: MonthRow): boolean {
+  if (!isDirectObligation(row)) return false;
+  if (!isCostBearing(row.item)) return false;
+  return true;
 }
+
+/** Alias histórico: mesma regra da fila de pagamentos diretos. */
+export const isAccountsDomainRow = isDirectPayableRow;
 
 /** `Assinaturas e ferramentas`: ferramentas, pacotes e recursos incluídos. */
 export function isSubscriptionsDomainItem(item: FinanceItem): boolean {
