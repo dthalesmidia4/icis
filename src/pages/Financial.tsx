@@ -275,7 +275,7 @@ export default function Financial() {
     if (action.type === "filter_overdue") {
       goTo("accounts");
       setMainView("to_pay");
-      setAdvanced(insight.id === "next-direct" ? "none" : "overdue");
+      setAdvanced("overdue");
       setCostCenter("all");
       return;
     }
