@@ -309,37 +309,47 @@ export default function Financial() {
     );
   }
 
+  const currentComp = currentCompetence();
+  const isCurrentMonth =
+    competence.year === currentComp.year && competence.month === currentComp.month;
+
+  // Seletor compacto de competência: é CONTEÚDO da página, logo abaixo do
+  // header único — nunca uma segunda barra de cabeçalho.
   const monthSwitcher = (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="inline-flex items-center gap-1 rounded-md border bg-card px-1 py-1">
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="h-10 w-10"
+          className="h-8 w-8"
           aria-label="Mês anterior"
           onClick={() => setCompetence(addMonths(competence, -1))}
         >
           <ChevronLeft className="w-4 h-4" />
         </Button>
-        <div className="text-center min-w-[170px]">
-          <p className="text-lg font-bold">
-            {MONTH_LABELS[competence.month - 1]} {competence.year}
-          </p>
-          <p className="text-sm text-muted-foreground">Mês em análise</p>
-        </div>
+        <span className="px-2 text-[15px] font-semibold min-w-[130px] text-center">
+          {MONTH_LABELS[competence.month - 1]} {competence.year}
+        </span>
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="h-10 w-10"
+          className="h-8 w-8"
           aria-label="Mês seguinte"
           onClick={() => setCompetence(addMonths(competence, 1))}
         >
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
-      <Button variant="ghost" size="sm" className="min-h-10" onClick={() => setCompetence(currentCompetence())}>
-        Mês atual
-      </Button>
+      {!isCurrentMonth && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="min-h-9"
+          onClick={() => setCompetence(currentCompetence())}
+        >
+          Voltar ao mês atual
+        </Button>
+      )}
     </div>
   );
 
@@ -439,7 +449,7 @@ export default function Financial() {
         }
       />
 
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 py-5 space-y-6">
         {monthSwitcher}
 
         {/* =========================== OVERVIEW =========================== */}
