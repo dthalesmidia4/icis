@@ -169,18 +169,51 @@ export default function FinanceItemFormModal({
     if (ok) onOpenChange(false);
   };
 
+  const INTENTS: { kind: FinanceKind; title: string; description: string; recurrence?: FinanceRecurrence }[] = [
+    { kind: "expense", title: "Conta ou despesa", description: "Uma cobrança ou pagamento" },
+    { kind: "tool", title: "Assinatura ou ferramenta", description: "Ex.: Adobe, ChatGPT, Canva" },
+    { kind: "card", title: "Cartão de crédito", description: "Para organizar suas faturas" },
+    { kind: "package", title: "Pacote de ferramentas", description: "Um plano que inclui vários serviços" },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{item ? "Editar cadastro" : "Novo cadastro financeiro"}</DialogTitle>
+          <DialogTitle>
+            {item ? "Editar cadastro" : step === "intent" ? "O que você quer adicionar?" : "Novo cadastro"}
+          </DialogTitle>
           <DialogDescription>
-            O cadastro é permanente. Os valores de cada mês são registrados na movimentação.
+            {step === "intent"
+              ? "Escolha o tipo para mostrarmos apenas os campos necessários."
+              : "O cadastro é permanente. Os valores de cada mês são registrados nas contas do mês."}
           </DialogDescription>
         </DialogHeader>
 
+        {step === "intent" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+            {INTENTS.map((intent) => (
+              <button
+                key={intent.kind}
+                type="button"
+                className="rounded-lg border p-4 text-left hover:bg-muted/50 min-h-[76px]"
+                onClick={() => {
+                  setKind(intent.kind);
+                  setStep("form");
+                }}
+              >
+                <p className="text-[15px] font-semibold">{intent.title}</p>
+                <p className="text-sm text-muted-foreground">{intent.description}</p>
+              </button>
+            ))}
+          </div>
+        ) : (
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Nome *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: ChatGPT Plus" />
+            </div>
             <div>
               <Label>Tipo *</Label>
               <Select value={kind} onValueChange={(v) => setKind(v as FinanceKind)}>
@@ -192,11 +225,8 @@ export default function FinanceItemFormModal({
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Nome *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: ChatGPT Plus" />
-            </div>
           </div>
+
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
