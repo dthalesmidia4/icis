@@ -539,20 +539,32 @@ export default function Financial() {
               <h2 className="text-base font-semibold">Resumo de {monthLabel}</h2>
 
               <Card className="p-5 sm:p-6 space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-border gap-5 sm:gap-0">
-                  <div className="sm:pr-6">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm text-muted-foreground">Gastos previstos</p>
+                {/* Cada métrica é porta de auditoria: abre a composição no recorte. */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-border gap-2 sm:gap-0">
+                  <button
+                    type="button"
+                    onClick={() => goToComposition("all")}
+                    aria-label="Gastos previstos — ver composição do mês"
+                    className="text-left rounded-md -m-1 p-1 sm:mr-5 sm:pr-5 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-sm text-muted-foreground">Gastos previstos</span>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button
-                              type="button"
+                            <span
+                              role="button"
+                              tabIndex={0}
                               aria-label="Como os gastos são somados"
                               className="text-muted-foreground hover:text-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                              }}
+                              onKeyDown={(e) => e.stopPropagation()}
                             >
                               <Info className="w-4 h-4" />
-                            </button>
+                            </span>
                           </TooltipTrigger>
                           <TooltipContent className="max-w-[260px]">
                             Compras no cartão entram como despesa aqui; a fatura não é somada
@@ -560,28 +572,43 @@ export default function Financial() {
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    </div>
-                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                    </span>
+                    <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
                       {formatBRL(totals.expected)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">estimativa para o mês</p>
-                  </div>
+                    </span>
+                    <span className="block text-sm text-muted-foreground">estimativa para o mês</span>
+                    <span className="block text-sm text-primary mt-1">Ver composição →</span>
+                  </button>
 
-                  <div className="sm:px-6">
-                    <p className="text-sm text-muted-foreground">Já pago</p>
-                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                  <button
+                    type="button"
+                    onClick={() => goToComposition("paid")}
+                    aria-label="Já pago — ver pagamentos do mês"
+                    className="text-left rounded-md -m-1 p-1 sm:mx-5 sm:px-5 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="block text-sm text-muted-foreground">Já pago</span>
+                    <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
                       {formatBRL(totals.paid)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">pagamentos já realizados</p>
-                  </div>
+                    </span>
+                    <span className="block text-sm text-muted-foreground">pagamentos já realizados</span>
+                    <span className="block text-sm text-primary mt-1">Ver pagamentos →</span>
+                  </button>
 
-                  <div className="sm:pl-6">
-                    <p className="text-sm text-muted-foreground">Em aberto</p>
-                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                  <button
+                    type="button"
+                    onClick={() => goToComposition("open")}
+                    aria-label="Em aberto — ver pendências do mês"
+                    className="text-left rounded-md -m-1 p-1 sm:ml-5 sm:pl-5 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="block text-sm text-muted-foreground">Em aberto</span>
+                    <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
                       {formatBRL(totals.open)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">despesas ainda não liquidadas</p>
-                  </div>
+                    </span>
+                    <span className="block text-sm text-muted-foreground">
+                      despesas ainda não liquidadas
+                    </span>
+                    <span className="block text-sm text-primary mt-1">Ver pendências →</span>
+                  </button>
                 </div>
 
                 {/* Relação pago x em aberto — derivada só dos totais */}
