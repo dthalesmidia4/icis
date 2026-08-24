@@ -6,7 +6,14 @@ import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ALL_CLEAR_MESSAGE, AttentionInsight, StatusTone } from "@/lib/financeRowStatus";
+import { Badge } from "@/components/ui/badge";
+import {
+  ALL_CLEAR_MESSAGE,
+  ATTENTION_DOMAIN_LABELS,
+  AttentionInsight,
+  StatusTone,
+} from "@/lib/financeRowStatus";
+
 
 interface Props {
   insights: AttentionInsight[];
