@@ -17,8 +17,11 @@ import {
   FinanceItem,
   MonthRow,
   StatementGroup,
+  cardDisplayLabel,
+  cycleGapLabel,
   formatBRL,
   isStatementRow,
+  missingCycleFields,
 } from "./financeModel";
 
 export type StatusTone = "positive" | "danger" | "warning" | "neutral";
@@ -34,7 +37,8 @@ export type RowStatusKind =
   | "card_statement_paid"
   | "card_statement_overdue"
   | "card_unlinked"
-  | "card_needs_config";
+  /** Cartão vinculado, mas o CICLO da fatura ainda não foi configurado. */
+  | "card_awaiting_statement";
 
 export interface RowStatus {
   kind: RowStatusKind;
@@ -45,6 +49,7 @@ export interface RowStatus {
   /** `true` quando o botão "Pagar" faz sentido nesta linha. */
   canPayDirectly: boolean;
 }
+
 
 const MONTH_SHORT = [
   "jan", "fev", "mar", "abr", "mai", "jun",
