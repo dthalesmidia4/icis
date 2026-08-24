@@ -77,8 +77,8 @@ export function buildMonthComposition(params: {
     if (status === "paid" && !paid) continue;
     if (status === "open" && paid) continue;
     const amount = row.amountBrl ?? 0;
-    const value = status === "paid" || (status === "all" && false) ? row.paidAmountBrl ?? amount : amount;
-    entries.push({ row, paid, value: status === "paid" ? value : amount });
+    const value = status === "paid" ? row.paidAmountBrl ?? amount : amount;
+    entries.push({ row, paid, value });
   }
 
   return entries;
