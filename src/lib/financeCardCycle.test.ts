@@ -76,6 +76,7 @@ describe("financeCardCycle — resolução da fatura", () => {
   });
 
   it("respeita meses curtos ao projetar fechamento/vencimento", () => {
+    // fechamento == vencimento: a fatura vence no mês seguinte ao fechamento
     const r = resolveStatementForCharge({
       chargeDay: 31,
       competence: { year: 2026, month: 1 },
@@ -84,7 +85,7 @@ describe("financeCardCycle — resolução da fatura", () => {
     if (r.incomplete) throw new Error("deveria projetar");
     expect(r.chargeDate).toBe("2026-01-31");
     expect(r.closingDate).toBe("2026-01-31");
-    expect(r.dueDate).toBe("2026-01-31");
+    expect(r.dueDate).toBe("2026-02-28");
   });
 
   it("não inventa datas quando o cartão está incompleto", () => {
