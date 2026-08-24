@@ -161,15 +161,8 @@ export default function FinanceItemFormModal({
 
   const installmentsValid = !isInstallments || (!!installmentStart && installmentCountNumber != null);
 
-  /** Última parcela prevista, derivada de início + quantidade. */
-  const lastInstallmentDate = useMemo(() => {
-    if (!isInstallments || !installmentStart || installmentCountNumber == null) return null;
-    return installmentEndDate({
-      recurrence_type: "installments",
-      installment_start_date: installmentStart,
-      installment_count: installmentCountNumber,
-    } as FinanceItem);
-  }, [isInstallments, installmentStart, installmentCountNumber]);
+
+
 
   /** `12 parcelas mensais · última prevista em 11/02/2027`. */
   const schedulePreview = useMemo(
