@@ -155,8 +155,16 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
     const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
     if (cardConfigIncomplete(card)) {
-      return { kind: "card_needs_config", label: "Configurar cartão", tone: "warning", direct: false, canPayDirectly: false };
+      // O cartão JÁ está vinculado — o que falta é o ciclo da fatura.
+      return {
+        kind: "card_awaiting_statement",
+        label: "Aguardando dados da fatura",
+        tone: "warning",
+        direct: false,
+        canPayDirectly: false,
+      };
     }
+
     if (row.projected) {
       return { kind: "card_projected", label: "Prevista na fatura", tone: "neutral", direct: false, canPayDirectly: false };
     }
