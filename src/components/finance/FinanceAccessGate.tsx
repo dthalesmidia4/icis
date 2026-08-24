@@ -6,7 +6,7 @@
  *
  * O desbloqueio existe SOMENTE em memória, enquanto este componente está
  * montado: sair do módulo, dar refresh ou reabrir a aba pede senha de novo.
- * Nenhum sessionStorage/localStorage/cookie é usado.
+ * Nenhum armazenamento do navegador (storage ou cookie) é usado.
  *
  * A trava é a SEGUNDA camada: quem não tem `has_finance_access` já não chega
  * até aqui, e a RLS continua sendo a autoridade final sobre os dados.
