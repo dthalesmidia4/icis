@@ -6,7 +6,7 @@ vi.mock("@/lib/dailyCards", () => ({
   fetchHolidaysInRange: vi.fn(async () => new Set<string>()),
 }));
 
-import { resolvePresence } from "@/lib/officePresence";
+import { resolvePresence, isCoffeeEligible } from "@/lib/officePresence";
 import {
   groupSchedulesByUser,
   resolveUserWindows,
