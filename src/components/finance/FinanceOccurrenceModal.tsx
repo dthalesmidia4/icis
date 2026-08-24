@@ -17,6 +17,7 @@ import {
   MonthRow,
   formatBRL,
   formatDateBR,
+  installmentRowLabel,
   KIND_LABELS,
 } from "@/lib/financeModel";
 
@@ -119,6 +120,7 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
         <DialogHeader>
           <DialogTitle>{row.item.name}</DialogTitle>
           <DialogDescription>
+            {installmentRowLabel(row) ? `${installmentRowLabel(row)} · ` : ""}
             {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
             {row.projected && " · ainda não lançado neste mês"}
           </DialogDescription>

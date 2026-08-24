@@ -23,6 +23,8 @@ import {
   RECURRENCE_LABELS,
   cardDisplayLabel,
   formatBRL,
+  formatDateBR,
+  installmentEndDate,
 } from "@/lib/financeModel";
 
 interface Props {
@@ -40,7 +42,14 @@ interface Props {
 
 const KIND_OPTIONS: FinanceKind[] = ["expense", "tool", "package", "card", "included_resource"];
 const COST_CENTERS: FinanceCostCenter[] = ["midia", "sistemas", "administrativo", "compartilhado"];
-const RECURRENCES: FinanceRecurrence[] = ["monthly", "annual", "one_off", "credits", "variable"];
+const RECURRENCES: FinanceRecurrence[] = [
+  "monthly",
+  "installments",
+  "annual",
+  "one_off",
+  "credits",
+  "variable",
+];
 
 const NONE = "__none__";
 
@@ -87,6 +96,8 @@ export default function FinanceItemFormModal({
   const [closingDay, setClosingDay] = useState("");
   const [statementDueDay, setStatementDueDay] = useState("");
   const [subscriptionDate, setSubscriptionDate] = useState("");
+  const [installmentStart, setInstallmentStart] = useState("");
+  const [installmentCount, setInstallmentCount] = useState("");
   const [link, setLink] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -127,6 +138,8 @@ export default function FinanceItemFormModal({
     setClosingDay(item?.statement_closing_day != null ? String(item.statement_closing_day) : "");
     setStatementDueDay(item?.statement_due_day != null ? String(item.statement_due_day) : "");
     setSubscriptionDate(item?.subscription_date ?? "");
+    setInstallmentStart(item?.installment_start_date ?? "");
+    setInstallmentCount(item?.installment_count != null ? String(item.installment_count) : "");
     setLink(item?.link ?? "");
     setNotes(item?.notes ?? "");
   }, [open, item, initialKind]);
@@ -136,6 +149,25 @@ export default function FinanceItemFormModal({
   const onCard = paymentMethod === CARD_PAYMENT_METHOD;
   const effectiveRate = numberOrNull(rate) ?? defaultUsdRate;
   const amountNumber = numberOrNull(amount);
+  const isInstallments = !isCard && !isIncluded && recurrence === "installments";
+
+  const installmentCountNumber = useMemo(() => {
+    const n = Number(installmentCount);
+    if (!Number.isInteger(n) || n <= 0) return null;
+    return n;
+  }, [installmentCount]);
+
+  const installmentsValid = !isInstallments || (!!installmentStart && installmentCountNumber != null);
+
+  /** Última parcela prevista, derivada de início + quantidade. */
+  const lastInstallmentDate = useMemo(() => {
+    if (!isInstallments || !installmentStart || installmentCountNumber == null) return null;
+    return installmentEndDate({
+      recurrence_type: "installments",
+      installment_start_date: installmentStart,
+      installment_count: installmentCountNumber,
+    } as FinanceItem);
+  }, [isInstallments, installmentStart, installmentCountNumber]);
 
   const brlPreview = useMemo(() => {
     if (amountNumber == null) return null;
@@ -145,6 +177,7 @@ export default function FinanceItemFormModal({
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
+    if (!installmentsValid) return;
     setSaving(true);
     const payload: Partial<FinanceItem> = {
       kind,
@@ -158,8 +191,9 @@ export default function FinanceItemFormModal({
       default_amount_original: isIncluded ? null : amountNumber,
       default_exchange_rate: currency === "USD" ? effectiveRate : null,
       default_amount_brl: isIncluded ? null : brlPreview != null ? Number(brlPreview.toFixed(2)) : null,
-      charge_day: isCard ? null : dayOrNull(chargeDay),
-      due_day: isCard ? null : dayOrNull(dueDay),
+      // No parcelamento o cronograma define os dias: nada de dia genérico.
+      charge_day: isCard || isInstallments ? null : dayOrNull(chargeDay),
+      due_day: isCard || isInstallments ? null : dayOrNull(dueDay),
       payment_method: isCard || paymentMethod === NONE ? null : paymentMethod,
       card_item_id: !isCard && onCard && cardItemId !== NONE ? cardItemId : null,
       parent_item_id: isIncluded && parentItemId !== NONE ? parentItemId : null,
@@ -169,6 +203,8 @@ export default function FinanceItemFormModal({
       statement_closing_day: isCard ? dayOrNull(closingDay) : null,
       statement_due_day: isCard ? dayOrNull(statementDueDay) : null,
       subscription_date: subscriptionDate || null,
+      installment_start_date: isInstallments ? installmentStart : null,
+      installment_count: isInstallments ? installmentCountNumber : null,
       link: link.trim() || null,
       notes: notes.trim() || null,
     };
@@ -372,14 +408,18 @@ export default function FinanceItemFormModal({
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Dia da cobrança</Label>
-                  <Input value={chargeDay} onChange={(e) => setChargeDay(e.target.value)} placeholder="23" inputMode="numeric" />
-                </div>
-                <div>
-                  <Label>Dia de vencimento</Label>
-                  <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="10" inputMode="numeric" />
-                </div>
+                {!isInstallments && (
+                  <>
+                    <div>
+                      <Label>Dia da cobrança</Label>
+                      <Input value={chargeDay} onChange={(e) => setChargeDay(e.target.value)} placeholder="23" inputMode="numeric" />
+                    </div>
+                    <div>
+                      <Label>Dia de vencimento</Label>
+                      <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="10" inputMode="numeric" />
+                    </div>
+                  </>
+                )}
               </div>
 
               {onCard && (
@@ -401,7 +441,35 @@ export default function FinanceItemFormModal({
               )}
             </>
           )}
-
+          {isInstallments && (
+            <div className="space-y-3 rounded-lg border p-3">
+              <p className="text-sm font-medium">Cronograma do parcelamento</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>Data da 1ª parcela</Label>
+                  <Input
+                    type="date"
+                    value={installmentStart}
+                    onChange={(e) => setInstallmentStart(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Quantidade de parcelas</Label>
+                  <Input
+                    value={installmentCount}
+                    onChange={(e) => setInstallmentCount(e.target.value)}
+                    placeholder="12"
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {lastInstallmentDate
+                  ? `Última parcela prevista em ${formatDateBR(lastInstallmentDate)} — depois disso a despesa deixa de aparecer automaticamente.`
+                  : "Informe início e quantidade para o sistema encerrar o parcelamento sozinho."}
+              </p>
+            </div>
+          )}
           {(recurrence === "annual" || !!subscriptionDate) && (
             <div>
               <Label>Data da assinatura</Label>
@@ -461,7 +529,7 @@ export default function FinanceItemFormModal({
               <Button variant="ghost" onClick={() => setStep("intent")}>Voltar</Button>
             )}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={saving || !name.trim()}>
+            <Button onClick={handleSubmit} disabled={saving || !name.trim() || !installmentsValid}>
               {saving ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>

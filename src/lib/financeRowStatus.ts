@@ -33,6 +33,8 @@ export type RowStatusKind =
   | "due_today"
   | "open"
   | "projected"
+  /** Parcela projetada com data passada e SEM fato registrado no banco. */
+  | "installment_unconfirmed"
   | "card_projected"
   | "card_in_statement"
   | "card_statement_paid"
@@ -183,7 +185,18 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
     return { kind: "paid", label: "Pago", tone: "positive", direct: true, canPayDirectly: true };
   }
   const ref = row.dueDate ?? row.chargeDate ?? null;
+  const isInstallment = row.item.recurrence_type === "installments";
   if (ref && ref < today) {
+    // Parcela sem ocorrência registrada: o banco não confirma atraso nem pagamento.
+    if (isInstallment && row.projected) {
+      return {
+        kind: "installment_unconfirmed",
+        label: "Pagamento não confirmado",
+        tone: "warning",
+        direct: true,
+        canPayDirectly: true,
+      };
+    }
     return { kind: "overdue", label: "Atrasada", tone: "danger", direct: true, canPayDirectly: true };
   }
   if (ref && ref === today) {
@@ -191,7 +204,7 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
   }
   return {
     kind: row.projected ? "projected" : "open",
-    label: row.projected ? "Previsto" : "Em aberto",
+    label: row.projected ? (isInstallment ? "Parcela prevista" : "Previsto") : "Em aberto",
     tone: "neutral",
     direct: true,
     canPayDirectly: true,
@@ -221,6 +234,11 @@ export function whenLabel(row: MonthRow, today: string): string {
 /** Linhas realmente atrasadas (apenas obrigações diretas). */
 export function overdueDirectRows(rows: MonthRow[], ctx: RowStatusContext): MonthRow[] {
   return rows.filter((row) => resolveRowStatus(row, ctx).kind === "overdue");
+}
+
+/** Parcelas vencidas sem fato registrado — vencidas, mas não comprovadamente atrasadas. */
+export function unconfirmedInstallmentRows(rows: MonthRow[], ctx: RowStatusContext): MonthRow[] {
+  return rows.filter((row) => resolveRowStatus(row, ctx).kind === "installment_unconfirmed");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -275,6 +293,7 @@ export function paymentLabel(row: MonthRow, ctx: RowStatusContext): string {
 
 export type AttentionAction =
   | { type: "filter_overdue" }
+  | { type: "open_accounts" }
   | { type: "open_cards" }
   | { type: "open_subscriptions" }
   | { type: "open_statement"; cardId: string }
@@ -327,6 +346,25 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
       action: { type: "filter_overdue" },
     });
   }
+
+  // 1b. Parcelas vencidas sem confirmação — NUNCA contadas como atraso.
+  const unconfirmed = unconfirmedInstallmentRows(operational, ctx).filter(isDirectPayableRow);
+  if (unconfirmed.length > 0) {
+    const total = unconfirmed.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
+    insights.push({
+      id: "installments-unconfirmed",
+      tone: "warning",
+      domain: "accounts",
+      title: `${unconfirmed.length} ${
+        unconfirmed.length === 1 ? "parcela vencida sem confirmação" : "parcelas vencidas sem confirmação"
+      } · ${formatBRL(Number(total.toFixed(2)))}`,
+      detail: "Confirme se foi paga ou se o parcelamento foi encerrado.",
+      actionLabel: "Ver pagamentos diretos",
+      action: { type: "open_accounts" },
+    });
+  }
+
+
 
   // 2. Fatura de cartão REALMENTE atrasada.
   //    Vencimento normal não é exceção: vive em "Próximos pagamentos".

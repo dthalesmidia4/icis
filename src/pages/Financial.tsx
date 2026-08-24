@@ -358,6 +358,13 @@ export default function Financial() {
       setCostCenter("all");
       return;
     }
+    if (action.type === "open_accounts") {
+      goTo("accounts");
+      setMainView("to_pay");
+      setAdvanced("none");
+      setCostCenter("all");
+      return;
+    }
     if (action.type === "open_subscriptions") {
       goTo("subscriptions");
       return;

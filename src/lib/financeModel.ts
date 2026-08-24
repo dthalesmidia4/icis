@@ -11,16 +11,26 @@
 
 import {
   Competence,
+  addMonths,
   candidateChargeCompetences,
+  competenceFromISO,
   competenceToISO,
   dateInMonth,
+  normalizeCompetence,
   resolveStatementForCharge,
   sameCompetence,
 } from "./financeCardCycle";
 
 export type FinanceKind = "expense" | "tool" | "package" | "card" | "included_resource";
 export type FinanceCostCenter = "midia" | "sistemas" | "administrativo" | "compartilhado";
-export type FinanceRecurrence = "one_off" | "monthly" | "annual" | "credits" | "variable";
+export type FinanceRecurrence =
+  | "one_off"
+  | "monthly"
+  | "annual"
+  | "credits"
+  | "variable"
+  /** Prazo determinado: primeira parcela + quantidade total, termina sozinho. */
+  | "installments";
 export type FinanceCurrency = "BRL" | "USD";
 
 export interface FinanceItem {
@@ -49,6 +59,10 @@ export interface FinanceItem {
   charge_day?: number | null;
   due_day?: number | null;
   subscription_date?: string | null;
+  /** Âncora do cronograma parcelado (data da 1ª parcela). Só em `installments`. */
+  installment_start_date?: string | null;
+  /** Quantidade TOTAL de parcelas. Só em `installments`. */
+  installment_count?: number | null;
   link?: string | null;
   parent_item_id?: string | null;
   notes?: string | null;
@@ -94,6 +108,10 @@ export interface MonthRow {
   cardItemId: string | null;
   /** `true` quando o valor é apenas referência (créditos/variável sem fato). */
   estimated: boolean;
+  /** Apresentação: número desta parcela (nunca persistido). */
+  installmentNumber: number | null;
+  /** Apresentação: total de parcelas do cronograma (nunca persistido). */
+  installmentCount: number | null;
 }
 
 export const COST_CENTER_LABELS: Record<FinanceCostCenter, string> = {
@@ -117,6 +135,7 @@ export const RECURRENCE_LABELS: Record<FinanceRecurrence, string> = {
   annual: "Anual",
   credits: "Créditos",
   variable: "Variável",
+  installments: "Parcelado",
 };
 
 export const PAYMENT_METHODS = [
@@ -185,6 +204,77 @@ export function toBrl(params: {
   return amountOriginal ?? null;
 }
 
+/* -------------------------------------------------------------------------- */
+/*                    PARCELAMENTO / PRAZO DETERMINADO                        */
+/* -------------------------------------------------------------------------- */
+
+/** O cadastro é um parcelamento com cronograma válido? */
+export function isInstallmentItem(item: FinanceItem): boolean {
+  return (
+    item.recurrence_type === "installments" &&
+    !!item.installment_start_date &&
+    item.installment_count != null &&
+    item.installment_count > 0
+  );
+}
+
+/** Diferença inteira de meses entre a 1ª parcela e a competência informada. */
+export function installmentMonthOffset(item: FinanceItem, competence: Competence): number | null {
+  if (!item.installment_start_date) return null;
+  const start = competenceFromISO(item.installment_start_date);
+  const current = normalizeCompetence(competence);
+  return (current.year - start.year) * 12 + (current.month - start.month);
+}
+
+/** Número da parcela desta competência (1-based) ou `null` fora do cronograma. */
+export function installmentNumberForCompetence(
+  item: FinanceItem,
+  competence: Competence,
+): number | null {
+  if (!isInstallmentItem(item)) return null;
+  const offset = installmentMonthOffset(item, competence);
+  if (offset == null || offset < 0) return null;
+  if (offset >= (item.installment_count as number)) return null;
+  return offset + 1;
+}
+
+/** Data prevista da parcela desta competência (respeitando meses curtos). */
+export function installmentDateForCompetence(
+  item: FinanceItem,
+  competence: Competence,
+): string | null {
+  if (installmentNumberForCompetence(item, competence) == null) return null;
+  const day = Number((item.installment_start_date as string).slice(8, 10));
+  return dateInMonth(competence, day);
+}
+
+/** Última data prevista = 1ª parcela + (total - 1) meses. */
+export function installmentEndDate(item: FinanceItem): string | null {
+  if (!isInstallmentItem(item)) return null;
+  const start = competenceFromISO(item.installment_start_date as string);
+  const day = Number((item.installment_start_date as string).slice(8, 10));
+  return dateInMonth(addMonths(start, (item.installment_count as number) - 1), day);
+}
+
+/** `Parcela 6 de 12`. */
+export function installmentLabel(
+  number: number | null | undefined,
+  count: number | null | undefined,
+): string | null {
+  if (number == null || count == null) return null;
+  return `Parcela ${number} de ${count}`;
+}
+
+/** Rótulo de parcela de uma linha do mês, quando aplicável. */
+export function installmentRowLabel(row: MonthRow): string | null {
+  return installmentLabel(row.installmentNumber, row.installmentCount);
+}
+
+/** A parcela é cobrada no cartão (componente de fatura)? */
+function billedOnCard(item: FinanceItem): boolean {
+  return !!item.card_item_id || item.payment_method === CARD_PAYMENT_METHOD;
+}
+
 /** O cadastro deve aparecer no mês informado mesmo sem ocorrência persistida? */
 export function isProjectableInMonth(item: FinanceItem, competence: Competence): boolean {
   if (!item.active || !isCostBearing(item)) return false;
@@ -198,6 +288,9 @@ export function isProjectableInMonth(item: FinanceItem, competence: Competence):
       const month = Number(item.subscription_date.slice(5, 7));
       return month === competence.month;
     }
+    case "installments":
+      // O cronograma encerra a projeção sozinho, mesmo com `active = true`.
+      return installmentNumberForCompetence(item, competence) != null;
     case "one_off":
     default:
       return false;
@@ -205,6 +298,12 @@ export function isProjectableInMonth(item: FinanceItem, competence: Competence):
 }
 
 function projectedDates(item: FinanceItem, competence: Competence) {
+  if (item.recurrence_type === "installments") {
+    const date = installmentDateForCompetence(item, competence);
+    // No cartão a parcela é COBRANÇA; quem vence é a fatura.
+    if (billedOnCard(item)) return { chargeDate: date, dueDate: null };
+    return { chargeDate: null, dueDate: date };
+  }
   const chargeDate = item.charge_day != null ? dateInMonth(competence, item.charge_day) : null;
   const dueDate = item.due_day != null ? dateInMonth(competence, item.due_day) : null;
   return { chargeDate, dueDate };
@@ -237,6 +336,11 @@ function rowFromOccurrence(
     paidAmountBrl: occ.paid_amount_brl ?? null,
     cardItemId: item.card_item_id ?? null,
     estimated: !!occ.is_estimated,
+    installmentNumber: installmentNumberForCompetence(
+      item,
+      competenceFromISO(occ.competence_month),
+    ),
+    installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
   };
 }
 
@@ -270,6 +374,8 @@ function rowFromProjection(
     paidAmountBrl: null,
     cardItemId: item.card_item_id ?? null,
     estimated,
+    installmentNumber: installmentNumberForCompetence(item, competence),
+    installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
   };
 }
 
