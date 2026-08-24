@@ -179,6 +179,10 @@ export default function Financial() {
   const [costCenter, setCostCenter] = useState("all");
   const [search, setSearch] = useState("");
   const [subscriptionSearch, setSubscriptionSearch] = useState("");
+  const [compositionSearch, setCompositionSearch] = useState("");
+  const [compositionOrigin, setCompositionOrigin] = useState("all");
+  const [compositionKind, setCompositionKind] = useState("all");
+  const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
@@ -221,6 +225,48 @@ export default function Financial() {
 
   /** Relação pago x em aberto — derivada apenas dos totais, nunca persistida. */
   const composition = useMemo(() => buildPaidComposition(totals), [totals]);
+
+  /* --------------------- Composição do mês (auditoria) -------------------- */
+
+  /** Recorte bruto: reconcilia exatamente com os KPIs, sem filtros da UI. */
+  const compositionEntries = useMemo(
+    () => buildMonthComposition({ rows, status: compositionStatus }),
+    [rows, compositionStatus],
+  );
+
+  const compositionOrigins = useMemo(
+    () => compositionOriginOptions(rows, cardsById, cardDisplayLabel),
+    [rows, cardsById],
+  );
+
+  const compositionFilterCount =
+    (compositionOrigin !== "all" ? 1 : 0) + (compositionKind !== "all" ? 1 : 0) + (costCenter !== "all" ? 1 : 0);
+
+  const compositionVisible = useMemo(() => {
+    let result = compositionEntries;
+    if (costCenter !== "all") result = result.filter((e) => e.row.item.cost_center === costCenter);
+    if (compositionOrigin !== "all")
+      result = result.filter((e) => compositionOriginKey(e.row) === compositionOrigin);
+    if (compositionKind !== "all") result = result.filter((e) => e.row.item.kind === compositionKind);
+    const term = compositionSearch.trim().toLowerCase();
+    if (term) {
+      result = result.filter(
+        (e) =>
+          e.row.item.name.toLowerCase().includes(term) ||
+          (e.row.item.purpose ?? "").toLowerCase().includes(term) ||
+          (e.row.item.category ?? "").toLowerCase().includes(term),
+      );
+    }
+    return result;
+  }, [compositionEntries, costCenter, compositionOrigin, compositionKind, compositionSearch]);
+
+  const compositionTotals: Record<CompositionStatus, number> = {
+    all: totals.expected,
+    paid: totals.paid,
+    open: totals.open,
+  };
+  const compositionVisibleTotal = useMemo(() => compositionTotal(compositionVisible), [compositionVisible]);
+  const compositionNarrowed = compositionVisible.length !== compositionEntries.length;
 
   const openItemModal = (item: FinanceItem | null, kind?: FinanceKind) => {
     setEditingItem(item);
