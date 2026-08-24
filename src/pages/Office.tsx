@@ -214,9 +214,11 @@ export default function Office() {
   }, [area]);
 
 
-  // Quem está em micro-pausa aparece na cafeteria (a mesa continua na sala).
+  // Cafeteria: quem está no contexto do expediente e NÃO está trabalhando
+  // (`available`, `micro_break`, `official_break`). A mesa continua na sala,
+  // mas sem personagem — nunca duplicamos o colaborador.
   const atCoffee = useMemo(
-    () => stations.filter((s) => s.presence.state === "micro_break"),
+    () => stations.filter((s) => isCoffeeEligible(s.presence.state)),
     [stations],
   );
 
