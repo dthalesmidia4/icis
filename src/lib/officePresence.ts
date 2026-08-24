@@ -99,6 +99,16 @@ export function resolvePresence({ now, queue, windows, tz }: PresenceInput): Pre
   return idle("available");
 }
 
+/**
+ * Elegibilidade da CAFETERIA: quem está no contexto do expediente mas NÃO está
+ * trabalhando agora. Inclui `available` (dentro da janela, fila vazia),
+ * `micro_break` (gap curto entre demandas) e `official_break` (intervalo).
+ * Nunca `working_now` nem `off_shift`.
+ */
+export function isCoffeeEligible(state: PresenceState): boolean {
+  return state === "available" || state === "micro_break" || state === "official_break";
+}
+
 /** Rótulo curto e confiável do próximo início (`próxima em 4 min` / `próxima 10:35`). */
 export function nextStartLabel(result: PresenceResult): string | null {
   if (result.state !== "micro_break" || result.nextStartTs === null) return null;
