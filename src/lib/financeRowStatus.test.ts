@@ -134,7 +134,7 @@ describe("classificação de cobrança no cartão", () => {
     expect(status.canPayDirectly).toBe(false);
   });
 
-  it("cobrança projetada em cartão incompleto pede configuração em vez de atraso", () => {
+  it("cobrança em cartão sem ciclo aguarda dados da fatura, não vira atraso", () => {
     const incomplete = card({ id: "card-9584", name: "Cartão ••••9584", statement_closing_day: null, statement_due_day: null });
     const tool = item({ card_item_id: incomplete.id });
     const r = row({ item: tool, cardItemId: incomplete.id, chargeDate: "2026-08-02", projected: true });
@@ -143,9 +143,11 @@ describe("classificação de cobrança no cartão", () => {
       today: TODAY,
       cardsById: new Map([[incomplete.id, incomplete]]),
     });
-    expect(status.kind).toBe("card_needs_config");
-    expect(status.label).toBe("Configurar cartão");
+    expect(status.kind).toBe("card_awaiting_statement");
+    expect(status.label).toBe("Aguardando dados da fatura");
+    expect(status.direct).toBe(false);
   });
+
 
   it("componente materializado sem vínculo aguarda a fatura", () => {
     const tool = item({ card_item_id: itau.id });
