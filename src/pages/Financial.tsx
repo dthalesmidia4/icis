@@ -34,6 +34,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
 import FinanceAccessGate from "@/components/finance/FinanceAccessGate";
+import FinancePasswordSettingsCard from "@/components/finance/FinancePasswordSettingsCard";
 import StatementPanel from "@/components/finance/StatementPanel";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
@@ -1066,6 +1067,8 @@ function FinancialCockpit() {
                   ))
               )}
             </Card>
+
+            <FinancePasswordSettingsCard />
           </section>
         )}
       </div>
@@ -1100,8 +1103,9 @@ function FinancialCockpit() {
 }
 
 /**
- * A trava de senha envolve TODO o cockpit: nenhum número aparece antes de
- * `FinanceAccessGate` liberar a sessão.
+ * A trava de senha envolve TODO o cockpit: nenhum número aparece (nem consulta
+ * financeira acontece) antes de `FinanceAccessGate` liberar o acesso — e esse
+ * desbloqueio vive apenas em memória, então cada nova entrada pede a senha.
  */
 export default function Financial() {
   return (
