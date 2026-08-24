@@ -10,6 +10,7 @@ import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
 import OfficeCardOverlay from "@/components/office/OfficeCardOverlay";
 import CoffeeCorner from "@/components/office/CoffeeCorner";
+import { isCoffeeEligible } from "@/lib/officePresence";
 import OfficeTransferLayer, { type QueuedTransfer } from "@/components/office/OfficeTransferLayer";
 import {
   buildAssignmentSnapshot,
