@@ -187,14 +187,11 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
               <p className="text-sm font-medium">Pago</p>
-              <p className="text-xs text-muted-foreground">
-                {row.item.card_item_id
-                  ? "Esta despesa também é liquidada ao pagar a fatura do cartão."
-                  : "Marque quando a saída de caixa acontecer."}
-              </p>
+              <p className="text-xs text-muted-foreground">{occurrencePaidHelp(row)}</p>
             </div>
             <Switch checked={paid} onCheckedChange={setPaid} />
           </div>
+
 
           <div>
             <Label>Comprovante</Label>
