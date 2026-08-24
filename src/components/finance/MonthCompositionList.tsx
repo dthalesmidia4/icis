@@ -13,6 +13,7 @@ import {
   MonthRow,
   formatBRL,
   formatCurrencyValue,
+  installmentRowLabel,
 } from "@/lib/financeModel";
 import {
   RowStatus,
@@ -63,7 +64,8 @@ function StatusBadge({ status }: { status: RowStatus }) {
 function purposeLine(row: MonthRow): string {
   const center = COST_CENTER_LABELS[row.item.cost_center] ?? row.item.cost_center;
   const purpose = (row.item.purpose ?? row.item.category ?? "").trim();
-  return purpose ? `${purpose} · ${center}` : center;
+  const installment = installmentRowLabel(row);
+  return [installment, purpose || null, center].filter(Boolean).join(" · ");
 }
 
 function dateText(row: MonthRow): string {

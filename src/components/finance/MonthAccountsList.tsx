@@ -23,6 +23,7 @@ import {
   MonthRow,
   formatBRL,
   formatCurrencyValue,
+  installmentRowLabel,
 } from "@/lib/financeModel";
 import { RowStatus, RowStatusContext, StatusTone, resolveRowStatus, whenLabel } from "@/lib/financeRowStatus";
 
@@ -81,7 +82,8 @@ export default function MonthAccountsList({
     const payment = row.cardItemId
       ? cards.find((c) => c.id === row.cardItemId)?.name ?? "Cartão de crédito"
       : row.item.payment_method ?? "Forma de pagamento não definida";
-    return `${center} · ${payment}`;
+    const installment = installmentRowLabel(row);
+    return [installment, center, payment].filter(Boolean).join(" · ");
   };
 
   if (loading) {

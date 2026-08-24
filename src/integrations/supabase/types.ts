@@ -1432,6 +1432,8 @@ export type Database = {
           default_exchange_rate: number | null
           due_day: number | null
           id: string
+          installment_count: number | null
+          installment_start_date: string | null
           kind: string
           link: string | null
           name: string
@@ -1463,6 +1465,8 @@ export type Database = {
           default_exchange_rate?: number | null
           due_day?: number | null
           id?: string
+          installment_count?: number | null
+          installment_start_date?: string | null
           kind: string
           link?: string | null
           name: string
@@ -1494,6 +1498,8 @@ export type Database = {
           default_exchange_rate?: number | null
           due_day?: number | null
           id?: string
+          installment_count?: number | null
+          installment_start_date?: string | null
           kind?: string
           link?: string | null
           name?: string

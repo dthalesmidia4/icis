@@ -10,7 +10,7 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatBRL } from "@/lib/financeModel";
+import { formatBRL, installmentRowLabel } from "@/lib/financeModel";
 import { PaymentQueueEntry, queueDateLabel } from "@/lib/financeRowStatus";
 
 interface Props {
@@ -23,7 +23,9 @@ const PAYMENT_QUEUE_PREVIEW = 5;
 
 /** Contexto textual leve — substitui a pill pesada. */
 function entryContextLabel(entry: PaymentQueueEntry): string {
-  return entry.type === "statement" ? "Fatura do cartão" : "Conta direta";
+  if (entry.type === "statement") return "Fatura do cartão";
+  const installment = entry.row ? installmentRowLabel(entry.row) : null;
+  return installment ?? "Conta direta";
 }
 
 export default function PaymentQueue({ entries, today, onSelect }: Props) {
