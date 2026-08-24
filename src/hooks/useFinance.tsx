@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import {
   Competence,
   competenceToISO,
-  isoToCompetence,
+  competenceFromISO,
   normalizeCompetence,
 } from "@/lib/financeCardCycle";
 import {
@@ -39,7 +39,7 @@ export function currentCompetence(): Competence {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-  return isoToCompetence(iso);
+  return competenceFromISO(iso);
 }
 
 /** Data de hoje (ISO) no fuso de São Paulo. */
