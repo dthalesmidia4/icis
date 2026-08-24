@@ -223,23 +223,72 @@ export function overdueDirectRows(rows: MonthRow[], ctx: RowStatusContext): Mont
 }
 
 /* -------------------------------------------------------------------------- */
+/*                                 DOMÍNIOS                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `Contas a pagar`: somente contas/despesas que o usuário paga diretamente.
+ * Ferramentas, pacotes, faturas e cobranças no cartão NÃO pertencem aqui.
+ */
+export function isAccountsDomainRow(row: MonthRow): boolean {
+  return row.item.kind === "expense" && isDirectObligation(row);
+}
+
+/** `Assinaturas e ferramentas`: ferramentas, pacotes e recursos incluídos. */
+export function isSubscriptionsDomainItem(item: FinanceItem): boolean {
+  return item.kind === "tool" || item.kind === "package" || item.kind === "included_resource";
+}
+
+/**
+ * Aviso secundário e discreto de um componente de cartão: o vínculo existe,
+ * o que falta é o CICLO da fatura. Nunca é status principal.
+ */
+export function cardCycleWarning(row: MonthRow, ctx: RowStatusContext): string | null {
+  if (!isCardCharge(row)) return null;
+  const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
+  if (!card) return null;
+  const gap = cycleGapLabel(card);
+  if (!gap) return null;
+  return `Dados da fatura incompletos · ${gap}`;
+}
+
+/** Forma de pagamento legível de uma linha (cartão pelo apelido, nunca UUID). */
+export function paymentLabel(row: MonthRow, ctx: RowStatusContext): string {
+  const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
+  if (card) return cardDisplayLabel(card);
+  return row.item.payment_method ?? "Forma de pagamento não definida";
+}
+
+/* -------------------------------------------------------------------------- */
 /*                          O QUE PRECISA DE ATENÇÃO                          */
 /* -------------------------------------------------------------------------- */
 
 export type AttentionAction =
   | { type: "filter_overdue" }
   | { type: "open_cards" }
+  | { type: "open_subscriptions" }
   | { type: "open_statement"; cardId: string }
   | { type: "open_statement_difference"; cardId: string };
+
+/** Domínio de origem do alerta — o usuário precisa saber para onde vai. */
+export type AttentionDomain = "accounts" | "cards" | "subscriptions";
+
+export const ATTENTION_DOMAIN_LABELS: Record<AttentionDomain, string> = {
+  accounts: "Contas a pagar",
+  cards: "Cartões e faturas",
+  subscriptions: "Assinaturas e ferramentas",
+};
 
 export interface AttentionInsight {
   id: string;
   tone: StatusTone;
   title: string;
   detail?: string;
+  domain?: AttentionDomain;
   actionLabel?: string;
   action?: AttentionAction;
 }
+
 
 export interface AttentionParams {
   rows: MonthRow[];
