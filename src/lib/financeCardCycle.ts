@@ -23,21 +23,21 @@ export interface CardCycleConfig {
   dueDay: number | null | undefined;
 }
 
+/**
+ * Resultado da projeção. Quando `incomplete` é `true`, as datas vêm nulas e
+ * `reason` explica o que falta cadastrar — nada é inventado.
+ */
 export interface StatementResolution {
-  incomplete: false;
+  incomplete: boolean;
+  reason: string | null;
   /** Data em que a cobrança cai no cartão (ISO yyyy-MM-dd). */
-  chargeDate: string;
+  chargeDate: string | null;
   /** Data do fechamento da fatura (ISO). */
-  closingDate: string;
+  closingDate: string | null;
   /** Data de vencimento da fatura (ISO). */
-  dueDate: string;
+  dueDate: string | null;
   /** Competência da fatura (mês do vencimento). */
-  statementCompetence: Competence;
-}
-
-export interface StatementIncomplete {
-  incomplete: true;
-  reason: string;
+  statementCompetence: Competence | null;
 }
 
 export const INCOMPLETE_CARD_MESSAGE =
