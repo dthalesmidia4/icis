@@ -81,7 +81,7 @@ export default function MonthAccountsList({
     const center = COST_CENTER_LABELS[row.item.cost_center] ?? row.item.cost_center;
     const payment = row.cardItemId
       ? cards.find((c) => c.id === row.cardItemId)?.name ?? "Cartão de crédito"
-      : row.item.payment_method ?? "Forma de pagamento não definida";
+      : row.paymentMethod ?? "Forma de pagamento não definida";
     const installment = installmentRowLabel(row);
     return [installment, center, payment].filter(Boolean).join(" · ");
   };

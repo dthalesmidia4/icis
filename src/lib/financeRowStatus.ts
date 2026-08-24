@@ -94,7 +94,7 @@ export function daysBetweenISO(from: string, to: string): number {
 export function isCardCharge(row: MonthRow): boolean {
   if (isStatementRow(row)) return false;
   if (row.cardItemId) return true;
-  return row.item.payment_method === CARD_PAYMENT_METHOD;
+  return row.paymentMethod === CARD_PAYMENT_METHOD;
 }
 
 /** A linha é obrigação direta (pode vencer sozinha)? */
@@ -284,7 +284,7 @@ export function cardCycleWarning(row: MonthRow, ctx: RowStatusContext): string |
 export function paymentLabel(row: MonthRow, ctx: RowStatusContext): string {
   const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
   if (card) return cardDisplayLabel(card);
-  return row.item.payment_method ?? "Forma de pagamento não definida";
+  return row.paymentMethod ?? "Forma de pagamento não definida";
 }
 
 /* -------------------------------------------------------------------------- */

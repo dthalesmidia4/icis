@@ -32,6 +32,8 @@ export type FinanceRecurrence =
   /** Prazo determinado: primeira parcela + quantidade total, termina sozinho. */
   | "installments";
 export type FinanceCurrency = "BRL" | "USD";
+/** Natureza do valor: previsível (`fixed`) ou por consumo (`variable`). */
+export type FinanceAmountMode = "fixed" | "variable";
 
 export interface FinanceItem {
   id: string;
@@ -56,6 +58,12 @@ export interface FinanceItem {
   default_exchange_rate?: number | null;
   default_amount_brl?: number | null;
   recurrence_type: FinanceRecurrence;
+  /** Intervalo da recorrência em meses (1 = todo mês, 2 = a cada 2 meses...). */
+  recurrence_interval_months?: number | null;
+  /** Âncora da recorrência: define a partir de quando o intervalo é contado. */
+  recurrence_start_date?: string | null;
+  /** `fixed` = valor previsível; `variable` = consumo (valor só se confirma no mês). */
+  amount_mode?: FinanceAmountMode | null;
   charge_day?: number | null;
   due_day?: number | null;
   subscription_date?: string | null;
@@ -87,6 +95,12 @@ export interface FinanceOccurrence {
   attachment_name?: string | null;
   observations?: string | null;
   legacy_bill_id?: string | null;
+  /** Forma de pagamento DESTE mês. Quando presente, prevalece sobre o cadastro. */
+  payment_method_snapshot?: string | null;
+  /** Cartão usado NESTE mês. Quando presente, prevalece sobre o cadastro. */
+  card_item_id_snapshot?: string | null;
+  /** Competência da fatura em que esta cobrança caiu (histórico). */
+  statement_competence_snapshot?: string | null;
 }
 
 /** Uma linha do mês: ocorrência real persistida ou projeção do cadastro. */
@@ -104,8 +118,12 @@ export interface MonthRow {
   dueDate: string | null;
   paid: boolean;
   paidAmountBrl: number | null;
-  /** Cartão em que a despesa é cobrada, quando houver. */
+  /** Cartão em que a despesa é cobrada, quando houver (snapshot > cadastro). */
   cardItemId: string | null;
+  /** Forma de pagamento efetiva do mês (snapshot > cadastro). */
+  paymentMethod: string | null;
+  /** `true` quando a forma de pagamento do mês difere do cadastro permanente. */
+  paymentOverridden: boolean;
   /** `true` quando o valor é apenas referência (créditos/variável sem fato). */
   estimated: boolean;
   /** Apresentação: número desta parcela (nunca persistido). */
@@ -113,6 +131,7 @@ export interface MonthRow {
   /** Apresentação: total de parcelas do cronograma (nunca persistido). */
   installmentCount: number | null;
 }
+
 
 export const COST_CENTER_LABELS: Record<FinanceCostCenter, string> = {
   midia: "Mídia",
@@ -275,6 +294,68 @@ function billedOnCard(item: FinanceItem): boolean {
   return !!item.card_item_id || item.payment_method === CARD_PAYMENT_METHOD;
 }
 
+/* -------------------------------------------------------------------------- */
+/*              SNAPSHOTS DE PAGAMENTO (histórico por ocorrência)             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Forma de pagamento que valeu no mês. O snapshot da ocorrência PREVALECE
+ * sobre o cadastro — assim mudar o cartão hoje não reescreve o passado.
+ */
+export function effectivePaymentMethod(
+  item: FinanceItem,
+  occ: FinanceOccurrence | null | undefined,
+): string | null {
+  if (occ?.payment_method_snapshot != null) return occ.payment_method_snapshot;
+  if (occ?.card_item_id_snapshot) return CARD_PAYMENT_METHOD;
+  return item.payment_method ?? null;
+}
+
+/** Cartão que valeu no mês (snapshot > cadastro). */
+export function effectiveCardItemId(
+  item: FinanceItem,
+  occ: FinanceOccurrence | null | undefined,
+): string | null {
+  if (occ?.card_item_id_snapshot) return occ.card_item_id_snapshot;
+  if (occ?.payment_method_snapshot != null) {
+    // Snapshot explícito sem cartão = pagamento direto naquele mês.
+    return occ.payment_method_snapshot === CARD_PAYMENT_METHOD ? item.card_item_id ?? null : null;
+  }
+  return item.card_item_id ?? null;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                       RECORRÊNCIA COM INTERVALO PRÓPRIO                     */
+/* -------------------------------------------------------------------------- */
+
+/** Intervalo em meses da recorrência (1 quando não informado). */
+export function recurrenceIntervalMonths(item: FinanceItem): number {
+  const raw = item.recurrence_interval_months;
+  return raw != null && raw > 0 ? Math.trunc(raw) : 1;
+}
+
+/** Âncora usada para contar o intervalo (início da recorrência). */
+export function recurrenceAnchorDate(item: FinanceItem): string | null {
+  return item.recurrence_start_date ?? item.subscription_date ?? null;
+}
+
+/**
+ * Para intervalos > 1 mês: a competência cai em um ciclo válido?
+ * Sem âncora cadastrada, o item volta a aparecer todo mês (nunca desaparece
+ * silenciosamente por falta de dado).
+ */
+export function matchesRecurrenceInterval(item: FinanceItem, competence: Competence): boolean {
+  const interval = recurrenceIntervalMonths(item);
+  if (interval <= 1) return true;
+  const anchor = recurrenceAnchorDate(item);
+  if (!anchor) return true;
+  const start = competenceFromISO(anchor);
+  const current = normalizeCompetence(competence);
+  const offset = (current.year - start.year) * 12 + (current.month - start.month);
+  if (offset < 0) return false;
+  return offset % interval === 0;
+}
+
 /** O cadastro deve aparecer no mês informado mesmo sem ocorrência persistida? */
 export function isProjectableInMonth(item: FinanceItem, competence: Competence): boolean {
   if (!item.active || !isCostBearing(item)) return false;
@@ -282,7 +363,7 @@ export function isProjectableInMonth(item: FinanceItem, competence: Competence):
     case "monthly":
     case "credits":
     case "variable":
-      return true;
+      return matchesRecurrenceInterval(item, competence);
     case "annual": {
       if (!item.subscription_date) return false;
       const month = Number(item.subscription_date.slice(5, 7));
@@ -334,7 +415,11 @@ function rowFromOccurrence(
     dueDate: occ.due_date ?? null,
     paid: !!occ.paid_at,
     paidAmountBrl: occ.paid_amount_brl ?? null,
-    cardItemId: item.card_item_id ?? null,
+    cardItemId: effectiveCardItemId(item, occ),
+    paymentMethod: effectivePaymentMethod(item, occ),
+    paymentOverridden:
+      occ.payment_method_snapshot != null &&
+      occ.payment_method_snapshot !== (item.payment_method ?? null),
     estimated: !!occ.is_estimated,
     installmentNumber: installmentNumberForCompetence(
       item,
@@ -358,7 +443,10 @@ function rowFromProjection(
     fallbackRate,
   });
   const estimated =
-    item.recurrence_type === "credits" || item.recurrence_type === "variable" || amountBrl == null;
+    item.recurrence_type === "credits" ||
+    item.recurrence_type === "variable" ||
+    item.amount_mode === "variable" ||
+    amountBrl == null;
   return {
     key: `proj:${item.id}:${competenceToISO(competence)}`,
     item,
@@ -373,6 +461,8 @@ function rowFromProjection(
     paid: false,
     paidAmountBrl: null,
     cardItemId: item.card_item_id ?? null,
+    paymentMethod: item.payment_method ?? null,
+    paymentOverridden: false,
     estimated,
     installmentNumber: installmentNumberForCompetence(item, competence),
     installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
@@ -529,7 +619,9 @@ export function buildStatementGroups(params: {
     const cycle = { closingDay: card.statement_closing_day, dueDay: card.statement_due_day };
     const configIncomplete = card.statement_closing_day == null || card.statement_due_day == null;
 
-    const cardItems = items.filter((i) => i.card_item_id === card.id && isCostBearing(i));
+    // Snapshots podem mover uma cobrança para outro cartão no mês: por isso o
+    // recorte do mês anterior parte de TODOS os itens e filtra por `cardItemId`.
+    const cardItems = items.filter((i) => isCostBearing(i));
     const components: MonthRow[] = [];
 
     if (configIncomplete) {

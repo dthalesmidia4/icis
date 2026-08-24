@@ -33,6 +33,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
+import FinanceAccessGate from "@/components/finance/FinanceAccessGate";
 import StatementPanel from "@/components/finance/StatementPanel";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
@@ -40,6 +41,7 @@ import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { parseLocalizedNumber } from "@/lib/financeNumber";
 import { useFinance, currentCompetence, todayISO } from "@/hooks/useFinance";
 import { useFinanceAccess } from "@/hooks/useFinanceAccess";
 import { addMonths } from "@/lib/financeCardCycle";
@@ -140,7 +142,7 @@ const ADVANCED_FILTERS: { value: AdvancedFilter; label: string }[] = [
   { value: "recurring", label: "Recorrentes" },
 ];
 
-export default function Financial() {
+function FinancialCockpit() {
   const navigate = useNavigate();
   const { canAccess, isLoading: accessLoading } = useFinanceAccess();
   const [params, setParams] = useSearchParams();
@@ -1027,11 +1029,9 @@ export default function Financial() {
               <Button
                 className="min-h-10"
                 onClick={async () => {
-                  const budget = Number(budgetInput.replace(/\./g, "").replace(",", "."));
-                  const rate = Number(rateInput.replace(/\./g, "").replace(",", "."));
                   await saveSettings({
-                    monthlyBudgetBrl: budgetInput.trim() && Number.isFinite(budget) ? budget : null,
-                    defaultUsdRate: rateInput.trim() && Number.isFinite(rate) ? rate : null,
+                    monthlyBudgetBrl: parseLocalizedNumber(budgetInput),
+                    defaultUsdRate: parseLocalizedNumber(rateInput),
                   });
                 }}
               >
@@ -1077,6 +1077,7 @@ export default function Financial() {
         initialKind={initialKind}
         cards={cards}
         packages={packages}
+        allItems={items}
         defaultUsdRate={settings.defaultUsdRate}
         onSave={saveItem}
       />
@@ -1085,6 +1086,7 @@ export default function Financial() {
         open={!!occurrenceRow}
         onOpenChange={(open) => !open && setOccurrenceRow(null)}
         row={occurrenceRow}
+        cards={cards}
         defaultUsdRate={settings.defaultUsdRate}
         onSave={saveOccurrence}
         onEditItem={(item) => {
@@ -1094,5 +1096,17 @@ export default function Financial() {
       />
 
     </div>
+  );
+}
+
+/**
+ * A trava de senha envolve TODO o cockpit: nenhum número aparece antes de
+ * `FinanceAccessGate` liberar a sessão.
+ */
+export default function Financial() {
+  return (
+    <FinanceAccessGate>
+      <FinancialCockpit />
+    </FinanceAccessGate>
   );
 }

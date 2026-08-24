@@ -12,15 +12,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  CARD_PAYMENT_METHOD,
   FinanceItem,
   FinanceOccurrence,
   MonthRow,
+  PAYMENT_METHODS,
+  cardDisplayLabel,
   formatBRL,
   formatDateBR,
   installmentRowLabel,
   KIND_LABELS,
 } from "@/lib/financeModel";
+import { parseLocalizedNumber } from "@/lib/financeNumber";
 import {
   installmentHeaderLine,
   installmentProjectedNote,
@@ -31,10 +36,17 @@ import {
 
 const BUCKET = "bill-attachments";
 
+/** Sentinela: "seguir o cadastro" — não grava snapshot algum. */
+const FOLLOW_ITEM = "__follow__";
+/** Sentinela: pagamento direto sem forma definida neste mês. */
+const NO_METHOD = "__none__";
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   row: MonthRow | null;
+  /** Cartões cadastrados — permitem trocar a origem do pagamento SÓ neste mês. */
+  cards?: FinanceItem[];
   defaultUsdRate: number | null;
   onSave: (row: MonthRow, patch: Partial<FinanceOccurrence>) => Promise<FinanceOccurrence | null>;
   /** Abre o cadastro permanente (cronograma) do item desta linha. */
@@ -42,13 +54,7 @@ interface Props {
 }
 
 
-function numberOrNull(value: string): number | null {
-  if (!value.trim()) return null;
-  const parsed = Number(value.replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaultUsdRate, onSave, onEditItem }: Props) {
+export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards = [], defaultUsdRate, onSave, onEditItem }: Props) {
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -58,6 +64,8 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** Origem do pagamento DESTE mês (`NONE` = seguir o cadastro permanente). */
+  const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
 
   useEffect(() => {
     if (!open || !row) return;
@@ -72,10 +80,14 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
     setObservations(row.occurrence?.observations ?? "");
     setAttachmentUrl(row.occurrence?.attachment_url ?? null);
     setAttachmentName(row.occurrence?.attachment_name ?? null);
+    const occ = row.occurrence;
+    if (occ?.card_item_id_snapshot) setOrigin(`card:${occ.card_item_id_snapshot}`);
+    else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
+    else setOrigin(FOLLOW_ITEM);
   }, [open, row, defaultUsdRate]);
 
-  const amountNumber = numberOrNull(amount);
-  const rateNumber = numberOrNull(rate) ?? defaultUsdRate;
+  const amountNumber = parseLocalizedNumber(amount);
+  const rateNumber = parseLocalizedNumber(rate) ?? defaultUsdRate;
 
   const brl = useMemo(() => {
     if (amountNumber == null) return null;
@@ -98,6 +110,22 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
     toast.success("Comprovante anexado");
   };
 
+  /**
+   * Snapshot da origem: só este mês muda. O cadastro permanente fica intacto,
+   * então o histórico dos meses anteriores nunca é reescrito.
+   */
+  const originPatch: Partial<FinanceOccurrence> = useMemo(() => {
+    if (origin === FOLLOW_ITEM) return { payment_method_snapshot: null, card_item_id_snapshot: null };
+    if (origin === NO_METHOD) return { payment_method_snapshot: null, card_item_id_snapshot: null };
+    if (origin.startsWith("card:")) {
+      return {
+        payment_method_snapshot: CARD_PAYMENT_METHOD,
+        card_item_id_snapshot: origin.slice(5),
+      };
+    }
+    return { payment_method_snapshot: origin.slice(7), card_item_id_snapshot: null };
+  }, [origin]);
+
   const handleSave = async () => {
     if (!row) return;
     setSaving(true);
@@ -114,6 +142,7 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
       attachment_name: attachmentName,
       paid_at: paid ? row.occurrence?.paid_at ?? new Date().toISOString() : null,
       paid_amount_brl: paid ? brl : null,
+      ...originPatch,
     };
     const saved = await onSave(row, patch);
     setSaving(false);
@@ -183,6 +212,29 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
               </p>
             </div>
           )}
+
+          <div>
+            <Label>Forma de pagamento deste mês</Label>
+            <Select value={origin} onValueChange={setOrigin}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={FOLLOW_ITEM}>
+                  Seguir o cadastro{row.item.payment_method ? ` (${row.item.payment_method})` : ""}
+                </SelectItem>
+                {cards.map((card) => (
+                  <SelectItem key={card.id} value={`card:${card.id}`}>
+                    {cardDisplayLabel(card)}
+                  </SelectItem>
+                ))}
+                {PAYMENT_METHODS.filter((m) => m !== CARD_PAYMENT_METHOD).map((m) => (
+                  <SelectItem key={m} value={`method:${m}`}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Vale só para este mês. O cadastro permanente e os meses anteriores não mudam.
+            </p>
+          </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
