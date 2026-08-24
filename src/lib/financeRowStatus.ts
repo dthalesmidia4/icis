@@ -280,14 +280,9 @@ export type AttentionAction =
   | { type: "open_statement"; cardId: string }
   | { type: "open_statement_difference"; cardId: string };
 
-/** Domínio de origem do alerta — o usuário precisa saber para onde vai. */
+/** Domínio de origem do alerta — usado para roteamento, não como rótulo. */
 export type AttentionDomain = "accounts" | "cards" | "subscriptions";
 
-export const ATTENTION_DOMAIN_LABELS: Record<AttentionDomain, string> = {
-  accounts: "Contas a pagar",
-  cards: "Cartões e faturas",
-  subscriptions: "Assinaturas e ferramentas",
-};
 
 export interface AttentionInsight {
   id: string;
