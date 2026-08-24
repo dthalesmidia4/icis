@@ -91,18 +91,20 @@ export function resolveStatementForCharge(params: {
   chargeDay: number | null | undefined;
   competence: Competence;
   card: CardCycleConfig;
-}): StatementResolution | StatementIncomplete {
+}): StatementResolution {
   const { chargeDay, competence, card } = params;
   const closingDay = card.closingDay ?? null;
   const dueDay = card.dueDay ?? null;
+  const blank = { chargeDate: null, closingDate: null, dueDate: null, statementCompetence: null };
 
   if (closingDay == null || dueDay == null) {
-    return { incomplete: true, reason: INCOMPLETE_CARD_MESSAGE };
+    return { incomplete: true, reason: INCOMPLETE_CARD_MESSAGE, ...blank };
   }
   if (chargeDay == null) {
     return {
       incomplete: true,
       reason: "Informe o dia da cobrança para projetar a fatura",
+      ...blank,
     };
   }
 
