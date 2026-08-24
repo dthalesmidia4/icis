@@ -84,9 +84,14 @@ export default function FinanceItemFormModal({
   const [link, setLink] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  /** Passo 1: intenção. Só existe para NOVOS cadastros. */
+  const [step, setStep] = useState<"intent" | "form">("form");
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setStep(item ? "form" : "intent");
+    setShowMore(false);
     setKind((item?.kind as FinanceKind) ?? "expense");
     setName(item?.name ?? "");
     setPurpose(item?.purpose ?? "");
@@ -164,18 +169,51 @@ export default function FinanceItemFormModal({
     if (ok) onOpenChange(false);
   };
 
+  const INTENTS: { kind: FinanceKind; title: string; description: string; recurrence?: FinanceRecurrence }[] = [
+    { kind: "expense", title: "Conta ou despesa", description: "Uma cobrança ou pagamento" },
+    { kind: "tool", title: "Assinatura ou ferramenta", description: "Ex.: Adobe, ChatGPT, Canva" },
+    { kind: "card", title: "Cartão de crédito", description: "Para organizar suas faturas" },
+    { kind: "package", title: "Pacote de ferramentas", description: "Um plano que inclui vários serviços" },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{item ? "Editar cadastro" : "Novo cadastro financeiro"}</DialogTitle>
+          <DialogTitle>
+            {item ? "Editar cadastro" : step === "intent" ? "O que você quer adicionar?" : "Novo cadastro"}
+          </DialogTitle>
           <DialogDescription>
-            O cadastro é permanente. Os valores de cada mês são registrados na movimentação.
+            {step === "intent"
+              ? "Escolha o tipo para mostrarmos apenas os campos necessários."
+              : "O cadastro é permanente. Os valores de cada mês são registrados nas contas do mês."}
           </DialogDescription>
         </DialogHeader>
 
+        {step === "intent" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+            {INTENTS.map((intent) => (
+              <button
+                key={intent.kind}
+                type="button"
+                className="rounded-lg border p-4 text-left hover:bg-muted/50 min-h-[76px]"
+                onClick={() => {
+                  setKind(intent.kind);
+                  setStep("form");
+                }}
+              >
+                <p className="text-[15px] font-semibold">{intent.title}</p>
+                <p className="text-sm text-muted-foreground">{intent.description}</p>
+              </button>
+            ))}
+          </div>
+        ) : (
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Nome *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: ChatGPT Plus" />
+            </div>
             <div>
               <Label>Tipo *</Label>
               <Select value={kind} onValueChange={(v) => setKind(v as FinanceKind)}>
@@ -187,11 +225,8 @@ export default function FinanceItemFormModal({
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Nome *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: ChatGPT Plus" />
-            </div>
           </div>
+
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -347,25 +382,47 @@ export default function FinanceItemFormModal({
             </>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {(recurrence === "annual" || !!subscriptionDate) && (
             <div>
               <Label>Data da assinatura</Label>
               <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground mt-1">
+                Em cobranças anuais, o mês da assinatura define quando a despesa aparece.
+              </p>
             </div>
-            <div>
-              <Label>Categoria</Label>
-              <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ex: IA, Infra, Design" />
-            </div>
-          </div>
+          )}
 
-          <div>
-            <Label>Link / painel</Label>
-            <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" />
-          </div>
-
-          <div>
-            <Label>Observações</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          <div className="rounded-lg border">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-3 py-3 text-sm font-medium"
+              onClick={() => setShowMore((v) => !v)}
+            >
+              Mais opções
+              <span className="text-muted-foreground">{showMore ? "−" : "+"}</span>
+            </button>
+            {showMore && (
+              <div className="space-y-4 p-3 pt-0">
+                {recurrence !== "annual" && !subscriptionDate && (
+                  <div>
+                    <Label>Data da assinatura</Label>
+                    <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
+                  </div>
+                )}
+                <div>
+                  <Label>Categoria</Label>
+                  <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ex: IA, Infra, Design" />
+                </div>
+                <div>
+                  <Label>Link / painel</Label>
+                  <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" />
+                </div>
+                <div>
+                  <Label>Observações</Label>
+                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
@@ -376,14 +433,21 @@ export default function FinanceItemFormModal({
             <Switch checked={active} onCheckedChange={setActive} />
           </div>
         </div>
+        )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={saving || !name.trim()}>
-            {saving ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
+        {step === "form" && (
+          <DialogFooter>
+            {!item && (
+              <Button variant="ghost" onClick={() => setStep("intent")}>Voltar</Button>
+            )}
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={handleSubmit} disabled={saving || !name.trim()}>
+              {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+
