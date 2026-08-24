@@ -2916,11 +2916,21 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                 );
                 const _aw = userCards.filter((c) => isClientWaitingFunction(c.current_function_key));
                 const _nonAw = userCards.filter((c) => !isClientWaitingFunction(c.current_function_key));
-                const _rev = _nonAw.filter((c) => isReviewFunction(c.current_function_key));
-                const _prod = _nonAw.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key));
+                // `planejar` sai da produção e da revisão: agrupamento próprio.
+                const _plan = _nonAw.filter((c) => isPlanningFunction(c.current_function_key));
+                const _rev = _nonAw.filter(
+                  (c) => !isPlanningFunction(c.current_function_key) && isReviewFunction(c.current_function_key),
+                );
+                const _prod = _nonAw.filter(
+                  (c) =>
+                    !isPlanningFunction(c.current_function_key) &&
+                    !isReviewFunction(c.current_function_key) &&
+                    !isEvaluationFunction(c.current_function_key),
+                );
                 const _eval = evalByAssignee.get(target.userId) || [];
                 const sub: typeof rawColumns = [];
                 if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+                if (_plan.length > 0) sub.push({ id: `${target.userId}::planning`, name: 'Planejar', color: 'hsl(160 70% 40%)', userId: target.userId, focusKind: 'planning' });
                 if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Em revisão', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
                 if (_aw.length > 0) sub.push({ id: `${target.userId}::awaiting`, name: 'Aguardando clientes', color: 'hsl(210 90% 55%)', userId: target.userId, focusKind: 'awaiting' });
                 if (_eval.length > 0) sub.push({ id: `${target.userId}::evaluate`, name: 'Avaliar', color: 'hsl(280 70% 55%)', userId: target.userId, focusKind: 'evaluate' });
