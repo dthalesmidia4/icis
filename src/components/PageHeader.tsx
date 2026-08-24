@@ -21,6 +21,8 @@ interface PageHeaderProps {
   actions?: PageHeaderAction[];
   rightContent?: ReactNode;
   sticky?: boolean;
+  /** Largura útil do header — deve acompanhar o container da página. */
+  containerClassName?: string;
 }
 export function PageHeader({
   title,
@@ -29,7 +31,8 @@ export function PageHeader({
   onBack,
   actions = [],
   rightContent,
-  sticky = true
+  sticky = true,
+  containerClassName = "container max-w-6xl"
 }: PageHeaderProps) {
   const navigate = useNavigate();
   const handleBack = () => {
@@ -46,7 +49,7 @@ export function PageHeader({
   const primaryAction = actions[0];
   const secondaryActions = actions.slice(1);
   return <div className={`${sticky ? "sticky top-0 z-10" : ""} bg-background/80 backdrop-blur-sm border-b`}>
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+      <div className={`${containerClassName} mx-auto px-4 sm:px-6 py-3 sm:py-4`}>
         <div className="flex items-center justify-between gap-2">
           {/* Left: Back button + Title */}
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
