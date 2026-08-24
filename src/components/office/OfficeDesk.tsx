@@ -8,6 +8,7 @@ import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
 import { assignDeskSlots, type DeskObjectKey, type DeskSlotName } from "@/lib/officeDeskObjects";
+import { isCoffeeEligible } from "@/lib/officePresence";
 
 const timeLabel = (date?: string | null, time?: string | null) => {
   if (!date) return null;
