@@ -6,8 +6,10 @@ import {
   isDirectObligation,
   resolveRowStatus,
   whenLabel,
-  isAccountsDomainRow,
+  isDirectPayableRow,
   isSubscriptionsDomainItem,
+  buildPaymentQueue,
+  statementValueLabel,
 } from "./financeRowStatus";
 
 const TODAY = "2026-08-24";
@@ -175,13 +177,13 @@ describe("bloco de atenção", () => {
     const b = row({ key: "b", item: item({ id: "b", kind: "expense", payment_method: "Boleto" }), dueDate: "2026-08-10", amountBrl: 100 });
     const insights = buildAttentionInsights({ rows: [a, b], statements: [], today: TODAY, cardsById });
     const overdue = insights.find((i) => i.id === "overdue");
-    expect(overdue?.title).toBe("2 contas estão atrasadas");
+    expect(overdue?.title).toBe("2 pagamentos estão atrasados");
     expect(overdue?.detail).toContain("328,99");
   });
 });
 
 describe("separação por domínio", () => {
-  it("cobrança de cartão não pertence a Contas a pagar", () => {
+  it("cobrança de cartão não é pagamento direto", () => {
     const itau = card({ id: "card-itau" });
     const direct = row({ item: item({ kind: "expense", payment_method: "Pix" }), dueDate: "2026-08-20" });
     const onCard = row({
@@ -189,25 +191,101 @@ describe("separação por domínio", () => {
       cardItemId: itau.id,
       chargeDate: "2026-08-01",
     });
-    expect(isAccountsDomainRow(direct)).toBe(true);
-    expect(isAccountsDomainRow(onCard)).toBe(false);
+    expect(isDirectPayableRow(direct)).toBe(true);
+    expect(isDirectPayableRow(onCard)).toBe(false);
   });
 
-  it("ferramentas e pacotes ficam em Assinaturas, nunca em Contas a pagar", () => {
+  it("ferramenta paga diretamente É uma obrigação da fila de pagamentos", () => {
     const tool = row({ item: item({ kind: "tool", payment_method: "Pix" }), dueDate: "2026-08-10" });
     expect(isSubscriptionsDomainItem(tool.item)).toBe(true);
-    expect(isAccountsDomainRow(tool)).toBe(false);
+    expect(isDirectPayableRow(tool)).toBe(true);
   });
 
-  it("cada alerta declara o domínio de destino", () => {
-    const incomplete = card({ id: "c1", statement_closing_day: null, statement_due_day: null });
-    const late = row({ item: item({ kind: "expense", payment_method: "Pix" }), dueDate: "2026-08-01" });
-    const insights = buildAttentionInsights({
-      rows: [late],
-      statements: [],
-      today: TODAY,
-      cardsById: new Map([[incomplete.id, incomplete]]),
-    });
-    expect(insights.find((i) => i.id === "overdue")?.domain).toBe("accounts");
+  it("recurso incluído em pacote não é pagamento", () => {
+    const included = row({ item: item({ kind: "included_resource" }), dueDate: "2026-08-10" });
+    expect(isDirectPayableRow(included)).toBe(false);
+  });
+});
+
+describe("atenção = somente exceções", () => {
+  const itau = card();
+  const cardsById = new Map([[itau.id, itau]]);
+
+  it("unifica atrasos diretos de qualquer kind em um único alerta", () => {
+    const conta = row({ key: "a", item: item({ id: "a", kind: "expense", payment_method: "Pix" }), dueDate: "2026-08-05", amountBrl: 100 });
+    const ferramenta = row({ key: "b", item: item({ id: "b", kind: "tool", payment_method: "Boleto" }), dueDate: "2026-08-06", amountBrl: 50 });
+    const insights = buildAttentionInsights({ rows: [conta, ferramenta], statements: [], today: TODAY, cardsById });
+    expect(insights.filter((i) => i.id.startsWith("overdue"))).toHaveLength(1);
+    const overdue = insights.find((i) => i.id === "overdue");
+    expect(overdue?.title).toBe("2 pagamentos estão atrasados");
+    expect(overdue?.detail).toContain("150,00");
+    expect(overdue?.domain).toBe("accounts");
+  });
+
+  it("próximo vencimento normal não é mais um alerta", () => {
+    const futura = row({ item: item({ kind: "expense", payment_method: "Pix" }), dueDate: "2026-08-30" });
+    const insights = buildAttentionInsights({ rows: [futura], statements: [], today: TODAY, cardsById });
+    expect(insights.some((i) => i.id === "next-direct")).toBe(false);
+    expect(insights).toHaveLength(0);
+  });
+});
+
+describe("fila de próximos pagamentos", () => {
+  const itau = card();
+  const cardsById = new Map([[itau.id, itau]]);
+
+  it("une contas diretas e faturas, ordenadas por vencimento, sem componentes do cartão", () => {
+    const conta = row({ key: "c", item: item({ id: "c", kind: "expense", name: "CPFL", payment_method: "Pix" }), dueDate: "2026-08-26", amountBrl: 167.05 });
+    const ferramentaDireta = row({ key: "t", item: item({ id: "t", kind: "tool", name: "Adobe", payment_method: "Boleto" }), dueDate: "2026-08-25", amountBrl: 300 });
+    const componente = row({ key: "g", item: item({ id: "g", kind: "tool", name: "Google Drive", card_item_id: itau.id }), cardItemId: itau.id, chargeDate: "2026-08-25", projected: true });
+    const statements: any[] = [
+      { card: itau, statementRow: null, components: [], projectedTotal: 3809.25, actualTotal: null, difference: null, configIncomplete: false, incompleteReason: null, dueDate: "2026-08-28", closingDate: "2026-08-10", paid: false },
+    ];
+    const queue = buildPaymentQueue({ rows: [conta, ferramentaDireta, componente], statements, today: TODAY, cardsById });
+    expect(queue.map((e) => e.name)).toEqual(["Adobe", "CPFL", "Itaú ••••7587"]);
+    expect(queue.map((e) => e.label)).toEqual(["Conta", "Conta", "Fatura"]);
+    expect(queue.some((e) => e.name === "Google Drive")).toBe(false);
+  });
+
+  it("atrasados ficam fora da fila por padrão", () => {
+    const atrasada = row({ item: item({ kind: "expense", payment_method: "Pix" }), dueDate: "2026-08-01" });
+    expect(buildPaymentQueue({ rows: [atrasada], statements: [], today: TODAY, cardsById })).toHaveLength(0);
+    expect(
+      buildPaymentQueue({ rows: [atrasada], statements: [], today: TODAY, cardsById, includeOverdue: true }),
+    ).toHaveLength(1);
+  });
+
+  it("fatura paga não entra na fila", () => {
+    const statements: any[] = [
+      { card: itau, statementRow: null, components: [], projectedTotal: 100, actualTotal: 100, difference: 0, configIncomplete: false, incompleteReason: null, dueDate: "2026-08-28", closingDate: null, paid: true },
+    ];
+    expect(buildPaymentQueue({ rows: [], statements, today: TODAY, cardsById })).toHaveLength(0);
+  });
+});
+
+describe("rótulo do valor da fatura", () => {
+  const itau = card();
+  const base = { card: itau, statementRow: null, components: [], difference: null, incompleteReason: null, dueDate: null, closingDate: null, paid: false };
+
+  it("occurrence real vira Fatura", () => {
+    const label = statementValueLabel({ ...base, projectedTotal: 90, actualTotal: 3809.25, configIncomplete: false } as any);
+    expect(label.label).toBe("Fatura");
+    expect(label.value).toBe(3809.25);
+  });
+
+  it("ciclo completo sem occurrence vira Projeção da fatura", () => {
+    const label = statementValueLabel({ ...base, projectedTotal: 90, actualTotal: null, configIncomplete: false } as any);
+    expect(label.label).toBe("Projeção da fatura");
+  });
+
+  it("ciclo incompleto nunca chama a soma de fatura em aberto", () => {
+    const incomplete = card({ statement_closing_day: null, statement_due_day: null });
+    const label = statementValueLabel({ ...base, card: incomplete, projectedTotal: 93.45, actualTotal: null, configIncomplete: true } as any);
+    expect(label.label).toBe("Cobranças conhecidas");
+    expect(label.hint).toContain("Projeção indisponível");
+
+    const empty = statementValueLabel({ ...base, card: incomplete, projectedTotal: 0, actualTotal: null, configIncomplete: true } as any);
+    expect(empty.label).toBe("Projeção indisponível");
+    expect(empty.value).toBeNull();
   });
 });
