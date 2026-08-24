@@ -7,6 +7,10 @@ import {
   detectPackageOverlaps,
   effectivePaid,
   isProjectableInMonth,
+  installmentEndDate,
+  installmentLabel,
+  installmentNumberForCompetence,
+  installmentRowLabel,
   normalizeToolName,
   toBrl,
   type FinanceItem,
@@ -241,5 +245,43 @@ describe("financeModel — duplicidade com pacotes", () => {
       item({ id: "tool", name: "CapCut", kind: "tool" }),
     ]);
     expect(overlaps.size).toBe(0);
+  });
+});
+
+describe("financeModel — parcelamento / prazo determinado", () => {
+  const parcelado = item({
+    id: "fin",
+    name: "Financiamento Voyage",
+    kind: "expense",
+    recurrence_type: "installments",
+    installment_start_date: "2026-06-11",
+    installment_count: 3,
+    default_amount_brl: 1728.02,
+  });
+
+  it("projeta somente dentro do cronograma e encerra sozinho", () => {
+    expect(isProjectableInMonth(parcelado, { year: 2026, month: 5 })).toBe(false);
+    expect(isProjectableInMonth(parcelado, { year: 2026, month: 6 })).toBe(true);
+    expect(isProjectableInMonth(parcelado, { year: 2026, month: 8 })).toBe(true);
+    expect(isProjectableInMonth(parcelado, { year: 2026, month: 9 })).toBe(false);
+  });
+
+  it("numera as parcelas e calcula a última data", () => {
+    expect(installmentNumberForCompetence(parcelado, { year: 2026, month: 8 })).toBe(3);
+    expect(installmentNumberForCompetence(parcelado, { year: 2026, month: 9 })).toBeNull();
+    expect(installmentEndDate(parcelado)).toBe("2026-08-11");
+    expect(installmentLabel(3, 3)).toBe("Parcela 3 de 3");
+  });
+
+  it("linha do mês traz metadados de parcela e vencimento pelo cronograma", () => {
+    const rows = buildMonthRows({ items: [parcelado], occurrences: [], competence: COMPETENCE });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].dueDate).toBe("2026-08-11");
+    expect(installmentRowLabel(rows[0])).toBe("Parcela 3 de 3");
+  });
+
+  it("cadastro parcelado sem cronograma completo não projeta", () => {
+    const incompleto = item({ id: "x", name: "Sem plano", recurrence_type: "installments" });
+    expect(isProjectableInMonth(incompleto, COMPETENCE)).toBe(false);
   });
 });
