@@ -2,8 +2,8 @@
  * Central Financeira POR DOMÍNIO.
  *
  * `/financeiro` não é mais uma tela operacional: é um hub onde o usuário
- * escolhe o ASSUNTO (contas a pagar, cartões e faturas, assinaturas e
- * ferramentas, ajustes). Só dentro do domínio aparecem tabelas e filtros.
+ * escolhe o ASSUNTO (pagamentos diretos, cartões e faturas, assinaturas e
+ * ferramentas, ajustes). `Composição do mês` é o drill-down do resumo. Só dentro do domínio aparecem tabelas e filtros.
  *
  * A view atual vive na URL (`?view=`), então voltar do navegador funciona e o
  * link pode ser compartilhado.
@@ -36,6 +36,7 @@ import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal"
 import StatementPanel from "@/components/finance/StatementPanel";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
+import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -55,6 +56,18 @@ import {
   isStatementRow,
 } from "@/lib/financeModel";
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
+import {
+  COMPOSITION_HINTS,
+  COMPOSITION_KINDS,
+  COMPOSITION_STATUSES,
+  COMPOSITION_TAB_LABELS,
+  CompositionStatus,
+  buildMonthComposition,
+  compositionOriginKey,
+  compositionOriginOptions,
+  compositionTotal,
+  normalizeCompositionStatus,
+} from "@/lib/financeComposition";
 import {
   AttentionInsight,
   RowStatusContext,
@@ -76,19 +89,22 @@ const MONTH_LABELS = [
 ];
 
 /** Domínios do Financeiro — a URL manda. */
-type View = "overview" | "accounts" | "cards" | "subscriptions" | "settings";
+type View = "overview" | "composition" | "accounts" | "cards" | "subscriptions" | "settings";
 
-const VIEWS: View[] = ["overview", "accounts", "cards", "subscriptions", "settings"];
+const VIEWS: View[] = ["overview", "composition", "accounts", "cards", "subscriptions", "settings"];
 
 const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   overview: {
     title: "Financeiro",
     subtitle: "Acompanhe o mês e veja o que precisa ser pago.",
   },
+  composition: {
+    title: "Composição do mês",
+    subtitle: "Veja exatamente quais despesas formam os valores do resumo.",
+  },
   accounts: {
-    title: "Contas a pagar",
-    subtitle:
-      "Aqui estão os pagamentos que você faz diretamente. Compras no cartão são pagas pela fatura.",
+    title: "Pagamentos diretos",
+    subtitle: "Pix, boletos, transferências e outras despesas pagas fora do cartão.",
   },
   cards: {
     title: "Cartões e faturas",
@@ -104,7 +120,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   },
 };
 
-/** Visão simples de "Contas a pagar". */
+/** Visão simples de "Pagamentos diretos". */
 type MainView = "to_pay" | "paid" | "all";
 
 const MAIN_VIEWS: { value: MainView; label: string }[] = [
@@ -135,6 +151,17 @@ export default function Financial() {
     const copy = new URLSearchParams(params);
     if (next === "overview") copy.delete("view");
     else copy.set("view", next);
+    // `status` só faz sentido na composição — evita param stale nos outros domínios.
+    if (next !== "composition") copy.delete("status");
+    setParams(copy);
+  };
+
+  /** Recorte analítico da composição (fonte da verdade é a URL). */
+  const compositionStatus: CompositionStatus = normalizeCompositionStatus(params.get("status"));
+  const goToComposition = (status: CompositionStatus) => {
+    const copy = new URLSearchParams(params);
+    copy.set("view", "composition");
+    copy.set("status", status);
     setParams(copy);
   };
 
@@ -152,6 +179,10 @@ export default function Financial() {
   const [costCenter, setCostCenter] = useState("all");
   const [search, setSearch] = useState("");
   const [subscriptionSearch, setSubscriptionSearch] = useState("");
+  const [compositionSearch, setCompositionSearch] = useState("");
+  const [compositionOrigin, setCompositionOrigin] = useState("all");
+  const [compositionKind, setCompositionKind] = useState("all");
+  const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
@@ -194,6 +225,48 @@ export default function Financial() {
 
   /** Relação pago x em aberto — derivada apenas dos totais, nunca persistida. */
   const composition = useMemo(() => buildPaidComposition(totals), [totals]);
+
+  /* --------------------- Composição do mês (auditoria) -------------------- */
+
+  /** Recorte bruto: reconcilia exatamente com os KPIs, sem filtros da UI. */
+  const compositionEntries = useMemo(
+    () => buildMonthComposition({ rows, status: compositionStatus }),
+    [rows, compositionStatus],
+  );
+
+  const compositionOrigins = useMemo(
+    () => compositionOriginOptions(rows, cardsById, cardDisplayLabel),
+    [rows, cardsById],
+  );
+
+  const compositionFilterCount =
+    (compositionOrigin !== "all" ? 1 : 0) + (compositionKind !== "all" ? 1 : 0) + (costCenter !== "all" ? 1 : 0);
+
+  const compositionVisible = useMemo(() => {
+    let result = compositionEntries;
+    if (costCenter !== "all") result = result.filter((e) => e.row.item.cost_center === costCenter);
+    if (compositionOrigin !== "all")
+      result = result.filter((e) => compositionOriginKey(e.row) === compositionOrigin);
+    if (compositionKind !== "all") result = result.filter((e) => e.row.item.kind === compositionKind);
+    const term = compositionSearch.trim().toLowerCase();
+    if (term) {
+      result = result.filter(
+        (e) =>
+          e.row.item.name.toLowerCase().includes(term) ||
+          (e.row.item.purpose ?? "").toLowerCase().includes(term) ||
+          (e.row.item.category ?? "").toLowerCase().includes(term),
+      );
+    }
+    return result;
+  }, [compositionEntries, costCenter, compositionOrigin, compositionKind, compositionSearch]);
+
+  const compositionTotals: Record<CompositionStatus, number> = {
+    all: totals.expected,
+    paid: totals.paid,
+    open: totals.open,
+  };
+  const compositionVisibleTotal = useMemo(() => compositionTotal(compositionVisible), [compositionVisible]);
+  const compositionNarrowed = compositionVisible.length !== compositionEntries.length;
 
   const openItemModal = (item: FinanceItem | null, kind?: FinanceKind) => {
     setEditingItem(item);
@@ -367,7 +440,7 @@ export default function Financial() {
     {
       view: "accounts" as View,
       icon: Receipt,
-      title: "Contas a pagar",
+      title: "Pagamentos diretos",
       meta:
         accountsSummary.pending === 1
           ? "1 pendente"
@@ -446,7 +519,7 @@ export default function Financial() {
                 : view === "accounts"
                   ? [
                       {
-                        label: "Nova conta",
+                        label: "Nova despesa direta",
                         onClick: () => openItemModal(null, "expense"),
                         icon: <Plus className="w-4 h-4" />,
                       },
@@ -466,20 +539,32 @@ export default function Financial() {
               <h2 className="text-base font-semibold">Resumo de {monthLabel}</h2>
 
               <Card className="p-5 sm:p-6 space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-border gap-5 sm:gap-0">
-                  <div className="sm:pr-6">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm text-muted-foreground">Gastos previstos</p>
+                {/* Cada métrica é porta de auditoria: abre a composição no recorte. */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-border gap-2 sm:gap-0">
+                  <button
+                    type="button"
+                    onClick={() => goToComposition("all")}
+                    aria-label="Gastos previstos — ver composição do mês"
+                    className="text-left rounded-md -m-1 p-1 sm:mr-5 sm:pr-5 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-sm text-muted-foreground">Gastos previstos</span>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button
-                              type="button"
+                            <span
+                              role="button"
+                              tabIndex={0}
                               aria-label="Como os gastos são somados"
                               className="text-muted-foreground hover:text-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                              }}
+                              onKeyDown={(e) => e.stopPropagation()}
                             >
                               <Info className="w-4 h-4" />
-                            </button>
+                            </span>
                           </TooltipTrigger>
                           <TooltipContent className="max-w-[260px]">
                             Compras no cartão entram como despesa aqui; a fatura não é somada
@@ -487,28 +572,43 @@ export default function Financial() {
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    </div>
-                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                    </span>
+                    <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
                       {formatBRL(totals.expected)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">estimativa para o mês</p>
-                  </div>
+                    </span>
+                    <span className="block text-sm text-muted-foreground">estimativa para o mês</span>
+                    <span className="block text-sm text-primary mt-1">Ver composição →</span>
+                  </button>
 
-                  <div className="sm:px-6">
-                    <p className="text-sm text-muted-foreground">Já pago</p>
-                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                  <button
+                    type="button"
+                    onClick={() => goToComposition("paid")}
+                    aria-label="Já pago — ver pagamentos do mês"
+                    className="text-left rounded-md -m-1 p-1 sm:mx-5 sm:px-5 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="block text-sm text-muted-foreground">Já pago</span>
+                    <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
                       {formatBRL(totals.paid)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">pagamentos já realizados</p>
-                  </div>
+                    </span>
+                    <span className="block text-sm text-muted-foreground">pagamentos já realizados</span>
+                    <span className="block text-sm text-primary mt-1">Ver pagamentos →</span>
+                  </button>
 
-                  <div className="sm:pl-6">
-                    <p className="text-sm text-muted-foreground">Em aberto</p>
-                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                  <button
+                    type="button"
+                    onClick={() => goToComposition("open")}
+                    aria-label="Em aberto — ver pendências do mês"
+                    className="text-left rounded-md -m-1 p-1 sm:ml-5 sm:pl-5 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="block text-sm text-muted-foreground">Em aberto</span>
+                    <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
                       {formatBRL(totals.open)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">despesas ainda não liquidadas</p>
-                  </div>
+                    </span>
+                    <span className="block text-sm text-muted-foreground">
+                      despesas ainda não liquidadas
+                    </span>
+                    <span className="block text-sm text-primary mt-1">Ver pendências →</span>
+                  </button>
                 </div>
 
                 {/* Relação pago x em aberto — derivada só dos totais */}
@@ -599,7 +699,127 @@ export default function Financial() {
         )}
 
 
-        {/* ======================== CONTAS A PAGAR ======================== */}
+        {/* ====================== COMPOSIÇÃO DO MÊS ====================== */}
+        {view === "composition" && (
+          <section className="space-y-4">
+            {/* Tabs com os totais canônicos — nunca recomputados aqui. */}
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              {COMPOSITION_STATUSES.map((status) => {
+                const active = compositionStatus === status;
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => goToComposition(status)}
+                    aria-pressed={active}
+                    className={`flex-shrink-0 rounded-md border px-4 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      active ? "border-primary bg-primary/10" : "bg-card hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className="block text-sm text-muted-foreground">
+                      {COMPOSITION_TAB_LABELS[status]}
+                    </span>
+                    <span className="block text-[15px] font-semibold whitespace-nowrap">
+                      {formatBRL(compositionTotals[status])}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="text-sm text-muted-foreground">{COMPOSITION_HINTS[compositionStatus]}</p>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                placeholder="Buscar despesa..."
+                value={compositionSearch}
+                onChange={(e) => setCompositionSearch(e.target.value)}
+                className="h-10 w-full sm:w-56"
+              />
+
+              <Popover open={compositionFiltersOpen} onOpenChange={setCompositionFiltersOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="min-h-10">
+                    <SlidersHorizontal className="w-4 h-4 mr-2" />
+                    Filtros
+                    {compositionFilterCount > 0 && (
+                      <Badge className="ml-2 bg-primary/10 text-primary border-primary/30" variant="outline">
+                        {compositionFilterCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[280px] space-y-4">
+                  <div>
+                    <Label className="text-sm">Centro de custo</Label>
+                    <Select value={costCenter} onValueChange={setCostCenter}>
+                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {Object.entries(COST_CENTER_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm">Origem de pagamento</Label>
+                    <Select value={compositionOrigin} onValueChange={setCompositionOrigin}>
+                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {compositionOrigins.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm">Tipo</Label>
+                    <Select value={compositionKind} onValueChange={setCompositionKind}>
+                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {COMPOSITION_KINDS.map((k) => (
+                          <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full min-h-10"
+                    onClick={() => {
+                      setCostCenter("all");
+                      setCompositionOrigin("all");
+                      setCompositionKind("all");
+                    }}
+                  >
+                    Limpar filtros
+                  </Button>
+                </PopoverContent>
+              </Popover>
+
+              {compositionNarrowed && (
+                <span className="text-sm text-muted-foreground">
+                  Exibindo {formatBRL(compositionVisibleTotal)} de{" "}
+                  {formatBRL(compositionTotals[compositionStatus])} deste recorte
+                </span>
+              )}
+            </div>
+
+            <MonthCompositionList
+              entries={compositionVisible}
+              statusContext={statusContext}
+              loading={loading}
+              emptyMessage="Nenhuma despesa neste recorte com esses filtros."
+              onOpenRow={setOccurrenceRow}
+            />
+          </section>
+        )}
+
+        {/* ====================== PAGAMENTOS DIRETOS ====================== */}
         {view === "accounts" && (
           <section className="space-y-4">
             <Card className="p-4 flex flex-wrap gap-x-8 gap-y-2">
@@ -608,7 +828,7 @@ export default function Financial() {
                 <p className="text-xl font-bold">{formatBRL(accountsSummary.open)}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Contas pendentes</p>
+                <p className="text-sm text-muted-foreground">Pagamentos pendentes</p>
                 <p className="text-xl font-bold">{accountsSummary.pending}</p>
               </div>
               <div>
@@ -638,7 +858,7 @@ export default function Financial() {
               ))}
 
               <Input
-                placeholder="Buscar conta..."
+                placeholder="Buscar despesa..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-10 w-full sm:w-56"
