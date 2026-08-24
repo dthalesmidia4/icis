@@ -48,7 +48,7 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaultUsdRate, onSave }: Props) {
+export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaultUsdRate, onSave, onEditItem }: Props) {
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
   const [dueDate, setDueDate] = useState("");
