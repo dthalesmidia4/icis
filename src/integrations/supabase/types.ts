@@ -1417,6 +1417,7 @@ export type Database = {
       finance_items: {
         Row: {
           active: boolean
+          amount_mode: string
           bank_name: string | null
           card_item_id: string | null
           card_last4: string | null
@@ -1441,6 +1442,8 @@ export type Database = {
           parent_item_id: string | null
           payment_method: string | null
           purpose: string | null
+          recurrence_interval_months: number
+          recurrence_start_date: string | null
           recurrence_type: string
           statement_closing_day: number | null
           statement_due_day: number | null
@@ -1450,6 +1453,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          amount_mode?: string
           bank_name?: string | null
           card_item_id?: string | null
           card_last4?: string | null
@@ -1474,6 +1478,8 @@ export type Database = {
           parent_item_id?: string | null
           payment_method?: string | null
           purpose?: string | null
+          recurrence_interval_months?: number
+          recurrence_start_date?: string | null
           recurrence_type?: string
           statement_closing_day?: number | null
           statement_due_day?: number | null
@@ -1483,6 +1489,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          amount_mode?: string
           bank_name?: string | null
           card_item_id?: string | null
           card_last4?: string | null
@@ -1507,6 +1514,8 @@ export type Database = {
           parent_item_id?: string | null
           payment_method?: string | null
           purpose?: string | null
+          recurrence_interval_months?: number
+          recurrence_start_date?: string | null
           recurrence_type?: string
           statement_closing_day?: number | null
           statement_due_day?: number | null
@@ -1544,6 +1553,7 @@ export type Database = {
           amount_original: number | null
           attachment_name: string | null
           attachment_url: string | null
+          card_item_id_snapshot: string | null
           charge_date: string | null
           competence_month: string
           created_at: string
@@ -1558,6 +1568,8 @@ export type Database = {
           observations: string | null
           paid_amount_brl: number | null
           paid_at: string | null
+          payment_method_snapshot: string | null
+          statement_competence_snapshot: string | null
           statement_occurrence_id: string | null
           tenant_id: string
           updated_at: string
@@ -1567,6 +1579,7 @@ export type Database = {
           amount_original?: number | null
           attachment_name?: string | null
           attachment_url?: string | null
+          card_item_id_snapshot?: string | null
           charge_date?: string | null
           competence_month: string
           created_at?: string
@@ -1581,6 +1594,8 @@ export type Database = {
           observations?: string | null
           paid_amount_brl?: number | null
           paid_at?: string | null
+          payment_method_snapshot?: string | null
+          statement_competence_snapshot?: string | null
           statement_occurrence_id?: string | null
           tenant_id: string
           updated_at?: string
@@ -1590,6 +1605,7 @@ export type Database = {
           amount_original?: number | null
           attachment_name?: string | null
           attachment_url?: string | null
+          card_item_id_snapshot?: string | null
           charge_date?: string | null
           competence_month?: string
           created_at?: string
@@ -1604,11 +1620,20 @@ export type Database = {
           observations?: string | null
           paid_amount_brl?: number | null
           paid_at?: string | null
+          payment_method_snapshot?: string | null
+          statement_competence_snapshot?: string | null
           statement_occurrence_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "finance_occurrences_card_item_snapshot_fkey"
+            columns: ["card_item_id_snapshot"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "finance_occurrences_item_id_fkey"
             columns: ["item_id"]
@@ -2665,6 +2690,7 @@ export type Database = {
           cnpj_cpf: string | null
           created_at: string | null
           email: string | null
+          finance_access_password_hash: string | null
           finance_default_usd_rate: number | null
           finance_monthly_budget_brl: number | null
           hierarchy_level: number | null
@@ -2684,6 +2710,7 @@ export type Database = {
           cnpj_cpf?: string | null
           created_at?: string | null
           email?: string | null
+          finance_access_password_hash?: string | null
           finance_default_usd_rate?: number | null
           finance_monthly_budget_brl?: number | null
           hierarchy_level?: number | null
@@ -2703,6 +2730,7 @@ export type Database = {
           cnpj_cpf?: string | null
           created_at?: string | null
           email?: string | null
+          finance_access_password_hash?: string | null
           finance_default_usd_rate?: number | null
           finance_monthly_budget_brl?: number | null
           hierarchy_level?: number | null
@@ -3160,6 +3188,7 @@ export type Database = {
       }
       create_manual_demand_atomic: { Args: { p_payload: Json }; Returns: Json }
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
+      finance_password_status: { Args: { _tenant_id: string }; Returns: Json }
       generate_demand_fingerprint: {
         Args: { p_channel: string; p_demand_type: string; p_title: string }
         Returns: string
@@ -3289,6 +3318,10 @@ export type Database = {
         }
         Returns: string
       }
+      set_finance_password: {
+        Args: { _password: string; _tenant_id: string }
+        Returns: Json
+      }
       set_finance_settings: {
         Args: {
           _default_usd_rate: number
@@ -3324,6 +3357,10 @@ export type Database = {
       }
       user_has_tenant_access: {
         Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
+      verify_finance_password: {
+        Args: { _password: string; _tenant_id: string }
         Returns: boolean
       }
     }

@@ -115,7 +115,7 @@ export function compositionDateLabel(row: MonthRow): { label: string; date: stri
 /** Origem de pagamento como chave de filtro: `direct`, `none` ou id do cartão. */
 export function compositionOriginKey(row: MonthRow): string {
   if (row.cardItemId) return row.cardItemId;
-  if (row.item.payment_method) return "direct";
+  if (row.paymentMethod) return "direct";
   return "none";
 }
 

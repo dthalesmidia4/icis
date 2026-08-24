@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CARD_PAYMENT_METHOD,
+  FinanceAmountMode,
   COST_CENTER_LABELS,
   FinanceCostCenter,
   FinanceCurrency,
@@ -20,11 +21,11 @@ import {
   FinanceRecurrence,
   KIND_LABELS,
   PAYMENT_METHODS,
-  RECURRENCE_LABELS,
   cardDisplayLabel,
   formatBRL,
-
+  normalizeToolName,
 } from "@/lib/financeModel";
+import { parseDayOfMonth, parseLocalizedNumber, parsePositiveInt } from "@/lib/financeNumber";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
 
 
@@ -36,6 +37,8 @@ interface Props {
   initialKind?: FinanceKind | null;
   cards: FinanceItem[];
   packages: FinanceItem[];
+  /** Cadastros existentes — usados só para AVISAR sobre nome parecido. */
+  allItems?: FinanceItem[];
   defaultUsdRate: number | null;
   onSave: (payload: Partial<FinanceItem>, id?: string) => Promise<boolean>;
 }
@@ -43,27 +46,42 @@ interface Props {
 
 const KIND_OPTIONS: FinanceKind[] = ["expense", "tool", "package", "card", "included_resource"];
 const COST_CENTERS: FinanceCostCenter[] = ["midia", "sistemas", "administrativo", "compartilhado"];
-const RECURRENCES: FinanceRecurrence[] = [
-  "monthly",
-  "installments",
-  "annual",
-  "one_off",
-  "credits",
-  "variable",
-];
-
 const NONE = "__none__";
 
-function numberOrNull(value: string): number | null {
-  if (!value.trim()) return null;
-  const parsed = Number(value.replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : null;
+/* ------------------- Tipo de cobrança em linguagem humana ------------------ */
+
+/** O que o usuário escolhe. `recurrence_type` do banco é derivado disto. */
+type ChargeMode = "one_off" | "recurring" | "installments" | "consumption";
+
+const CHARGE_MODES: { value: ChargeMode; title: string; help: string }[] = [
+  { value: "one_off", title: "Avulsa", help: "Acontece uma vez, sem repetir." },
+  { value: "recurring", title: "Recorrente", help: "Repete sempre, sem data para acabar." },
+  { value: "installments", title: "Parcelada", help: "Tem começo, número de parcelas e fim." },
+  { value: "consumption", title: "Consumo", help: "O valor muda: só se confirma no mês." },
+];
+
+type Frequency = "monthly" | "custom" | "annual";
+
+const FREQUENCIES: { value: Frequency; label: string }[] = [
+  { value: "monthly", label: "Todo mês" },
+  { value: "custom", label: "A cada X meses" },
+  { value: "annual", label: "Uma vez por ano" },
+];
+
+/** Cadastro salvo -> escolha humana (leitura reversa, sem perder informação). */
+function chargeModeFromItem(item?: FinanceItem | null): ChargeMode {
+  if (!item) return "recurring";
+  if (item.recurrence_type === "installments") return "installments";
+  if (item.recurrence_type === "one_off") return "one_off";
+  if (item.recurrence_type === "credits" || item.recurrence_type === "variable") return "consumption";
+  if (item.amount_mode === "variable") return "consumption";
+  return "recurring";
 }
 
-function dayOrNull(value: string): number | null {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n < 1 || n > 31) return null;
-  return Math.trunc(n);
+function frequencyFromItem(item?: FinanceItem | null): Frequency {
+  if (!item) return "monthly";
+  if (item.recurrence_type === "annual") return "annual";
+  return (item.recurrence_interval_months ?? 1) > 1 ? "custom" : "monthly";
 }
 
 export default function FinanceItemFormModal({
@@ -73,6 +91,7 @@ export default function FinanceItemFormModal({
   initialKind,
   cards,
   packages,
+  allItems = [],
   defaultUsdRate,
   onSave,
 }: Props) {
@@ -82,7 +101,10 @@ export default function FinanceItemFormModal({
   const [category, setCategory] = useState("");
   const [costCenter, setCostCenter] = useState<FinanceCostCenter>("administrativo");
   const [active, setActive] = useState(true);
-  const [recurrence, setRecurrence] = useState<FinanceRecurrence>("monthly");
+  const [chargeMode, setChargeMode] = useState<ChargeMode>("recurring");
+  const [frequency, setFrequency] = useState<Frequency>("monthly");
+  const [intervalMonths, setIntervalMonths] = useState("2");
+  const [recurrenceStart, setRecurrenceStart] = useState("");
   const [currency, setCurrency] = useState<FinanceCurrency>("BRL");
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
@@ -116,7 +138,14 @@ export default function FinanceItemFormModal({
     setCategory(item?.category ?? "");
     setCostCenter((item?.cost_center as FinanceCostCenter) ?? "administrativo");
     setActive(item?.active ?? true);
-    setRecurrence((item?.recurrence_type as FinanceRecurrence) ?? "monthly");
+    setChargeMode(chargeModeFromItem(item));
+    setFrequency(frequencyFromItem(item));
+    setIntervalMonths(
+      item?.recurrence_interval_months != null && item.recurrence_interval_months > 1
+        ? String(item.recurrence_interval_months)
+        : "2",
+    );
+    setRecurrenceStart(item?.recurrence_start_date ?? "");
     setCurrency((item?.currency as FinanceCurrency) ?? "BRL");
     setAmount(
       item?.currency === "USD"
@@ -148,9 +177,42 @@ export default function FinanceItemFormModal({
   const isCard = kind === "card";
   const isIncluded = kind === "included_resource";
   const onCard = paymentMethod === CARD_PAYMENT_METHOD;
-  const effectiveRate = numberOrNull(rate) ?? defaultUsdRate;
-  const amountNumber = numberOrNull(amount);
-  const isInstallments = !isCard && !isIncluded && recurrence === "installments";
+  const effectiveRate = parseLocalizedNumber(rate) ?? defaultUsdRate;
+  const amountNumber = parseLocalizedNumber(amount);
+  const isInstallments = !isCard && !isIncluded && chargeMode === "installments";
+  const isRecurring = !isCard && !isIncluded && chargeMode === "recurring";
+  const isAnnual = isRecurring && frequency === "annual";
+  const intervalNumber = frequency === "custom" ? parsePositiveInt(intervalMonths) ?? 1 : 1;
+
+  /** Escolha humana -> `recurrence_type` do banco. */
+  const recurrence: FinanceRecurrence = useMemo(() => {
+    if (isIncluded) return "monthly";
+    switch (chargeMode) {
+      case "one_off":
+        return "one_off";
+      case "installments":
+        return "installments";
+      case "consumption":
+        return "variable";
+      default:
+        return frequency === "annual" ? "annual" : "monthly";
+    }
+  }, [chargeMode, frequency, isIncluded]);
+
+  const amountMode: FinanceAmountMode = chargeMode === "consumption" ? "variable" : "fixed";
+
+  /**
+   * Aviso (nunca bloqueio) de possível duplicidade: mesmo nome normalizado em
+   * um cadastro ativo diferente deste.
+   */
+  const duplicateWarning = useMemo(() => {
+    const key = normalizeToolName(name);
+    if (!key || key.length < 3) return null;
+    const hit = allItems.find(
+      (i) => i.id !== item?.id && i.active && normalizeToolName(i.name) === key,
+    );
+    return hit ? hit.name : null;
+  }, [name, allItems, item?.id]);
 
   const installmentCountNumber = useMemo(() => {
     const n = Number(installmentCount);
@@ -187,22 +249,25 @@ export default function FinanceItemFormModal({
       category: category.trim() || null,
       cost_center: costCenter,
       active,
-      recurrence_type: isIncluded ? "monthly" : recurrence,
+      recurrence_type: recurrence,
+      recurrence_interval_months: isRecurring && frequency === "custom" ? intervalNumber : 1,
+      recurrence_start_date: isRecurring && frequency === "custom" ? recurrenceStart || null : null,
+      amount_mode: isIncluded ? "fixed" : amountMode,
       currency,
       default_amount_original: isIncluded ? null : amountNumber,
       default_exchange_rate: currency === "USD" ? effectiveRate : null,
       default_amount_brl: isIncluded ? null : brlPreview != null ? Number(brlPreview.toFixed(2)) : null,
       // No parcelamento o cronograma define os dias: nada de dia genérico.
-      charge_day: isCard || isInstallments ? null : dayOrNull(chargeDay),
-      due_day: isCard || isInstallments ? null : dayOrNull(dueDay),
+      charge_day: isCard || isInstallments ? null : parseDayOfMonth(chargeDay),
+      due_day: isCard || isInstallments ? null : parseDayOfMonth(dueDay),
       payment_method: isCard || paymentMethod === NONE ? null : paymentMethod,
       card_item_id: !isCard && onCard && cardItemId !== NONE ? cardItemId : null,
       parent_item_id: isIncluded && parentItemId !== NONE ? parentItemId : null,
       bank_name: isCard ? bankName.trim() || null : null,
       card_last4: isCard ? cardLast4.trim() || null : null,
-      card_limit_brl: isCard ? numberOrNull(cardLimit) : null,
-      statement_closing_day: isCard ? dayOrNull(closingDay) : null,
-      statement_due_day: isCard ? dayOrNull(statementDueDay) : null,
+      card_limit_brl: isCard ? parseLocalizedNumber(cardLimit) : null,
+      statement_closing_day: isCard ? parseDayOfMonth(closingDay) : null,
+      statement_due_day: isCard ? parseDayOfMonth(statementDueDay) : null,
       subscription_date: subscriptionDate || null,
       installment_start_date: isInstallments ? installmentStart : null,
       installment_count: isInstallments ? installmentCountNumber : null,
@@ -258,6 +323,12 @@ export default function FinanceItemFormModal({
             <div>
               <Label>Nome *</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: ChatGPT Plus" />
+              {duplicateWarning && (
+                <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                  Já existe um cadastro ativo parecido: “{duplicateWarning}”. Pode salvar mesmo
+                  assim, mas confira se não é a mesma despesa.
+                </p>
+              )}
             </div>
             <div>
               <Label>Tipo *</Label>
@@ -351,18 +422,85 @@ export default function FinanceItemFormModal({
 
           {!isIncluded && !isCard && (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-lg border p-3 space-y-3">
                 <div>
-                  <Label>Recorrência</Label>
-                  <Select value={recurrence} onValueChange={(v) => setRecurrence(v as FinanceRecurrence)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {RECURRENCES.map((r) => (
-                        <SelectItem key={r} value={r}>{RECURRENCE_LABELS[r]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <p className="text-sm font-medium">Como essa despesa é cobrada?</p>
+                  <p className="text-xs text-muted-foreground">
+                    Isso define em quais meses ela vai aparecer sozinha.
+                  </p>
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {CHARGE_MODES.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setChargeMode(option.value)}
+                      className={`rounded-lg border p-3 text-left min-h-[66px] transition-colors ${
+                        chargeMode === option.value
+                          ? "border-primary bg-primary/5"
+                          : "hover:bg-muted/50"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{option.title}</p>
+                      <p className="text-xs text-muted-foreground">{option.help}</p>
+                    </button>
+                  ))}
+                </div>
+
+                {isRecurring && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <Label>Frequência</Label>
+                      <Select value={frequency} onValueChange={(v) => setFrequency(v as Frequency)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {FREQUENCIES.map((f) => (
+                            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {frequency === "custom" && (
+                      <>
+                        <div>
+                          <Label>Intervalo (meses)</Label>
+                          <Input
+                            value={intervalMonths}
+                            onChange={(e) => setIntervalMonths(e.target.value)}
+                            inputMode="numeric"
+                            placeholder="2"
+                          />
+                        </div>
+                        <div>
+                          <Label>Primeira cobrança</Label>
+                          <Input
+                            type="date"
+                            value={recurrenceStart}
+                            onChange={(e) => setRecurrenceStart(e.target.value)}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {isRecurring && frequency === "custom" && (
+                  <p className="text-xs text-muted-foreground">
+                    {recurrenceStart
+                      ? `Aparece a cada ${intervalNumber} ${intervalNumber === 1 ? "mês" : "meses"} a partir de ${recurrenceStart.split("-").reverse().join("/")}.`
+                      : "Informe a primeira cobrança para o sistema saber quais meses contar."}
+                  </p>
+                )}
+
+                {chargeMode === "consumption" && (
+                  <p className="text-xs text-muted-foreground">
+                    O valor informado abaixo é só referência: cada mês fica como estimativa até
+                    você registrar o valor real.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Moeda</Label>
                   <Select value={currency} onValueChange={(v) => setCurrency(v as FinanceCurrency)}>
@@ -374,10 +512,13 @@ export default function FinanceItemFormModal({
                   </Select>
                 </div>
                 <div>
-                  <Label>Valor de referência</Label>
+                  <Label>
+                    {chargeMode === "consumption" ? "Valor estimado" : "Valor de referência"}
+                  </Label>
                   <Input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal" />
                 </div>
               </div>
+
 
               {currency === "USD" && (
                 <div className="grid grid-cols-2 gap-4 items-end">
@@ -472,7 +613,7 @@ export default function FinanceItemFormModal({
 
             </div>
           )}
-          {(recurrence === "annual" || !!subscriptionDate) && (
+          {(isAnnual || !!subscriptionDate) && (
             <div>
               <Label>Data da assinatura</Label>
               <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
@@ -493,7 +634,7 @@ export default function FinanceItemFormModal({
             </button>
             {showMore && (
               <div className="space-y-4 p-3 pt-0">
-                {recurrence !== "annual" && !subscriptionDate && (
+                {!isAnnual && !subscriptionDate && (
                   <div>
                     <Label>Data da assinatura</Label>
                     <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
