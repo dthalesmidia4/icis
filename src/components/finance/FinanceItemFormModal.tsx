@@ -23,7 +23,6 @@ import {
   RECURRENCE_LABELS,
   cardDisplayLabel,
   formatBRL,
-  formatBRL,
 
 } from "@/lib/financeModel";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
