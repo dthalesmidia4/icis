@@ -3785,7 +3785,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                                   <Draggable
                                     key={card.id}
                                     draggableId={card.id}
-                                    index={columnCards.length + reviewCards.length + awIdx}
+                                    index={columnCards.length + reviewCards.length + planningCards.length + awIdx}
                                     isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "awaiting" })}
                                   >
                                     {(dp) => (
