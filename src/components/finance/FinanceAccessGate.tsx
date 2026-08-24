@@ -2,15 +2,18 @@
  * Trava de senha do Financeiro.
  *
  * A senha NUNCA é validada no cliente: o hash vive em `tenants` e a conferência
- * acontece em `public.verify_finance_password` (SECURITY DEFINER). Aqui só
- * guardamos, na sessão do navegador, o fato de que a senha já foi aceita —
- * então recarregar a página não pede de novo, mas fechar o navegador pede.
+ * acontece em `public.verify_finance_password` (SECURITY DEFINER).
+ *
+ * O desbloqueio existe SOMENTE em memória, enquanto este componente está
+ * montado: sair do módulo, dar refresh ou reabrir a aba pede senha de novo.
+ * Nenhum sessionStorage/localStorage/cookie é usado.
  *
  * A trava é a SEGUNDA camada: quem não tem `has_finance_access` já não chega
  * até aqui, e a RLS continua sendo a autoridade final sobre os dados.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Lock, ShieldCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, Lock, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { Button } from "@/components/ui/button";
@@ -19,49 +22,50 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { toast } from "sonner";
+import {
+  FINANCE_PASSWORD_MAX,
+  type FinancePasswordStatus,
+  parseFinancePasswordStatus,
+  resolveFinanceGatePhase,
+  shouldRenderFinanceChildren,
+  validateNewFinancePassword,
+} from "@/lib/financePasswordGate";
 
 interface Props {
   children: React.ReactNode;
 }
 
-interface PasswordStatus {
-  configured: boolean;
-  canSetup: boolean;
-}
-
-const sessionKey = (tenantId: string) => `finance-unlocked:${tenantId}`;
-
 export default function FinanceAccessGate({ children }: Props) {
   const { agencyId } = useAgency();
-  const [status, setStatus] = useState<PasswordStatus | null>(null);
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<FinancePasswordStatus | null>(null);
+  const [statusError, setStatusError] = useState(false);
+  // Único lugar do unlock: memória do componente.
   const [unlocked, setUnlocked] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [mode, setMode] = useState<"unlock" | "setup">("unlock");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!agencyId) return;
+    setStatusError(false);
     const { data, error } = await supabase.rpc("finance_password_status", { _tenant_id: agencyId });
     if (error) {
-      // Sem status confiável, não inventamos liberação: mantém travado.
-      setStatus({ configured: true, canSetup: false });
+      setStatus(null);
+      setStatusError(true);
       return;
     }
-    const payload = (data ?? {}) as { configured?: boolean; can_setup?: boolean };
-    const next = { configured: !!payload.configured, canSetup: !!payload.can_setup };
-    setStatus(next);
-    setMode(next.configured ? "unlock" : "setup");
-    if (!next.configured) setUnlocked(true); // nada configurado: não há o que travar
-    else setUnlocked(sessionStorage.getItem(sessionKey(agencyId)) === "1");
+    setStatus(parseFinancePasswordStatus(data));
   }, [agencyId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const phase = resolveFinanceGatePhase(status, { statusError, unlockedInMemory: unlocked });
+
   const handleUnlock = async () => {
-    if (!agencyId || !password.trim()) return;
+    if (!agencyId || !password.trim() || busy) return;
     setBusy(true);
     const { data, error } = await supabase.rpc("verify_finance_password", {
       _tenant_id: agencyId,
@@ -73,19 +77,15 @@ export default function FinanceAccessGate({ children }: Props) {
       setPassword("");
       return;
     }
-    sessionStorage.setItem(sessionKey(agencyId), "1");
     setPassword("");
     setUnlocked(true);
   };
 
   const handleSetup = async () => {
-    if (!agencyId) return;
-    if (password.trim().length < 4) {
-      toast.error("A senha deve ter pelo menos 4 caracteres");
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error("As senhas não conferem");
+    if (!agencyId || busy) return;
+    const check = validateNewFinancePassword(password, confirmPassword);
+    if (!check.ok) {
+      toast.error(check.message);
       return;
     }
     setBusy(true);
@@ -98,23 +98,73 @@ export default function FinanceAccessGate({ children }: Props) {
       toast.error("Não foi possível definir a senha");
       return;
     }
-    sessionStorage.setItem(sessionKey(agencyId), "1");
     setPassword("");
     setConfirmPassword("");
-    toast.success("Senha do Financeiro definida");
+    toast.success("Senha do Financeiro criada");
     setStatus({ configured: true, canSetup: true });
     setUnlocked(true);
   };
 
-  if (!agencyId || !status) return <LoadingScreen title="Verificando a trava do Financeiro..." />;
+  if (!agencyId || phase === "loading") {
+    return <LoadingScreen title="Verificando a trava do Financeiro..." />;
+  }
 
-  if (unlocked) return <>{children}</>;
+  if (shouldRenderFinanceChildren(phase)) return <>{children}</>;
+
+  const goBack = () => navigate("/");
+
+  if (phase === "error") {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-16">
+        <Card className="p-6 space-y-5 text-center">
+          <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold">Não foi possível verificar a senha</h1>
+            <p className="text-sm text-muted-foreground">
+              O Financeiro permanece bloqueado até a verificação funcionar.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1 min-h-10" onClick={goBack}>
+              Voltar
+            </Button>
+            <Button className="flex-1 min-h-10" onClick={load}>
+              Tentar novamente
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (phase === "setup_blocked") {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-16">
+        <Card className="p-6 space-y-5 text-center">
+          <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+            <Lock className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold">Financeiro protegido</h1>
+          <p className="text-sm text-muted-foreground">
+            A senha do Financeiro ainda não foi configurada pelo super admin.
+          </p>
+          <Button variant="outline" className="w-full min-h-10" onClick={goBack}>
+            Voltar
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const isSetup = phase === "setup";
 
   return (
     <div className="container max-w-md mx-auto px-4 py-16">
       <Card className="p-6 space-y-5 text-center">
         <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-          {mode === "setup" ? (
+          {isSetup ? (
             <ShieldCheck className="w-6 h-6 text-primary" />
           ) : (
             <Lock className="w-6 h-6 text-primary" />
@@ -122,35 +172,37 @@ export default function FinanceAccessGate({ children }: Props) {
         </div>
         <div className="space-y-1">
           <h1 className="text-2xl font-bold">
-            {mode === "setup" ? "Definir senha do Financeiro" : "Financeiro protegido"}
+            {isSetup ? "Crie a senha do Financeiro" : "Digite a senha do Financeiro"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {mode === "setup"
-              ? "Escolha uma senha para proteger a tela. Ela será pedida uma vez por sessão."
-              : "Digite a senha do Financeiro para continuar. Ela é pedida uma vez por sessão."}
+            {isSetup
+              ? "Esta senha será solicitada sempre que alguém entrar no Financeiro."
+              : "Digite a senha do Financeiro para continuar."}
           </p>
         </div>
 
         <div className="space-y-3 text-left">
           <div>
-            <Label>Senha</Label>
+            <Label>{isSetup ? "Nova senha" : "Senha"}</Label>
             <Input
               type="password"
               value={password}
               autoFocus
+              maxLength={FINANCE_PASSWORD_MAX}
               className="h-10"
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") (mode === "setup" ? handleSetup : handleUnlock)();
+                if (e.key === "Enter") (isSetup ? handleSetup : handleUnlock)();
               }}
             />
           </div>
-          {mode === "setup" && (
+          {isSetup && (
             <div>
               <Label>Confirmar senha</Label>
               <Input
                 type="password"
                 value={confirmPassword}
+                maxLength={FINANCE_PASSWORD_MAX}
                 className="h-10"
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 onKeyDown={(e) => {
@@ -164,16 +216,14 @@ export default function FinanceAccessGate({ children }: Props) {
         <Button
           className="w-full min-h-10"
           disabled={busy || !password.trim()}
-          onClick={mode === "setup" ? handleSetup : handleUnlock}
+          onClick={isSetup ? handleSetup : handleUnlock}
         >
-          {busy ? "Verificando..." : mode === "setup" ? "Salvar senha e entrar" : "Entrar"}
+          {busy ? "Verificando..." : isSetup ? "Criar senha e entrar" : "Entrar"}
         </Button>
 
-        {mode === "unlock" && status.canSetup && (
-          <Button variant="ghost" className="w-full" onClick={() => setMode("setup")}>
-            Trocar a senha do Financeiro
-          </Button>
-        )}
+        <Button variant="ghost" className="w-full" onClick={goBack}>
+          Voltar
+        </Button>
       </Card>
     </div>
   );
