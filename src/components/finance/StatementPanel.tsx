@@ -88,6 +88,7 @@ export default function StatementPanel({
         const gap = cycleGapLabel(card);
         const limit = card.card_limit_brl ?? null;
         const usageBase = group.actualTotal ?? (group.projectedTotal > 0 ? group.projectedTotal : null);
+        const valueLabel = statementValueLabel(group);
         const usagePercent =
           limit != null && limit > 0 && usageBase != null
             ? Math.min(100, Math.round((usageBase / limit) * 100))
@@ -122,7 +123,9 @@ export default function StatementPanel({
                     <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Fatura atrasada
                   </Badge>
                 ) : group.actualTotal == null ? (
-                  <Badge variant="outline" className="text-sm">Fatura ainda não informada</Badge>
+                  <Badge variant="outline" className="text-sm">
+                    {group.configIncomplete ? "Projeção indisponível" : "Fatura ainda não informada"}
+                  </Badge>
                 ) : (
                   <Badge variant="outline" className="text-sm">Fatura a pagar</Badge>
                 )}
@@ -150,14 +153,14 @@ export default function StatementPanel({
                   tone={card.statement_due_day != null ? undefined : "warning"}
                 />
                 <Fact
-                  label={`Fatura de ${monthLabel}`}
-                  value={
-                    group.actualTotal != null
-                      ? formatBRL(group.actualTotal)
-                      : group.projectedTotal > 0
-                        ? `${formatBRL(group.projectedTotal)} (projeção)`
-                        : "Ainda não informada"
+                  label={
+                    valueLabel.label === "Fatura"
+                      ? `Fatura de ${monthLabel}`
+                      : valueLabel.label
                   }
+                  value={valueLabel.value != null ? formatBRL(valueLabel.value) : "Ainda não informada"}
+                  tone={valueLabel.value == null ? "muted" : undefined}
+                  hint={valueLabel.hint ?? undefined}
                 />
                 <Fact
                   label="Vence em"
