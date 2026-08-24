@@ -4,7 +4,7 @@ import type { OfficeStationData } from "@/hooks/useOfficeOverview";
 import { nextStartLabel } from "@/lib/officePresence";
 
 interface CoffeeCornerProps {
-  /** Colaboradores em micro-pausa (gap confiável entre demandas). */
+  /** Colaboradores no expediente sem estar trabalhando (available, micro-pausa, intervalo). */
   people: OfficeStationData[];
 }
 
@@ -12,7 +12,7 @@ const SEATS = 3;
 
 /**
  * Cafeteria da sala: balcão com máquina de café e, À FRENTE dele, banquetas.
- * Quem está em micro-pausa aparece SENTADO em uma banqueta (contato visual com
+ * Quem está no café (disponível, micro-pausa ou intervalo) aparece SENTADO em uma banqueta (contato visual com
  * o assento), com caneca ao lado — nunca flutuando sobre o balcão.
  */
 export const CoffeeCorner = memo(function CoffeeCorner({ people }: CoffeeCornerProps) {
