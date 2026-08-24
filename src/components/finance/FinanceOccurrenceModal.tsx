@@ -231,8 +231,25 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+        <DialogFooter className="sm:justify-between gap-2">
+          {isInstallmentRow(row) && onEditItem ? (
+            <Button
+              variant="ghost"
+              className="justify-start"
+              onClick={() => {
+                onOpenChange(false);
+                onEditItem(row.item);
+              }}
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Editar parcelamento
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+
           <Button onClick={handleSave} disabled={saving || uploading}>
             {saving ? "Salvando..." : "Salvar lançamento"}
           </Button>
