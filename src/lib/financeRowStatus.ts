@@ -320,11 +320,9 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
       id: "overdue",
       tone: "danger",
       domain: "accounts",
-      title:
-        overdue.length === 1
-          ? "1 pagamento está atrasado"
-          : `${overdue.length} pagamentos estão atrasados`,
-      detail: formatBRL(Number(total.toFixed(2))),
+      title: `${overdue.length} ${overdue.length === 1 ? "pagamento atrasado" : "pagamentos atrasados"} · ${formatBRL(
+        Number(total.toFixed(2)),
+      )}`,
       actionLabel: "Ver atrasados",
       action: { type: "filter_overdue" },
     });
@@ -348,7 +346,7 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     });
   }
 
-  // 4. Cartões sem fechamento/vencimento — problema do CARTÃO, não do lançamento
+  // 4. Cartões sem fechamento/vencimento — detalhe por cartão vive na view Cards
   const incomplete = statements.filter((g) => g.configIncomplete);
   if (incomplete.length > 0) {
     insights.push({
@@ -357,15 +355,14 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
       domain: "cards",
       title:
         incomplete.length === 1
-          ? `Faltam dados da fatura em ${cardDisplayLabel(incomplete[0].card)}`
-          : `${incomplete.length} cartões estão sem dados da fatura`,
-      detail: incomplete
-        .map((g) => `${cardDisplayLabel(g.card)}: ${cycleGapLabel(g.card) ?? ""}`)
-        .join(" · "),
-      actionLabel: "Completar cartões",
+          ? "1 cartão precisa ser configurado"
+          : `${incomplete.length} cartões precisam ser configurados`,
+      detail: "Informe fechamento e vencimento para calcular as próximas faturas.",
+      actionLabel: "Configurar cartões",
       action: { type: "open_cards" },
     });
   }
+
 
   // 5. Diferença de fatura a classificar
   for (const group of statements) {
