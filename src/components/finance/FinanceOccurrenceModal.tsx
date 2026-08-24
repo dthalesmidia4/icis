@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
+  FinanceItem,
   FinanceOccurrence,
   MonthRow,
   formatBRL,
@@ -20,6 +21,13 @@ import {
   installmentRowLabel,
   KIND_LABELS,
 } from "@/lib/financeModel";
+import {
+  installmentHeaderLine,
+  installmentProjectedNote,
+  isInstallmentRow,
+  occurrenceAmountLabel,
+  occurrencePaidHelp,
+} from "@/lib/financeInstallmentPresentation";
 
 const BUCKET = "bill-attachments";
 
@@ -29,7 +37,10 @@ interface Props {
   row: MonthRow | null;
   defaultUsdRate: number | null;
   onSave: (row: MonthRow, patch: Partial<FinanceOccurrence>) => Promise<FinanceOccurrence | null>;
+  /** Abre o cadastro permanente (cronograma) do item desta linha. */
+  onEditItem?: (item: FinanceItem) => void;
 }
+
 
 function numberOrNull(value: string): number | null {
   if (!value.trim()) return null;
