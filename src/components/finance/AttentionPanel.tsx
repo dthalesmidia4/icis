@@ -60,10 +60,13 @@ export default function AttentionPanel({ insights, onAction }: Props) {
                 <Icon className={`w-5 h-5 flex-shrink-0 ${TONE_CLASS[insight.tone]}`} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">{insight.title}</p>
-                  {insight.detail && (
-                    <p className="text-sm text-muted-foreground">{insight.detail}</p>
-                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {[insight.domain ? ATTENTION_DOMAIN_LABELS[insight.domain] : null, insight.detail]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
                 </div>
+
                 {insight.actionLabel && (
                   <Button
                     variant="outline"
