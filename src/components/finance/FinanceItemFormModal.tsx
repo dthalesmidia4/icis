@@ -382,25 +382,47 @@ export default function FinanceItemFormModal({
             </>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {(recurrence === "annual" || !!subscriptionDate) && (
             <div>
               <Label>Data da assinatura</Label>
               <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground mt-1">
+                Em cobranças anuais, o mês da assinatura define quando a despesa aparece.
+              </p>
             </div>
-            <div>
-              <Label>Categoria</Label>
-              <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ex: IA, Infra, Design" />
-            </div>
-          </div>
+          )}
 
-          <div>
-            <Label>Link / painel</Label>
-            <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" />
-          </div>
-
-          <div>
-            <Label>Observações</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          <div className="rounded-lg border">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-3 py-3 text-sm font-medium"
+              onClick={() => setShowMore((v) => !v)}
+            >
+              Mais opções
+              <span className="text-muted-foreground">{showMore ? "−" : "+"}</span>
+            </button>
+            {showMore && (
+              <div className="space-y-4 p-3 pt-0">
+                {recurrence !== "annual" && !subscriptionDate && (
+                  <div>
+                    <Label>Data da assinatura</Label>
+                    <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
+                  </div>
+                )}
+                <div>
+                  <Label>Categoria</Label>
+                  <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ex: IA, Infra, Design" />
+                </div>
+                <div>
+                  <Label>Link / painel</Label>
+                  <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" />
+                </div>
+                <div>
+                  <Label>Observações</Label>
+                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
@@ -411,14 +433,21 @@ export default function FinanceItemFormModal({
             <Switch checked={active} onCheckedChange={setActive} />
           </div>
         </div>
+        )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={saving || !name.trim()}>
-            {saving ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
+        {step === "form" && (
+          <DialogFooter>
+            {!item && (
+              <Button variant="ghost" onClick={() => setStep("intent")}>Voltar</Button>
+            )}
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={handleSubmit} disabled={saving || !name.trim()}>
+              {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+
