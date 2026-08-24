@@ -134,7 +134,7 @@ export default function Financial() {
     if (advanced === "overdue") {
       result = result.filter((row) => resolveRowStatus(row, statusContext).kind === "overdue");
     } else if (advanced !== "none") {
-      result = applyQuickFilter(result, advanced, today);
+      result = applyQuickFilter(result, advanced as unknown as Parameters<typeof applyQuickFilter>[1], today);
     }
 
     result = filterByCostCenter(result, costCenter);
