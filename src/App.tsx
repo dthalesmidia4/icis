@@ -447,33 +447,10 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
-      <Route path="/financeiro/contas" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <BillsList />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
-      <Route path="/financeiro/vencimento/:offset" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <BillsDueByDate />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
-      <Route path="/financeiro/gastos-ferramentas" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <ToolExpenses />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
+      {/* Telas legadas do Financeiro foram unificadas em /financeiro */}
+      <Route path="/financeiro/contas" element={<Navigate to="/financeiro" replace />} />
+      <Route path="/financeiro/vencimento/:offset" element={<Navigate to="/financeiro" replace />} />
+      <Route path="/financeiro/gastos-ferramentas" element={<Navigate to="/financeiro" replace />} />
       <Route path="/logins-plataformas" element={
         <ProtectedRoute>
           <RequireTenant>
