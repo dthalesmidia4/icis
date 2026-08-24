@@ -72,6 +72,7 @@ import { ensureExecutionRun } from "@/lib/demandExecution";
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
+import { isPlanningFunction } from "@/lib/collaboratorCardGroups";
 import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
 import { smartAdministrativeReassign, type SmartReassignResult } from "@/lib/smartReassign";
@@ -132,7 +133,7 @@ const KANBAN_FOCUS_TRANSITION_MS = 280;
 const getClientSentAt = (card: Pick<KanbanCardData, "client_wait_started_at"> & { client_sent_at_fallback?: string | null }) =>
   card.client_wait_started_at || card.client_sent_at_fallback || null;
 
-type KanbanFocusKind = 'production' | 'evaluate' | 'awaiting' | 'review';
+type KanbanFocusKind = 'production' | 'planning' | 'evaluate' | 'awaiting' | 'review';
 type KanbanDisplayColumn = {
   id: string;
   name: string;
