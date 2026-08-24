@@ -307,20 +307,40 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
   const operational = rows.filter((r) => !isStatementRow(r));
   const insights: AttentionInsight[] = [];
 
-  // 1. Contas diretas atrasadas
+  // 1. Contas DIRETAS atrasadas — separadas por domínio de origem
   const overdue = overdueDirectRows(operational, ctx);
-  if (overdue.length > 0) {
-    const total = overdue.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
+  const overdueAccounts = overdue.filter(isAccountsDomainRow);
+  const overdueSubscriptions = overdue.filter((r) => isSubscriptionsDomainItem(r.item));
+
+  if (overdueAccounts.length > 0) {
+    const total = overdueAccounts.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
     insights.push({
       id: "overdue",
       tone: "danger",
+      domain: "accounts",
       title:
-        overdue.length === 1
+        overdueAccounts.length === 1
           ? "1 conta está atrasada"
-          : `${overdue.length} contas estão atrasadas`,
+          : `${overdueAccounts.length} contas estão atrasadas`,
       detail: formatBRL(Number(total.toFixed(2))),
-      actionLabel: "Ver atrasadas",
+      actionLabel: "Ver contas atrasadas",
       action: { type: "filter_overdue" },
+    });
+  }
+
+  if (overdueSubscriptions.length > 0) {
+    const total = overdueSubscriptions.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
+    insights.push({
+      id: "overdue-subscriptions",
+      tone: "danger",
+      domain: "subscriptions",
+      title:
+        overdueSubscriptions.length === 1
+          ? "1 assinatura paga direto está vencida"
+          : `${overdueSubscriptions.length} assinaturas pagas direto estão vencidas`,
+      detail: formatBRL(Number(total.toFixed(2))),
+      actionLabel: "Ver assinaturas",
+      action: { type: "open_subscriptions" },
     });
   }
 
@@ -329,11 +349,13 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     if (group.paid || !group.dueDate) continue;
     const diff = daysBetweenISO(today, group.dueDate);
     const amount = group.actualTotal ?? group.projectedTotal;
+    const name = cardDisplayLabel(group.card);
     if (diff < 0) {
       insights.push({
         id: `statement-overdue-${group.card.id}`,
         tone: "danger",
-        title: `A fatura ${group.card.name} está atrasada`,
+        domain: "cards",
+        title: `A fatura ${name} está atrasada`,
         detail: formatBRL(amount),
         actionLabel: "Ver fatura",
         action: { type: "open_statement", cardId: group.card.id },
@@ -342,12 +364,13 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
       insights.push({
         id: `statement-soon-${group.card.id}`,
         tone: "warning",
+        domain: "cards",
         title:
           diff === 0
-            ? `A fatura ${group.card.name} vence hoje`
+            ? `A fatura ${name} vence hoje`
             : diff === 1
-              ? `A fatura ${group.card.name} vence amanhã`
-              : `A fatura ${group.card.name} vence em ${diff} dias`,
+              ? `A fatura ${name} vence amanhã`
+              : `A fatura ${name} vence em ${diff} dias`,
         detail: formatBRL(amount),
         actionLabel: "Ver fatura",
         action: { type: "open_statement", cardId: group.card.id },
@@ -355,11 +378,12 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     }
   }
 
-  // 3. Próximo vencimento direto
+  // 3. Próximo vencimento direto de conta
   const nextDirect = operational
+    .filter(isAccountsDomainRow)
     .filter((row) => {
       const status = resolveRowStatus(row, ctx);
-      return status.direct && status.kind !== "paid" && !!(row.dueDate ?? row.chargeDate);
+      return status.kind !== "paid" && !!(row.dueDate ?? row.chargeDate);
     })
     .filter((row) => (row.dueDate ?? row.chargeDate)! >= today)
     .sort((a, b) => (a.dueDate ?? a.chargeDate)!.localeCompare((b.dueDate ?? b.chargeDate)!))[0];
@@ -368,23 +392,29 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     insights.push({
       id: "next-direct",
       tone: "neutral",
+      domain: "accounts",
       title: `Próximo vencimento: ${nextDirect.item.name}`,
       detail: `${formatDayMonth(ref)} · ${formatBRL(nextDirect.amountBrl)}`,
+      actionLabel: "Ver contas",
+      action: { type: "filter_overdue" },
     });
   }
 
-  // 4. Cartões com configuração incompleta
+  // 4. Cartões sem fechamento/vencimento — problema do CARTÃO, não do lançamento
   const incomplete = statements.filter((g) => g.configIncomplete);
   if (incomplete.length > 0) {
     insights.push({
       id: "cards-config",
       tone: "warning",
+      domain: "cards",
       title:
         incomplete.length === 1
-          ? "1 cartão precisa de configuração"
-          : `${incomplete.length} cartões precisam de configuração`,
-      detail: "Informe fechamento e vencimento para projetar as faturas.",
-      actionLabel: "Configurar cartões",
+          ? `Faltam dados da fatura em ${cardDisplayLabel(incomplete[0].card)}`
+          : `${incomplete.length} cartões estão sem dados da fatura`,
+      detail: incomplete
+        .map((g) => `${cardDisplayLabel(g.card)}: ${cycleGapLabel(g.card) ?? ""}`)
+        .join(" · "),
+      actionLabel: "Completar cartões",
       action: { type: "open_cards" },
     });
   }
@@ -396,15 +426,18 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     insights.push({
       id: `difference-${group.card.id}`,
       tone: "warning",
-      title: `Há ${formatBRL(group.difference)} de diferença na fatura ${group.card.name}`,
+      domain: "cards",
+      title: `Há ${formatBRL(group.difference)} de diferença na fatura ${cardDisplayLabel(group.card)}`,
       detail: "Classifique a diferença para fechar a composição.",
       actionLabel: "Ver composição",
       action: { type: "open_statement_difference", cardId: group.card.id },
     });
   }
 
+  // 6. Duplicidade de ferramenta já incluída em pacote
   return insights;
 }
+
 
 /** Mensagem quando não há nada crítico no mês. */
 export const ALL_CLEAR_MESSAGE = "Tudo certo por enquanto. Não há contas atrasadas.";
