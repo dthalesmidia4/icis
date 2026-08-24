@@ -150,3 +150,16 @@ describe("officePresence — pausas dentro da janela", () => {
     expect(resolvePresence({ now: at("10:00"), queue: [], windows }).state).toBe("available");
   });
 });
+
+describe("isCoffeeEligible", () => {
+  it("inclui quem está no expediente sem trabalhar", () => {
+    expect(isCoffeeEligible("available")).toBe(true);
+    expect(isCoffeeEligible("micro_break")).toBe(true);
+    expect(isCoffeeEligible("official_break")).toBe(true);
+  });
+
+  it("exclui working_now e off_shift", () => {
+    expect(isCoffeeEligible("working_now")).toBe(false);
+    expect(isCoffeeEligible("off_shift")).toBe(false);
+  });
+});
