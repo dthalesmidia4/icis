@@ -335,38 +335,22 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     });
   }
 
-  // 2. Fatura de cartão atrasada ou próxima do vencimento
+  // 2. Fatura de cartão REALMENTE atrasada.
+  //    Vencimento normal não é exceção: vive em "Próximos pagamentos".
   for (const group of statements) {
     if (group.paid || !group.dueDate) continue;
-    const diff = daysBetweenISO(today, group.dueDate);
+    if (group.dueDate >= today) continue;
     const amount = group.actualTotal ?? group.projectedTotal;
     const name = cardDisplayLabel(group.card);
-    if (diff < 0) {
-      insights.push({
-        id: `statement-overdue-${group.card.id}`,
-        tone: "danger",
-        domain: "cards",
-        title: `A fatura ${name} está atrasada`,
-        detail: formatBRL(amount),
-        actionLabel: "Ver fatura",
-        action: { type: "open_statement", cardId: group.card.id },
-      });
-    } else if (diff <= 7) {
-      insights.push({
-        id: `statement-soon-${group.card.id}`,
-        tone: "warning",
-        domain: "cards",
-        title:
-          diff === 0
-            ? `A fatura ${name} vence hoje`
-            : diff === 1
-              ? `A fatura ${name} vence amanhã`
-              : `A fatura ${name} vence em ${diff} dias`,
-        detail: formatBRL(amount),
-        actionLabel: "Ver fatura",
-        action: { type: "open_statement", cardId: group.card.id },
-      });
-    }
+    insights.push({
+      id: `statement-overdue-${group.card.id}`,
+      tone: "danger",
+      domain: "cards",
+      title: `A fatura ${name} está atrasada`,
+      detail: formatBRL(amount),
+      actionLabel: "Ver fatura",
+      action: { type: "open_statement", cardId: group.card.id },
+    });
   }
 
   // 4. Cartões sem fechamento/vencimento — problema do CARTÃO, não do lançamento
