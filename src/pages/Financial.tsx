@@ -20,6 +20,7 @@ import {
   Repeat,
   Settings2,
   SlidersHorizontal,
+  Info,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,8 @@ import StatementPanel from "@/components/finance/StatementPanel";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
+import PaymentQueue from "@/components/finance/PaymentQueue";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFinance, currentCompetence, todayISO } from "@/hooks/useFinance";
 import { useFinanceAccess } from "@/hooks/useFinanceAccess";
 import { addMonths } from "@/lib/financeCardCycle";
@@ -54,8 +57,10 @@ import {
 import {
   AttentionInsight,
   RowStatusContext,
+  PaymentQueueEntry,
   buildAttentionInsights,
-  isAccountsDomainRow,
+  buildPaymentQueue,
+  isDirectPayableRow,
   isSubscriptionsDomainItem,
   monthFullLabel,
   overdueDirectRows,
@@ -75,11 +80,12 @@ const VIEWS: View[] = ["overview", "accounts", "cards", "subscriptions", "settin
 const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   overview: {
     title: "Financeiro",
-    subtitle: "Escolha o assunto que você quer resolver agora.",
+    subtitle: "Acompanhe o mês e veja o que precisa ser pago.",
   },
   accounts: {
     title: "Contas a pagar",
-    subtitle: "Contas com vencimento próprio, pagas por Pix, boleto, transferência ou débito.",
+    subtitle:
+      "Aqui estão os pagamentos que você faz diretamente. Compras no cartão são pagas pela fatura.",
   },
   cards: {
     title: "Cartões e faturas",
@@ -166,7 +172,7 @@ export default function Financial() {
   );
 
   const operationalRows = useMemo(() => rows.filter((row) => !isStatementRow(row)), [rows]);
-  const accountRows = useMemo(() => operationalRows.filter(isAccountsDomainRow), [operationalRows]);
+  const accountRows = useMemo(() => operationalRows.filter(isDirectPayableRow), [operationalRows]);
   const subscriptionRows = useMemo(
     () => operationalRows.filter((row) => isSubscriptionsDomainItem(row.item)),
     [operationalRows],
@@ -174,6 +180,12 @@ export default function Financial() {
 
   const insights = useMemo(
     () => buildAttentionInsights({ rows, statements, today, cardsById }),
+    [rows, statements, today, cardsById],
+  );
+
+  /** Fila de próximos pagamentos (hoje/futuro). Atrasos ficam nas exceções. */
+  const paymentQueue = useMemo(
+    () => buildPaymentQueue({ rows, statements, today, cardsById }),
     [rows, statements, today, cardsById],
   );
 
