@@ -93,7 +93,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   },
   subscriptions: {
     title: "Assinaturas e ferramentas",
-    subtitle: "Serviços recorrentes, pacotes e o que já está incluído neles.",
+    subtitle: "Serviços recorrentes, ferramentas e pacotes.",
   },
   settings: {
     title: "Ajustes do financeiro",
@@ -407,6 +407,7 @@ export default function Financial() {
   return (
     <div className="pb-16">
       <PageHeader
+        containerClassName="w-full max-w-[1400px]"
         title={VIEW_TITLES[view].title}
         subtitle={VIEW_TITLES[view].subtitle}
         backTo={view === "overview" ? "/" : undefined}
