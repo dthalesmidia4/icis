@@ -1414,6 +1414,215 @@ export type Database = {
           },
         ]
       }
+      finance_items: {
+        Row: {
+          active: boolean
+          bank_name: string | null
+          card_item_id: string | null
+          card_last4: string | null
+          category: string | null
+          charge_day: number | null
+          cost_center: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          default_amount_brl: number | null
+          default_amount_original: number | null
+          default_exchange_rate: number | null
+          due_day: number | null
+          id: string
+          kind: string
+          link: string | null
+          name: string
+          notes: string | null
+          parent_item_id: string | null
+          payment_method: string | null
+          purpose: string | null
+          recurrence_type: string
+          statement_closing_day: number | null
+          statement_due_day: number | null
+          subscription_date: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          bank_name?: string | null
+          card_item_id?: string | null
+          card_last4?: string | null
+          category?: string | null
+          charge_day?: number | null
+          cost_center?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          default_amount_brl?: number | null
+          default_amount_original?: number | null
+          default_exchange_rate?: number | null
+          due_day?: number | null
+          id?: string
+          kind: string
+          link?: string | null
+          name: string
+          notes?: string | null
+          parent_item_id?: string | null
+          payment_method?: string | null
+          purpose?: string | null
+          recurrence_type?: string
+          statement_closing_day?: number | null
+          statement_due_day?: number | null
+          subscription_date?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          bank_name?: string | null
+          card_item_id?: string | null
+          card_last4?: string | null
+          category?: string | null
+          charge_day?: number | null
+          cost_center?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          default_amount_brl?: number | null
+          default_amount_original?: number | null
+          default_exchange_rate?: number | null
+          due_day?: number | null
+          id?: string
+          kind?: string
+          link?: string | null
+          name?: string
+          notes?: string | null
+          parent_item_id?: string | null
+          payment_method?: string | null
+          purpose?: string | null
+          recurrence_type?: string
+          statement_closing_day?: number | null
+          statement_due_day?: number | null
+          subscription_date?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_items_card_item_id_fkey"
+            columns: ["card_item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_items_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_occurrences: {
+        Row: {
+          amount_brl: number | null
+          amount_original: number | null
+          attachment_name: string | null
+          attachment_url: string | null
+          charge_date: string | null
+          competence_month: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_date: string | null
+          exchange_rate: number | null
+          id: string
+          is_estimated: boolean
+          item_id: string
+          legacy_bill_id: string | null
+          observations: string | null
+          paid_amount_brl: number | null
+          paid_at: string | null
+          statement_occurrence_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_brl?: number | null
+          amount_original?: number | null
+          attachment_name?: string | null
+          attachment_url?: string | null
+          charge_date?: string | null
+          competence_month: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string | null
+          exchange_rate?: number | null
+          id?: string
+          is_estimated?: boolean
+          item_id: string
+          legacy_bill_id?: string | null
+          observations?: string | null
+          paid_amount_brl?: number | null
+          paid_at?: string | null
+          statement_occurrence_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_brl?: number | null
+          amount_original?: number | null
+          attachment_name?: string | null
+          attachment_url?: string | null
+          charge_date?: string | null
+          competence_month?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string | null
+          exchange_rate?: number | null
+          id?: string
+          is_estimated?: boolean
+          item_id?: string
+          legacy_bill_id?: string | null
+          observations?: string | null
+          paid_amount_brl?: number | null
+          paid_at?: string | null
+          statement_occurrence_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_occurrences_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_occurrences_statement_occurrence_id_fkey"
+            columns: ["statement_occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "finance_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_occurrences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flow_functions: {
         Row: {
           active: boolean
@@ -2447,6 +2656,8 @@ export type Database = {
           cnpj_cpf: string | null
           created_at: string | null
           email: string | null
+          finance_default_usd_rate: number | null
+          finance_monthly_budget_brl: number | null
           hierarchy_level: number | null
           hierarchy_path: string | null
           id: string
@@ -2464,6 +2675,8 @@ export type Database = {
           cnpj_cpf?: string | null
           created_at?: string | null
           email?: string | null
+          finance_default_usd_rate?: number | null
+          finance_monthly_budget_brl?: number | null
           hierarchy_level?: number | null
           hierarchy_path?: string | null
           id?: string
@@ -2481,6 +2694,8 @@ export type Database = {
           cnpj_cpf?: string | null
           created_at?: string | null
           email?: string | null
+          finance_default_usd_rate?: number | null
+          finance_monthly_budget_brl?: number | null
           hierarchy_level?: number | null
           hierarchy_path?: string | null
           id?: string
@@ -2498,56 +2713,6 @@ export type Database = {
           {
             foreignKeyName: "tenants_parent_id_fkey"
             columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tool_expenses: {
-        Row: {
-          amount: number
-          card_used: string | null
-          created_at: string
-          created_by: string | null
-          due_date: string
-          id: string
-          name: string
-          observations: string | null
-          subscription_date: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          amount?: number
-          card_used?: string | null
-          created_at?: string
-          created_by?: string | null
-          due_date: string
-          id?: string
-          name: string
-          observations?: string | null
-          subscription_date?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          amount?: number
-          card_used?: string | null
-          created_at?: string
-          created_by?: string | null
-          due_date?: string
-          id?: string
-          name?: string
-          observations?: string | null
-          subscription_date?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tool_expenses_tenant_id_fkey"
-            columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
@@ -2711,6 +2876,7 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string | null
+          finance_access: boolean
           id: string
           manager_work_area: Database["public"]["Enums"]["work_area"] | null
           role: Database["public"]["Enums"]["app_role"]
@@ -2719,6 +2885,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          finance_access?: boolean
           id?: string
           manager_work_area?: Database["public"]["Enums"]["work_area"] | null
           role: Database["public"]["Enums"]["app_role"]
@@ -2727,6 +2894,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          finance_access?: boolean
           id?: string
           manager_work_area?: Database["public"]["Enums"]["work_area"] | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -3024,6 +3192,7 @@ export type Database = {
       }
       get_user_tenant: { Args: { _user_id: string }; Returns: string }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
+      has_finance_access: { Args: { _tenant_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3043,6 +3212,14 @@ export type Database = {
       }
       is_review_function: { Args: { _key: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      pay_finance_statement: {
+        Args: {
+          _occurrence_id: string
+          _paid_amount_brl?: number
+          _paid_at?: string
+        }
+        Returns: Json
+      }
       record_demand_feedback: {
         Args: {
           p_demand_id: string
@@ -3102,6 +3279,14 @@ export type Database = {
           _work_area?: Database["public"]["Enums"]["work_area"]
         }
         Returns: string
+      }
+      set_finance_settings: {
+        Args: {
+          _default_usd_rate: number
+          _monthly_budget_brl: number
+          _tenant_id: string
+        }
+        Returns: Json
       }
       set_release_queue_config: {
         Args: { _enabled: boolean; _limit: number; _tenant_id: string }

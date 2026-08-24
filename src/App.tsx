@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { TenantProvider } from "./contexts/TenantContext";
 import { SelectedClientProvider } from "./contexts/SelectedClientContext";
@@ -33,9 +33,6 @@ const DevPrompts = lazy(() => import("./pages/DevPrompts"));
 const DevApis = lazy(() => import("./pages/DevApis"));
 const DevWebhooks = lazy(() => import("./pages/DevWebhooks"));
 const Financial = lazy(() => import("./pages/Financial"));
-const BillsList = lazy(() => import("./pages/BillsList"));
-const BillsDueByDate = lazy(() => import("./pages/BillsDueByDate"));
-const ToolExpenses = lazy(() => import("./pages/ToolExpenses"));
 const PlatformLogins = lazy(() => import("./pages/PlatformLogins"));
 const PlanPeriod = lazy(() => import("./pages/PlanPeriod"));
 const CronogramaGlobal = lazy(() => import("./pages/CronogramaGlobal"));
@@ -447,33 +444,10 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
-      <Route path="/financeiro/contas" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <BillsList />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
-      <Route path="/financeiro/vencimento/:offset" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <BillsDueByDate />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
-      <Route path="/financeiro/gastos-ferramentas" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <ToolExpenses />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
+      {/* Telas legadas do Financeiro foram unificadas em /financeiro */}
+      <Route path="/financeiro/contas" element={<Navigate to="/financeiro" replace />} />
+      <Route path="/financeiro/vencimento/:offset" element={<Navigate to="/financeiro" replace />} />
+      <Route path="/financeiro/gastos-ferramentas" element={<Navigate to="/financeiro" replace />} />
       <Route path="/logins-plataformas" element={
         <ProtectedRoute>
           <RequireTenant>
