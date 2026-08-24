@@ -6,7 +6,14 @@ import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ALL_CLEAR_MESSAGE, AttentionInsight, StatusTone } from "@/lib/financeRowStatus";
+import { Badge } from "@/components/ui/badge";
+import {
+  ALL_CLEAR_MESSAGE,
+  ATTENTION_DOMAIN_LABELS,
+  AttentionInsight,
+  StatusTone,
+} from "@/lib/financeRowStatus";
+
 
 interface Props {
   insights: AttentionInsight[];
@@ -53,10 +60,13 @@ export default function AttentionPanel({ insights, onAction }: Props) {
                 <Icon className={`w-5 h-5 flex-shrink-0 ${TONE_CLASS[insight.tone]}`} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">{insight.title}</p>
-                  {insight.detail && (
-                    <p className="text-sm text-muted-foreground">{insight.detail}</p>
-                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {[insight.domain ? ATTENTION_DOMAIN_LABELS[insight.domain] : null, insight.detail]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
                 </div>
+
                 {insight.actionLabel && (
                   <Button
                     variant="outline"

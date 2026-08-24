@@ -6,6 +6,8 @@ import {
   isDirectObligation,
   resolveRowStatus,
   whenLabel,
+  isAccountsDomainRow,
+  isSubscriptionsDomainItem,
 } from "./financeRowStatus";
 
 const TODAY = "2026-08-24";
@@ -134,7 +136,7 @@ describe("classificação de cobrança no cartão", () => {
     expect(status.canPayDirectly).toBe(false);
   });
 
-  it("cobrança projetada em cartão incompleto pede configuração em vez de atraso", () => {
+  it("cobrança em cartão sem ciclo aguarda dados da fatura, não vira atraso", () => {
     const incomplete = card({ id: "card-9584", name: "Cartão ••••9584", statement_closing_day: null, statement_due_day: null });
     const tool = item({ card_item_id: incomplete.id });
     const r = row({ item: tool, cardItemId: incomplete.id, chargeDate: "2026-08-02", projected: true });
@@ -143,9 +145,11 @@ describe("classificação de cobrança no cartão", () => {
       today: TODAY,
       cardsById: new Map([[incomplete.id, incomplete]]),
     });
-    expect(status.kind).toBe("card_needs_config");
-    expect(status.label).toBe("Configurar cartão");
+    expect(status.kind).toBe("card_awaiting_statement");
+    expect(status.label).toBe("Aguardando dados da fatura");
+    expect(status.direct).toBe(false);
   });
+
 
   it("componente materializado sem vínculo aguarda a fatura", () => {
     const tool = item({ card_item_id: itau.id });
@@ -173,5 +177,37 @@ describe("bloco de atenção", () => {
     const overdue = insights.find((i) => i.id === "overdue");
     expect(overdue?.title).toBe("2 contas estão atrasadas");
     expect(overdue?.detail).toContain("328,99");
+  });
+});
+
+describe("separação por domínio", () => {
+  it("cobrança de cartão não pertence a Contas a pagar", () => {
+    const itau = card({ id: "card-itau" });
+    const direct = row({ item: item({ kind: "expense", payment_method: "Pix" }), dueDate: "2026-08-20" });
+    const onCard = row({
+      item: item({ kind: "expense", card_item_id: itau.id }),
+      cardItemId: itau.id,
+      chargeDate: "2026-08-01",
+    });
+    expect(isAccountsDomainRow(direct)).toBe(true);
+    expect(isAccountsDomainRow(onCard)).toBe(false);
+  });
+
+  it("ferramentas e pacotes ficam em Assinaturas, nunca em Contas a pagar", () => {
+    const tool = row({ item: item({ kind: "tool", payment_method: "Pix" }), dueDate: "2026-08-10" });
+    expect(isSubscriptionsDomainItem(tool.item)).toBe(true);
+    expect(isAccountsDomainRow(tool)).toBe(false);
+  });
+
+  it("cada alerta declara o domínio de destino", () => {
+    const incomplete = card({ id: "c1", statement_closing_day: null, statement_due_day: null });
+    const late = row({ item: item({ kind: "expense", payment_method: "Pix" }), dueDate: "2026-08-01" });
+    const insights = buildAttentionInsights({
+      rows: [late],
+      statements: [],
+      today: TODAY,
+      cardsById: new Map([[incomplete.id, incomplete]]),
+    });
+    expect(insights.find((i) => i.id === "overdue")?.domain).toBe("accounts");
   });
 });

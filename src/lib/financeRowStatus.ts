@@ -17,8 +17,11 @@ import {
   FinanceItem,
   MonthRow,
   StatementGroup,
+  cardDisplayLabel,
+  cycleGapLabel,
   formatBRL,
   isStatementRow,
+  missingCycleFields,
 } from "./financeModel";
 
 export type StatusTone = "positive" | "danger" | "warning" | "neutral";
@@ -34,7 +37,8 @@ export type RowStatusKind =
   | "card_statement_paid"
   | "card_statement_overdue"
   | "card_unlinked"
-  | "card_needs_config";
+  /** Cartão vinculado, mas o CICLO da fatura ainda não foi configurado. */
+  | "card_awaiting_statement";
 
 export interface RowStatus {
   kind: RowStatusKind;
@@ -45,6 +49,7 @@ export interface RowStatus {
   /** `true` quando o botão "Pagar" faz sentido nesta linha. */
   canPayDirectly: boolean;
 }
+
 
 const MONTH_SHORT = [
   "jan", "fev", "mar", "abr", "mai", "jun",
@@ -150,8 +155,16 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
     const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
     if (cardConfigIncomplete(card)) {
-      return { kind: "card_needs_config", label: "Configurar cartão", tone: "warning", direct: false, canPayDirectly: false };
+      // O cartão JÁ está vinculado — o que falta é o ciclo da fatura.
+      return {
+        kind: "card_awaiting_statement",
+        label: "Aguardando dados da fatura",
+        tone: "warning",
+        direct: false,
+        canPayDirectly: false,
+      };
     }
+
     if (row.projected) {
       return { kind: "card_projected", label: "Prevista na fatura", tone: "neutral", direct: false, canPayDirectly: false };
     }
@@ -210,23 +223,72 @@ export function overdueDirectRows(rows: MonthRow[], ctx: RowStatusContext): Mont
 }
 
 /* -------------------------------------------------------------------------- */
+/*                                 DOMÍNIOS                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `Contas a pagar`: somente contas/despesas que o usuário paga diretamente.
+ * Ferramentas, pacotes, faturas e cobranças no cartão NÃO pertencem aqui.
+ */
+export function isAccountsDomainRow(row: MonthRow): boolean {
+  return row.item.kind === "expense" && isDirectObligation(row);
+}
+
+/** `Assinaturas e ferramentas`: ferramentas, pacotes e recursos incluídos. */
+export function isSubscriptionsDomainItem(item: FinanceItem): boolean {
+  return item.kind === "tool" || item.kind === "package" || item.kind === "included_resource";
+}
+
+/**
+ * Aviso secundário e discreto de um componente de cartão: o vínculo existe,
+ * o que falta é o CICLO da fatura. Nunca é status principal.
+ */
+export function cardCycleWarning(row: MonthRow, ctx: RowStatusContext): string | null {
+  if (!isCardCharge(row)) return null;
+  const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
+  if (!card) return null;
+  const gap = cycleGapLabel(card);
+  if (!gap) return null;
+  return `Dados da fatura incompletos · ${gap}`;
+}
+
+/** Forma de pagamento legível de uma linha (cartão pelo apelido, nunca UUID). */
+export function paymentLabel(row: MonthRow, ctx: RowStatusContext): string {
+  const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
+  if (card) return cardDisplayLabel(card);
+  return row.item.payment_method ?? "Forma de pagamento não definida";
+}
+
+/* -------------------------------------------------------------------------- */
 /*                          O QUE PRECISA DE ATENÇÃO                          */
 /* -------------------------------------------------------------------------- */
 
 export type AttentionAction =
   | { type: "filter_overdue" }
   | { type: "open_cards" }
+  | { type: "open_subscriptions" }
   | { type: "open_statement"; cardId: string }
   | { type: "open_statement_difference"; cardId: string };
+
+/** Domínio de origem do alerta — o usuário precisa saber para onde vai. */
+export type AttentionDomain = "accounts" | "cards" | "subscriptions";
+
+export const ATTENTION_DOMAIN_LABELS: Record<AttentionDomain, string> = {
+  accounts: "Contas a pagar",
+  cards: "Cartões e faturas",
+  subscriptions: "Assinaturas e ferramentas",
+};
 
 export interface AttentionInsight {
   id: string;
   tone: StatusTone;
   title: string;
   detail?: string;
+  domain?: AttentionDomain;
   actionLabel?: string;
   action?: AttentionAction;
 }
+
 
 export interface AttentionParams {
   rows: MonthRow[];
@@ -245,20 +307,40 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
   const operational = rows.filter((r) => !isStatementRow(r));
   const insights: AttentionInsight[] = [];
 
-  // 1. Contas diretas atrasadas
+  // 1. Contas DIRETAS atrasadas — separadas por domínio de origem
   const overdue = overdueDirectRows(operational, ctx);
-  if (overdue.length > 0) {
-    const total = overdue.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
+  const overdueAccounts = overdue.filter(isAccountsDomainRow);
+  const overdueSubscriptions = overdue.filter((r) => isSubscriptionsDomainItem(r.item));
+
+  if (overdueAccounts.length > 0) {
+    const total = overdueAccounts.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
     insights.push({
       id: "overdue",
       tone: "danger",
+      domain: "accounts",
       title:
-        overdue.length === 1
+        overdueAccounts.length === 1
           ? "1 conta está atrasada"
-          : `${overdue.length} contas estão atrasadas`,
+          : `${overdueAccounts.length} contas estão atrasadas`,
       detail: formatBRL(Number(total.toFixed(2))),
-      actionLabel: "Ver atrasadas",
+      actionLabel: "Ver contas atrasadas",
       action: { type: "filter_overdue" },
+    });
+  }
+
+  if (overdueSubscriptions.length > 0) {
+    const total = overdueSubscriptions.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
+    insights.push({
+      id: "overdue-subscriptions",
+      tone: "danger",
+      domain: "subscriptions",
+      title:
+        overdueSubscriptions.length === 1
+          ? "1 assinatura paga direto está vencida"
+          : `${overdueSubscriptions.length} assinaturas pagas direto estão vencidas`,
+      detail: formatBRL(Number(total.toFixed(2))),
+      actionLabel: "Ver assinaturas",
+      action: { type: "open_subscriptions" },
     });
   }
 
@@ -267,11 +349,13 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     if (group.paid || !group.dueDate) continue;
     const diff = daysBetweenISO(today, group.dueDate);
     const amount = group.actualTotal ?? group.projectedTotal;
+    const name = cardDisplayLabel(group.card);
     if (diff < 0) {
       insights.push({
         id: `statement-overdue-${group.card.id}`,
         tone: "danger",
-        title: `A fatura ${group.card.name} está atrasada`,
+        domain: "cards",
+        title: `A fatura ${name} está atrasada`,
         detail: formatBRL(amount),
         actionLabel: "Ver fatura",
         action: { type: "open_statement", cardId: group.card.id },
@@ -280,12 +364,13 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
       insights.push({
         id: `statement-soon-${group.card.id}`,
         tone: "warning",
+        domain: "cards",
         title:
           diff === 0
-            ? `A fatura ${group.card.name} vence hoje`
+            ? `A fatura ${name} vence hoje`
             : diff === 1
-              ? `A fatura ${group.card.name} vence amanhã`
-              : `A fatura ${group.card.name} vence em ${diff} dias`,
+              ? `A fatura ${name} vence amanhã`
+              : `A fatura ${name} vence em ${diff} dias`,
         detail: formatBRL(amount),
         actionLabel: "Ver fatura",
         action: { type: "open_statement", cardId: group.card.id },
@@ -293,11 +378,12 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     }
   }
 
-  // 3. Próximo vencimento direto
+  // 3. Próximo vencimento direto de conta
   const nextDirect = operational
+    .filter(isAccountsDomainRow)
     .filter((row) => {
       const status = resolveRowStatus(row, ctx);
-      return status.direct && status.kind !== "paid" && !!(row.dueDate ?? row.chargeDate);
+      return status.kind !== "paid" && !!(row.dueDate ?? row.chargeDate);
     })
     .filter((row) => (row.dueDate ?? row.chargeDate)! >= today)
     .sort((a, b) => (a.dueDate ?? a.chargeDate)!.localeCompare((b.dueDate ?? b.chargeDate)!))[0];
@@ -306,23 +392,29 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     insights.push({
       id: "next-direct",
       tone: "neutral",
+      domain: "accounts",
       title: `Próximo vencimento: ${nextDirect.item.name}`,
       detail: `${formatDayMonth(ref)} · ${formatBRL(nextDirect.amountBrl)}`,
+      actionLabel: "Ver contas",
+      action: { type: "filter_overdue" },
     });
   }
 
-  // 4. Cartões com configuração incompleta
+  // 4. Cartões sem fechamento/vencimento — problema do CARTÃO, não do lançamento
   const incomplete = statements.filter((g) => g.configIncomplete);
   if (incomplete.length > 0) {
     insights.push({
       id: "cards-config",
       tone: "warning",
+      domain: "cards",
       title:
         incomplete.length === 1
-          ? "1 cartão precisa de configuração"
-          : `${incomplete.length} cartões precisam de configuração`,
-      detail: "Informe fechamento e vencimento para projetar as faturas.",
-      actionLabel: "Configurar cartões",
+          ? `Faltam dados da fatura em ${cardDisplayLabel(incomplete[0].card)}`
+          : `${incomplete.length} cartões estão sem dados da fatura`,
+      detail: incomplete
+        .map((g) => `${cardDisplayLabel(g.card)}: ${cycleGapLabel(g.card) ?? ""}`)
+        .join(" · "),
+      actionLabel: "Completar cartões",
       action: { type: "open_cards" },
     });
   }
@@ -334,15 +426,18 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     insights.push({
       id: `difference-${group.card.id}`,
       tone: "warning",
-      title: `Há ${formatBRL(group.difference)} de diferença na fatura ${group.card.name}`,
+      domain: "cards",
+      title: `Há ${formatBRL(group.difference)} de diferença na fatura ${cardDisplayLabel(group.card)}`,
       detail: "Classifique a diferença para fechar a composição.",
       actionLabel: "Ver composição",
       action: { type: "open_statement_difference", cardId: group.card.id },
     });
   }
 
+  // 6. Duplicidade de ferramenta já incluída em pacote
   return insights;
 }
+
 
 /** Mensagem quando não há nada crítico no mês. */
 export const ALL_CLEAR_MESSAGE = "Tudo certo por enquanto. Não há contas atrasadas.";
