@@ -249,11 +249,12 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
           )}
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-
-          <Button onClick={handleSave} disabled={saving || uploading}>
-            {saving ? "Salvando..." : "Salvar lançamento"}
-          </Button>
+            <Button onClick={handleSave} disabled={saving || uploading}>
+              {saving ? "Salvando..." : "Salvar lançamento"}
+            </Button>
+          </div>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
