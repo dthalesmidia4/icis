@@ -2,8 +2,8 @@
  * Central Financeira POR DOMÍNIO.
  *
  * `/financeiro` não é mais uma tela operacional: é um hub onde o usuário
- * escolhe o ASSUNTO (contas a pagar, cartões e faturas, assinaturas e
- * ferramentas, ajustes). Só dentro do domínio aparecem tabelas e filtros.
+ * escolhe o ASSUNTO (pagamentos diretos, cartões e faturas, assinaturas e
+ * ferramentas, ajustes). `Composição do mês` é o drill-down do resumo. Só dentro do domínio aparecem tabelas e filtros.
  *
  * A view atual vive na URL (`?view=`), então voltar do navegador funciona e o
  * link pode ser compartilhado.
