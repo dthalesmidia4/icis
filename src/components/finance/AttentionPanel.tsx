@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ALL_CLEAR_MESSAGE,
+  ALL_CLEAR_TITLE,
   ATTENTION_DOMAIN_LABELS,
   AttentionInsight,
   StatusTone,
@@ -41,12 +42,15 @@ export default function AttentionPanel({ insights, onAction }: Props) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-base font-semibold">O que precisa de atenção</h2>
+      <h2 className="text-base font-semibold">Precisa da sua atenção</h2>
 
       {insights.length === 0 ? (
         <Card className="flex items-center gap-3 p-4">
           <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
-          <p className="text-sm text-foreground">{ALL_CLEAR_MESSAGE}</p>
+          <div>
+            <p className="text-sm font-medium text-foreground">{ALL_CLEAR_TITLE}</p>
+            <p className="text-sm text-muted-foreground">{ALL_CLEAR_MESSAGE}</p>
+          </div>
         </Card>
       ) : (
         <div className="space-y-2">
@@ -83,7 +87,7 @@ export default function AttentionPanel({ insights, onAction }: Props) {
 
           {hidden > 0 && (
             <Button variant="ghost" size="sm" className="min-h-10" onClick={() => setShowAll(true)}>
-              Ver tudo ({insights.length})
+              Ver mais {hidden} {hidden === 1 ? "alerta" : "alertas"}
             </Button>
           )}
         </div>
