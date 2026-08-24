@@ -403,7 +403,14 @@ export default function Financial() {
         onBack={view === "overview" ? undefined : () => goTo("overview")}
         actions={
           view === "overview"
-            ? []
+            ? [
+                {
+                  label: "Ajustes",
+                  onClick: () => goTo("settings"),
+                  icon: <Settings2 className="w-4 h-4" />,
+                  variant: "ghost" as const,
+                },
+              ]
             : view === "cards"
               ? [
                   {
@@ -438,81 +445,126 @@ export default function Financial() {
         {/* =========================== OVERVIEW =========================== */}
         {view === "overview" && (
           <>
+            {/* B. Resumo do mês — os únicos números grandes da overview */}
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">Resumo de {monthLabel}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Card className="p-5">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm text-muted-foreground">Gastos previstos</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Como os gastos são somados"
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[260px]">
+                          Compras no cartão entram como despesa aqui; a fatura não é somada
+                          novamente.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <p className="text-3xl font-bold mt-1">{formatBRL(totals.expected)}</p>
+                  <p className="text-sm text-muted-foreground">estimativa para o mês</p>
+                </Card>
+
+                <Card className="p-5">
+                  <p className="text-sm text-muted-foreground">Já pago</p>
+                  <p className="text-3xl font-bold mt-1">{formatBRL(totals.paid)}</p>
+                  <p className="text-sm text-muted-foreground">pagamentos já realizados</p>
+                </Card>
+
+                <Card className="p-5">
+                  <p className="text-sm text-muted-foreground">Em aberto</p>
+                  <p className="text-3xl font-bold mt-1">{formatBRL(totals.open)}</p>
+                  <p className="text-sm text-muted-foreground">despesas ainda não liquidadas</p>
+                </Card>
+              </div>
+
+              {/* C. Orçamento — secundário */}
+              {settings.monthlyBudgetBrl != null ? (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-sm font-medium">Orçamento do mês</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatBRL(totals.expected)} de {formatBRL(settings.monthlyBudgetBrl)} planejados
+                    </p>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${overBudget! > 0 ? "bg-destructive" : "bg-primary"}`}
+                      style={{ width: `${budgetUsage ?? 0}%` }}
+                    />
+                  </div>
+                  <p className={`text-sm ${overBudget! > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {overBudget! > 0
+                      ? `${formatBRL(overBudget!)} acima do planejado`
+                      : `${formatBRL(Math.abs(overBudget!))} ainda disponíveis no planejamento`}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm text-muted-foreground">Orçamento mensal ainda não definido</p>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-sm"
+                    onClick={() => goTo("settings")}
+                  >
+                    Definir
+                  </Button>
+                </div>
+              )}
+            </section>
+
+            {/* D. Próximos pagamentos */}
+            <PaymentQueue
+              entries={paymentQueue.slice(0, 5)}
+              onSelect={handleQueueSelect}
+              onSeeAll={() => {
+                goTo("accounts");
+                setMainView("to_pay");
+                setAdvanced("none");
+                setCostCenter("all");
+              }}
+            />
+
+            {/* E. Exceções */}
             <AttentionPanel insights={insights} onAction={handleInsightAction} />
 
+            {/* F. Aprofundamentos */}
             <section className="space-y-3">
-              <h2 className="text-base font-semibold">O que você quer resolver?</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {domainCards.map((domain) => {
-                  const Icon = domain.icon;
+              <div>
+                <h2 className="text-base font-semibold">Consultar e gerenciar</h2>
+                <p className="text-sm text-muted-foreground">
+                  Abra uma área para ver mais detalhes.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {shortcuts.map((shortcut) => {
+                  const Icon = shortcut.icon;
                   return (
-                    <button
-                      key={domain.view}
-                      onClick={() => goTo(domain.view)}
-                      className="text-left"
-                    >
-                      <Card
-                        className={`h-full p-5 space-y-3 transition-colors hover:border-primary ${
-                          domain.danger ? "border-destructive/50" : ""
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Icon className="w-5 h-5 text-primary" />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-[15px] font-semibold">{domain.title}</p>
-                            <p className="text-sm text-muted-foreground">{domain.description}</p>
-                          </div>
-                        </div>
+                    <button key={shortcut.view} onClick={() => goTo(shortcut.view)} className="text-left">
+                      <Card className="h-full p-4 space-y-2 transition-colors hover:border-primary">
+                        <span className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Icon className="w-4 h-4 text-primary" />
+                        </span>
                         <div>
-                          <p className={`text-2xl font-bold ${domain.danger ? "text-destructive" : ""}`}>
-                            {domain.primary}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{domain.primaryLabel}</p>
+                          <p className="text-[15px] font-semibold">{shortcut.title}</p>
+                          <p className="text-sm text-muted-foreground">{shortcut.description}</p>
                         </div>
-                        <ul className="space-y-1">
-                          {domain.lines.map((line) => (
-                            <li key={line} className="text-sm text-muted-foreground">
-                              {line}
-                            </li>
-                          ))}
-                        </ul>
+                        <p className="text-sm text-muted-foreground">{shortcut.meta}</p>
                       </Card>
                     </button>
                   );
                 })}
               </div>
-            </section>
-
-            <section className="space-y-3">
-              <h2 className="text-base font-semibold">Total de {monthLabel}</h2>
-              <Card className="p-5 space-y-2">
-                <p className="text-2xl font-bold">{formatBRL(totals.expected)}</p>
-                <p className="text-sm text-muted-foreground">
-                  Soma das despesas do mês. A fatura do cartão não é somada de novo: ela é a forma de
-                  pagar as cobranças que já estão nesta conta.
-                </p>
-                <p className="text-sm text-foreground">
-                  Já pago: <strong className="text-primary">{formatBRL(totals.paid)}</strong> · Em
-                  aberto: <strong>{formatBRL(totals.open)}</strong>
-                </p>
-                {settings.monthlyBudgetBrl != null && (
-                  <>
-                    <p className={`text-sm font-semibold ${overBudget! > 0 ? "text-destructive" : "text-primary"}`}>
-                      {overBudget! > 0
-                        ? `${formatBRL(overBudget!)} acima do orçamento de ${formatBRL(settings.monthlyBudgetBrl)}`
-                        : `${formatBRL(Math.abs(overBudget!))} abaixo do orçamento de ${formatBRL(settings.monthlyBudgetBrl)}`}
-                    </p>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${overBudget! > 0 ? "bg-destructive" : "bg-primary"}`}
-                        style={{ width: `${budgetUsage ?? 0}%` }}
-                      />
-                    </div>
-                  </>
-                )}
-              </Card>
             </section>
           </>
         )}
