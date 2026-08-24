@@ -464,10 +464,11 @@ export default function FinanceItemFormModal({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                {lastInstallmentDate
-                  ? `Última parcela prevista em ${formatDateBR(lastInstallmentDate)} — depois disso a despesa deixa de aparecer automaticamente.`
+                {schedulePreview
+                  ? `${schedulePreview} — depois disso a despesa deixa de aparecer automaticamente.`
                   : "Informe início e quantidade para o sistema encerrar o parcelamento sozinho."}
               </p>
+
             </div>
           )}
           {(recurrence === "annual" || !!subscriptionDate) && (
