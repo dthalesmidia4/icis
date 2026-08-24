@@ -10,6 +10,8 @@ import {
   isSubscriptionsDomainItem,
   buildPaymentQueue,
   statementValueLabel,
+  buildPaidComposition,
+  queueDateLabel,
 } from "./financeRowStatus";
 
 const TODAY = "2026-08-24";
