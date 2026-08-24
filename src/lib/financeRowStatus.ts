@@ -518,3 +518,52 @@ export function statementValueLabel(group: StatementGroup): StatementValueLabel 
     hint: gap ?? "Informe fechamento e vencimento do cartão.",
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/*                    COMPOSIÇÃO PAGO x EM ABERTO (apresentação)              */
+/* -------------------------------------------------------------------------- */
+
+export interface PaidComposition {
+  paidPct: number;
+  openPct: number;
+  /** Texto explícito — cor nunca é o único indicador. */
+  label: string;
+  /** `false` quando não há base para calcular a relação. */
+  hasBase: boolean;
+}
+
+/**
+ * Deriva a relação pago x em aberto SOMENTE dos totais já calculados.
+ * Nada é persistido e valores inconsistentes são normalizados (clamp 0–100).
+ */
+export function buildPaidComposition(totals: {
+  paid: number;
+  open: number;
+  expected: number;
+}): PaidComposition {
+  const paid = Number.isFinite(totals.paid) ? Math.max(0, totals.paid) : 0;
+  const open = Number.isFinite(totals.open) ? Math.max(0, totals.open) : 0;
+  const base = paid + open;
+
+  if (base <= 0) {
+    return { paidPct: 0, openPct: 0, hasBase: false, label: "Nada lançado neste mês" };
+  }
+
+  const paidPct = Math.min(100, Math.max(0, Math.round((paid / base) * 100)));
+  const openPct = 100 - paidPct;
+  return {
+    paidPct,
+    openPct,
+    hasBase: true,
+    label: `${paidPct}% pago · ${openPct}% em aberto`,
+  };
+}
+
+/** Data contextual da fila de pagamentos: `Hoje`, `Amanhã` ou `24 ago`. */
+export function queueDateLabel(iso: string | null | undefined, today: string): string {
+  if (!iso) return "—";
+  const date = iso.slice(0, 10);
+  if (date === today) return "Hoje";
+  if (date === addDaysISO(today, 1)) return "Amanhã";
+  return formatDayMonth(date);
+}
