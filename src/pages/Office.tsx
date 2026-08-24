@@ -10,6 +10,7 @@ import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
 import OfficeCardOverlay from "@/components/office/OfficeCardOverlay";
 import CoffeeCorner from "@/components/office/CoffeeCorner";
+import { isCoffeeEligible } from "@/lib/officePresence";
 import OfficeTransferLayer, { type QueuedTransfer } from "@/components/office/OfficeTransferLayer";
 import {
   buildAssignmentSnapshot,
@@ -214,9 +215,11 @@ export default function Office() {
   }, [area]);
 
 
-  // Quem está em micro-pausa aparece na cafeteria (a mesa continua na sala).
+  // Cafeteria: quem está no contexto do expediente e NÃO está trabalhando
+  // (`available`, `micro_break`, `official_break`). A mesa continua na sala,
+  // mas sem personagem — nunca duplicamos o colaborador.
   const atCoffee = useMemo(
-    () => stations.filter((s) => s.presence.state === "micro_break"),
+    () => stations.filter((s) => isCoffeeEligible(s.presence.state)),
     [stations],
   );
 

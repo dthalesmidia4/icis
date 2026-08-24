@@ -6,7 +6,7 @@ vi.mock("@/lib/dailyCards", () => ({
   fetchHolidaysInRange: vi.fn(async () => new Set<string>()),
 }));
 
-import { resolvePresence } from "@/lib/officePresence";
+import { resolvePresence, isCoffeeEligible } from "@/lib/officePresence";
 import {
   groupSchedulesByUser,
   resolveUserWindows,
@@ -148,5 +148,18 @@ describe("officePresence — pausas dentro da janela", () => {
 
   it("dentro da janela sem nenhuma pista de tarefa => available", () => {
     expect(resolvePresence({ now: at("10:00"), queue: [], windows }).state).toBe("available");
+  });
+});
+
+describe("isCoffeeEligible", () => {
+  it("inclui quem está no expediente sem trabalhar", () => {
+    expect(isCoffeeEligible("available")).toBe(true);
+    expect(isCoffeeEligible("micro_break")).toBe(true);
+    expect(isCoffeeEligible("official_break")).toBe(true);
+  });
+
+  it("exclui working_now e off_shift", () => {
+    expect(isCoffeeEligible("working_now")).toBe(false);
+    expect(isCoffeeEligible("off_shift")).toBe(false);
   });
 });

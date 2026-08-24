@@ -8,6 +8,7 @@ import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
 import { assignDeskSlots, type DeskObjectKey, type DeskSlotName } from "@/lib/officeDeskObjects";
+import { isCoffeeEligible } from "@/lib/officePresence";
 
 const timeLabel = (date?: string | null, time?: string | null) => {
   if (!date) return null;
@@ -72,8 +73,9 @@ export const OfficeDesk = memo(function OfficeDesk({
   const working = presence.state === "working_now" && !!current;
   const onBreak = presence.state === "official_break";
   const offShift = presence.state === "off_shift";
-  // Cadeira vazia: micro-pausa (café), intervalo oficial e fora do expediente.
-  const away = presence.state === "micro_break" || onBreak || offShift;
+  // Cadeira vazia: quem está na cafeteria (available/micro-pausa/intervalo) e
+  // quem está fora do expediente. Evita duplicar o personagem (mesa + café).
+  const away = isCoffeeEligible(presence.state) || onBreak || offShift;
   const statusLabel = working
     ? "Em andamento"
     : onBreak

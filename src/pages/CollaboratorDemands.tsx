@@ -18,6 +18,7 @@ import { useBreadcrumbOverride } from "@/contexts/BreadcrumbOverrideContext";
 import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 import { isReviewFunction } from "@/lib/flowFunctions";
+import { splitCollaboratorCardGroups } from "@/lib/collaboratorCardGroups";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
@@ -270,22 +271,13 @@ const CollaboratorDemands = () => {
 
   const [awaitingOpen, setAwaitingOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [planningOpen, setPlanningOpen] = useState(false);
 
-  const { awaitingCards, reviewCards, mainCards, shouldGroupReview } = useMemo(() => {
-    const awaiting = sortedCards.filter((c) => c.current_function_key === "aguardando_cliente");
-    const nonAwaiting = sortedCards.filter((c) => c.current_function_key !== "aguardando_cliente");
-    const reviewCandidates = nonAwaiting.filter((c) => isReviewFunction(c.current_function_key));
-    const shouldGroup = reviewCandidates.length >= 3;
-    const main = shouldGroup
-      ? nonAwaiting.filter((c) => !isReviewFunction(c.current_function_key))
-      : nonAwaiting;
-    return {
-      awaitingCards: awaiting,
-      reviewCards: shouldGroup ? reviewCandidates : [],
-      mainCards: main,
-      shouldGroupReview: shouldGroup,
-    };
-  }, [sortedCards]);
+  const { awaitingCards, planningCards, reviewCards, mainCards, shouldGroupReview } = useMemo(
+    () => splitCollaboratorCardGroups(sortedCards),
+    [sortedCards],
+  );
+
 
 
   const formatDate = (d?: string | null) => {
@@ -829,6 +821,31 @@ const CollaboratorDemands = () => {
             )}
 
             {mainCards.length > 0 && renderGroup(mainCards)}
+
+            {/* Planejar SEMPRE em agrupamento próprio (mesmo com 1 card). */}
+            {planningCards.length > 0 && (
+              <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setPlanningOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors border-b border-border"
+                  aria-expanded={planningOpen}
+                >
+                  {planningOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <ClipboardCheck className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Planejar</span>
+                  <Badge variant="secondary" className="ml-1">{planningCards.length}</Badge>
+                </button>
+                {planningOpen && (
+                  <Table>
+                    {renderTableHeader()}
+                    <TableBody>{planningCards.map(renderRow)}</TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+
+
 
             {awaitingCards.length > 0 && (
               <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
