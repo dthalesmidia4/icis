@@ -36,8 +36,11 @@ export interface FinanceItem {
   card_item_id?: string | null;
   bank_name?: string | null;
   card_last4?: string | null;
+  /** Limite do cartão (somente `kind = 'card'`). NÃO é orçamento mensal. */
+  card_limit_brl?: number | null;
   statement_closing_day?: number | null;
   statement_due_day?: number | null;
+
   currency: FinanceCurrency;
   default_amount_original?: number | null;
   default_exchange_rate?: number | null;
