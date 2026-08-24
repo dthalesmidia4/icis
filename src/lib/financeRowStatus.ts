@@ -280,14 +280,9 @@ export type AttentionAction =
   | { type: "open_statement"; cardId: string }
   | { type: "open_statement_difference"; cardId: string };
 
-/** Domínio de origem do alerta — o usuário precisa saber para onde vai. */
+/** Domínio de origem do alerta — usado para roteamento, não como rótulo. */
 export type AttentionDomain = "accounts" | "cards" | "subscriptions";
 
-export const ATTENTION_DOMAIN_LABELS: Record<AttentionDomain, string> = {
-  accounts: "Contas a pagar",
-  cards: "Cartões e faturas",
-  subscriptions: "Assinaturas e ferramentas",
-};
 
 export interface AttentionInsight {
   id: string;
@@ -325,11 +320,9 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
       id: "overdue",
       tone: "danger",
       domain: "accounts",
-      title:
-        overdue.length === 1
-          ? "1 pagamento está atrasado"
-          : `${overdue.length} pagamentos estão atrasados`,
-      detail: formatBRL(Number(total.toFixed(2))),
+      title: `${overdue.length} ${overdue.length === 1 ? "pagamento atrasado" : "pagamentos atrasados"} · ${formatBRL(
+        Number(total.toFixed(2)),
+      )}`,
       actionLabel: "Ver atrasados",
       action: { type: "filter_overdue" },
     });
@@ -353,7 +346,7 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
     });
   }
 
-  // 4. Cartões sem fechamento/vencimento — problema do CARTÃO, não do lançamento
+  // 4. Cartões sem fechamento/vencimento — detalhe por cartão vive na view Cards
   const incomplete = statements.filter((g) => g.configIncomplete);
   if (incomplete.length > 0) {
     insights.push({
@@ -362,15 +355,14 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
       domain: "cards",
       title:
         incomplete.length === 1
-          ? `Faltam dados da fatura em ${cardDisplayLabel(incomplete[0].card)}`
-          : `${incomplete.length} cartões estão sem dados da fatura`,
-      detail: incomplete
-        .map((g) => `${cardDisplayLabel(g.card)}: ${cycleGapLabel(g.card) ?? ""}`)
-        .join(" · "),
-      actionLabel: "Completar cartões",
+          ? "1 cartão precisa ser configurado"
+          : `${incomplete.length} cartões precisam ser configurados`,
+      detail: "Informe fechamento e vencimento para calcular as próximas faturas.",
+      actionLabel: "Configurar cartões",
       action: { type: "open_cards" },
     });
   }
+
 
   // 5. Diferença de fatura a classificar
   for (const group of statements) {
@@ -525,4 +517,53 @@ export function statementValueLabel(group: StatementGroup): StatementValueLabel 
     value: null,
     hint: gap ?? "Informe fechamento e vencimento do cartão.",
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/*                    COMPOSIÇÃO PAGO x EM ABERTO (apresentação)              */
+/* -------------------------------------------------------------------------- */
+
+export interface PaidComposition {
+  paidPct: number;
+  openPct: number;
+  /** Texto explícito — cor nunca é o único indicador. */
+  label: string;
+  /** `false` quando não há base para calcular a relação. */
+  hasBase: boolean;
+}
+
+/**
+ * Deriva a relação pago x em aberto SOMENTE dos totais já calculados.
+ * Nada é persistido e valores inconsistentes são normalizados (clamp 0–100).
+ */
+export function buildPaidComposition(totals: {
+  paid: number;
+  open: number;
+  expected: number;
+}): PaidComposition {
+  const paid = Number.isFinite(totals.paid) ? Math.max(0, totals.paid) : 0;
+  const open = Number.isFinite(totals.open) ? Math.max(0, totals.open) : 0;
+  const base = paid + open;
+
+  if (base <= 0) {
+    return { paidPct: 0, openPct: 0, hasBase: false, label: "Nada lançado neste mês" };
+  }
+
+  const paidPct = Math.min(100, Math.max(0, Math.round((paid / base) * 100)));
+  const openPct = 100 - paidPct;
+  return {
+    paidPct,
+    openPct,
+    hasBase: true,
+    label: `${paidPct}% pago · ${openPct}% em aberto`,
+  };
+}
+
+/** Data contextual da fila de pagamentos: `Hoje`, `Amanhã` ou `24 ago`. */
+export function queueDateLabel(iso: string | null | undefined, today: string): string {
+  if (!iso) return "—";
+  const date = iso.slice(0, 10);
+  if (date === today) return "Hoje";
+  if (date === addDaysISO(today, 1)) return "Amanhã";
+  return formatDayMonth(date);
 }

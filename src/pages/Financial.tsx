@@ -54,12 +54,15 @@ import {
   formatBRL,
   isStatementRow,
 } from "@/lib/financeModel";
+import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
 import {
   AttentionInsight,
   RowStatusContext,
   PaymentQueueEntry,
   buildAttentionInsights,
+  buildPaidComposition,
   buildPaymentQueue,
+  formatDayMonth,
   isDirectPayableRow,
   isSubscriptionsDomainItem,
   monthFullLabel,
@@ -188,6 +191,9 @@ export default function Financial() {
     () => buildPaymentQueue({ rows, statements, today, cardsById }),
     [rows, statements, today, cardsById],
   );
+
+  /** Relação pago x em aberto — derivada apenas dos totais, nunca persistida. */
+  const composition = useMemo(() => buildPaidComposition(totals), [totals]);
 
   const openItemModal = (item: FinanceItem | null, kind?: FinanceKind) => {
     setEditingItem(item);
@@ -340,7 +346,9 @@ export default function Financial() {
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
-      {!isCurrentMonth && (
+      {isCurrentMonth ? (
+        <span className="text-sm text-muted-foreground">Hoje, {formatDayMonth(today)}</span>
+      ) : (
         <Button
           variant="ghost"
           size="sm"
@@ -360,7 +368,6 @@ export default function Financial() {
       view: "accounts" as View,
       icon: Receipt,
       title: "Contas a pagar",
-      description: "Veja vencimentos e marque pagamentos diretos.",
       meta:
         accountsSummary.pending === 1
           ? "1 pendente"
@@ -370,7 +377,6 @@ export default function Financial() {
       view: "cards" as View,
       icon: CreditCard,
       title: "Cartões e faturas",
-      description: "Veja faturas, limites e cobranças de cada cartão.",
       meta:
         cardsSummary.incomplete > 0
           ? `${cardsSummary.count} ${cardsSummary.count === 1 ? "cartão" : "cartões"} · ${cardsSummary.incomplete} ${
@@ -382,7 +388,6 @@ export default function Financial() {
       view: "subscriptions" as View,
       icon: Repeat,
       title: "Assinaturas e ferramentas",
-      description: "Gerencie gastos recorrentes, ferramentas e pacotes.",
       meta:
         subscriptionsSummary.count === 1
           ? "1 ativa"
@@ -407,7 +412,7 @@ export default function Financial() {
   return (
     <div className="pb-16">
       <PageHeader
-        containerClassName="w-full max-w-[1400px]"
+        containerClassName={FINANCE_SHELL_WIDTH}
         title={VIEW_TITLES[view].title}
         subtitle={VIEW_TITLES[view].subtitle}
         backTo={view === "overview" ? "/" : undefined}
@@ -450,55 +455,78 @@ export default function Financial() {
         }
       />
 
-      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 py-5 space-y-6">
+      <div className={`${FINANCE_SHELL} py-5 space-y-7`}>
         {monthSwitcher}
 
         {/* =========================== OVERVIEW =========================== */}
         {view === "overview" && (
           <>
-            {/* B. Resumo do mês — os únicos números grandes da overview */}
+            {/* B. Resumo do mês — UM único painel coeso */}
             <section className="space-y-3">
               <h2 className="text-base font-semibold">Resumo de {monthLabel}</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Card className="p-5">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm text-muted-foreground">Gastos previstos</p>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label="Como os gastos são somados"
-                            className="text-muted-foreground hover:text-foreground"
-                          >
-                            <Info className="w-4 h-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[260px]">
-                          Compras no cartão entram como despesa aqui; a fatura não é somada
-                          novamente.
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+
+              <Card className="p-5 sm:p-6 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-border gap-5 sm:gap-0">
+                  <div className="sm:pr-6">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-muted-foreground">Gastos previstos</p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Como os gastos são somados"
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <Info className="w-4 h-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[260px]">
+                            Compras no cartão entram como despesa aqui; a fatura não é somada
+                            novamente.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                      {formatBRL(totals.expected)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">estimativa para o mês</p>
                   </div>
-                  <p className="text-3xl font-bold mt-1">{formatBRL(totals.expected)}</p>
-                  <p className="text-sm text-muted-foreground">estimativa para o mês</p>
-                </Card>
 
-                <Card className="p-5">
-                  <p className="text-sm text-muted-foreground">Já pago</p>
-                  <p className="text-3xl font-bold mt-1">{formatBRL(totals.paid)}</p>
-                  <p className="text-sm text-muted-foreground">pagamentos já realizados</p>
-                </Card>
+                  <div className="sm:px-6">
+                    <p className="text-sm text-muted-foreground">Já pago</p>
+                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                      {formatBRL(totals.paid)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">pagamentos já realizados</p>
+                  </div>
 
-                <Card className="p-5">
-                  <p className="text-sm text-muted-foreground">Em aberto</p>
-                  <p className="text-3xl font-bold mt-1">{formatBRL(totals.open)}</p>
-                  <p className="text-sm text-muted-foreground">despesas ainda não liquidadas</p>
-                </Card>
-              </div>
+                  <div className="sm:pl-6">
+                    <p className="text-sm text-muted-foreground">Em aberto</p>
+                    <p className="text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
+                      {formatBRL(totals.open)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">despesas ainda não liquidadas</p>
+                  </div>
+                </div>
 
-              {/* C. Orçamento — secundário */}
+                {/* Relação pago x em aberto — derivada só dos totais */}
+                <div className="space-y-1.5">
+                  <div
+                    className="h-2 rounded-full bg-muted overflow-hidden flex"
+                    role="img"
+                    aria-label={composition.label}
+                  >
+                    {composition.hasBase && (
+                      <div className="h-full bg-primary" style={{ width: `${composition.paidPct}%` }} />
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{composition.label}</p>
+                </div>
+              </Card>
+
+              {/* C. Orçamento — SEPARADO do painel e nunca ligado a limite de cartão */}
               {settings.monthlyBudgetBrl != null ? (
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -534,51 +562,42 @@ export default function Financial() {
               )}
             </section>
 
-            {/* D. Próximos pagamentos */}
-            <PaymentQueue
-              entries={paymentQueue.slice(0, 5)}
-              onSelect={handleQueueSelect}
-              onSeeAll={() => {
-                goTo("accounts");
-                setMainView("to_pay");
-                setAdvanced("none");
-                setCostCenter("all");
-              }}
-            />
+            {/* D. Próximos pagamentos — centro operacional */}
+            <PaymentQueue entries={paymentQueue} today={today} onSelect={handleQueueSelect} />
 
             {/* E. Exceções */}
             <AttentionPanel insights={insights} onAction={handleInsightAction} />
 
-            {/* F. Aprofundamentos */}
-            <section className="space-y-3">
-              <div>
-                <h2 className="text-base font-semibold">Consultar e gerenciar</h2>
-                <p className="text-sm text-muted-foreground">
-                  Abra uma área para ver mais detalhes.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* F. Navegação secundária compacta */}
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Consultar e gerenciar</h2>
+              <Card className="divide-y md:divide-y-0 md:grid md:grid-cols-3 md:divide-x">
                 {shortcuts.map((shortcut) => {
                   const Icon = shortcut.icon;
                   return (
-                    <button key={shortcut.view} onClick={() => goTo(shortcut.view)} className="text-left">
-                      <Card className="h-full p-4 space-y-2 transition-colors hover:border-primary">
-                        <span className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Icon className="w-4 h-4 text-primary" />
+                    <button
+                      key={shortcut.view}
+                      onClick={() => goTo(shortcut.view)}
+                      className="text-left w-full px-4 py-4 min-h-[72px] flex items-center gap-3 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                    >
+                      <Icon className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-semibold truncate">
+                          {shortcut.title}
                         </span>
-                        <div>
-                          <p className="text-[15px] font-semibold">{shortcut.title}</p>
-                          <p className="text-sm text-muted-foreground">{shortcut.description}</p>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{shortcut.meta}</p>
-                      </Card>
+                        <span className="block text-sm text-muted-foreground truncate">
+                          {shortcut.meta}
+                        </span>
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     </button>
                   );
                 })}
-              </div>
+              </Card>
             </section>
           </>
         )}
+
 
         {/* ======================== CONTAS A PAGAR ======================== */}
         {view === "accounts" && (
