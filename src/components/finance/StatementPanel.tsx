@@ -28,7 +28,7 @@ import {
   formatCurrencyValue,
 } from "@/lib/financeModel";
 import { Competence } from "@/lib/financeCardCycle";
-import { formatDayMonth, monthFullLabel } from "@/lib/financeRowStatus";
+import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
 
 interface Props {
   groups: StatementGroup[];
@@ -43,7 +43,7 @@ interface Props {
   onEditCard: (card: FinanceItem) => void;
 }
 
-function Fact({ label, value, tone }: { label: string; value: string; tone?: "muted" | "warning" }) {
+function Fact({ label, value, tone, hint }: { label: string; value: string; tone?: "muted" | "warning"; hint?: string }) {
   return (
     <div className="min-w-[130px]">
       <p className="text-sm text-muted-foreground">{label}</p>
