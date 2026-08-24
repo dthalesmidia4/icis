@@ -54,6 +54,7 @@ function Fact({ label, value, tone, hint }: { label: string; value: string; tone
       >
         {value}
       </p>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
