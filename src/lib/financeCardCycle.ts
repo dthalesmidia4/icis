@@ -116,6 +116,7 @@ export function resolveStatementForCharge(params: {
 
   return {
     incomplete: false,
+    reason: null,
     chargeDate,
     closingDate,
     dueDate,
