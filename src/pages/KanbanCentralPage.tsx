@@ -337,6 +337,17 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
       return next;
     });
   }, []);
+  // Grupo "Planejar" (`current_function_key === "planejar"`) — SEMPRE agrupado,
+  // mesmo com 1 card; recolhido por padrão como os demais agrupamentos.
+  const [expandedPlanning, setExpandedPlanning] = useState<Set<string>>(new Set());
+  const togglePlanning = useCallback((columnId: string) => {
+    setExpandedPlanning((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
   // Grupo "Avaliar" (cards planejados aguardando aprovação) — recolhido por padrão.
   const [expandedEvaluate, setExpandedEvaluate] = useState<Set<string>>(new Set());
   const toggleEvaluate = useCallback((columnId: string) => {
