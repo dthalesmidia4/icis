@@ -343,81 +343,56 @@ export default function Financial() {
     </div>
   );
 
-  /* ------------------------------ DOMÍNIOS ------------------------------ */
+  /* ---------------------- APROFUNDAMENTOS (sem valores) ---------------------- */
 
-  const domainCards = [
+  const shortcuts = [
     {
       view: "accounts" as View,
       icon: Receipt,
       title: "Contas a pagar",
-      description: "Contas com vencimento próprio: Pix, boleto, transferência ou débito.",
-      primary: formatBRL(accountsSummary.open),
-      primaryLabel: "a pagar em " + monthLabel,
-      lines: [
+      description: "Veja vencimentos e marque pagamentos diretos.",
+      meta:
         accountsSummary.pending === 1
-          ? "1 conta pendente"
-          : `${accountsSummary.pending} contas pendentes`,
-        accountsSummary.overdue > 0
-          ? accountsSummary.overdue === 1
-            ? "1 conta atrasada"
-            : `${accountsSummary.overdue} contas atrasadas`
-          : "Nenhuma conta atrasada",
-      ],
-      danger: accountsSummary.overdue > 0,
+          ? "1 pendente"
+          : `${accountsSummary.pending} pendentes`,
     },
     {
       view: "cards" as View,
       icon: CreditCard,
       title: "Cartões e faturas",
-      description: "A fatura é a conta que você paga; as cobranças só explicam o valor dela.",
-      primary: formatBRL(cardsSummary.total),
-      primaryLabel: "em faturas em aberto",
-      lines: [
-        cardsSummary.count === 1 ? "1 cartão cadastrado" : `${cardsSummary.count} cartões cadastrados`,
-        cardsSummary.overdue > 0
-          ? "Há fatura atrasada"
-          : cardsSummary.incomplete > 0
-            ? cardsSummary.incomplete === 1
-              ? "1 cartão sem dados da fatura"
-              : `${cardsSummary.incomplete} cartões sem dados da fatura`
-            : "Faturas em dia",
-      ],
-      danger: cardsSummary.overdue > 0,
+      description: "Veja faturas, limites e cobranças de cada cartão.",
+      meta:
+        cardsSummary.incomplete > 0
+          ? `${cardsSummary.count} ${cardsSummary.count === 1 ? "cartão" : "cartões"} · ${cardsSummary.incomplete} ${
+              cardsSummary.incomplete === 1 ? "precisa de dados" : "precisam de dados"
+            }`
+          : `${cardsSummary.count} ${cardsSummary.count === 1 ? "cartão" : "cartões"}`,
     },
     {
       view: "subscriptions" as View,
       icon: Repeat,
       title: "Assinaturas e ferramentas",
-      description: "Serviços recorrentes, pacotes e recursos já incluídos nesses pacotes.",
-      primary: formatBRL(subscriptionsSummary.total),
-      primaryLabel: "de ferramentas e IA no mês",
-      lines: [
+      description: "Gerencie gastos recorrentes, ferramentas e pacotes.",
+      meta:
         subscriptionsSummary.count === 1
-          ? "1 assinatura ativa"
-          : `${subscriptionsSummary.count} assinaturas ativas`,
-        subscriptionsSummary.overlaps > 0
-          ? `${subscriptionsSummary.overlaps} possível duplicidade com pacote`
-          : "Sem duplicidade detectada",
-      ],
-      danger: false,
-    },
-    {
-      view: "settings" as View,
-      icon: Settings2,
-      title: "Ajustes do financeiro",
-      description: "Câmbio de referência, orçamento mensal e dados que faltam nos cartões.",
-      primary:
-        settings.monthlyBudgetBrl != null ? formatBRL(settings.monthlyBudgetBrl) : "Sem orçamento",
-      primaryLabel: settings.monthlyBudgetBrl != null ? "orçamento do mês" : "definido",
-      lines: [
-        settings.defaultUsdRate != null
-          ? `Câmbio de referência: R$ ${settings.defaultUsdRate}`
-          : "Câmbio de referência não definido",
-        cardsSummary.incomplete > 0 ? "Há cartão com dados incompletos" : "Cartões completos",
-      ],
-      danger: false,
+          ? "1 ativa"
+          : `${subscriptionsSummary.count} ativas`,
     },
   ];
+
+  const handleQueueSelect = (entry: PaymentQueueEntry) => {
+    if (entry.type === "statement") {
+      goTo("cards");
+      setHighlightIncomplete(false);
+      setFocusCardId(entry.cardId ?? null);
+      return;
+    }
+    goTo("accounts");
+    setMainView("to_pay");
+    setAdvanced("none");
+    setCostCenter("all");
+    if (entry.row) setOccurrenceRow(entry.row);
+  };
 
   return (
     <div className="pb-16">
