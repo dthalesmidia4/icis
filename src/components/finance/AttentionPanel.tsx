@@ -1,20 +1,14 @@
 /**
- * "O que precisa de atenção" — o sistema interpreta o mês para o usuário.
- * Mostra no máximo 3 avisos; o resto fica atrás de "Ver tudo".
+ * "Precisa da sua atenção" — área compacta de EXCEÇÕES.
+ *
+ * Um único container com linhas internas (nunca um Card por insight).
+ * Detalhe por cartão/campo pertence à view `Cartões e faturas`.
  */
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  ALL_CLEAR_MESSAGE,
-  ALL_CLEAR_TITLE,
-  ATTENTION_DOMAIN_LABELS,
-  AttentionInsight,
-  StatusTone,
-} from "@/lib/financeRowStatus";
-
+import { AttentionInsight, StatusTone } from "@/lib/financeRowStatus";
 
 interface Props {
   insights: AttentionInsight[];
@@ -28,70 +22,72 @@ const TONE_ICON: Record<StatusTone, typeof AlertTriangle> = {
   neutral: Info,
 };
 
+/** Vermelho SOMENTE para atraso/erro real. Configuração incompleta = neutro. */
 const TONE_CLASS: Record<StatusTone, string> = {
   danger: "text-destructive",
-  warning: "text-foreground",
+  warning: "text-muted-foreground",
   positive: "text-primary",
   neutral: "text-muted-foreground",
 };
 
+const MAX_VISIBLE = 3;
+
 export default function AttentionPanel({ insights, onAction }: Props) {
   const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? insights : insights.slice(0, 3);
+  const visible = showAll ? insights : insights.slice(0, MAX_VISIBLE);
   const hidden = insights.length - visible.length;
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-2">
       <h2 className="text-base font-semibold">Precisa da sua atenção</h2>
 
-      {insights.length === 0 ? (
-        <Card className="flex items-center gap-3 p-4">
-          <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-foreground">{ALL_CLEAR_TITLE}</p>
-            <p className="text-sm text-muted-foreground">{ALL_CLEAR_MESSAGE}</p>
+      <Card className="divide-y">
+        {insights.length === 0 ? (
+          <div className="flex items-center gap-3 px-4 py-3 min-h-14">
+            <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
+            <p className="text-sm text-foreground">Tudo certo por enquanto</p>
           </div>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((insight) => {
-            const Icon = TONE_ICON[insight.tone];
-            return (
-              <Card
-                key={insight.id}
-                className="flex flex-wrap items-center gap-3 p-4"
-              >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${TONE_CLASS[insight.tone]}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground">{insight.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {[insight.domain ? ATTENTION_DOMAIN_LABELS[insight.domain] : null, insight.detail]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
+        ) : (
+          <>
+            {visible.map((insight) => {
+              const Icon = TONE_ICON[insight.tone];
+              return (
+                <div
+                  key={insight.id}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3 min-h-14"
+                >
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${TONE_CLASS[insight.tone]}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-medium text-foreground">{insight.title}</p>
+                    {insight.detail && (
+                      <p className="text-sm text-muted-foreground">{insight.detail}</p>
+                    )}
+                  </div>
+
+                  {insight.actionLabel && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="min-h-10"
+                      onClick={() => onAction(insight)}
+                    >
+                      {insight.actionLabel}
+                    </Button>
+                  )}
                 </div>
+              );
+            })}
 
-                {insight.actionLabel && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="min-h-10"
-                    onClick={() => onAction(insight)}
-                  >
-                    {insight.actionLabel}
-                  </Button>
-                )}
-              </Card>
-            );
-          })}
-
-          {hidden > 0 && (
-            <Button variant="ghost" size="sm" className="min-h-10" onClick={() => setShowAll(true)}>
-              Ver mais {hidden} {hidden === 1 ? "alerta" : "alertas"}
-            </Button>
-          )}
-        </div>
-      )}
+            {hidden > 0 && (
+              <div className="px-2 py-1">
+                <Button variant="ghost" size="sm" className="min-h-10" onClick={() => setShowAll(true)}>
+                  Ver mais {hidden} {hidden === 1 ? "alerta" : "alertas"}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
     </section>
   );
 }

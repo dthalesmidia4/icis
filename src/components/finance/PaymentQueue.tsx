@@ -1,26 +1,39 @@
 /**
- * `Próximos pagamentos` — a fila de obrigações de caixa do mês.
+ * `Próximos pagamentos` — principal superfície operacional da overview.
  *
  * Une contas diretas (qualquer `kind` pagável) e faturas de cartão. Cobranças
  * feitas no cartão NÃO aparecem aqui: elas são pagas pela fatura.
+ *
+ * A lista mostra no máximo 5 itens e expande INLINE (sem rota nova).
  */
+import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/financeModel";
-import { PaymentQueueEntry, formatDayMonth } from "@/lib/financeRowStatus";
+import { PaymentQueueEntry, queueDateLabel } from "@/lib/financeRowStatus";
 
 interface Props {
   entries: PaymentQueueEntry[];
+  today: string;
   onSelect: (entry: PaymentQueueEntry) => void;
-  onSeeAll: () => void;
 }
 
-export default function PaymentQueue({ entries, onSelect, onSeeAll }: Props) {
+export const PAYMENT_QUEUE_PREVIEW = 5;
+
+/** Contexto textual leve — substitui a pill pesada. */
+export function entryContextLabel(entry: PaymentQueueEntry): string {
+  return entry.type === "statement" ? "Fatura do cartão" : "Conta direta";
+}
+
+export default function PaymentQueue({ entries, today, onSelect }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? entries : entries.slice(0, PAYMENT_QUEUE_PREVIEW);
+  const hasMore = entries.length > PAYMENT_QUEUE_PREVIEW;
+
   return (
-    <section className="space-y-3">
-      <h2 className="text-base font-semibold">Próximos pagamentos</h2>
+    <section className="space-y-2">
+      <h2 className="text-lg font-semibold">Próximos pagamentos</h2>
 
       {entries.length === 0 ? (
         <Card className="p-4">
@@ -30,33 +43,48 @@ export default function PaymentQueue({ entries, onSelect, onSeeAll }: Props) {
         </Card>
       ) : (
         <Card className="divide-y">
-          {entries.map((entry) => (
+          {visible.map((entry) => (
             <button
               key={entry.id}
               onClick={() => onSelect(entry)}
-              className="w-full text-left px-4 py-3 min-h-14 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+              className="w-full text-left px-4 sm:px-5 py-3 sm:py-4 min-h-16 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
-              <span className="text-sm text-muted-foreground w-16 flex-shrink-0 tabular-nums">
-                {formatDayMonth(entry.dueDate)}
+              <span className="text-sm text-muted-foreground sm:w-20 flex-shrink-0 tabular-nums">
+                {queueDateLabel(entry.dueDate, today)}
               </span>
-              <span className="text-sm font-medium text-foreground flex-1 min-w-0 truncate">
-                {entry.name}
+
+              <span className="flex-1 min-w-0">
+                <span className="block text-[15px] sm:text-base font-semibold text-foreground truncate">
+                  {entry.name}
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  {entryContextLabel(entry)}
+                </span>
               </span>
-              <span className="text-sm font-semibold tabular-nums whitespace-nowrap">
-                {formatBRL(entry.amount)}
+
+              <span className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                <span className="text-[15px] sm:text-base font-semibold tabular-nums whitespace-nowrap">
+                  {formatBRL(entry.amount)}
+                </span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </span>
-              <Badge variant="outline" className="text-xs flex-shrink-0 hidden sm:inline-flex">
-                {entry.label}
-              </Badge>
-              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             </button>
           ))}
+
+          {hasMore && (
+            <div className="px-2 py-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="min-h-10"
+                onClick={() => setExpanded((v) => !v)}
+              >
+                {expanded ? "Mostrar menos" : "Ver mais pagamentos"}
+              </Button>
+            </div>
+          )}
         </Card>
       )}
-
-      <Button variant="ghost" size="sm" className="min-h-10" onClick={onSeeAll}>
-        Ver todos os pagamentos
-      </Button>
     </section>
   );
 }
