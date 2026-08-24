@@ -317,40 +317,21 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
   const operational = rows.filter((r) => !isStatementRow(r));
   const insights: AttentionInsight[] = [];
 
-  // 1. Contas DIRETAS atrasadas — separadas por domínio de origem
-  const overdue = overdueDirectRows(operational, ctx);
-  const overdueAccounts = overdue.filter(isAccountsDomainRow);
-  const overdueSubscriptions = overdue.filter((r) => isSubscriptionsDomainItem(r.item));
-
-  if (overdueAccounts.length > 0) {
-    const total = overdueAccounts.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
+  // 1. Obrigações DIRETAS atrasadas — um único alerta, sem separar por kind
+  const overdue = overdueDirectRows(operational, ctx).filter(isDirectPayableRow);
+  if (overdue.length > 0) {
+    const total = overdue.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
     insights.push({
       id: "overdue",
       tone: "danger",
       domain: "accounts",
       title:
-        overdueAccounts.length === 1
-          ? "1 conta está atrasada"
-          : `${overdueAccounts.length} contas estão atrasadas`,
+        overdue.length === 1
+          ? "1 pagamento está atrasado"
+          : `${overdue.length} pagamentos estão atrasados`,
       detail: formatBRL(Number(total.toFixed(2))),
-      actionLabel: "Ver contas atrasadas",
+      actionLabel: "Ver atrasados",
       action: { type: "filter_overdue" },
-    });
-  }
-
-  if (overdueSubscriptions.length > 0) {
-    const total = overdueSubscriptions.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
-    insights.push({
-      id: "overdue-subscriptions",
-      tone: "danger",
-      domain: "subscriptions",
-      title:
-        overdueSubscriptions.length === 1
-          ? "1 assinatura paga direto está vencida"
-          : `${overdueSubscriptions.length} assinaturas pagas direto estão vencidas`,
-      detail: formatBRL(Number(total.toFixed(2))),
-      actionLabel: "Ver assinaturas",
-      action: { type: "open_subscriptions" },
     });
   }
 
@@ -386,28 +367,6 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
         action: { type: "open_statement", cardId: group.card.id },
       });
     }
-  }
-
-  // 3. Próximo vencimento direto de conta
-  const nextDirect = operational
-    .filter(isAccountsDomainRow)
-    .filter((row) => {
-      const status = resolveRowStatus(row, ctx);
-      return status.kind !== "paid" && !!(row.dueDate ?? row.chargeDate);
-    })
-    .filter((row) => (row.dueDate ?? row.chargeDate)! >= today)
-    .sort((a, b) => (a.dueDate ?? a.chargeDate)!.localeCompare((b.dueDate ?? b.chargeDate)!))[0];
-  if (nextDirect) {
-    const ref = (nextDirect.dueDate ?? nextDirect.chargeDate)!;
-    insights.push({
-      id: "next-direct",
-      tone: "neutral",
-      domain: "accounts",
-      title: `Próximo vencimento: ${nextDirect.item.name}`,
-      detail: `${formatDayMonth(ref)} · ${formatBRL(nextDirect.amountBrl)}`,
-      actionLabel: "Ver contas",
-      action: { type: "filter_overdue" },
-    });
   }
 
   // 4. Cartões sem fechamento/vencimento — problema do CARTÃO, não do lançamento
@@ -450,4 +409,136 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
 
 
 /** Mensagem quando não há nada crítico no mês. */
-export const ALL_CLEAR_MESSAGE = "Tudo certo por enquanto. Não há contas atrasadas.";
+export const ALL_CLEAR_TITLE = "Tudo certo por enquanto.";
+export const ALL_CLEAR_MESSAGE =
+  "Não há pagamentos atrasados nem problemas de configuração.";
+
+
+/* -------------------------------------------------------------------------- */
+/*                          FILA DE PRÓXIMOS PAGAMENTOS                       */
+/* -------------------------------------------------------------------------- */
+
+export type PaymentQueueType = "direct" | "statement";
+
+export interface PaymentQueueEntry {
+  id: string;
+  type: PaymentQueueType;
+  name: string;
+  dueDate: string;
+  amount: number;
+  /** `Conta` (obrigação direta) ou `Fatura` (cartão). */
+  label: string;
+  status: RowStatus["kind"] | "statement_open" | "statement_overdue";
+  overdue: boolean;
+  /** Linha original, quando a entrada vem de uma obrigação direta. */
+  row?: MonthRow;
+  /** Cartão de destino, quando a entrada é uma fatura. */
+  cardId?: string;
+}
+
+export interface PaymentQueueParams {
+  rows: MonthRow[];
+  statements: StatementGroup[];
+  today: string;
+  cardsById: Map<string, FinanceItem>;
+  /** `false` (padrão) exclui atrasados: eles vivem em "Precisa da sua atenção". */
+  includeOverdue?: boolean;
+}
+
+/**
+ * Une, para APRESENTAÇÃO, todas as obrigações de caixa que realmente precisam
+ * ser pagas: contas diretas de qualquer `kind` relevante + faturas de cartão.
+ * Componentes de cartão e recursos incluídos nunca entram como pagamento.
+ */
+export function buildPaymentQueue(params: PaymentQueueParams): PaymentQueueEntry[] {
+  const { rows, statements, today, cardsById } = params;
+  const includeOverdue = params.includeOverdue ?? false;
+  const ctx: RowStatusContext = { rows, today, cardsById };
+  const entries: PaymentQueueEntry[] = [];
+
+  for (const row of rows) {
+    if (!isDirectPayableRow(row)) continue;
+    const status = resolveRowStatus(row, ctx);
+    if (status.kind === "paid") continue;
+    const due = row.dueDate ?? row.chargeDate;
+    if (!due) continue;
+    const overdue = due < today;
+    if (overdue && !includeOverdue) continue;
+    entries.push({
+      id: `direct:${row.key}`,
+      type: "direct",
+      name: row.item.name,
+      dueDate: due,
+      amount: row.amountBrl ?? 0,
+      label: "Conta",
+      status: status.kind,
+      overdue,
+      row,
+    });
+  }
+
+  for (const group of statements) {
+    if (group.paid || !group.dueDate) continue;
+    const overdue = group.dueDate < today;
+    if (overdue && !includeOverdue) continue;
+    const amount = group.actualTotal ?? group.projectedTotal;
+    if (amount <= 0 && group.actualTotal == null) continue;
+    entries.push({
+      id: `statement:${group.card.id}`,
+      type: "statement",
+      name: cardDisplayLabel(group.card),
+      dueDate: group.dueDate,
+      amount,
+      label: "Fatura",
+      status: overdue ? "statement_overdue" : "statement_open",
+      overdue,
+      cardId: group.card.id,
+    });
+  }
+
+  return entries.sort(
+    (a, b) => a.dueDate.localeCompare(b.dueDate) || a.name.localeCompare(b.name, "pt-BR"),
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                    ROTULAGEM HONESTA DO VALOR DA FATURA                    */
+/* -------------------------------------------------------------------------- */
+
+export interface StatementValueLabel {
+  label: string;
+  value: number | null;
+  hint: string | null;
+}
+
+/**
+ * Nunca chamar soma parcial de componentes de "fatura em aberto".
+ * - occurrence real  -> `Fatura`
+ * - ciclo completo   -> `Projeção da fatura`
+ * - ciclo incompleto -> `Cobranças conhecidas` / `Projeção indisponível`
+ */
+export function statementValueLabel(group: StatementGroup): StatementValueLabel {
+  if (group.actualTotal != null) {
+    return { label: "Fatura", value: group.actualTotal, hint: null };
+  }
+  if (!group.configIncomplete) {
+    return {
+      label: "Projeção da fatura",
+      value: group.projectedTotal,
+      hint: "Considera apenas as cobranças cadastradas aqui.",
+    };
+  }
+  const gap = cycleGapLabel(group.card);
+  if (group.projectedTotal > 0) {
+    return {
+      label: "Cobranças conhecidas",
+      value: group.projectedTotal,
+      hint: gap ? `Projeção indisponível · ${gap}` : "Projeção indisponível.",
+    };
+  }
+  return {
+    label: "Projeção indisponível",
+    value: null,
+    hint: gap ?? "Informe fechamento e vencimento do cartão.",
+  };
+}
