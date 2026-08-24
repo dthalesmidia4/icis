@@ -130,10 +130,43 @@ export const PAYMENT_METHODS = [
 
 export const CARD_PAYMENT_METHOD = "Cartão de Crédito";
 
+/* -------------------------------------------------------------------------- */
+/*                            IDENTIDADE DO CARTÃO                            */
+/* -------------------------------------------------------------------------- */
+
+/** Rótulo humano do cartão: `Itaú ••••7587`. Nunca expõe UUID. */
+export function cardDisplayLabel(card: FinanceItem | null | undefined): string {
+  if (!card) return "Cartão";
+  const last4 = (card.card_last4 ?? "").trim();
+  const name = (card.name ?? "").trim() || "Cartão";
+  if (!last4 || name.includes(last4)) return name;
+  return `${name} ••••${last4}`;
+}
+
+export type CardCycleGap = "closing" | "due";
+
+/** Quais dados do CICLO da fatura faltam no cadastro do cartão. */
+export function missingCycleFields(card: FinanceItem | null | undefined): CardCycleGap[] {
+  if (!card) return ["closing", "due"];
+  const gaps: CardCycleGap[] = [];
+  if (card.statement_closing_day == null) gaps.push("closing");
+  if (card.statement_due_day == null) gaps.push("due");
+  return gaps;
+}
+
+/** Frase explícita do que falta no ciclo — ou `null` quando está completo. */
+export function cycleGapLabel(card: FinanceItem | null | undefined): string | null {
+  const gaps = missingCycleFields(card);
+  if (gaps.length === 0) return null;
+  if (gaps.length === 2) return "Faltam fechamento e vencimento";
+  return gaps[0] === "closing" ? "Falta informar o fechamento" : "Falta informar o vencimento";
+}
+
 /** Itens que nunca geram custo/ocorrência por si só. */
 export function isCostBearing(item: FinanceItem): boolean {
   return item.kind !== "included_resource";
 }
+
 
 /** Converte valor para BRL usando o câmbio disponível. */
 export function toBrl(params: {
