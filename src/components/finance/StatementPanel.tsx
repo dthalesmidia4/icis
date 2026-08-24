@@ -1,16 +1,29 @@
 /**
- * Cartões: a FATURA é a obrigação de pagamento (saída de caixa) e as cobranças
- * apenas explicam do que ela é composta.
- * A fatura nunca é somada às despesas que a compõem.
+ * Domínio `Cartões e faturas`.
+ *
+ * Cada cartão aparece primeiro como ENTIDADE (final, limite, fechamento,
+ * vencimento) mesmo quando a fatura do mês ainda não foi materializada.
+ * A FATURA é a obrigação de pagamento (saída de caixa) e as cobranças apenas
+ * explicam do que ela é composta — nunca são somadas duas vezes.
  */
 import { useEffect, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, CreditCard, CheckCircle2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  CreditCard,
+  CheckCircle2,
+  Pencil,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  FinanceItem,
   MonthRow,
   StatementGroup,
+  cardDisplayLabel,
+  cycleGapLabel,
   formatBRL,
   formatCurrencyValue,
 } from "@/lib/financeModel";
@@ -27,6 +40,22 @@ interface Props {
   onOpenRow: (row: MonthRow) => void;
   onOpenStatement: (group: StatementGroup) => void;
   onPayStatement: (group: StatementGroup) => void;
+  onEditCard: (card: FinanceItem) => void;
+}
+
+function Fact({ label, value, tone }: { label: string; value: string; tone?: "muted" | "warning" }) {
+  return (
+    <div className="min-w-[130px]">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p
+        className={`text-[15px] font-semibold ${
+          tone === "warning" ? "text-destructive" : tone === "muted" ? "text-muted-foreground" : ""
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
 }
 
 export default function StatementPanel({
@@ -38,6 +67,7 @@ export default function StatementPanel({
   onOpenRow,
   onOpenStatement,
   onPayStatement,
+  onEditCard,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -51,60 +81,123 @@ export default function StatementPanel({
   return (
     <div className="space-y-4">
       {groups.map((group) => {
-        const open = !!expanded[group.card.id];
+        const card = group.card;
+        const open = !!expanded[card.id];
         const overdue = !group.paid && !!group.dueDate && group.dueDate < today;
-        const focused =
-          group.card.id === focusCardId || (highlightIncomplete && group.configIncomplete);
+        const focused = card.id === focusCardId || (highlightIncomplete && group.configIncomplete);
+        const gap = cycleGapLabel(card);
+        const limit = card.card_limit_brl ?? null;
+        const usageBase = group.actualTotal ?? (group.projectedTotal > 0 ? group.projectedTotal : null);
+        const usagePercent =
+          limit != null && limit > 0 && usageBase != null
+            ? Math.min(100, Math.round((usageBase / limit) * 100))
+            : null;
+
         return (
-          <Card
-            key={group.card.id}
-            className={`overflow-hidden ${focused ? "ring-2 ring-primary" : ""}`}
-          >
-            <div className="flex flex-wrap items-center gap-3 p-4">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <CreditCard className="w-5 h-5 text-primary flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[15px] font-semibold truncate">{group.card.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Fatura de {monthLabel}
-                    {group.dueDate ? ` · Vence em ${formatDayMonth(group.dueDate)}` : ""}
-                  </p>
+          <Card key={card.id} className={`overflow-hidden ${focused ? "ring-2 ring-primary" : ""}`}>
+            {/* ------------------------- O CARTÃO ------------------------- */}
+            <div className="p-4 space-y-4">
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <CreditCard className="w-5 h-5 text-primary flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold truncate">{cardDisplayLabel(card)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {[
+                        card.bank_name || null,
+                        card.card_last4 ? `Final ${card.card_last4}` : "Final não informado",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
                 </div>
+
                 {group.paid ? (
                   <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-sm">
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Pago
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Fatura paga
                   </Badge>
                 ) : overdue ? (
                   <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/40 text-sm">
-                    <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Atrasada
+                    <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Fatura atrasada
                   </Badge>
+                ) : group.actualTotal == null ? (
+                  <Badge variant="outline" className="text-sm">Fatura ainda não informada</Badge>
                 ) : (
-                  <Badge variant="outline" className="text-sm">A pagar</Badge>
+                  <Badge variant="outline" className="text-sm">Fatura a pagar</Badge>
                 )}
+
+                <Button variant="outline" size="sm" className="min-h-10" onClick={() => onEditCard(card)}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  {group.configIncomplete ? "Completar dados" : "Editar cartão"}
+                </Button>
               </div>
 
-              <div className="flex items-center gap-5 text-sm">
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Valor da fatura</p>
-                  <p className="text-[15px] font-semibold">
-                    {group.actualTotal != null ? formatBRL(group.actualTotal) : "Ainda não informado"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Soma das cobranças</p>
-                  <p className="text-[15px] font-semibold">{formatBRL(group.projectedTotal)}</p>
-                </div>
+              <div className="flex flex-wrap gap-x-8 gap-y-3">
+                <Fact
+                  label="Limite do cartão"
+                  value={limit != null ? formatBRL(limit) : "Limite não informado"}
+                  tone={limit != null ? undefined : "muted"}
+                />
+                <Fact
+                  label="Fechamento"
+                  value={card.statement_closing_day != null ? `Dia ${card.statement_closing_day}` : "Não informado"}
+                  tone={card.statement_closing_day != null ? undefined : "warning"}
+                />
+                <Fact
+                  label="Vencimento"
+                  value={card.statement_due_day != null ? `Dia ${card.statement_due_day}` : "Não informado"}
+                  tone={card.statement_due_day != null ? undefined : "warning"}
+                />
+                <Fact
+                  label={`Fatura de ${monthLabel}`}
+                  value={
+                    group.actualTotal != null
+                      ? formatBRL(group.actualTotal)
+                      : group.projectedTotal > 0
+                        ? `${formatBRL(group.projectedTotal)} (projeção)`
+                        : "Ainda não informada"
+                  }
+                />
+                <Fact
+                  label="Vence em"
+                  value={group.dueDate ? formatDayMonth(group.dueDate) : "Não informado"}
+                  tone={group.dueDate ? undefined : "muted"}
+                />
               </div>
+
+              {limit != null && usageBase != null && (
+                <div className="space-y-2">
+                  <p className="text-sm text-foreground">
+                    {group.actualTotal != null
+                      ? `Fatura: ${formatBRL(usageBase)} de ${formatBRL(limit)} de limite`
+                      : `Projeção no ICIS: ${formatBRL(usageBase)} de ${formatBRL(limit)} de limite`}
+                    {usagePercent != null ? ` · ${usagePercent}%` : ""}
+                  </p>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${usagePercent! >= 100 ? "bg-destructive" : "bg-primary"}`}
+                      style={{ width: `${usagePercent ?? 0}%` }}
+                    />
+                  </div>
+                  {group.actualTotal == null && (
+                    <p className="text-sm text-muted-foreground">
+                      A projeção considera apenas as cobranças cadastradas aqui. Compras feitas fora do
+                      sistema não entram nesta conta.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
                   className="min-h-10"
-                  onClick={() => setExpanded((prev) => ({ ...prev, [group.card.id]: !open }))}
+                  onClick={() => setExpanded((prev) => ({ ...prev, [card.id]: !open }))}
                 >
                   {open ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
-                  Ver cobranças
+                  Ver cobranças ({group.components.length})
                 </Button>
                 <Button variant="outline" size="sm" className="min-h-10" onClick={() => onOpenStatement(group)}>
                   Informar valor da fatura
@@ -120,12 +213,15 @@ export default function StatementPanel({
               </div>
             </div>
 
-            {group.configIncomplete && (
+            {gap && (
               <div className="px-4 py-3 bg-destructive/10 text-destructive text-sm">
                 <p className="font-semibold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0" /> Configuração incompleta
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {gap}
                 </p>
-                <p>Complete fechamento e vencimento para projetar as próximas faturas.</p>
+                <p>
+                  Sem fechamento e vencimento não é possível projetar as próximas faturas. O limite é
+                  opcional e não interfere nessa projeção.
+                </p>
               </div>
             )}
 
@@ -150,7 +246,7 @@ export default function StatementPanel({
                     <button
                       key={row.key}
                       onClick={() => onOpenRow(row)}
-                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
+                      className="w-full flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
                     >
                       <span className="truncate text-foreground">
                         {row.item.name}
