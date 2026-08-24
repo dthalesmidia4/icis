@@ -28,11 +28,14 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item?: FinanceItem | null;
+  /** Quando vem de um domínio (Cartões, Assinaturas...), pula o passo de intenção. */
+  initialKind?: FinanceKind | null;
   cards: FinanceItem[];
   packages: FinanceItem[];
   defaultUsdRate: number | null;
   onSave: (payload: Partial<FinanceItem>, id?: string) => Promise<boolean>;
 }
+
 
 const KIND_OPTIONS: FinanceKind[] = ["expense", "tool", "package", "card", "included_resource"];
 const COST_CENTERS: FinanceCostCenter[] = ["midia", "sistemas", "administrativo", "compartilhado"];
