@@ -51,7 +51,7 @@ export function shouldRenderFinanceChildren(phase: FinanceGatePhase): boolean {
 export function validateNewFinancePassword(
   password: string,
   confirmation: string,
-): { ok: true } | { ok: false; message: string } {
+): { ok: boolean; message?: string } {
   const value = password ?? "";
   if (value.trim().length < FINANCE_PASSWORD_MIN) {
     return { ok: false, message: `A senha deve ter pelo menos ${FINANCE_PASSWORD_MIN} caracteres` };
@@ -60,7 +60,7 @@ export function validateNewFinancePassword(
     return { ok: false, message: `A senha deve ter no máximo ${FINANCE_PASSWORD_MAX} caracteres` };
   }
   if (value !== confirmation) return { ok: false, message: "As senhas não conferem" };
-  return { ok: true };
+  return { ok: true, message: undefined };
 }
 
 /** Só super_admin / quem o banco autoriza pode trocar a senha nos Ajustes. */

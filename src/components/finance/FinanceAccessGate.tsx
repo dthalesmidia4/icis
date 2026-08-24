@@ -85,7 +85,7 @@ export default function FinanceAccessGate({ children }: Props) {
     if (!agencyId || busy) return;
     const check = validateNewFinancePassword(password, confirmPassword);
     if (!check.ok) {
-      toast.error(check.message);
+      toast.error(check.message ?? "Senha inválida");
       return;
     }
     setBusy(true);
