@@ -84,9 +84,14 @@ export default function FinanceItemFormModal({
   const [link, setLink] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  /** Passo 1: intenção. Só existe para NOVOS cadastros. */
+  const [step, setStep] = useState<"intent" | "form">("form");
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setStep(item ? "form" : "intent");
+    setShowMore(false);
     setKind((item?.kind as FinanceKind) ?? "expense");
     setName(item?.name ?? "");
     setPurpose(item?.purpose ?? "");
