@@ -177,8 +177,7 @@ describe("bloco de atenção", () => {
     const b = row({ key: "b", item: item({ id: "b", kind: "expense", payment_method: "Boleto" }), dueDate: "2026-08-10", amountBrl: 100 });
     const insights = buildAttentionInsights({ rows: [a, b], statements: [], today: TODAY, cardsById });
     const overdue = insights.find((i) => i.id === "overdue");
-    expect(overdue?.title).toBe("2 pagamentos estão atrasados");
-    expect(overdue?.detail).toContain("328,99");
+    expect(overdue?.title).toBe("2 pagamentos atrasados · R$ 328,99");
   });
 });
 
@@ -217,8 +216,7 @@ describe("atenção = somente exceções", () => {
     const insights = buildAttentionInsights({ rows: [conta, ferramenta], statements: [], today: TODAY, cardsById });
     expect(insights.filter((i) => i.id.startsWith("overdue"))).toHaveLength(1);
     const overdue = insights.find((i) => i.id === "overdue");
-    expect(overdue?.title).toBe("2 pagamentos estão atrasados");
-    expect(overdue?.detail).toContain("150,00");
+    expect(overdue?.title).toBe("2 pagamentos atrasados · R$ 150,00");
     expect(overdue?.domain).toBe("accounts");
   });
 
@@ -305,5 +303,34 @@ describe("rótulo do valor da fatura", () => {
     const empty = statementValueLabel({ ...base, card: incomplete, projectedTotal: 0, actualTotal: null, configIncomplete: true } as any);
     expect(empty.label).toBe("Projeção indisponível");
     expect(empty.value).toBeNull();
+  });
+});
+
+describe("composição pago x em aberto", () => {
+  it("normaliza percentuais e monta rótulo explícito", () => {
+    const c = buildPaidComposition({ paid: 340, open: 660, expected: 1000 });
+    expect(c.paidPct).toBe(34);
+    expect(c.openPct).toBe(66);
+    expect(c.label).toBe("34% pago · 66% em aberto");
+    expect(c.hasBase).toBe(true);
+  });
+
+  it("clampa valores inconsistentes e sem base", () => {
+    expect(buildPaidComposition({ paid: 0, open: 0, expected: 0 }).hasBase).toBe(false);
+    const neg = buildPaidComposition({ paid: -50, open: 100, expected: 100 });
+    expect(neg.paidPct).toBe(0);
+    expect(neg.openPct).toBe(100);
+    const only = buildPaidComposition({ paid: 100, open: -10, expected: 100 });
+    expect(only.paidPct).toBe(100);
+    expect(only.openPct).toBe(0);
+  });
+});
+
+describe("rótulo contextual da fila de pagamentos", () => {
+  it("usa Hoje, Amanhã e data curta", () => {
+    expect(queueDateLabel("2026-08-24", "2026-08-24")).toBe("Hoje");
+    expect(queueDateLabel("2026-08-25", "2026-08-24")).toBe("Amanhã");
+    expect(queueDateLabel("2026-08-30", "2026-08-24")).toBe("30 ago");
+    expect(queueDateLabel(null, "2026-08-24")).toBe("—");
   });
 });
