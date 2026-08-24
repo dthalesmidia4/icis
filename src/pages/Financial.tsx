@@ -36,6 +36,7 @@ import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal"
 import StatementPanel from "@/components/finance/StatementPanel";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
+import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -55,6 +56,18 @@ import {
   isStatementRow,
 } from "@/lib/financeModel";
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
+import {
+  COMPOSITION_HINTS,
+  COMPOSITION_KINDS,
+  COMPOSITION_STATUSES,
+  COMPOSITION_TAB_LABELS,
+  CompositionStatus,
+  buildMonthComposition,
+  compositionOriginKey,
+  compositionOriginOptions,
+  compositionTotal,
+  normalizeCompositionStatus,
+} from "@/lib/financeComposition";
 import {
   AttentionInsight,
   RowStatusContext,
@@ -76,19 +89,22 @@ const MONTH_LABELS = [
 ];
 
 /** Domínios do Financeiro — a URL manda. */
-type View = "overview" | "accounts" | "cards" | "subscriptions" | "settings";
+type View = "overview" | "composition" | "accounts" | "cards" | "subscriptions" | "settings";
 
-const VIEWS: View[] = ["overview", "accounts", "cards", "subscriptions", "settings"];
+const VIEWS: View[] = ["overview", "composition", "accounts", "cards", "subscriptions", "settings"];
 
 const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   overview: {
     title: "Financeiro",
     subtitle: "Acompanhe o mês e veja o que precisa ser pago.",
   },
+  composition: {
+    title: "Composição do mês",
+    subtitle: "Veja exatamente quais despesas formam os valores do resumo.",
+  },
   accounts: {
-    title: "Contas a pagar",
-    subtitle:
-      "Aqui estão os pagamentos que você faz diretamente. Compras no cartão são pagas pela fatura.",
+    title: "Pagamentos diretos",
+    subtitle: "Pix, boletos, transferências e outras despesas pagas fora do cartão.",
   },
   cards: {
     title: "Cartões e faturas",
@@ -104,7 +120,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   },
 };
 
-/** Visão simples de "Contas a pagar". */
+/** Visão simples de "Pagamentos diretos". */
 type MainView = "to_pay" | "paid" | "all";
 
 const MAIN_VIEWS: { value: MainView; label: string }[] = [
@@ -135,6 +151,17 @@ export default function Financial() {
     const copy = new URLSearchParams(params);
     if (next === "overview") copy.delete("view");
     else copy.set("view", next);
+    // `status` só faz sentido na composição — evita param stale nos outros domínios.
+    if (next !== "composition") copy.delete("status");
+    setParams(copy);
+  };
+
+  /** Recorte analítico da composição (fonte da verdade é a URL). */
+  const compositionStatus: CompositionStatus = normalizeCompositionStatus(params.get("status"));
+  const goToComposition = (status: CompositionStatus) => {
+    const copy = new URLSearchParams(params);
+    copy.set("view", "composition");
+    copy.set("status", status);
     setParams(copy);
   };
 
@@ -367,7 +394,7 @@ export default function Financial() {
     {
       view: "accounts" as View,
       icon: Receipt,
-      title: "Contas a pagar",
+      title: "Pagamentos diretos",
       meta:
         accountsSummary.pending === 1
           ? "1 pendente"
@@ -446,7 +473,7 @@ export default function Financial() {
                 : view === "accounts"
                   ? [
                       {
-                        label: "Nova conta",
+                        label: "Nova despesa direta",
                         onClick: () => openItemModal(null, "expense"),
                         icon: <Plus className="w-4 h-4" />,
                       },
@@ -608,7 +635,7 @@ export default function Financial() {
                 <p className="text-xl font-bold">{formatBRL(accountsSummary.open)}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Contas pendentes</p>
+                <p className="text-sm text-muted-foreground">Pagamentos pendentes</p>
                 <p className="text-xl font-bold">{accountsSummary.pending}</p>
               </div>
               <div>
@@ -638,7 +665,7 @@ export default function Financial() {
               ))}
 
               <Input
-                placeholder="Buscar conta..."
+                placeholder="Buscar despesa..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-10 w-full sm:w-56"
