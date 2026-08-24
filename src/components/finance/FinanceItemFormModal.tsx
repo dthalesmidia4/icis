@@ -26,6 +26,8 @@ import {
   formatDateBR,
   installmentEndDate,
 } from "@/lib/financeModel";
+import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
+
 
 interface Props {
   open: boolean;
