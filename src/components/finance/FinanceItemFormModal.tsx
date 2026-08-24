@@ -169,6 +169,13 @@ export default function FinanceItemFormModal({
     } as FinanceItem);
   }, [isInstallments, installmentStart, installmentCountNumber]);
 
+  /** `12 parcelas mensais · última prevista em 11/02/2027`. */
+  const schedulePreview = useMemo(
+    () => (isInstallments ? installmentSchedulePreview(installmentStart || null, installmentCountNumber) : null),
+    [isInstallments, installmentStart, installmentCountNumber],
+  );
+
+
   const brlPreview = useMemo(() => {
     if (amountNumber == null) return null;
     if (currency === "USD") return effectiveRate != null ? amountNumber * effectiveRate : null;
