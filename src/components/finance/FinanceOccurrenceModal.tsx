@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Paperclip, Trash2 } from "lucide-react";
+import { Paperclip, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
+  FinanceItem,
   FinanceOccurrence,
   MonthRow,
   formatBRL,
@@ -20,6 +21,13 @@ import {
   installmentRowLabel,
   KIND_LABELS,
 } from "@/lib/financeModel";
+import {
+  installmentHeaderLine,
+  installmentProjectedNote,
+  isInstallmentRow,
+  occurrenceAmountLabel,
+  occurrencePaidHelp,
+} from "@/lib/financeInstallmentPresentation";
 
 const BUCKET = "bill-attachments";
 
@@ -29,7 +37,10 @@ interface Props {
   row: MonthRow | null;
   defaultUsdRate: number | null;
   onSave: (row: MonthRow, patch: Partial<FinanceOccurrence>) => Promise<FinanceOccurrence | null>;
+  /** Abre o cadastro permanente (cronograma) do item desta linha. */
+  onEditItem?: (item: FinanceItem) => void;
 }
+
 
 function numberOrNull(value: string): number | null {
   if (!value.trim()) return null;
@@ -37,7 +48,7 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaultUsdRate, onSave }: Props) {
+export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaultUsdRate, onSave, onEditItem }: Props) {
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -120,18 +131,34 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
         <DialogHeader>
           <DialogTitle>{row.item.name}</DialogTitle>
           <DialogDescription>
-            {installmentRowLabel(row) ? `${installmentRowLabel(row)} · ` : ""}
-            {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
-            {row.projected && " · ainda não lançado neste mês"}
+            {isInstallmentRow(row) ? (
+              <>
+                {installmentHeaderLine(row) ?? installmentRowLabel(row) ?? "Parcelamento"}
+                <br />
+                {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
+                {installmentProjectedNote(row) && (
+                  <>
+                    <br />
+                    {installmentProjectedNote(row)}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
+                {row.projected && " · ainda não lançado neste mês"}
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Valor real ({row.currency})</Label>
+              <Label>{occurrenceAmountLabel(row)}</Label>
               <Input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="0,00" />
             </div>
+
             {row.currency === "USD" ? (
               <div>
                 <Label>Câmbio do mês</Label>
@@ -160,14 +187,11 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
               <p className="text-sm font-medium">Pago</p>
-              <p className="text-xs text-muted-foreground">
-                {row.item.card_item_id
-                  ? "Esta despesa também é liquidada ao pagar a fatura do cartão."
-                  : "Marque quando a saída de caixa acontecer."}
-              </p>
+              <p className="text-xs text-muted-foreground">{occurrencePaidHelp(row)}</p>
             </div>
             <Switch checked={paid} onCheckedChange={setPaid} />
           </div>
+
 
           <div>
             <Label>Comprovante</Label>
@@ -207,12 +231,30 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, defaul
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving || uploading}>
-            {saving ? "Salvando..." : "Salvar lançamento"}
-          </Button>
+        <DialogFooter className="sm:justify-between gap-2">
+          {isInstallmentRow(row) && onEditItem ? (
+            <Button
+              variant="ghost"
+              className="justify-start"
+              onClick={() => {
+                onOpenChange(false);
+                onEditItem(row.item);
+              }}
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Editar parcelamento
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={saving || uploading}>
+              {saving ? "Salvando..." : "Salvar lançamento"}
+            </Button>
+          </div>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );

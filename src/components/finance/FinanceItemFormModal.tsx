@@ -23,9 +23,10 @@ import {
   RECURRENCE_LABELS,
   cardDisplayLabel,
   formatBRL,
-  formatDateBR,
-  installmentEndDate,
+
 } from "@/lib/financeModel";
+import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
+
 
 interface Props {
   open: boolean;
@@ -159,15 +160,15 @@ export default function FinanceItemFormModal({
 
   const installmentsValid = !isInstallments || (!!installmentStart && installmentCountNumber != null);
 
-  /** Última parcela prevista, derivada de início + quantidade. */
-  const lastInstallmentDate = useMemo(() => {
-    if (!isInstallments || !installmentStart || installmentCountNumber == null) return null;
-    return installmentEndDate({
-      recurrence_type: "installments",
-      installment_start_date: installmentStart,
-      installment_count: installmentCountNumber,
-    } as FinanceItem);
-  }, [isInstallments, installmentStart, installmentCountNumber]);
+
+
+
+  /** `12 parcelas mensais · última prevista em 11/02/2027`. */
+  const schedulePreview = useMemo(
+    () => (isInstallments ? installmentSchedulePreview(installmentStart || null, installmentCountNumber) : null),
+    [isInstallments, installmentStart, installmentCountNumber],
+  );
+
 
   const brlPreview = useMemo(() => {
     if (amountNumber == null) return null;
@@ -464,10 +465,11 @@ export default function FinanceItemFormModal({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                {lastInstallmentDate
-                  ? `Última parcela prevista em ${formatDateBR(lastInstallmentDate)} — depois disso a despesa deixa de aparecer automaticamente.`
+                {schedulePreview
+                  ? `${schedulePreview} — depois disso a despesa deixa de aparecer automaticamente.`
                   : "Informe início e quantidade para o sistema encerrar o parcelamento sozinho."}
               </p>
+
             </div>
           )}
           {(recurrence === "annual" || !!subscriptionDate) && (

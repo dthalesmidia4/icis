@@ -1087,7 +1087,12 @@ export default function Financial() {
         row={occurrenceRow}
         defaultUsdRate={settings.defaultUsdRate}
         onSave={saveOccurrence}
+        onEditItem={(item) => {
+          setOccurrenceRow(null);
+          openItemModal(item);
+        }}
       />
+
     </div>
   );
 }
