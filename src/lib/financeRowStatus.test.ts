@@ -228,6 +228,24 @@ describe("atenção = somente exceções", () => {
     expect(insights.some((i) => i.id === "next-direct")).toBe(false);
     expect(insights).toHaveLength(0);
   });
+
+  it("fatura a vencer não é exceção; somente fatura atrasada", () => {
+    const itau = card();
+    const byId = new Map([[itau.id, itau]]);
+    const base = {
+      card: itau, statementRow: null, components: [], projectedTotal: 100,
+      actualTotal: null, difference: null, configIncomplete: false,
+      incompleteReason: null, closingDate: "2026-08-10", paid: false,
+    };
+    const soon: any[] = [{ ...base, dueDate: "2026-08-28" }];
+    expect(
+      buildAttentionInsights({ rows: [], statements: soon, today: TODAY, cardsById: byId }),
+    ).toHaveLength(0);
+
+    const late: any[] = [{ ...base, dueDate: "2026-08-10" }];
+    const insights = buildAttentionInsights({ rows: [], statements: late, today: TODAY, cardsById: byId });
+    expect(insights.map((i) => i.id)).toEqual([`statement-overdue-${itau.id}`]);
+  });
 });
 
 describe("fila de próximos pagamentos", () => {
