@@ -1420,6 +1420,7 @@ export type Database = {
           bank_name: string | null
           card_item_id: string | null
           card_last4: string | null
+          card_limit_brl: number | null
           category: string | null
           charge_day: number | null
           cost_center: string
@@ -1450,6 +1451,7 @@ export type Database = {
           bank_name?: string | null
           card_item_id?: string | null
           card_last4?: string | null
+          card_limit_brl?: number | null
           category?: string | null
           charge_day?: number | null
           cost_center?: string
@@ -1480,6 +1482,7 @@ export type Database = {
           bank_name?: string | null
           card_item_id?: string | null
           card_last4?: string | null
+          card_limit_brl?: number | null
           category?: string | null
           charge_day?: number | null
           cost_center?: string
