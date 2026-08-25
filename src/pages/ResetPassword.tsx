@@ -104,7 +104,15 @@ const ResetPassword = () => {
         recoveryEntry,
       });
 
-      if (!valid) clearRecoveryPending();
+      if (!valid) {
+        clearRecoveryPending();
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          /* sessão pode já ter sido invalidada */
+        }
+        sessionStorage.removeItem('tempSession');
+      }
       cleanUrl(valid);
       setPhase(valid ? 'ready' : 'invalid');
     };
