@@ -199,76 +199,24 @@ export default function TeamMembers() {
     setIsSavingPermissions(true);
 
     try {
-      // Salvar permissões de colunas
-      await supabase
-        .from('user_column_permissions')
-        .delete()
-        .eq('user_id', selectedMember.id)
-        .eq('tenant_id', agencyId);
-
-      const columnPermsToInsert = columnPermissions.map(p => ({
-        user_id: selectedMember.id,
-        tenant_id: agencyId,
-        status_id: p.status_id,
-        can_view: p.can_view,
-      }));
-
-      if (columnPermsToInsert.length > 0) {
-        const { error: colError } = await supabase
-          .from('user_column_permissions')
-          .insert(columnPermsToInsert);
-        if (colError) throw colError;
-      }
-
-      // Salvar permissões de hub + botões do cliente juntos
-      await supabase
+      // Tela inicial: UPSERT somente dos ids atuais (rows legadas ficam intocadas).
+      const rows = buildHomePermissionUpserts(selectedMember.id, agencyId, homePermissions);
+      const { error: hubError } = await supabase
         .from('user_hub_permissions')
-        .delete()
-        .eq('user_id', selectedMember.id)
-        .eq('tenant_id', agencyId);
+        .upsert(rows, { onConflict: 'user_id,tenant_id,hub_section' });
+      if (hubError) throw hubError;
 
-      const allHubPerms = [
-        ...hubPermissions.map(p => ({
-          user_id: selectedMember.id,
-          tenant_id: agencyId,
-          hub_section: p.hub_section,
-          can_access: p.can_access,
-        })),
-        ...clientButtonPermissions.map(p => ({
-          user_id: selectedMember.id,
-          tenant_id: agencyId,
-          hub_section: p.hub_section,
-          can_access: p.can_access,
-        })),
-      ];
-
-      if (allHubPerms.length > 0) {
-        const { error: hubError } = await supabase
-          .from('user_hub_permissions')
-          .insert(allHubPerms);
-        if (hubError) throw hubError;
-      }
-
-      // Salvar configuração de notificações de atraso
-      const { error: lateError } = await supabase
-        .from('user_late_notification_settings')
-        .upsert({
-          user_id: selectedMember.id,
-          tenant_id: agencyId,
-          enabled: lateNotificationEnabled,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,tenant_id' });
-      if (lateError) throw lateError;
-
-      // Financeiro: só quem administra a agência consegue gravar (RLS confirma).
-      if (canEditRoles) {
+      // Financeiro: grava apenas os campos que o editor pode delegar.
+      const financePayload = buildFinanceUpdate(financeGrantable, financeFlags, savedFinanceFlags);
+      if (financePayload) {
         const { error: financeError } = await supabase
           .from('user_roles')
-          .update({ finance_access: financeFullAccess, finance_tools_access: financeToolsAccess } as any)
+          .update(financePayload as any)
           .eq('user_id', selectedMember.id)
           .eq('tenant_id', agencyId);
         if (financeError) throw financeError;
       }
+
 
       toast.success('Permissões salvas com sucesso!');
       setSelectedMember(null);
