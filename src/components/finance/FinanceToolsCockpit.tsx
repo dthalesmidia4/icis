@@ -18,7 +18,7 @@ import { addMonths } from "@/lib/financeCardCycle";
 import { FinanceItem, MonthRow } from "@/lib/financeModel";
 import { buildSafeSettlementIndex } from "@/lib/financeSettlement";
 import { RowStatusContext, formatDayMonth } from "@/lib/financeRowStatus";
-import { competenceMonthISO } from "@/lib/financeSafeStatement";
+import { competenceMonthISO, findSafeStatementStatus } from "@/lib/financeSafeStatement";
 
 
 const MONTH_LABELS = [
