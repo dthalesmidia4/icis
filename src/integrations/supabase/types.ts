@@ -3371,6 +3371,15 @@ export type Database = {
         }
         Returns: Json
       }
+      pay_finance_statement_reconciled: {
+        Args: {
+          _occurrence_id: string
+          _paid_amount_brl?: number
+          _paid_at?: string
+          _usd_components?: Json
+        }
+        Returns: Json
+      }
       record_demand_feedback: {
         Args: {
           p_demand_id: string
