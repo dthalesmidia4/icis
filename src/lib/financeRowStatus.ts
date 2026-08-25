@@ -619,9 +619,12 @@ export interface PaymentQueueParams {
  * Componentes de cartão e recursos incluídos nunca entram como pagamento.
  */
 export function buildPaymentQueue(params: PaymentQueueParams): PaymentQueueEntry[] {
-  const { rows, statements, today, cardsById } = params;
+  const { rows, today, cardsById } = params;
+  /** Mesma regra de visibilidade dos cartões da operação. */
+  const statements = visibleStatementGroups(params.statements);
   const includeOverdue = params.includeOverdue ?? false;
   const ctx: RowStatusContext = { rows, today, cardsById };
+
   const entries: PaymentQueueEntry[] = [];
 
   for (const row of rows) {
