@@ -372,7 +372,7 @@ function DesktopSidebar() {
         </nav>
 
         {/* Developer Menu */}
-        {canAccessAdmin && (
+        {showDeveloper && (
 
           <div className="mt-4 pt-2 border-t mx-2">
             <nav className="flex flex-col gap-1">
