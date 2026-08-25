@@ -1199,6 +1199,7 @@ function FinancialCockpit() {
         row={occurrenceRow}
         cards={cards}
         defaultUsdRate={settings.defaultUsdRate}
+        statusContext={statusContext}
         onSave={saveOccurrence}
         onEditItem={(item) => {
           setOccurrenceRow(null);
