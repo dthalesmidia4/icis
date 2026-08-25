@@ -27,6 +27,7 @@ import {
 } from "@/lib/financeStatementPaymentForm";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { isValidPaymentDate } from "@/lib/financePaymentDate";
+import { parseLocalizedNumber } from "@/lib/financeNumber";
 import {
   buildReconciliation,
   reconciliationPayload,
@@ -125,9 +126,11 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
 
               {usdComponents.map((comp) => {
                 const typed = usdInputs[comp.row.key] ?? "";
-                const parsed = Number(typed.replace(/\./g, "").replace(",", "."));
+                // Mesma leitura segura do resto do Financeiro: "341.15" e "341,15"
+                // valem 341,15 — nunca 34115.
+                const parsed = parseLocalizedNumber(typed);
                 const rate =
-                  comp.amountOriginal && comp.amountOriginal > 0 && parsed > 0
+                  comp.amountOriginal && comp.amountOriginal > 0 && parsed != null && parsed > 0
                     ? (parsed / comp.amountOriginal).toFixed(6)
                     : null;
                 return (
