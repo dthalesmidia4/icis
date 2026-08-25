@@ -13,6 +13,8 @@ import {
   Competence,
   addMonths,
   candidateChargeCompetences,
+  chargeDateCompetence,
+  chargeDayFrom,
   competenceFromISO,
   competenceToISO,
   dateInMonth,
