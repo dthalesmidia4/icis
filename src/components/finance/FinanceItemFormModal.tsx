@@ -120,7 +120,7 @@ export default function FinanceItemFormModal({
   scope = "full",
   competence = null,
   onSave,
-
+  onAfterDelete,
 }: Props) {
   // Opções derivadas do escopo — a RLS confirma, aqui só evitamos oferecer.
   const kindOptions = KIND_OPTIONS.filter((k) => allowedKindsForScope(scope).includes(k));
