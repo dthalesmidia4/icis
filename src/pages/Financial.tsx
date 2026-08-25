@@ -12,8 +12,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
-  ChevronLeft,
   ChevronRight,
+  ChevronsDown,
+  ChevronsUp,
   CreditCard,
   Eye,
   EyeOff,
@@ -61,7 +62,12 @@ import {
   useFinanceVisibility,
 } from "@/contexts/FinanceVisibilityContext";
 import { visibleStatementGroups } from "@/lib/financeCardVisibility";
-import { CompositionGroupBy } from "@/lib/financeGrouping";
+import {
+  COMPOSITION_GROUP_BY_LABELS,
+  CompositionGroupBy,
+  buildCompositionGroups,
+} from "@/lib/financeGrouping";
+import FinancePeriodBar from "@/components/finance/FinancePeriodBar";
 import {
   categoryFilterOptions,
   filterEntriesByCategory,
@@ -72,7 +78,6 @@ import {
   safeStatementStatusesFromRows,
 } from "@/lib/financeSafeStatement";
 
-import { addMonths } from "@/lib/financeCardCycle";
 import {
   COST_CENTER_LABELS,
   FinanceItem,
@@ -114,11 +119,6 @@ import {
   overdueDirectRows,
   resolveRowStatus,
 } from "@/lib/financeRowStatus";
-
-const MONTH_LABELS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
 
 /** Domínios do Financeiro — a URL manda, o escopo filtra (ver `financeScope`). */
 type View = FinanceView;
@@ -215,6 +215,13 @@ function FinancialCockpit() {
   /** Dimensão de agrupamento da composição (categoria x centro de custo). */
   const [compositionGroupBy, setCompositionGroupBy] = useState<CompositionGroupBy>("category");
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
+  /**
+   * Expansão dos grupos da composição: vive AQUI porque `Agrupar por` e
+   * `Expandir tudo` fazem parte do control deck no topo da tela.
+   */
+  const [compositionExpanded, setCompositionExpanded] = useState<Record<string, boolean>>({});
+  const toggleCompositionGroup = (key: string) =>
+    setCompositionExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   const [filtersOpen, setFiltersOpen] = useState(false);
   /**
    * Privacidade de valores: estado ÚNICO do domínio (ver
@@ -513,46 +520,10 @@ function FinancialCockpit() {
   const isCurrentMonth =
     competence.year === currentComp.year && competence.month === currentComp.month;
 
-  // Seletor compacto de competência: é CONTEÚDO da página, logo abaixo do
-  // header único — nunca uma segunda barra de cabeçalho.
-  const monthSwitcher = (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="inline-flex items-center gap-1 rounded-md border bg-card px-1 py-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Mês anterior"
-          onClick={() => setCompetence(addMonths(competence, -1))}
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        <span className="px-2 text-[15px] font-semibold min-w-[130px] text-center">
-          {MONTH_LABELS[competence.month - 1]} {competence.year}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Mês seguinte"
-          onClick={() => setCompetence(addMonths(competence, 1))}
-        >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-      </div>
-      {isCurrentMonth ? (
-        <span className="text-sm text-muted-foreground">Hoje, {formatDayMonth(today)}</span>
-      ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="min-h-9"
-          onClick={() => setCompetence(currentCompetence())}
-        >
-          Voltar ao mês atual
-        </Button>
-      )}
-    </div>
+  // Barra de período compartilhada (`FinancePeriodBar`): mesmo eixo visual em
+  // todas as views do Financeiro e no cockpit `tools`.
+  const periodBar = (
+    <FinancePeriodBar competence={competence} onChange={setCompetence} today={today} />
   );
 
   /* ---------------------- APROFUNDAMENTOS (sem valores) ---------------------- */
@@ -682,7 +653,7 @@ function FinancialCockpit() {
       />
 
       <div className={`${FINANCE_SHELL} py-5 space-y-7`}>
-        {monthSwitcher}
+        {view !== "composition" && periodBar}
 
         {/* =========================== OVERVIEW =========================== */}
         {view === "overview" && (
