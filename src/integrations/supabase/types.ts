@@ -3244,8 +3244,17 @@ export type Database = {
       }
       create_manual_demand_atomic: { Args: { p_payload: Json }; Returns: Json }
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
+      delete_finance_item_safe: { Args: { _item_id: string }; Returns: Json }
+      delete_finance_occurrence_safe: {
+        Args: { _occurrence_id: string }
+        Returns: Json
+      }
       finance_access_scope: { Args: { _tenant_id: string }; Returns: string }
       finance_encryption_health: { Args: never; Returns: Json }
+      finance_item_delete_decision: {
+        Args: { _item_id: string }
+        Returns: Json
+      }
       finance_password_status: { Args: { _tenant_id: string }; Returns: Json }
       finance_read_item_values: {
         Args: { _tenant_id: string }
@@ -3330,6 +3339,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      inactivate_finance_item_safe: {
+        Args: { _item_id: string }
+        Returns: Json
       }
       initialize_default_pipeline: {
         Args: { p_tenant_id: string }
