@@ -103,18 +103,37 @@ describe("wiring", () => {
     expect(app.slice(idx, idx + 400)).toContain("<RequireFinanceAccess>");
   });
 
-  it("guard usa a RPC has_finance_access via useFinanceAccess", () => {
+  it("C. guard bloqueia scope none usando a RPC finance_access_scope", () => {
     const guard = readFileSync("src/components/RequireFinanceAccess.tsx", "utf8");
-    expect(guard).toContain("useFinanceAccess");
+    expect(guard).toContain("useFinanceAccessScope");
+    expect(guard).toContain("canAccessFinance");
     expect(guard).toContain('Navigate to="/home"');
-    const hook = readFileSync("src/hooks/useFinanceAccess.tsx", "utf8");
-    expect(hook).toContain("has_finance_access");
+    const hook = readFileSync("src/hooks/useFinanceAccessScope.tsx", "utf8");
+    expect(hook).toContain("finance_access_scope");
   });
 
-  it("sidebar desktop e mobile usam o filtro de acesso", () => {
+  it("D. sidebar desktop e mobile mostram Financeiro para full/tools e ocultam none/loading", () => {
     const sidebar = readFileSync("src/components/AppSidebar.tsx", "utf8");
     expect(sidebar.match(/filterMainMenuItems\(mainMenuItems/g)?.length).toBe(2);
-    expect(sidebar.match(/useFinanceAccess\(\)/g)?.length).toBe(2);
+    expect(sidebar.match(/useFinanceAccessScope\(\)/g)?.length).toBe(2);
+    expect(sidebar).toContain("canAccessFinance: financeCanAccess");
+    // fail closed: enquanto carrega, o item não aparece
+    expect(sidebar).toContain("opts.financeLoading || !opts.financeCanAccess");
+  });
+
+  it("B/O. escopo tools entra no cockpit restrito e a senha continua exigida", () => {
+    const page = readFileSync("src/pages/Financial.tsx", "utf8");
+    expect(page).toContain("<FinanceAccessGate>");
+    expect(page).toContain("canAccessFullFinance ? <FinancialCockpit /> : <FinanceToolsCockpit />");
+    const tools = readFileSync("src/components/finance/FinanceToolsCockpit.tsx", "utf8");
+    // nada de orçamento, fatura ou despesa administrativa no escopo restrito
+    expect(tools).not.toContain("monthly_budget");
+    expect(tools).not.toContain("StatementPanel");
+    expect(tools).toContain('scope="tools"');
+    const hook = readFileSync("src/hooks/useFinanceTools.tsx", "utf8");
+    expect(hook).toContain("list_finance_safe_cards");
+    expect(hook).not.toContain('from("tenants")');
+    expect(hook).not.toContain("card_limit_brl");
   });
 
   it("Visão Geral usa o helper puro de foco inicial", () => {

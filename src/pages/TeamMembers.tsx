@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Users, Settings2, LayoutGrid, Home, Bell, MousePointerClick } from 'lucide-react';
+import { Loader2, Users, Settings2, LayoutGrid, Home, Bell, MousePointerClick, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 import { HUB_SECTIONS, CLIENT_HUB_BUTTONS } from '@/hooks/useHubPermissions';
@@ -70,8 +70,11 @@ export default function TeamMembers() {
   const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
   const { isSuperAdmin, isAgencyAdmin } = useAgencyRole();
   const canEditRoles = isSuperAdmin || isAgencyAdmin;
-  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'client_buttons' | 'notifications'>('columns');
+  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'client_buttons' | 'notifications' | 'finance'>('columns');
   const [lateNotificationEnabled, setLateNotificationEnabled] = useState(false);
+  // Permissões do Financeiro (colunas de `user_roles`).
+  const [financeFullAccess, setFinanceFullAccess] = useState(false);
+  const [financeToolsAccess, setFinanceToolsAccess] = useState(false);
 
   useEffect(() => {
     if (!agencyLoading && agencyId) {
@@ -248,6 +251,17 @@ export default function TeamMembers() {
         .maybeSingle();
 
       setLateNotificationEnabled(lateNotif?.enabled ?? false);
+
+      // Permissões do Financeiro: nunca concedidas automaticamente.
+      const { data: roleRow } = await supabase
+        .from('user_roles')
+        .select('finance_access, finance_tools_access')
+        .eq('user_id', userId)
+        .eq('tenant_id', agencyId)
+        .maybeSingle();
+
+      setFinanceFullAccess(!!(roleRow as any)?.finance_access);
+      setFinanceToolsAccess(!!(roleRow as any)?.finance_tools_access);
     } catch (error) {
       console.error('Erro ao carregar permissões:', error);
     }
@@ -358,6 +372,16 @@ export default function TeamMembers() {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id,tenant_id' });
       if (lateError) throw lateError;
+
+      // Financeiro: só quem administra a agência consegue gravar (RLS confirma).
+      if (canEditRoles) {
+        const { error: financeError } = await supabase
+          .from('user_roles')
+          .update({ finance_access: financeFullAccess, finance_tools_access: financeToolsAccess } as any)
+          .eq('user_id', selectedMember.id)
+          .eq('tenant_id', agencyId);
+        if (financeError) throw financeError;
+      }
 
       toast.success('Permissões salvas com sucesso!');
       setSelectedMember(null);
@@ -604,7 +628,7 @@ export default function TeamMembers() {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub' | 'client_buttons' | 'notifications')} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="columns" className="gap-1 text-xs sm:text-sm">
                 <LayoutGrid className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Colunas</span> Kanban
@@ -620,6 +644,10 @@ export default function TeamMembers() {
               <TabsTrigger value="notifications" className="gap-1 text-xs sm:text-sm">
                 <Bell className="h-3 w-3 sm:h-4 sm:w-4" />
                 Alertas
+              </TabsTrigger>
+              <TabsTrigger value="finance" className="gap-1 text-xs sm:text-sm">
+                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
+                Financeiro
               </TabsTrigger>
             </TabsList>
 
@@ -732,6 +760,57 @@ export default function TeamMembers() {
                     onCheckedChange={setLateNotificationEnabled}
                   />
                 </div>
+              </TabsContent>
+
+              <TabsContent value="finance" className="mt-0 space-y-3">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Defina o nível de acesso desta pessoa ao módulo Financeiro:
+                </p>
+
+                <div className="flex items-center justify-between gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <div className="flex-1">
+                    <p className="font-medium">Financeiro completo</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Resumo do mês, pagamentos diretos, cartões e faturas, orçamento e ajustes.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={financeFullAccess}
+                    disabled={!canEditRoles}
+                    onCheckedChange={setFinanceFullAccess}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <div className="flex-1">
+                    <p className="font-medium">Assinaturas e ferramentas do Financeiro</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Permite cadastrar e manter ferramentas, assinaturas e pacotes, sem acesso ao
+                      resumo financeiro, faturas, orçamento ou despesas administrativas.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={financeToolsAccess}
+                    disabled={!canEditRoles}
+                    onCheckedChange={setFinanceToolsAccess}
+                  />
+                </div>
+
+                {selectedMember?.role === 'super_admin' || selectedMember?.role === 'agency_admin' ? (
+                  <p className="text-xs text-muted-foreground">
+                    Esta função já tem Financeiro completo por padrão — estas chaves não são necessárias.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Financeiro completo já inclui assinaturas e ferramentas.
+                  </p>
+                )}
+
+                {!canEditRoles && (
+                  <p className="text-xs text-muted-foreground">
+                    Apenas administradores da agência podem alterar o acesso ao Financeiro.
+                  </p>
+                )}
               </TabsContent>
             </div>
           </Tabs>

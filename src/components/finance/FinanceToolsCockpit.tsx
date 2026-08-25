@@ -1,0 +1,177 @@
+/**
+ * Financeiro no escopo `tools`: SOMENTE `Assinaturas e ferramentas`.
+ *
+ * Nada de resumo do mês, orçamento, faturas ou despesas administrativas — nem
+ * na tela, nem em consulta. Os cartões vêm da RPC segura (rótulo e ciclo).
+ */
+import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/PageHeader";
+import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
+import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
+import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
+import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
+import { useFinanceTools } from "@/hooks/useFinanceTools";
+import { currentCompetence, todayISO } from "@/hooks/useFinance";
+import { addMonths } from "@/lib/financeCardCycle";
+import { FinanceItem, MonthRow } from "@/lib/financeModel";
+import { RowStatusContext, formatDayMonth } from "@/lib/financeRowStatus";
+
+const MONTH_LABELS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+export default function FinanceToolsCockpit() {
+  const [competence, setCompetence] = useState(currentCompetence());
+  const today = todayISO();
+  const {
+    items, rows, cards, packages, overlaps,
+    saveOccurrence, togglePaid, saveItem, setItemActive,
+  } = useFinanceTools(competence);
+
+  const [search, setSearch] = useState("");
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<FinanceItem | null>(null);
+  const [occurrenceRow, setOccurrenceRow] = useState<MonthRow | null>(null);
+
+  /**
+   * Cartões “seguros” em forma de cadastro apenas para RÓTULO e CICLO.
+   * Nunca carrega limite nem valor de fatura.
+   */
+  const safeCardItems = useMemo(
+    () =>
+      cards.map(
+        (c) =>
+          ({
+            id: c.id,
+            kind: "card",
+            name: c.bank_name ?? "Cartão",
+            bank_name: c.bank_name ?? null,
+            card_last4: c.card_last4 ?? null,
+            statement_closing_day: c.statement_closing_day ?? null,
+            statement_due_day: c.statement_due_day ?? null,
+            active: true,
+          }) as unknown as FinanceItem,
+      ),
+    [cards],
+  );
+
+  const cardsById = useMemo(
+    () => new Map(safeCardItems.map((c) => [c.id, c])),
+    [safeCardItems],
+  );
+  const statusContext = useMemo<RowStatusContext>(
+    () => ({ rows, today, cardsById }),
+    [rows, today, cardsById],
+  );
+
+  const openItemModal = (item: FinanceItem | null) => {
+    setEditingItem(item);
+    setItemModalOpen(true);
+  };
+
+  const currentComp = currentCompetence();
+  const isCurrentMonth =
+    competence.year === currentComp.year && competence.month === currentComp.month;
+
+  return (
+    <div className="pb-16">
+      <PageHeader
+        containerClassName={FINANCE_SHELL_WIDTH}
+        title="Assinaturas e ferramentas"
+        subtitle="Serviços recorrentes, ferramentas e pacotes."
+        backTo="/"
+        actions={[
+          {
+            label: "Nova assinatura ou ferramenta",
+            onClick: () => openItemModal(null),
+            icon: <Plus className="w-4 h-4" />,
+          },
+        ]}
+      />
+
+      <div className={`${FINANCE_SHELL} py-5 space-y-7`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-1 rounded-md border bg-card px-1 py-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Mês anterior"
+              onClick={() => setCompetence(addMonths(competence, -1))}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="px-2 text-[15px] font-semibold min-w-[130px] text-center">
+              {MONTH_LABELS[competence.month - 1]} {competence.year}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Mês seguinte"
+              onClick={() => setCompetence(addMonths(competence, 1))}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+          {isCurrentMonth ? (
+            <span className="text-sm text-muted-foreground">Hoje, {formatDayMonth(today)}</span>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-9"
+              onClick={() => setCompetence(currentCompetence())}
+            >
+              Voltar ao mês atual
+            </Button>
+          )}
+        </div>
+
+        <SubscriptionsPanel
+          items={items}
+          cards={cards}
+          rows={rows}
+          statusContext={statusContext}
+          overlaps={overlaps}
+          competence={competence}
+          search={search}
+          onSearchChange={setSearch}
+          onEdit={openItemModal}
+          onToggleActive={setItemActive}
+          onOpenRow={setOccurrenceRow}
+          onTogglePaid={togglePaid}
+        />
+      </div>
+
+      <FinanceItemFormModal
+        open={itemModalOpen}
+        onOpenChange={setItemModalOpen}
+        item={editingItem}
+        initialKind={editingItem ? null : "tool"}
+        cards={safeCardItems}
+        packages={packages}
+        allItems={items}
+        defaultUsdRate={null}
+        scope="tools"
+        onSave={saveItem}
+      />
+
+      <FinanceOccurrenceModal
+        open={!!occurrenceRow}
+        onOpenChange={(open) => !open && setOccurrenceRow(null)}
+        row={occurrenceRow}
+        cards={safeCardItems}
+        defaultUsdRate={null}
+        onSave={saveOccurrence}
+        onEditItem={(item) => {
+          setOccurrenceRow(null);
+          openItemModal(item);
+        }}
+      />
+    </div>
+  );
+}
