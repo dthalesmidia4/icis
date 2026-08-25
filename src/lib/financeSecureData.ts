@@ -1,19 +1,34 @@
 /**
  * Camada de leitura segura dos valores financeiros.
  *
- * Os números sensíveis (valores, câmbio, limites, orçamento) são armazenados
- * cifrados no banco. O frontend NUNCA vê ciphertext nem chave: os valores
- * chegam claros apenas pelas RPCs SECURITY DEFINER, que checam
+ * Os números sensíveis (valores, câmbio, limites, orçamento) existem no banco
+ * SOMENTE cifrados. O frontend NUNCA vê ciphertext nem chave: os valores
+ * chegam claros exclusivamente pelas RPCs SECURITY DEFINER, que checam
  * `has_finance_access` / `has_finance_tools_access` antes de descriptografar.
  *
  * A metadata não sensível (nome, tipo, datas, recorrência) continua vindo das
  * tabelas via RLS. Este módulo só ENRIQUECE essa metadata com os números.
  *
- * Fase de transição: se a RPC não existir no ambiente (dev/local antigo), o
- * helper devolve `null` e o chamador mantém os campos que vieram da tabela.
+ * Pós-cutover: a RPC segura é OBRIGATÓRIA. Não existe fallback para plaintext.
+ * Se a RPC falhar, os helpers lançam `FinanceSecureReadError` — o chamador deve
+ * mostrar erro e oferecer nova tentativa, nunca exibir zeros como se fossem
+ * dados válidos.
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { FinanceItem, FinanceOccurrence } from "@/lib/financeModel";
+
+/** Falha na leitura segura: nunca deve ser convertida em zeros na UI. */
+export class FinanceSecureReadError extends Error {
+  code = "FINANCE_SECURE_READ_FAILED" as const;
+  constructor(
+    public readonly source: string,
+    cause?: unknown,
+  ) {
+    super(`Falha na leitura segura dos valores financeiros (${source})`);
+    this.name = "FinanceSecureReadError";
+    (this as any).cause = cause;
+  }
+}
 
 export interface SecureItemValues {
   default_amount_original: number | null;
@@ -36,6 +51,7 @@ export interface SecureTenantValues {
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === "" ? null : Number(v);
+
 
 /* --------------------------- Colunas de metadata --------------------------- */
 
