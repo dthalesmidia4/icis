@@ -104,11 +104,11 @@ export function compositionStatusLabel(
 ): RowStatus {
   const status = resolveRowStatus(row, ctx);
   if (entry.paid && isCardCharge(row) && !row.paid) {
-    const label = settledByStatement(row, ctx.settlement) ? "Pago pela fatura" : status.label;
-    return { ...status, kind: "paid", label: label || "Pago pela fatura", tone: "positive" };
+    return { ...status, kind: "paid", label: "Pago pela fatura", tone: "positive" };
   }
   return status;
 }
+
 
 
 /** Rótulo contextual da data conforme a natureza da despesa. */
