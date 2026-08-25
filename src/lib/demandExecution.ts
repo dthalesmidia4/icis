@@ -193,12 +193,19 @@ export async function addExecutionItem(params: {
   return (data as any) as ExecutionItem;
 }
 
+/**
+ * Edita SOMENTE o texto de um item. Não muda posição, conclusão nem cria item.
+ */
 export async function updateExecutionItemText(itemId: string, text: string): Promise<void> {
   const value = (text ?? "").trim();
   if (!value) return;
-  const { error } = await supabase.from(ITEMS).update({ text: value } as any).eq("id", itemId);
+  const { error } = await supabase
+    .from(ITEMS)
+    .update({ text: value, updated_at: new Date().toISOString() } as any)
+    .eq("id", itemId);
   if (error) throw error;
 }
+
 
 export async function deleteExecutionItem(itemId: string): Promise<void> {
   const { error } = await supabase.from(ITEMS).delete().eq("id", itemId);
