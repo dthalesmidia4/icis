@@ -40,6 +40,8 @@ import {
 } from "@/lib/financeSubscriptionMonth";
 import { Competence, dateInMonth } from "@/lib/financeCardCycle";
 import { RowStatusContext, formatDayMonth, isCardCharge, resolveRowStatus } from "@/lib/financeRowStatus";
+import { findSafeStatementStatus, groupStatementNotice } from "@/lib/financeSafeStatement";
+
 import SubscriptionCatalogModal from "@/components/finance/SubscriptionCatalogModal";
 
 interface Props {
@@ -248,6 +250,22 @@ export default function SubscriptionsPanel({
   const renderGroup = (group: SubscriptionMonthGroup) => {
     const open = !collapsed[group.key];
     const Icon = group.kind === "card" ? CreditCard : group.kind === "direct" ? Wallet : HelpCircle;
+    /**
+     * Fatura real da competência manda no cabeçalho: se ela existe, "Dados da
+     * fatura incompletos" não pode ser apresentado como o estado da fatura.
+     */
+    const notice = groupStatementNotice({
+      safe:
+        group.kind === "card"
+          ? findSafeStatementStatus(
+              statusContext.safeStatementStatuses,
+              group.card?.id,
+              statusContext.competenceMonth,
+            )
+          : null,
+      cycleWarning: group.warning,
+      today: statusContext.today,
+    });
 
     return (
       <Collapsible
@@ -269,14 +287,29 @@ export default function SubscriptionsPanel({
                   <span className="text-sm text-muted-foreground">
                     {group.entries.length} {group.entries.length === 1 ? "assinatura" : "assinaturas"}
                   </span>
+                  {notice.statementText && (
+                    <Badge
+                      variant="outline"
+                      className={
+                        notice.statementTone === "danger"
+                          ? "bg-destructive/10 text-destructive border-destructive/40 text-sm"
+                          : notice.statementTone === "positive"
+                            ? "bg-primary/10 text-primary border-primary/30 text-sm"
+                            : "text-sm"
+                      }
+                    >
+                      {notice.statementText}
+                    </Badge>
+                  )}
                 </div>
-                {group.warning && (
+                {notice.projectionWarning && (
                   <span className="text-sm text-muted-foreground flex items-center gap-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    Dados da fatura incompletos · {group.warning}
+                    {notice.projectionWarning}
                   </span>
                 )}
               </div>
+
               <span className="text-sm text-muted-foreground">{formatBRL(group.total)}</span>
               <ChevronDown
                 className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "" : "-rotate-90"}`}

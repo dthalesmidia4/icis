@@ -13,6 +13,11 @@
 
 import { Competence, competenceFromISO } from "./financeCardCycle";
 import {
+  SafeStatementStatusMap,
+  findSafeStatementStatus,
+} from "./financeSafeStatement";
+
+import {
   CARD_PAYMENT_METHOD,
   FinanceItem,
   MonthRow,
@@ -114,7 +119,15 @@ export interface RowStatusContext {
   cardsById: Map<string, FinanceItem>;
   /** Linhas de fatura conhecidas (para herdar o status do statement). */
   statementRows?: MonthRow[];
+  /**
+   * Status SEGURO das faturas reais da competência (`cardId|YYYY-MM-01`).
+   * Usado apenas para APRESENTAÇÃO: nunca cria vínculo contábil.
+   */
+  safeStatementStatuses?: SafeStatementStatusMap;
+  /** Competência exibida na tela (`YYYY-MM-01`), chave do mapa seguro. */
+  competenceMonth?: string;
 }
+
 
 /**
  * Fatura vinculada a um componente de cartão.
@@ -184,7 +197,45 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
       return { kind: "card_in_statement", label, tone: "neutral", direct: false, canPayDirectly: false };
     }
 
-
+    /**
+     * FATO SEGURO da competência: existe fatura real deste cartão no mês?
+     *
+     * Isso é APRESENTAÇÃO da visão mensal agrupada por cartão — não afirma que
+     * esta cobrança específica pertence contabilmente àquela fatura, então nada
+     * é persistido e `statement_occurrence_id` continua intocado.
+     */
+    const safe = findSafeStatementStatus(
+      ctx.safeStatementStatuses,
+      row.cardItemId,
+      ctx.competenceMonth,
+    );
+    if (safe) {
+      if (safe.paid) {
+        return {
+          kind: "card_statement_paid",
+          label: "Fatura paga",
+          tone: "positive",
+          direct: false,
+          canPayDirectly: false,
+        };
+      }
+      if (safe.dueDate && safe.dueDate < today) {
+        return {
+          kind: "card_statement_overdue",
+          label: "Fatura atrasada",
+          tone: "danger",
+          direct: false,
+          canPayDirectly: false,
+        };
+      }
+      return {
+        kind: "card_in_statement",
+        label: safe.dueDate === today ? "Fatura vence hoje" : "Fatura a pagar",
+        tone: safe.dueDate === today ? "warning" : "neutral",
+        direct: false,
+        canPayDirectly: false,
+      };
+    }
 
     const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
     if (cardConfigIncomplete(card)) {
@@ -197,6 +248,7 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
         canPayDirectly: false,
       };
     }
+
 
     if (row.projected) {
       return { kind: "card_projected", label: "Prevista na fatura", tone: "neutral", direct: false, canPayDirectly: false };
