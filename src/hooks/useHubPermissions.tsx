@@ -94,7 +94,7 @@ export function useHubPermissions() {
   }, [user?.id, agencyId, fetchPermissions]);
 
   // Função para verificar se o usuário pode acessar uma seção específica
-  const canAccess = useCallback((sectionId: HubSectionId | ClientHubButtonId | string): boolean => {
+  const canAccess = useCallback((sectionId: HubSectionId | string): boolean => {
     // Se não há permissões carregadas/salvas para este usuário, permitir tudo por padrão
     if (permissions.length === 0) {
       return true;
