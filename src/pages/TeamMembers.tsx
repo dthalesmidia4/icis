@@ -23,10 +23,12 @@ import {
   buildFinanceUpdate,
   buildHomePermissionUpserts,
   canEditPermissions,
-  financeGrantableCapabilities,
+  effectiveFinanceToolsAccess,
   resolveHomePermissionState,
+  visibleFinanceCapabilities,
   type HomePermissionId,
 } from '@/lib/permissionDelegation';
+
 
 interface TeamMember {
   id: string;
@@ -59,7 +61,13 @@ export default function TeamMembers() {
   const { scope: editorFinanceScope } = useFinanceAccessScope();
   const canEditRoles = isSuperAdmin || isAgencyAdmin;
   const canEditPerms = canEditPermissions(editorRole);
-  const financeGrantable = financeGrantableCapabilities(editorRole, editorFinanceScope);
+  const financeGrantable = visibleFinanceCapabilities(
+
+    editorRole,
+    editorFinanceScope,
+    selectedMember?.role,
+  );
+
   // Permissões do Financeiro (colunas de `user_roles`).
   const [financeFlags, setFinanceFlags] = useState<FinanceFlagsState>({
     finance_access: false,
@@ -533,19 +541,26 @@ export default function TeamMembers() {
                         <div className="min-w-0 flex-1">
                           <p className="font-medium">Assinaturas e ferramentas</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            Permite cadastrar e manter ferramentas, assinaturas e pacotes, sem acesso
-                            ao resumo financeiro, faturas, orçamento ou despesas administrativas.
+                            {financeFlags.finance_access
+                              ? 'Incluído no Financeiro completo — não é necessário ativar esta chave.'
+                              : 'Permite cadastrar e manter ferramentas, assinaturas e pacotes, sem acesso ao resumo financeiro, faturas, orçamento ou despesas administrativas.'}
                           </p>
                         </div>
-                        <Switch
-                          checked={financeFlags.finance_tools_access}
-                          disabled={!canEditPerms}
-                          onCheckedChange={(v) =>
-                            setFinanceFlags(prev => ({ ...prev, finance_tools_access: v }))
-                          }
-                        />
+                        <div className="flex items-center gap-2">
+                          {financeFlags.finance_access && (
+                            <Badge variant="secondary">Incluído</Badge>
+                          )}
+                          <Switch
+                            checked={effectiveFinanceToolsAccess(financeFlags)}
+                            disabled={!canEditPerms || financeFlags.finance_access}
+                            onCheckedChange={(v) =>
+                              setFinanceFlags(prev => ({ ...prev, finance_tools_access: v }))
+                            }
+                          />
+                        </div>
                       </div>
                     )}
+
                   </div>
                 )}
               </section>
