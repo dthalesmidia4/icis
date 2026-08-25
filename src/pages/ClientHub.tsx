@@ -102,7 +102,6 @@ const ClientHub = () => {
   const location = useLocation();
   const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
-  const { canAccess: canAccessButton } = useHubPermissions();
   const { role } = useAgencyRole();
   
   const [contentModalOpen, setContentModalOpen] = useState(false);
@@ -1885,10 +1884,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaHubModalOpen(true) },
   ];
 
-  // Admins see all buttons; others are filtered by permissions
-  const actionCards = isAdmin
-    ? allActionCards
-    : allActionCards.filter(card => canAccessButton(card.id));
+  // Ações operacionais do workspace atual: regras de papel já bastam.
+  // Permissões legadas `client_*` não filtram mais esta barra.
+  const actionCards = allActionCards;
 
   return (
     <div className="pb-8" style={buildClientBrandStyle(clientBrandColors)}>
@@ -1910,7 +1908,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           daysCount={workspaceDays}
           creativesCount={workspaceCreatives}
           deliveredCount={workspaceDelivered}
-          canOpenRegistration={isAdmin || canAccessButton('client_cadastro')}
+          canOpenRegistration={true}
           onOpenRegistration={() => navigate(`/clientes/${selectedClient.id}`)}
           onPlanPeriod={() => setPlanPeriodModalOpen(true)}
           planPeriodDisabled={!hasVisualIdentity}
