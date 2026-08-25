@@ -516,9 +516,8 @@ function FinancialCockpit() {
     setFocusCardId(action.cardId);
   };
 
-  const currentComp = currentCompetence();
-  const isCurrentMonth =
-    competence.year === currentComp.year && competence.month === currentComp.month;
+
+
 
   // Barra de período compartilhada (`FinancePeriodBar`): mesmo eixo visual em
   // todas as views do Financeiro e no cockpit `tools`.
