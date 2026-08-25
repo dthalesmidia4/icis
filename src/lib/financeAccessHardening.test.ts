@@ -39,26 +39,25 @@ describe("hardening de acesso ao Financeiro", () => {
 
   it("senha do Financeiro exige FULL no banco (status levanta erro, verify retorna false)", () => {
     const sql = hardening.join("\n");
-    const status = sql.slice(sql.indexOf("finance_password_status"), sql.indexOf("verify_finance_password"));
+    const blocks = sql.split(/CREATE OR REPLACE FUNCTION /);
+    const status = blocks.find((b) => b.startsWith("public.finance_password_status")) ?? "";
     expect(status).toMatch(/if not public\.has_finance_access\(_tenant_id\) then\s*\n\s*raise exception/i);
-    const verify = sql.slice(sql.indexOf("verify_finance_password"));
+    const verify = blocks.find((b) => b.startsWith("public.verify_finance_password")) ?? "";
     expect(verify).toMatch(/if not public\.has_finance_access\(_tenant_id\) then\s*\n\s*return false/i);
   });
 
   it("finance_tools_item_allowed confere a permissão internamente", () => {
     const sql = hardening.join("\n");
-    const fn = sql.slice(sql.indexOf("finance_tools_item_allowed"));
+    const fn =
+      sql.split(/CREATE OR REPLACE FUNCTION /).find((b) => b.startsWith("public.finance_tools_item_allowed")) ?? "";
     expect(fn).toMatch(/select public\.has_finance_tools_access\(_tenant_id\)\s*\n\s*and exists/i);
   });
 
   it("apenas o escopo FULL monta o gate de senha", () => {
     const page = read("src/pages/Financial.tsx");
-    const gateBlock = page.slice(page.indexOf("canAccessFullFinance"));
-    expect(gateBlock).toMatch(/if \(canAccessFullFinance\)[\s\S]{0,200}<FinanceAccessGate>/);
-    // tools-only não passa pelo gate
-    const toolsIdx = gateBlock.indexOf("canAccessTools");
-    const gateIdx = gateBlock.indexOf("</FinanceAccessGate>");
-    expect(toolsIdx).toBeGreaterThan(gateIdx);
+    expect(page).toMatch(/if \(canAccessFullFinance\)[\s\S]{0,200}<FinanceAccessGate>/);
+    // tools-only sai pelo cockpit de ferramentas, depois do bloco do gate
+    expect(page.indexOf("<FinanceToolsCockpit />")).toBeGreaterThan(page.indexOf("</FinanceAccessGate>"));
   });
 
   it("tools-only não chama status/verificação de senha", () => {
