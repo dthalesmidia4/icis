@@ -15,7 +15,9 @@ import {
   effectivePaid,
   isStatementRow,
 } from "./financeModel";
+import { FinanceSettlementContext, settledByStatement } from "./financeSettlement";
 import { RowStatus, RowStatusContext, isCardCharge, resolveRowStatus } from "./financeRowStatus";
+
 
 export type CompositionStatus = "all" | "paid" | "open";
 
