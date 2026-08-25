@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RoleBadge } from '@/components/RoleBadge';
+import { buildRecoveryEntryUrl } from '@/lib/passwordRecovery';
 const themeOptions: {
   value: ThemeMode;
   label: string;
@@ -383,9 +384,10 @@ export default function ProfileSettings() {
               <Button variant="outline" size="sm" onClick={async () => {
               if (!user?.email) return;
               try {
-                await supabase.auth.resetPasswordForEmail(user.email, {
-                  redirectTo: `${window.location.origin}/auth`
+                const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                  redirectTo: buildRecoveryEntryUrl(window.location.origin)
                 });
+                if (error) throw error;
                 toast({
                   title: 'E-mail enviado',
                   description: 'Verifique sua caixa de entrada para redefinir a senha.'

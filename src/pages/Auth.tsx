@@ -21,9 +21,11 @@ import { getRoleLabel } from '@/lib/constants/roles';
 import ShaderBackground from '@/components/ui/shader-background';
 import {
   PASSWORD_RESET_SUCCESS_MESSAGE,
+  RECOVERY_ENTRY_QUERY,
   RECOVERY_REQUEST_GENERIC_FAILURE,
   RECOVERY_REQUEST_GENERIC_MESSAGE,
-  buildResetPasswordRedirectUrl,
+  buildRecoveryEntryUrl,
+  isRecoveryPending,
   isValidRecoveryEmail,
 } from '@/lib/passwordRecovery';
 
@@ -112,9 +114,13 @@ const Auth = () => {
     setIsSendingRecovery(true);
     try {
       // Resposta sempre genérica: não revelamos se a conta existe.
-      await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: buildResetPasswordRedirectUrl(window.location.origin),
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: buildRecoveryEntryUrl(window.location.origin),
       });
+      if (error) {
+        toast.error(RECOVERY_REQUEST_GENERIC_FAILURE);
+        return;
+      }
       setRecoveryRequested(true);
       toast.success(RECOVERY_REQUEST_GENERIC_MESSAGE);
     } catch {
@@ -133,7 +139,7 @@ const Auth = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
-      navigate('/');
+      navigate(isRecoveryPending() ? `/?${RECOVERY_ENTRY_QUERY}` : '/', { replace: true });
     }
   }, [user, authLoading, navigate]);
 

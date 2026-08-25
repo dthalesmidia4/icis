@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { RECOVERY_ENTRY_QUERY, isRecoveryPending } from '@/lib/passwordRecovery';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -18,6 +19,10 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         </div>
       </div>
     );
+  }
+
+  if (isRecoveryPending()) {
+    return <Navigate to={`/?${RECOVERY_ENTRY_QUERY}`} replace />;
   }
 
   if (!user) {

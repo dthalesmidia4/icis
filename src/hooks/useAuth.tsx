@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { markRecoveryPending } from '@/lib/passwordRecovery';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -42,6 +43,10 @@ export const useAuth = () => {
 
         if (event === 'SIGNED_IN') {
           console.log('[Auth] User signed in');
+        }
+
+        if (event === 'PASSWORD_RECOVERY') {
+          markRecoveryPending();
         }
         
         setSession(session);
