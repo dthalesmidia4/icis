@@ -6,7 +6,10 @@ import {
   buildHomePermissionUpserts,
   canEditPermissions,
   financeGrantableCapabilities,
+  effectiveFinanceToolsAccess,
+  financeCapabilitiesForTargetRole,
   resolveHomePermissionState,
+  visibleFinanceCapabilities,
 } from "@/lib/permissionDelegation";
 
 describe("Início — lista moderna de permissões", () => {
@@ -154,5 +157,85 @@ describe("teto de delegação depende do EDITOR, nunca do alvo", () => {
   it("o mesmo alvo continua editável por um editor com escopo completo", () => {
     const grantable = financeGrantableCapabilities("agency_admin", "full");
     expect(grantable.any).toBe(true);
+  });
+});
+
+describe("capacidades financeiras por função do alvo", () => {
+  it("agency_user nunca vê Financeiro completo, mesmo com editor super_admin", () => {
+    expect(visibleFinanceCapabilities("super_admin", "full", "agency_user")).toEqual({
+      full: false,
+      tools: true,
+      any: true,
+    });
+  });
+
+  it("agency_manager e agency_admin veem full e tools com editor super_admin", () => {
+    ["agency_manager", "agency_admin"].forEach((target) => {
+      expect(visibleFinanceCapabilities("super_admin", "full", target)).toEqual({
+        full: true,
+        tools: true,
+        any: true,
+      });
+    });
+  });
+
+  it("alvo super_admin não tem chaves a configurar", () => {
+    expect(financeCapabilitiesForTargetRole("super_admin")).toEqual({
+      full: false,
+      tools: false,
+      any: false,
+    });
+  });
+
+  it("editor agency_admin sem escopo não vê nada, mesmo se o alvo tem full", () => {
+    expect(visibleFinanceCapabilities("agency_admin", "none", "agency_manager").any).toBe(false);
+  });
+
+  it("editor com escopo tools nunca expõe full", () => {
+    expect(visibleFinanceCapabilities("agency_admin", "tools", "agency_manager")).toEqual({
+      full: false,
+      tools: true,
+      any: true,
+    });
+  });
+});
+
+describe("estado efetivo de assinaturas/ferramentas", () => {
+  it("full implica tools mesmo com finance_tools_access=false", () => {
+    expect(
+      effectiveFinanceToolsAccess({ finance_access: true, finance_tools_access: false }),
+    ).toBe(true);
+  });
+
+  it("sem full, respeita a flag armazenada", () => {
+    expect(
+      effectiveFinanceToolsAccess({ finance_access: false, finance_tools_access: true }),
+    ).toBe(true);
+    expect(
+      effectiveFinanceToolsAccess({ finance_access: false, finance_tools_access: false }),
+    ).toBe(false);
+  });
+
+  it("ligar full não força gravar tools=true", () => {
+    const grantable = { full: true, tools: true, any: true };
+    const current = { finance_access: false, finance_tools_access: false };
+    expect(
+      buildFinanceUpdate(grantable, { finance_access: true, finance_tools_access: false }, current),
+    ).toEqual({ finance_access: true });
+  });
+
+  it("ligar full preserva tools=true já persistido e desligar full o mantém", () => {
+    const grantable = { full: true, tools: true, any: true };
+    const stored = { finance_access: false, finance_tools_access: true };
+    const afterFullOn = buildFinanceUpdate(
+      grantable,
+      { finance_access: true, finance_tools_access: true },
+      stored,
+    );
+    expect(afterFullOn).toEqual({ finance_access: true });
+    const withFull = { finance_access: true, finance_tools_access: true };
+    expect(
+      buildFinanceUpdate(grantable, { finance_access: false, finance_tools_access: true }, withFull),
+    ).toEqual({ finance_access: false });
   });
 });
