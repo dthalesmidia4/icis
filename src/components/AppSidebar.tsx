@@ -33,6 +33,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { resolveSidebarNavigation } from "@/lib/sidebarNavigation";
 
 // Menu principal (após Home)
 const mainMenuItems = [
