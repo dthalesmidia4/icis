@@ -15,6 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  Eye,
+  EyeOff,
+
   Plus,
   Receipt,
   Repeat,
@@ -199,6 +202,14 @@ function FinancialCockpit() {
   const [compositionKind, setCompositionKind] = useState("all");
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  /**
+   * Privacidade dos 3 KPIs da abertura: sempre OCULTOS ao montar a tela.
+   * Preferência não é persistida — abrir o Financeiro nunca expõe valores.
+   */
+  const [showKpis, setShowKpis] = useState(false);
+  /** Máscara única dos três números do resumo. */
+  const kpiText = (value: number | null) => (showKpis ? formatBRL(value) : "R$ ***");
+
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FinanceItem | null>(null);
@@ -576,6 +587,12 @@ function FinancialCockpit() {
           view === "overview"
             ? [
                 {
+                  label: "Novo lançamento",
+                  // Sem `initialKind`: o passo de intenção decide o que é.
+                  onClick: () => openItemModal(null, null),
+                  icon: <Plus className="w-4 h-4" />,
+                },
+                {
                   label: "Ajustes",
                   onClick: () => goTo("settings"),
                   icon: <Settings2 className="w-4 h-4" />,
@@ -601,11 +618,15 @@ function FinancialCockpit() {
                 : view === "accounts"
                   ? [
                       {
-                        label: "Nova despesa direta",
+                        // O destino operacional é decidido pela FORMA DE
+                        // PAGAMENTO (o formulário pode escolher cartão), não
+                        // pelo botão de origem.
+                        label: "Nova conta ou despesa",
                         onClick: () => openItemModal(null, "expense"),
                         icon: <Plus className="w-4 h-4" />,
                       },
                     ]
+
                   : []
         }
       />
@@ -618,7 +639,21 @@ function FinancialCockpit() {
           <>
             {/* B. Resumo do mês — UM único painel coeso */}
             <section className="space-y-3">
-              <h2 className="text-base font-semibold">Resumo de {monthLabel}</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-semibold">Resumo de {monthLabel}</h2>
+                {/* Um único olho para os três números: privacidade em tela aberta. */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowKpis((v) => !v)}
+                  aria-label={showKpis ? "Ocultar valores do resumo" : "Exibir valores do resumo"}
+                  aria-pressed={showKpis}
+                >
+                  {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+              </div>
+
 
               <Card className="p-5 sm:p-6 space-y-5">
                 {/* Cada métrica é porta de auditoria: abre a composição no recorte. */}
@@ -656,7 +691,7 @@ function FinancialCockpit() {
                       </TooltipProvider>
                     </span>
                     <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
-                      {formatBRL(totals.expected)}
+                      {kpiText(totals.expected)}
                     </span>
                     <span className="block text-sm text-muted-foreground">estimativa para o mês</span>
                     <span className="block text-sm text-primary mt-1">Ver composição →</span>
@@ -670,7 +705,7 @@ function FinancialCockpit() {
                   >
                     <span className="block text-sm text-muted-foreground">Já pago</span>
                     <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
-                      {formatBRL(totals.paid)}
+                      {kpiText(totals.paid)}
                     </span>
                     <span className="block text-sm text-muted-foreground">pagamentos já realizados</span>
                     <span className="block text-sm text-primary mt-1">Ver pagamentos →</span>
@@ -684,7 +719,7 @@ function FinancialCockpit() {
                   >
                     <span className="block text-sm text-muted-foreground">Em aberto</span>
                     <span className="block text-[26px] sm:text-[28px] font-bold leading-tight mt-1">
-                      {formatBRL(totals.open)}
+                      {kpiText(totals.open)}
                     </span>
                     <span className="block text-sm text-muted-foreground">
                       despesas ainda não liquidadas
@@ -1153,7 +1188,9 @@ function FinancialCockpit() {
         packages={packages}
         allItems={items}
         defaultUsdRate={settings.defaultUsdRate}
+        competence={competence}
         onSave={saveItem}
+
       />
 
       <FinanceOccurrenceModal

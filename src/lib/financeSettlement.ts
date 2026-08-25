@@ -12,12 +12,15 @@
  * gravados por inferência. O índice é recalculado por competência/tela.
  */
 
+import { Competence, chargeBelongsToStatement } from "./financeCardCycle";
 import {
+  FinanceItem,
   MonthRow,
   StatementGroup,
   effectivePaid,
   isStatementRow,
 } from "./financeModel";
+
 
 export interface FinanceSettlementContext {
   /** `MonthRow.key` dos componentes liquidados por uma fatura paga. */
@@ -73,19 +76,54 @@ export function settledByStatement(
 
 /**
  * Liquidação no escopo `tools`: não há acesso à fatura completa, então a
- * pertença usa o agrupamento mensal por cartão + status SEGURO da fatura real
- * daquela competência. Mesma regra de negócio, sem expor valores.
+ * pertença usa o status SEGURO da fatura real da competência. Mesma regra de
+ * negócio, sem expor valores.
+ *
+ * CICLO-AWARE: quando o cartão tem fechamento e vencimento cadastrados, só é
+ * liquidada a cobrança que REALMENTE pertence à fatura daquela competência. Uma
+ * compra feita depois do fechamento cai na fatura seguinte e NUNCA pode ser
+ * quitada pela fatura paga do mês exibido.
+ *
+ * Sem ciclo completo (ou sem dia de cobrança) não existe informação melhor que
+ * a composição mensal do modelo: aí o fallback mensal é mantido — exceto quando
+ * o ciclo é completo e falta o dia da cobrança, caso em que a pertença não pode
+ * ser provada e a linha permanece honesta (não paga).
  */
 export function buildSafeSettlementIndex(params: {
   rows: MonthRow[];
   isPaidCard: (cardId: string) => boolean;
+  /** Competência exibida na tela — base do ciclo. */
+  competence?: Competence | null;
+  /** Cartões (rótulo + ciclo) por id. Sem eles não há como aplicar o ciclo. */
+  cardsById?: Map<string, FinanceItem> | null;
 }): FinanceSettlementContext {
   const paidComponentKeys = new Set<string>();
   for (const row of params.rows) {
     if (isStatementRow(row)) continue;
     const cardId = row.cardItemId;
     if (!cardId) continue;
-    if (params.isPaidCard(cardId)) paidComponentKeys.add(row.key);
+    if (!params.isPaidCard(cardId)) continue;
+
+    const card = params.cardsById?.get(cardId) ?? null;
+    const cycleComplete =
+      !!card && card.statement_closing_day != null && card.statement_due_day != null;
+
+    if (cycleComplete && params.competence) {
+      const chargeDay =
+        row.chargeDate != null ? Number(row.chargeDate.slice(8, 10)) : row.item.charge_day ?? null;
+      // Sem dia de cobrança não há prova de pertença: não marcamos como paga.
+      if (chargeDay == null) continue;
+      const belongs = chargeBelongsToStatement({
+        chargeDay,
+        chargeCompetence: params.competence,
+        statement: params.competence,
+        card: { closingDay: card!.statement_closing_day, dueDay: card!.statement_due_day },
+      });
+      if (!belongs) continue;
+    }
+
+    paidComponentKeys.add(row.key);
   }
   return { paidComponentKeys, statementByComponentKey: new Map() };
 }
+

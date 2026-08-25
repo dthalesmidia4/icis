@@ -81,11 +81,14 @@ export default function FinanceToolsCockpit() {
     () =>
       buildSafeSettlementIndex({
         rows,
+        competence,
+        cardsById,
         isPaidCard: (cardId) =>
           !!findSafeStatementStatus(statementStatuses, cardId, competenceMonth)?.paid,
       }),
-    [rows, statementStatuses, competenceMonth],
+    [rows, statementStatuses, competenceMonth, competence, cardsById],
   );
+
   const statusContext = useMemo<RowStatusContext>(
     () => ({
       rows,
@@ -197,7 +200,9 @@ export default function FinanceToolsCockpit() {
         allItems={items}
         defaultUsdRate={null}
         scope="tools"
+        competence={competence}
         onSave={saveItem}
+
       />
 
       <FinanceOccurrenceModal

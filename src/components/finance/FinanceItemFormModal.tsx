@@ -28,6 +28,9 @@ import {
 import { parseDayOfMonth, parseLocalizedNumber, parsePositiveInt } from "@/lib/financeNumber";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
+import { Competence, competenceToISO } from "@/lib/financeCardCycle";
+import { OneOffFact, shouldMaterializeOneOff } from "@/lib/financeOneOff";
+
 
 
 interface Props {
@@ -43,8 +46,19 @@ interface Props {
   defaultUsdRate: number | null;
   /** Escopo do usuário: `tools` não cadastra despesa/cartão nem administrativo. */
   scope?: FinanceScope;
-  onSave: (payload: Partial<FinanceItem>, id?: string) => Promise<boolean>;
+  /**
+   * Competência exibida na tela. Um gasto AVULSO nasce como fato deste mês —
+   * sem ela o avulso não teria onde ser materializado.
+   */
+  competence?: Competence | null;
+  onSave: (
+    payload: Partial<FinanceItem>,
+    id?: string,
+    /** Fato do mês que acompanha a criação de um avulso. */
+    oneOff?: OneOffFact | null,
+  ) => Promise<boolean>;
 }
+
 
 
 const KIND_OPTIONS: FinanceKind[] = ["expense", "tool", "package", "card", "included_resource"];
@@ -97,7 +111,9 @@ export default function FinanceItemFormModal({
   allItems = [],
   defaultUsdRate,
   scope = "full",
+  competence = null,
   onSave,
+
 }: Props) {
   // Opções derivadas do escopo — a RLS confirma, aqui só evitamos oferecer.
   const kindOptions = KIND_OPTIONS.filter((k) => allowedKindsForScope(scope).includes(k));
@@ -128,7 +144,10 @@ export default function FinanceItemFormModal({
   const [subscriptionDate, setSubscriptionDate] = useState("");
   const [installmentStart, setInstallmentStart] = useState("");
   const [installmentCount, setInstallmentCount] = useState("");
+  /** Data real do gasto AVULSO (não é `subscription_date` disfarçada). */
+  const [oneOffDate, setOneOffDate] = useState("");
   const [link, setLink] = useState("");
+
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   /** Passo 1: intenção. Só existe para NOVOS cadastros. */
@@ -180,9 +199,11 @@ export default function FinanceItemFormModal({
     setSubscriptionDate(item?.subscription_date ?? "");
     setInstallmentStart(item?.installment_start_date ?? "");
     setInstallmentCount(item?.installment_count != null ? String(item.installment_count) : "");
+    setOneOffDate(competence ? competenceToISO(competence) : "");
     setLink(item?.link ?? "");
     setNotes(item?.notes ?? "");
   }, [open, item, initialKind]);
+
 
   const isCard = kind === "card";
   const isIncluded = kind === "included_resource";
@@ -192,7 +213,13 @@ export default function FinanceItemFormModal({
   const isInstallments = !isCard && !isIncluded && chargeMode === "installments";
   const isRecurring = !isCard && !isIncluded && chargeMode === "recurring";
   const isAnnual = isRecurring && frequency === "annual";
+  /** Avulsa: nasce como FATO do mês, então pede data real (não dia genérico). */
+  const isOneOff = !isCard && !isIncluded && chargeMode === "one_off";
+  /** Só criação materializa o fato: editar um avulso antigo não cria nada. */
+  const materializesOneOff = isOneOff && !item && !!competence;
+  const oneOffDateValid = !materializesOneOff || /^\d{4}-\d{2}-\d{2}$/.test(oneOffDate);
   const intervalNumber = frequency === "custom" ? parsePositiveInt(intervalMonths) ?? 1 : 1;
+
 
   /** Escolha humana -> `recurrence_type` do banco. */
   const recurrence: FinanceRecurrence = useMemo(() => {
@@ -251,7 +278,9 @@ export default function FinanceItemFormModal({
   const handleSubmit = async () => {
     if (!name.trim()) return;
     if (!installmentsValid) return;
+    if (!oneOffDateValid) return;
     setSaving(true);
+
     const payload: Partial<FinanceItem> = {
       kind,
       name: name.trim(),
@@ -284,10 +313,28 @@ export default function FinanceItemFormModal({
       link: link.trim() || null,
       notes: notes.trim() || null,
     };
-    const ok = await onSave(payload, item?.id);
+    /**
+     * Gasto avulso não é cadastro abstrato: já nasce como fato da competência
+     * exibida, senão sumiria do mês (`one_off` não é projetável).
+     */
+    const oneOff: OneOffFact | null =
+      materializesOneOff && shouldMaterializeOneOff(payload)
+        ? {
+            competenceMonth: competenceToISO(competence!),
+            date: oneOffDate || null,
+            currency,
+            amountOriginal: amountNumber,
+            amountBrl: brlPreview != null ? Number(brlPreview.toFixed(2)) : null,
+            exchangeRate: currency === "USD" ? effectiveRate : null,
+            paymentMethod: payload.payment_method ?? null,
+            cardItemId: payload.card_item_id ?? null,
+          }
+        : null;
+    const ok = await onSave(payload, item?.id, oneOff);
     setSaving(false);
     if (ok) onOpenChange(false);
   };
+
 
   const ALL_INTENTS: { kind: FinanceKind; title: string; description: string; recurrence?: FinanceRecurrence }[] = [
     { kind: "expense", title: "Conta ou despesa", description: "Uma cobrança ou pagamento" },
@@ -561,7 +608,7 @@ export default function FinanceItemFormModal({
                     </SelectContent>
                   </Select>
                 </div>
-                {!isInstallments && (
+                {!isInstallments && !isOneOff && (
                   <>
                     <div>
                       <Label>Dia da cobrança</Label>
@@ -573,7 +620,27 @@ export default function FinanceItemFormModal({
                     </div>
                   </>
                 )}
+                {isOneOff && (
+                  <div>
+                    <Label htmlFor="one-off-date">Data / vencimento</Label>
+                    <Input
+                      id="one-off-date"
+                      type="date"
+                      value={oneOffDate}
+                      onChange={(e) => setOneOffDate(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {materializesOneOff
+                        ? "Gasto avulso é um lançamento do mês: ele já aparece nos totais desta competência."
+                        : "Data real do gasto."}
+                    </p>
+                    {!oneOffDateValid && (
+                      <p className="text-xs text-destructive mt-1">Informe a data do gasto</p>
+                    )}
+                  </div>
+                )}
               </div>
+
 
               {onCard && (
                 <div>
@@ -683,7 +750,11 @@ export default function FinanceItemFormModal({
               <Button variant="ghost" onClick={() => setStep("intent")}>Voltar</Button>
             )}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={saving || !name.trim() || !installmentsValid}>
+            <Button
+              onClick={handleSubmit}
+              disabled={saving || !name.trim() || !installmentsValid || !oneOffDateValid}
+            >
+
               {saving ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
