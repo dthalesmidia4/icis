@@ -1716,21 +1716,33 @@ export default function TaskCard({
     }
   }, [open, card?.period_plan_id]);
 
-  // Fetch tenant collaborators (agency roles only) for the Responsible selector
+  /**
+   * Responsáveis possíveis = COLABORADORES OPERACIONAIS do tenant.
+   *
+   * Fonte canônica: `collaborator_function_assignments` (allowed = true), nunca
+   * o papel administrativo. Papel não define quem executa: um `super_admin`
+   * com funções precisa aparecer e um `agency_user` sem nenhuma função não pode
+   * ser oferecido. O responsável atual entra sempre (cards legados).
+   */
   useEffect(() => {
     if (!open || !card?.tenant_id) return;
     let cancelled = false;
     (async () => {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id, role")
+      const { data: fns } = await (supabase
+        .from("collaborator_function_assignments") as any)
+        .select("user_id")
         .eq("tenant_id", card.tenant_id)
-        .in("role", ["agency_admin", "agency_manager", "agency_user"]);
-      if (cancelled || !roles || roles.length === 0) {
+        .eq("allowed", true);
+      const ids = Array.from(
+        new Set([
+          ...((fns || []) as any[]).map((f) => f.user_id).filter(Boolean),
+          ...((card as any)?.assigned_to ? [(card as any).assigned_to as string] : []),
+        ]),
+      );
+      if (cancelled || ids.length === 0) {
         if (!cancelled) setCollaborators([]);
         return;
       }
-      const ids = Array.from(new Set(roles.map((r: any) => r.user_id)));
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, full_name")
@@ -1744,7 +1756,7 @@ export default function TaskCard({
       setCollaborators(list);
     })();
     return () => { cancelled = true; };
-  }, [open, card?.tenant_id]);
+  }, [open, card?.tenant_id, (card as any)?.assigned_to]);
 
   /**
    * Responsáveis ELEGÍVEIS para o fluxo escolhido.
