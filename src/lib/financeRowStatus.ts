@@ -470,10 +470,17 @@ export interface AttentionParams {
  * Nunca conta cobrança de cartão como conta direta atrasada.
  */
 export function buildAttentionInsights(params: AttentionParams): AttentionInsight[] {
-  const { rows, statements, today, cardsById } = params;
+  const { rows, today, cardsById } = params;
+  /**
+   * Cartão inativo SEM fato real na competência não existe para a operação:
+   * mesma regra da tela `Cartões e faturas` (`visibleStatementGroups`), nunca
+   * uma segunda regra paralela.
+   */
+  const statements = visibleStatementGroups(params.statements);
   const ctx: RowStatusContext = { rows, today, cardsById };
   const operational = rows.filter((r) => !isStatementRow(r));
   const insights: AttentionInsight[] = [];
+
 
   // 1. Obrigações DIRETAS atrasadas — um único alerta, sem separar por kind
   const overdue = overdueDirectRows(operational, ctx).filter(isDirectPayableRow);
