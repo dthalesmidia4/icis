@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 
 /** Feriados injetados no motor de reorganização (mutável entre testes). */
 const HOLIDAYS: string[] = [];
@@ -558,7 +560,24 @@ describe("guardas de UI", () => {
   it("só gestor operacional e super admin podem alocar em massa", () => {
     expect(canBulkAllocate({ isSuperAdmin: true })).toBe(true);
     expect(canBulkAllocate({ isAgencyManager: true })).toBe(true);
+    // Regressão: administração da agência perdeu o botão "Selecionar".
+    expect(canBulkAllocate({ isAgencyAdmin: true })).toBe(true);
     expect(canBulkAllocate({})).toBe(false);
+    expect(
+      canBulkAllocate({ isSuperAdmin: false, isAgencyAdmin: false, isAgencyManager: false }),
+    ).toBe(false);
+  });
+
+  it("Visão Geral e Feed passam isAgencyAdmin e mantêm o controle de seleção", () => {
+    for (const file of [
+      "src/pages/KanbanCentralPage.tsx",
+      "src/components/client-hub/InstagramFeedTab.tsx",
+    ]) {
+      const src = readFileSync(file, "utf8");
+      expect(src).toMatch(/canBulkAllocate\(\{[^}]*isAgencyAdmin[^}]*\}\)/);
+      expect(src).toMatch(/"Selecionar"/);
+      expect(src).toMatch(/BulkAllocationModal/);
+    }
   });
 
   it("desabilita drag-and-drop no modo seleção e no registro de entregas", () => {

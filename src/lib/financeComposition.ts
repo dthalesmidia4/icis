@@ -15,7 +15,7 @@ import {
   effectivePaid,
   isStatementRow,
 } from "./financeModel";
-import { FinanceSettlementContext, settledByStatement } from "./financeSettlement";
+import { FinanceSettlementContext } from "./financeSettlement";
 import { RowStatus, RowStatusContext, isCardCharge, resolveRowStatus } from "./financeRowStatus";
 
 
