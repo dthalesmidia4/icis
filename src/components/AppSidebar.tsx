@@ -63,6 +63,22 @@ const devMenuItems = [
   { title: "Developer", url: "/dev-hub", icon: Code, adminOnly: true },
 ];
 
+/** Placeholders estáveis do bloco de navegação (sem revelar permissões). */
+function NavSkeleton({ count, variant }: { count: number; variant: "icon" | "row" }) {
+  return (
+    <div className="space-y-1" aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) =>
+        variant === "icon" ? (
+          <div key={i} className="h-10 w-10 mx-auto rounded-xl bg-muted/50 animate-pulse" />
+        ) : (
+          <div key={i} className="h-10 w-full rounded-xl bg-muted/50 animate-pulse" />
+        )
+      )}
+    </div>
+  );
+}
+
+
 // Mobile Sidebar Content
 function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
