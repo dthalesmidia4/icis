@@ -60,7 +60,9 @@ export default function TeamMembers() {
   const { role: editorRole, isSuperAdmin, isAgencyAdmin } = useAgencyRole();
   const { scope: editorFinanceScope } = useFinanceAccessScope();
   const canEditRoles = isSuperAdmin || isAgencyAdmin;
+  const canEditPerms = canEditPermissions(editorRole);
   const financeGrantable = visibleFinanceCapabilities(
+
     editorRole,
     editorFinanceScope,
     selectedMember?.role,
