@@ -1060,6 +1060,45 @@ export default function TaskCard({
   };
 
 
+  /**
+   * EDIÇÃO INLINE do texto de um item da passagem ativa.
+   * Nunca cria item novo, nunca muda posição nem conclusão.
+   */
+  const handleEditExecutionItem = async (itemId: string, text: string) => {
+    if (readOnly) return;
+    const value = (text || "").trim();
+    if (!value) return;
+    if (isDraft) {
+      setDraftExecutionItems((prev) => applyExecutionItemText(prev, itemId, value));
+      return;
+    }
+    const run = execution.active;
+    if (!run) return;
+    const previous = run.items;
+    setExecution((prev) =>
+      prev.active && prev.active.id === run.id
+        ? { ...prev, active: { ...prev.active, items: applyExecutionItemText(previous, itemId, value) } }
+        : prev,
+    );
+    setEditingExecutionItemId(itemId);
+    try {
+      await updateExecutionItemText(itemId, value);
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] edit execution item", err);
+      setExecution((prev) =>
+        prev.active && prev.active.id === run.id
+          ? { ...prev, active: { ...prev.active, items: previous } }
+          : prev,
+      );
+      toast.error("Não foi possível salvar o texto da tarefa.");
+      await refreshExecution();
+    } finally {
+      setEditingExecutionItemId(null);
+    }
+  };
+
+
   const handleDeleteExecutionItem = async (itemId: string) => {
     if (readOnly) return;
     if (isDraft) {
