@@ -26,6 +26,8 @@ import {
   detectPackageOverlaps,
 } from "@/lib/financeModel";
 import {
+  FINANCE_ITEM_METADATA_COLUMNS,
+  FINANCE_OCCURRENCE_METADATA_COLUMNS,
   fetchSecureItemValues,
   fetchSecureOccurrenceValues,
   fetchSecureTenantValues,
@@ -83,12 +85,12 @@ export function useFinance(competence: Competence) {
     const [itemsRes, occRes, itemValues, occValues, tenantValues] = await Promise.all([
       supabase
         .from("finance_items")
-        .select("*")
+        .select(FINANCE_ITEM_METADATA_COLUMNS)
         .eq("tenant_id", agencyId)
         .order("name", { ascending: true }),
       supabase
         .from("finance_occurrences")
-        .select("*")
+        .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
         .eq("tenant_id", agencyId)
         .in("competence_month", [
           competenceToISO(prev),
@@ -178,7 +180,7 @@ export function useFinance(competence: Competence) {
           .from("finance_occurrences")
           .update(patch as any)
           .eq("id", row.occurrence.id)
-          .select("*")
+          .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
           .maybeSingle();
         if (error) {
           toast.error("Não foi possível salvar o lançamento");
@@ -202,7 +204,7 @@ export function useFinance(competence: Competence) {
           created_by: user?.id ?? null,
           ...(patch as any),
         } as any)
-        .select("*")
+        .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
         .maybeSingle();
       if (error) {
         toast.error("Não foi possível registrar o lançamento");
