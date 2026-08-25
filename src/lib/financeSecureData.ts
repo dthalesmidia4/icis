@@ -37,6 +37,69 @@ export interface SecureTenantValues {
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === "" ? null : Number(v);
 
+/* --------------------------- Colunas de metadata --------------------------- */
+
+/**
+ * Após o cutover, os valores só existem cifrados. As tabelas nunca devem ser
+ * consultadas com `*`: as colunas monetárias (plaintext vazias e `_enc`)
+ * ficam fora do SELECT e chegam exclusivamente pelas RPCs seguras.
+ */
+export const FINANCE_ITEM_METADATA_COLUMNS = [
+  "id",
+  "tenant_id",
+  "kind",
+  "name",
+  "purpose",
+  "category",
+  "cost_center",
+  "active",
+  "payment_method",
+  "card_item_id",
+  "bank_name",
+  "card_last4",
+  "statement_closing_day",
+  "statement_due_day",
+  "currency",
+  "recurrence_type",
+  "charge_day",
+  "due_day",
+  "subscription_date",
+  "link",
+  "parent_item_id",
+  "notes",
+  "created_by",
+  "created_at",
+  "updated_at",
+  "installment_start_date",
+  "installment_count",
+  "recurrence_interval_months",
+  "recurrence_start_date",
+  "amount_mode",
+].join(",");
+
+export const FINANCE_OCCURRENCE_METADATA_COLUMNS = [
+  "id",
+  "tenant_id",
+  "item_id",
+  "competence_month",
+  "charge_date",
+  "due_date",
+  "currency",
+  "is_estimated",
+  "statement_occurrence_id",
+  "paid_at",
+  "attachment_url",
+  "attachment_name",
+  "observations",
+  "legacy_bill_id",
+  "created_by",
+  "created_at",
+  "updated_at",
+  "payment_method_snapshot",
+  "card_item_id_snapshot",
+  "statement_competence_snapshot",
+].join(",");
+
 /* ------------------------------- Merges puros ------------------------------ */
 
 /**
