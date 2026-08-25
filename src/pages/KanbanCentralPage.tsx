@@ -65,6 +65,7 @@ import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
+import { resolveInitialOverviewFocus, shouldExitEmptyOwnFocus } from "@/lib/overviewFocus";
 import { countColumnBadge, describeColumnBadge } from "@/lib/columnBadge";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
@@ -767,6 +768,22 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
     }
     return baseCards;
   }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds, canManageQueue, queueActive, releaseConfig, isSearching, searchTerm]);
+
+  // Se o colaborador está focado na PRÓPRIA coluna e ela ficou sem cards visíveis
+  // (realtime/filtros), sai do foco. Nunca desfaz foco manual de gestor nem durante busca.
+  useEffect(() => {
+    if (!focusDecisionReady) return;
+    if (shouldExitEmptyOwnFocus({
+      focusedColumnId,
+      canManageQueue,
+      userId: authUser?.id ?? null,
+      isSearching,
+      visibleCards: filteredCards,
+    })) {
+      setFocusedColumnId(null);
+    }
+  }, [focusDecisionReady, focusedColumnId, canManageQueue, authUser?.id, isSearching, filteredCards]);
+
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
