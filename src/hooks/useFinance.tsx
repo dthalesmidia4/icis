@@ -25,6 +25,13 @@ import {
   computeTotals,
   detectPackageOverlaps,
 } from "@/lib/financeModel";
+import {
+  fetchSecureItemValues,
+  fetchSecureOccurrenceValues,
+  fetchSecureTenantValues,
+  mergeItemValues,
+  mergeOccurrenceValues,
+} from "@/lib/financeSecureData";
 
 export interface FinanceSettings {
   monthlyBudgetBrl: number | null;
