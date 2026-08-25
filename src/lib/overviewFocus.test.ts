@@ -123,8 +123,11 @@ describe("wiring", () => {
 
   it("B/O. escopo tools entra no cockpit restrito e a senha continua exigida", () => {
     const page = readFileSync("src/pages/Financial.tsx", "utf8");
+    // senha SÓ para o escopo full; tools abre o cockpit restrito sem gate.
     expect(page).toContain("<FinanceAccessGate>");
-    expect(page).toContain("canAccessFullFinance ? <FinancialCockpit /> : <FinanceToolsCockpit />");
+    expect(page).toContain("if (canAccessFullFinance)");
+    expect(page).toContain("return <FinanceToolsCockpit />");
+    expect(page).not.toContain("finance_password_status");
     const tools = readFileSync("src/components/finance/FinanceToolsCockpit.tsx", "utf8");
     // nada de orçamento, fatura ou despesa administrativa no escopo restrito
     expect(tools).not.toContain("monthly_budget");
