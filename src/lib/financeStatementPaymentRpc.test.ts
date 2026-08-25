@@ -33,6 +33,19 @@ function finalDefinition(): string {
 
 const sql = finalDefinition();
 const body = sql.slice(0, sql.search(/REVOKE|GRANT/) === -1 ? sql.length : sql.search(/REVOKE|GRANT/));
+/** Corpo normalizado: whitespace colapsado, para asserts de expressões multilinha. */
+const flat = body.replace(/\s+/g, " ");
+
+/**
+ * Reproduz em TS a condição de rejeição escrita no SQL, para provar que a
+ * tolerância de centavos aceita igualdade e recusa valor menor/maior.
+ */
+function rejectsAsPartial(paid: number | null, invoice: number | null): boolean {
+  if (paid === null) return invoice === null || invoice <= 0;
+  if (paid <= 0) return true;
+  if (invoice !== null && Math.abs(paid - invoice) > 0.011) return true;
+  return false;
+}
 
 describe("pay_finance_statement — valor pago pós-criptografia", () => {
   it("existe uma definição final da função no repositório", () => {
@@ -40,9 +53,10 @@ describe("pay_finance_statement — valor pago pós-criptografia", () => {
   });
 
   it("sem _paid_amount_brl, usa o valor real decifrado da fatura", () => {
-    expect(body.replace(/\s+/g, " ")).toContain(
-      "v_statement_amount := COALESCE( _paid_amount_brl, private.finance_decrypt_numeric(v_occ.amount_brl_enc) )",
+    expect(flat).toContain(
+      "v_invoice_amount := private.finance_decrypt_numeric(v_occ.amount_brl_enc)",
     );
+    expect(flat).toMatch(/ELSE v_statement_amount := v_invoice_amount;/);
     expect(body).toMatch(/paid_amount_brl\s*=\s*v_statement_amount/);
   });
 
@@ -100,5 +114,42 @@ describe("pay_finance_statement — validações e permissões", () => {
     expect(grants).toMatch(/REVOKE ALL ON FUNCTION public\.pay_finance_statement[^;]*FROM PUBLIC/);
     expect(grants).toMatch(/REVOKE ALL ON FUNCTION public\.pay_finance_statement[^;]*FROM anon/);
     expect(grants).toMatch(/GRANT EXECUTE ON FUNCTION public\.pay_finance_statement[^;]*TO authenticated/);
+  });
+});
+
+describe("pay_finance_statement — pagamento parcial é bloqueado no banco", () => {
+  it("rejeita valor menor ou maior que o valor real da fatura", () => {
+    expect(flat).toContain("abs(_paid_amount_brl - v_invoice_amount) > 0.011");
+    expect(flat).toMatch(/RAISE EXCEPTION 'Pagamento parcial não é suportado/);
+    expect(rejectsAsPartial(500, 1000)).toBe(true);
+    expect(rejectsAsPartial(1500, 1000)).toBe(true);
+    expect(rejectsAsPartial(999.9, 1000)).toBe(true);
+  });
+
+  it("aceita igualdade dentro da tolerância de centavos", () => {
+    expect(rejectsAsPartial(1000, 1000)).toBe(false);
+    expect(rejectsAsPartial(1000.01, 1000)).toBe(false);
+    expect(rejectsAsPartial(999.99, 1000)).toBe(false);
+  });
+
+  it("rejeita valor zerado ou negativo", () => {
+    expect(flat).toContain("IF _paid_amount_brl <= 0 THEN");
+    expect(rejectsAsPartial(0, 1000)).toBe(true);
+    expect(rejectsAsPartial(-10, 1000)).toBe(true);
+  });
+
+  it("rejeita fatura sem valor conhecido e sem valor informado", () => {
+    expect(flat).toContain("IF v_statement_amount IS NULL OR v_statement_amount <= 0 THEN");
+    expect(rejectsAsPartial(null, null)).toBe(true);
+    expect(rejectsAsPartial(null, 0)).toBe(true);
+    expect(rejectsAsPartial(null, 1000)).toBe(false);
+  });
+
+  it("as novas validações não introduzem escrita em filhos", () => {
+    const updates = body.match(/UPDATE\s+public\.finance_occurrences/gi) ?? [];
+    expect(updates).toHaveLength(1);
+    expect(body).toMatch(/WHERE\s+id\s*=\s*_occurrence_id/);
+    expect(body).not.toMatch(/WHERE\s+statement_occurrence_id/i);
+    expect(body).not.toMatch(/due_date\s*=/);
   });
 });
