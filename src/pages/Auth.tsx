@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import logoIcis from '@/assets/logo-icis-new.png';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,13 @@ import { Building2, MapPin, Briefcase, Lock, Upload, UserPlus, Ticket, Loader2, 
 import { z } from 'zod';
 import { getRoleLabel } from '@/lib/constants/roles';
 import ShaderBackground from '@/components/ui/shader-background';
+import {
+  PASSWORD_RESET_SUCCESS_MESSAGE,
+  RECOVERY_REQUEST_GENERIC_FAILURE,
+  RECOVERY_REQUEST_GENERIC_MESSAGE,
+  buildResetPasswordRedirectUrl,
+  isValidRecoveryEmail,
+} from '@/lib/passwordRecovery';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -29,6 +36,13 @@ const Auth = () => {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Recuperação de senha (fluxo dentro do próprio Card de login)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [isSendingRecovery, setIsSendingRecovery] = useState(false);
+  const [recoveryRequested, setRecoveryRequested] = useState(false);
 
   // Signup mode state
   const [signupMode, setSignupMode] = useState<'select' | 'company' | 'invite-validate' | 'invite-register'>('select');
@@ -69,6 +83,52 @@ const Auth = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Abre o fluxo de recuperação e mostra o aviso de reset concluído (sem token)
+  useEffect(() => {
+    if (searchParams.get('recovery') === '1') {
+      setShowRecovery(true);
+      searchParams.delete('recovery');
+      setSearchParams(searchParams, { replace: true });
+      return;
+    }
+    if (searchParams.get('password-reset') === 'success') {
+      toast.success(PASSWORD_RESET_SUCCESS_MESSAGE);
+      searchParams.delete('password-reset');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const handleRecoveryRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSendingRecovery) return;
+
+    const email = recoveryEmail.trim();
+    if (!isValidRecoveryEmail(email)) {
+      toast.error('Digite um e-mail válido');
+      return;
+    }
+
+    setIsSendingRecovery(true);
+    try {
+      // Resposta sempre genérica: não revelamos se a conta existe.
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: buildResetPasswordRedirectUrl(window.location.origin),
+      });
+      setRecoveryRequested(true);
+      toast.success(RECOVERY_REQUEST_GENERIC_MESSAGE);
+    } catch {
+      toast.error(RECOVERY_REQUEST_GENERIC_FAILURE);
+    } finally {
+      setIsSendingRecovery(false);
+    }
+  };
+
+  const openRecovery = () => {
+    setRecoveryEmail((current) => current || loginEmail);
+    setRecoveryRequested(false);
+    setShowRecovery(true);
+  };
 
   // Redirect if already logged in
   useEffect(() => {
@@ -530,6 +590,54 @@ const Auth = () => {
             </TabsList>
 
             <TabsContent value="login">
+              {showRecovery ? (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="font-semibold">Recuperar senha</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Informe seu e-mail e enviaremos um link para redefinir sua senha.
+                    </p>
+                  </div>
+                  {recoveryRequested ? (
+                    <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
+                      {RECOVERY_REQUEST_GENERIC_MESSAGE}
+                    </div>
+                  ) : (
+                    <form onSubmit={handleRecoveryRequest} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="recovery-email">Email</Label>
+                        <Input
+                          id="recovery-email"
+                          type="email"
+                          placeholder="seu@email.com"
+                          value={recoveryEmail}
+                          onChange={(e) => setRecoveryEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <Button type="submit" className="w-full" disabled={isSendingRecovery}>
+                        {isSendingRecovery ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Enviando...
+                          </>
+                        ) : (
+                          'Enviar link de recuperação'
+                        )}
+                      </Button>
+                    </form>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => setShowRecovery(false)}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar ao login
+                  </Button>
+                </div>
+              ) : (
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
@@ -543,7 +651,16 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="login-password">Senha</Label>
+                    <button
+                      type="button"
+                      onClick={openRecovery}
+                      className="text-xs text-muted-foreground hover:text-primary underline underline-offset-2"
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </div>
                   <Input
                     id="login-password"
                     type="password"
@@ -570,6 +687,7 @@ const Auth = () => {
                   {isLoading ? 'Entrando...' : 'Entrar'}
                 </Button>
               </form>
+              )}
             </TabsContent>
 
             <TabsContent value="signup" className="max-h-[70vh] overflow-y-auto px-1">
