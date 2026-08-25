@@ -25,7 +25,9 @@ import {
   computeTotals,
   detectPackageOverlaps,
 } from "@/lib/financeModel";
+import { buildStatementSettlementIndex } from "@/lib/financeSettlement";
 import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
+
 import { paymentDateToTimestamp } from "@/lib/financePaymentDate";
 import {
   FINANCE_ITEM_METADATA_COLUMNS,
@@ -196,8 +198,15 @@ export function useFinance(competence: Competence) {
     [items, occurrences, normalized.year, normalized.month, settings.defaultUsdRate],
   );
 
-  const totals = useMemo(() => computeTotals(rows), [rows]);
+  /**
+   * Liquidação por fatura: derivada DEPOIS dos grupos, para que KPIs, composição
+   * e badges usem exatamente a mesma noção de pago.
+   */
+  const settlement = useMemo(() => buildStatementSettlementIndex(statements), [statements]);
+
+  const totals = useMemo(() => computeTotals(rows, settlement), [rows, settlement]);
   const overlaps = useMemo(() => detectPackageOverlaps(items), [items]);
+
 
   const cards = useMemo(() => items.filter((i) => i.kind === "card"), [items]);
   const packages = useMemo(() => items.filter((i) => i.kind === "package"), [items]);
@@ -348,7 +357,9 @@ export function useFinance(competence: Competence) {
     occurrences,
     rows,
     statements,
+    settlement,
     totals,
+
     overlaps,
     cards,
     packages,

@@ -258,7 +258,10 @@ describe("full e tools compartilham a mesma semântica", () => {
     for (const file of ["src/components/finance/FinanceToolsCockpit.tsx", "src/pages/Financial.tsx"]) {
       const src = read(file);
       expect(src).toMatch(/safeStatementStatuses/);
-      expect(src).toMatch(/competenceMonth: competenceMonthISO\(competence\)/);
+      // a competência exibida pode vir inline ou por variável derivada
+      expect(src).toMatch(/competenceMonth(: competenceMonthISO\(competence\)|,)/);
+      expect(src).toMatch(/competenceMonthISO\(competence\)/);
+
     }
   });
 

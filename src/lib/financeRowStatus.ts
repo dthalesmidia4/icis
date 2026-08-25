@@ -12,10 +12,12 @@
  */
 
 import { Competence, competenceFromISO } from "./financeCardCycle";
+import type { FinanceSettlementContext } from "./financeSettlement";
 import {
   SafeStatementStatusMap,
   findSafeStatementStatus,
 } from "./financeSafeStatement";
+
 
 import {
   CARD_PAYMENT_METHOD,
@@ -120,6 +122,11 @@ export interface RowStatusContext {
   /** Linhas de fatura conhecidas (para herdar o status do statement). */
   statementRows?: MonthRow[];
   /**
+   * Liquidação canônica por fatura (derivada de `buildStatementGroups`).
+   * Mesma fonte usada por `computeTotals` e pela composição do mês.
+   */
+  settlement?: FinanceSettlementContext | null;
+  /**
    * Status SEGURO das faturas reais da competência (`cardId|YYYY-MM-01`).
    * Usado apenas para APRESENTAÇÃO: nunca cria vínculo contábil.
    */
@@ -127,6 +134,7 @@ export interface RowStatusContext {
   /** Competência exibida na tela (`YYYY-MM-01`), chave do mapa seguro. */
   competenceMonth?: string;
 }
+
 
 
 /**
@@ -182,6 +190,22 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
     if (row.paid) {
       return { kind: "paid", label: "Pago", tone: "positive", direct: false, canPayDirectly: false };
     }
+
+    /**
+     * LIQUIDAÇÃO PELA FATURA (fonte canônica): este componente pertence a um
+     * grupo de fatura já paga. Mesmo booleano usado por totais e composição.
+     */
+    if (ctx.settlement?.paidComponentKeys.has(row.key)) {
+      return {
+        kind: "card_statement_paid",
+        label: "Pago pela fatura",
+        tone: "positive",
+        direct: false,
+        canPayDirectly: false,
+      };
+    }
+
+
 
     const statement = linkedStatementRow(row, statementRows);
     if (statement) {

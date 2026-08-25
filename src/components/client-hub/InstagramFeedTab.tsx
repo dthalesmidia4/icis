@@ -92,8 +92,8 @@ export default function InstagramFeedTab({
 
   // Mesmo gate da Visão Geral: gestor operacional / super admin.
   const { tenantId } = useTenant();
-  const { isSuperAdmin, isAgencyManager } = useAgencyRole();
-  const canAllocate = canBulkAllocate({ isSuperAdmin, isAgencyManager });
+  const { isSuperAdmin, isAgencyAdmin, isAgencyManager } = useAgencyRole();
+  const canAllocate = canBulkAllocate({ isSuperAdmin, isAgencyAdmin, isAgencyManager });
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);

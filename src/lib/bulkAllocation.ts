@@ -1341,9 +1341,13 @@ export function collaboratorMayReceive(
 // Guardas puras de UI (testáveis sem DOM)
 // ------------------------------------------------------------------
 
-/** Somente gestor operacional / super admin acessam a alocação em massa. */
-export function canBulkAllocate(role: { isSuperAdmin?: boolean; isAgencyManager?: boolean }): boolean {
-  return !!(role?.isSuperAdmin || role?.isAgencyManager);
+/** Administração da agência, gestor operacional e super admin alocam em massa. */
+export function canBulkAllocate(role: {
+  isSuperAdmin?: boolean;
+  isAgencyAdmin?: boolean;
+  isAgencyManager?: boolean;
+}): boolean {
+  return !!(role?.isSuperAdmin || role?.isAgencyAdmin || role?.isAgencyManager);
 }
 
 /** Drag-and-drop fica desabilitado no modo seleção e no registro de entregas. */
