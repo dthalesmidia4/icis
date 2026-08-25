@@ -424,7 +424,14 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
   /* -------------------------- OBRIGAÇÃO DIRETA ------------------------ */
   if (row.paid) {
-    return { kind: "paid", label: "Pago", tone: "positive", direct: true, canPayDirectly: true };
+    return {
+      kind: "paid",
+      label: paidLabelWithDate("Pago", row.occurrence?.paid_at),
+      tone: "positive",
+      direct: true,
+      canPayDirectly: true,
+    };
+
   }
   const ref = row.dueDate ?? row.chargeDate ?? null;
   const isInstallment = row.item.recurrence_type === "installments";
