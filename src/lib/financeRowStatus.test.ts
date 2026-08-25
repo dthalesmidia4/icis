@@ -102,7 +102,7 @@ describe("classificação de cobrança no cartão", () => {
     expect(whenLabel(r, TODAY)).toBe("Vence em 05 ago");
   });
 
-  it("componente ligado a fatura paga mostra Fatura paga", () => {
+  it("componente ligado a fatura paga mostra Pago pela fatura", () => {
     const statementRow = row({
       key: "stmt",
       item: itau,
@@ -117,7 +117,7 @@ describe("classificação de cobrança no cartão", () => {
       occurrence: occ({ statement_occurrence_id: "stmt-occ" }),
     });
     const status = resolveRowStatus(comp, { rows: [statementRow, comp], today: TODAY, cardsById });
-    expect(status.label).toBe("Fatura paga");
+    expect(status.label).toBe("Pago pela fatura");
     expect(status.tone).toBe("positive");
   });
 
