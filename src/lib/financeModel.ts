@@ -736,13 +736,19 @@ function addDaysISO(iso: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function applyQuickFilter(rows: MonthRow[], filter: QuickFilter, todayISO: string): MonthRow[] {
+export function applyQuickFilter(
+  rows: MonthRow[],
+  filter: QuickFilter,
+  todayISO: string,
+  settlement?: SettlementIndexLike | null,
+): MonthRow[] {
   if (filter === "all") return rows;
   const tomorrow = addDaysISO(todayISO, 1);
   const in7 = addDaysISO(todayISO, 7);
 
   return rows.filter((row) => {
-    const paid = effectivePaid(row, rows);
+    const paid = effectivePaid(row, rows, settlement);
+
     const ref = row.dueDate ?? row.chargeDate;
     switch (filter) {
       case "today":
