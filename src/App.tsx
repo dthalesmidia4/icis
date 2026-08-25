@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { TenantProvider } from "./contexts/TenantContext";
 import { SelectedClientProvider } from "./contexts/SelectedClientContext";
@@ -17,6 +17,7 @@ import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
+import { isRecoveryEntryLocation } from "./lib/passwordRecovery";
 
 // Code splitting global de rotas: cada página pesada vira um chunk próprio e
 // só é baixada quando a rota é realmente visitada. `Home`, `Auth` e `NotFound`
@@ -81,6 +82,24 @@ const RouteFallback = () => (
   </div>
 );
 
+const RootEntry = () => {
+  const location = useLocation();
+
+  if (isRecoveryEntryLocation(location.pathname, location.search, location.hash)) {
+    return <ResetPassword />;
+  }
+
+  return (
+    <ProtectedRoute>
+      <RequireTenant>
+        <Layout>
+          <Home />
+        </Layout>
+      </RequireTenant>
+    </ProtectedRoute>
+  );
+};
+
 function AppRoutes() {
   return (
     <Suspense fallback={<RouteFallback />}>
@@ -105,15 +124,7 @@ function AppRoutes() {
           <AdminDashboard />
         </ProtectedRoute>
       } />
-      <Route path="/" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <Home />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
+      <Route path="/" element={<RootEntry />} />
       
       <Route path="/home" element={
         <ProtectedRoute>

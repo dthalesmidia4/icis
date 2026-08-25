@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RoleBadge } from '@/components/RoleBadge';
+import { buildRecoveryEntryUrl } from '@/lib/passwordRecovery';
 const themeOptions: {
   value: ThemeMode;
   label: string;
@@ -384,7 +385,7 @@ export default function ProfileSettings() {
               if (!user?.email) return;
               try {
                 await supabase.auth.resetPasswordForEmail(user.email, {
-                  redirectTo: `${window.location.origin}/auth`
+                  redirectTo: buildRecoveryEntryUrl(window.location.origin)
                 });
                 toast({
                   title: 'E-mail enviado',

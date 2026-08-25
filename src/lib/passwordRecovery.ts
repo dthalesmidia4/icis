@@ -9,6 +9,12 @@
 /** Caminho público da tela de redefinição (usado no redirectTo do Supabase). */
 export const RESET_PASSWORD_PATH = "/reset-password";
 
+/** Entrada primária do callback: raiz, para não depender de deep-link do hosting. */
+export const RECOVERY_ENTRY_QUERY = "recovery=1";
+
+/** Marcador local não sensível: indica apenas que há recovery em andamento nesta aba. */
+export const RECOVERY_PENDING_KEY = "icis_password_recovery_pending";
+
 /** Mensagem genérica anti-enumeração exibida após pedir o link. */
 export const RECOVERY_REQUEST_GENERIC_MESSAGE =
   "Se existir uma conta com este e-mail, você receberá um link para redefinir sua senha.";
@@ -25,13 +31,39 @@ export const PASSWORD_RESET_SUCCESS_MESSAGE =
 export const PASSWORD_RESET_SUCCESS_QUERY = "password-reset=success";
 
 /** Query flag que abre o /auth já no formulário de recuperação. */
-export const RECOVERY_OPEN_QUERY = "recovery=1";
+export const RECOVERY_OPEN_QUERY = RECOVERY_ENTRY_QUERY;
 
 export const MIN_PASSWORD_LENGTH = 6;
 
 /** Monta o redirectTo absoluto a partir da origin atual (sem hardcode de domínio). */
 export function buildResetPasswordRedirectUrl(origin: string): string {
   return `${origin.replace(/\/+$/, "")}${RESET_PASSWORD_PATH}`;
+}
+
+/** Monta o callback primário em rota que sempre existe no hosting. */
+export function buildRecoveryEntryUrl(origin: string): string {
+  return `${origin.replace(/\/+$/, "")}/?${RECOVERY_ENTRY_QUERY}`;
+}
+
+function getSessionStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function markRecoveryPending(): void {
+  getSessionStorage()?.setItem(RECOVERY_PENDING_KEY, "1");
+}
+
+export function clearRecoveryPending(): void {
+  getSessionStorage()?.removeItem(RECOVERY_PENDING_KEY);
+}
+
+export function isRecoveryPending(): boolean {
+  return getSessionStorage()?.getItem(RECOVERY_PENDING_KEY) === "1";
 }
 
 export type RecoveryUrlKind =
@@ -101,6 +133,25 @@ export function classifyRecoveryUrl(
   return { kind: "none", hasSensitiveParams };
 }
 
+/**
+ * Indica quando a URL deve ser tratada como entrada pública do recovery antes
+ * de qualquer ProtectedRoute. `/reset-password` fica apenas como compat legado.
+ */
+export function isRecoveryEntryLocation(
+  pathname: string,
+  search: string,
+  hash: string,
+): boolean {
+  const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  if (normalizedPath === RESET_PASSWORD_PATH) return true;
+
+  const query = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  if (query.get("recovery") === "1") return true;
+
+  const classification = classifyRecoveryUrl(search, hash);
+  return classification.kind === "recovery_hash" || classification.kind === "provider_error";
+}
+
 export interface RecoveryEvidence {
   /** Evento PASSWORD_RECOVERY observado nesta navegação. */
   passwordRecoveryEvent: boolean;
@@ -110,18 +161,24 @@ export interface RecoveryEvidence {
   urlKind: RecoveryUrlKind;
   /** Existe alguma sessão no cliente (pode ser sessão comum pré-existente). */
   hasSession: boolean;
+  /** Marcador local não sensível criado por prova de recovery anterior nesta aba. */
+  recoveryPending?: boolean;
+  /** URL atual é a entrada pública do recovery (`/?recovery=1` ou compat). */
+  recoveryEntry?: boolean;
 }
 
 /**
  * Uma sessão comum pré-existente NUNCA é prova de recovery: é preciso o evento
  * PASSWORD_RECOVERY, a sessão criada a partir do código desta navegação, ou o
- * hash de recovery com sessão efetivamente estabelecida.
+ * hash de recovery com sessão efetivamente estabelecida. Em refresh, a sessão
+ * só continua válida se houver o marcador local não sensível de recovery.
  */
 export function hasValidRecoveryEvidence(evidence: RecoveryEvidence): boolean {
   if (evidence.urlKind === "provider_error") return false;
   if (evidence.passwordRecoveryEvent) return true;
   if (evidence.sessionFromCode) return true;
   if (evidence.urlKind === "recovery_hash" && evidence.hasSession) return true;
+  if (evidence.recoveryPending && evidence.recoveryEntry && evidence.hasSession) return true;
   return false;
 }
 

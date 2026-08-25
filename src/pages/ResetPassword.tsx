@@ -11,17 +11,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import {
   PASSWORD_RESET_SUCCESS_QUERY,
+  RECOVERY_ENTRY_QUERY,
   RECOVERY_OPEN_QUERY,
-  RESET_PASSWORD_PATH,
   classifyRecoveryUrl,
+  clearRecoveryPending,
   hasValidRecoveryEvidence,
+  isRecoveryEntryLocation,
+  isRecoveryPending,
+  markRecoveryPending,
   validateNewPassword,
 } from '@/lib/passwordRecovery';
 
 type Phase = 'validating' | 'ready' | 'invalid';
 
 /**
- * Rota pública `/reset-password`.
+ * Rota pública de recovery: primária em `/?recovery=1`, com `/reset-password`
+ * apenas para compatibilidade com links antigos.
  *
  * Só aceita definir nova senha quando existe prova real de fluxo de recovery
  * (evento PASSWORD_RECOVERY, ou sessão estabelecida a partir do `code`/hash
@@ -42,15 +47,21 @@ const ResetPassword = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         recoveryEventRef.current = true;
+        markRecoveryPending();
         if (!cancelled) setPhase('ready');
       }
     });
 
     const classification = classifyRecoveryUrl(window.location.search, window.location.hash);
+    const recoveryEntry = isRecoveryEntryLocation(
+      window.location.pathname,
+      window.location.search,
+      window.location.hash,
+    );
 
-    const cleanUrl = () => {
-      if (classification.hasSensitiveParams) {
-        window.history.replaceState({}, '', RESET_PASSWORD_PATH);
+    const cleanUrl = (valid: boolean) => {
+      if (classification.hasSensitiveParams || valid) {
+        window.history.replaceState({}, '', `/?${RECOVERY_ENTRY_QUERY}`);
       }
     };
 
@@ -60,7 +71,10 @@ const ResetPassword = () => {
       if (classification.kind === 'code' && classification.code) {
         try {
           const { data, error } = await supabase.auth.exchangeCodeForSession(classification.code);
-          if (!error && data?.session) sessionFromCode = true;
+          if (!error && data?.session) {
+            sessionFromCode = true;
+            markRecoveryPending();
+          }
         } catch {
           sessionFromCode = false;
         }
@@ -72,6 +86,9 @@ const ResetPassword = () => {
       for (let attempt = 0; attempt < 6; attempt += 1) {
         const { data } = await supabase.auth.getSession();
         hasSession = Boolean(data.session);
+        if (classification.kind === 'recovery_hash' && hasSession) {
+          markRecoveryPending();
+        }
         if (recoveryEventRef.current || hasSession || sessionFromCode) break;
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
@@ -83,9 +100,12 @@ const ResetPassword = () => {
         sessionFromCode,
         urlKind: classification.kind,
         hasSession,
+        recoveryPending: isRecoveryPending(),
+        recoveryEntry,
       });
 
-      cleanUrl();
+      if (!valid) clearRecoveryPending();
+      cleanUrl(valid);
       setPhase(valid ? 'ready' : 'invalid');
     };
 
@@ -117,6 +137,7 @@ const ResetPassword = () => {
       }
 
       toast.success('Senha alterada com sucesso.');
+      clearRecoveryPending();
 
       // Encerra a sessão temporária de recovery: o usuário deve entrar
       // explicitamente com a nova senha.
@@ -133,6 +154,17 @@ const ResetPassword = () => {
       setIsSaving(false);
     }
   }, [confirmation, isSaving, navigate, password]);
+
+  const leaveRecovery = useCallback(async (target: string) => {
+    clearRecoveryPending();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* sessão pode já ter sido invalidada */
+    }
+    sessionStorage.removeItem('tempSession');
+    navigate(target, { replace: true });
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-start justify-center pt-8 md:pt-16 p-4 relative">
@@ -168,14 +200,14 @@ const ResetPassword = () => {
                 </div>
                 <Button
                   className="w-full"
-                  onClick={() => navigate(`/auth?${RECOVERY_OPEN_QUERY}`, { replace: true })}
+                  onClick={() => void leaveRecovery(`/auth?${RECOVERY_OPEN_QUERY}`)}
                 >
                   Solicitar novo link
                 </Button>
                 <Button
                   variant="ghost"
                   className="w-full"
-                  onClick={() => navigate('/auth', { replace: true })}
+                  onClick={() => void leaveRecovery('/auth')}
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Voltar ao login
@@ -230,7 +262,7 @@ const ResetPassword = () => {
                   type="button"
                   variant="ghost"
                   className="w-full"
-                  onClick={() => navigate('/auth', { replace: true })}
+                  onClick={() => void leaveRecovery('/auth')}
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Voltar ao login
