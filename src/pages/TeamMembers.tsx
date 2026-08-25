@@ -5,22 +5,28 @@ import { useAgency } from '@/contexts/AgencyContext';
 import { useRealtimeFlowConfig, useDebouncedCallback } from '@/hooks/realtime';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Users, Settings2, LayoutGrid, Home, Bell, MousePointerClick, DollarSign } from 'lucide-react';
+import { Loader2, Users, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
-import { HUB_SECTIONS, CLIENT_HUB_BUTTONS } from '@/hooks/useHubPermissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAgencyRole } from '@/hooks/useAgencyRole';
+import { useFinanceAccessScope } from '@/hooks/useFinanceAccessScope';
 import { INVITE_ROLE_OPTIONS, MANAGER_AREA_LABELS, MANAGER_AREA_OPTIONS, type ValidAgencyRole } from '@/lib/constants/roles';
 import { useAuth } from '@/hooks/useAuth';
 import MemberAvatarUpload from '@/components/team/MemberAvatarUpload';
+import {
+  HOME_PERMISSION_ITEMS,
+  buildFinanceUpdate,
+  buildHomePermissionUpserts,
+  canEditPermissions,
+  financeGrantableCapabilities,
+  resolveHomePermissionState,
+  type HomePermissionId,
+} from '@/lib/permissionDelegation';
 
 interface TeamMember {
   id: string;
@@ -31,27 +37,9 @@ interface TeamMember {
   email: string;
 }
 
-
-interface PipelineStatus {
-  id: string;
-  name: string;
-  color: string;
-  position: number;
-}
-
-interface ColumnPermission {
-  status_id: string;
-  can_view: boolean;
-}
-
-interface HubPermission {
-  hub_section: string;
-  can_access: boolean;
-}
-
-interface ClientButtonPermission {
-  hub_section: string;
-  can_access: boolean;
+interface FinanceFlagsState {
+  finance_access: boolean;
+  finance_tools_access: boolean;
 }
 
 export default function TeamMembers() {
@@ -60,28 +48,34 @@ export default function TeamMembers() {
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [columns, setColumns] = useState<PipelineStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [columnPermissions, setColumnPermissions] = useState<ColumnPermission[]>([]);
-  const [hubPermissions, setHubPermissions] = useState<HubPermission[]>([]);
-  const [clientButtonPermissions, setClientButtonPermissions] = useState<ClientButtonPermission[]>([]);
+  const [homePermissions, setHomePermissions] = useState<Record<HomePermissionId, boolean>>(() =>
+    resolveHomePermissionState([]),
+  );
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
   const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
-  const { isSuperAdmin, isAgencyAdmin } = useAgencyRole();
+  const { role: editorRole, isSuperAdmin, isAgencyAdmin } = useAgencyRole();
+  const { scope: editorFinanceScope } = useFinanceAccessScope();
   const canEditRoles = isSuperAdmin || isAgencyAdmin;
-  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'client_buttons' | 'notifications' | 'finance'>('columns');
-  const [lateNotificationEnabled, setLateNotificationEnabled] = useState(false);
+  const canEditPerms = canEditPermissions(editorRole);
+  const financeGrantable = financeGrantableCapabilities(editorRole, editorFinanceScope);
   // Permissões do Financeiro (colunas de `user_roles`).
-  const [financeFullAccess, setFinanceFullAccess] = useState(false);
-  const [financeToolsAccess, setFinanceToolsAccess] = useState(false);
+  const [financeFlags, setFinanceFlags] = useState<FinanceFlagsState>({
+    finance_access: false,
+    finance_tools_access: false,
+  });
+  const [savedFinanceFlags, setSavedFinanceFlags] = useState<FinanceFlagsState>({
+    finance_access: false,
+    finance_tools_access: false,
+  });
 
   useEffect(() => {
     if (!agencyLoading && agencyId) {
       loadMembers();
-      loadColumns();
     }
   }, [agencyId, agencyLoading]);
+
 
   const debouncedReload = useDebouncedCallback(() => {
     if (!agencyId) return;
