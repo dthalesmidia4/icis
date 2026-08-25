@@ -13,6 +13,8 @@
 
 import {
   Competence,
+  chargeDateCompetence,
+  chargeDayFrom,
   competenceFromISO,
   resolveStatementForCharge,
   sameCompetence,
@@ -161,14 +163,16 @@ export function linkedStatementRow(row: MonthRow, statementRows: MonthRow[]): Mo
 
 /** Dia da cobrança de uma linha de cartão: fato do mês > dia do cadastro. */
 export function rowChargeDay(row: MonthRow): number | null {
-  if (row.chargeDate) return Number(row.chargeDate.slice(8, 10));
-  return row.item.charge_day ?? null;
+  return chargeDayFrom(row.chargeDate, row.item.charge_day);
 }
 
 /**
  * Competência da FATURA que receberá esta cobrança, pelo ciclo real do cartão.
  * `null` quando não há prova suficiente (sem ciclo cadastrado ou sem dia de
  * cobrança) — nesse caso nada é afirmado sobre pertença.
+ *
+ * A competência-base é a da PRÓPRIA `charge_date` (data real da cobrança); a
+ * competência exibida na tela é apenas fallback quando não há charge_date.
  */
 export function resolveStatementCompetenceForRow(
   row: MonthRow,
@@ -181,12 +185,13 @@ export function resolveStatementCompetenceForRow(
   if (chargeDay == null) return null;
   const resolved = resolveStatementForCharge({
     chargeDay,
-    competence: competenceFromISO(ctx.competenceMonth),
+    competence: chargeDateCompetence(row.chargeDate, competenceFromISO(ctx.competenceMonth)),
     card: { closingDay: card.statement_closing_day, dueDay: card.statement_due_day },
   });
   if (resolved.incomplete || !resolved.statementCompetence) return null;
   return resolved.statementCompetence;
 }
+
 
 
 /**
@@ -260,11 +265,32 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
     if (cycleStatement && ctx.competenceMonth && !sameCompetence(cycleStatement, competenceFromISO(ctx.competenceMonth))) {
       return {
         kind: "card_in_statement",
-        label: `Na fatura de ${monthFullLabel(cycleStatement)}`,
+        label: `${row.projected ? "Prevista na" : "Na"} fatura de ${monthFullLabel(cycleStatement)}`,
         tone: "neutral",
         direct: false,
         canPayDirectly: false,
       };
+    }
+
+    /**
+     * A cobrança pertence, PELO CICLO, à fatura da competência exibida. Se essa
+     * fatura existe e está em aberto, informe o estado dela (a pagar / vence
+     * hoje / atrasada). Apresentação apenas: nada é persistido.
+     */
+    if (cycleStatement && ctx.competenceMonth && sameCompetence(cycleStatement, competenceFromISO(ctx.competenceMonth))) {
+      const own = statementRows.find((s) => s.item.id === row.cardItemId) ?? null;
+      if (own && !own.paid) {
+        if (own.dueDate && own.dueDate < today) {
+          return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: false, canPayDirectly: false };
+        }
+        return {
+          kind: "card_in_statement",
+          label: own.dueDate === today ? "Fatura vence hoje" : "Fatura a pagar",
+          tone: own.dueDate === today ? "warning" : "neutral",
+          direct: false,
+          canPayDirectly: false,
+        };
+      }
     }
 
     /**
