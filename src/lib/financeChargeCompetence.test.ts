@@ -172,7 +172,8 @@ describe("competência da cobrança = charge_date (não competence_month)", () =
       statementOcc(true),
     ];
     const statements = buildStatementGroups({ items: [card, avisa], occurrences, competence: AUG });
-    expect(statements[0].components.some((c) => c.item.id === "avisa")).toBe(false);
+    // O fato de agosto (cobrança 20/AGO) pertence à fatura de SETEMBRO.
+    expect(statements[0].components.some((c) => c.occurrence?.id === "occ-late")).toBe(false);
     const rows = buildMonthRows({ items: [card, avisa], occurrences, competence: AUG });
     const settlement = buildStatementSettlementIndex(statements);
     expect(effectivePaid(rows.find((r) => r.item.id === "avisa")!, rows, settlement)).toBe(false);
