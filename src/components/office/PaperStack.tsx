@@ -46,14 +46,17 @@ export const PaperStack = memo(function PaperStack({
           className="flex flex-col items-center gap-[2px] rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {empty ? (
-            <span className="h-[3px] w-[30px] rounded-[2px] border border-dashed border-foreground/25" />
+            <span
+              className="rounded-[2px] border border-dashed border-foreground/25"
+              style={{ height: "3px", width: `${sheetWidth}px` }}
+            />
           ) : (
             <span className="flex flex-col-reverse gap-[1px]">
               {Array.from({ length: sheets }).map((_, i) => (
                 <span
                   key={i}
-                  className="block h-[3px] w-[30px] rounded-[2px] border border-border bg-card shadow-[0_1px_1px_-1px_hsl(var(--foreground)/0.5)]"
-                  style={{ marginLeft: i % 2 === 0 ? 0 : 1 }}
+                  className="block h-[3px] rounded-[2px] border border-border bg-card shadow-[0_1px_1px_-1px_hsl(var(--foreground)/0.5)]"
+                  style={{ width: `${sheetWidth}px`, marginLeft: i % 2 === 0 ? 0 : 1 }}
                 />
               ))}
             </span>
