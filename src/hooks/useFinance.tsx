@@ -25,15 +25,18 @@ import {
   computeTotals,
   detectPackageOverlaps,
 } from "@/lib/financeModel";
+import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
 import {
   FINANCE_ITEM_METADATA_COLUMNS,
   FINANCE_OCCURRENCE_METADATA_COLUMNS,
+  FinanceSecureReadError,
   fetchSecureItemValues,
   fetchSecureOccurrenceValues,
   fetchSecureTenantValues,
   mergeItemValues,
   mergeOccurrenceValues,
 } from "@/lib/financeSecureData";
+
 
 export interface FinanceSettings {
   monthlyBudgetBrl: number | null;
@@ -71,6 +74,11 @@ export function useFinance(competence: Competence) {
     defaultUsdRate: null,
   });
   const [loading, setLoading] = useState(true);
+  /**
+   * Pós-cutover não existe fallback plaintext: se a leitura segura falhar, a
+   * tela precisa mostrar erro em vez de totais zerados.
+   */
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const normalized = normalizeCompetence(competence);
 
@@ -82,43 +90,67 @@ export function useFinance(competence: Competence) {
     const prev = normalizeCompetence({ year: normalized.year, month: normalized.month - 1 });
     const next = normalizeCompetence({ year: normalized.year, month: normalized.month + 1 });
 
-    const [itemsRes, occRes, itemValues, occValues, tenantValues] = await Promise.all([
-      supabase
-        .from("finance_items")
-        .select(FINANCE_ITEM_METADATA_COLUMNS)
-        .eq("tenant_id", agencyId)
-        .order("name", { ascending: true }),
-      supabase
-        .from("finance_occurrences")
-        .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
-        .eq("tenant_id", agencyId)
-        .in("competence_month", [
-          competenceToISO(prev),
-          competenceToISO(normalized),
-          competenceToISO(next),
-        ]),
-      fetchSecureItemValues(agencyId),
-      fetchSecureOccurrenceValues(agencyId, competenceToISO(prev), competenceToISO(next)),
-      fetchSecureTenantValues(agencyId),
-    ]);
+    try {
+      const [itemsRes, occRes, itemValues, occValues, tenantValues] = await Promise.all([
+        supabase
+          .from("finance_items")
+          .select(FINANCE_ITEM_METADATA_COLUMNS)
+          .eq("tenant_id", agencyId)
+          .order("name", { ascending: true }),
+        supabase
+          .from("finance_occurrences")
+          .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
+          .eq("tenant_id", agencyId)
+          .in("competence_month", [
+            competenceToISO(prev),
+            competenceToISO(normalized),
+            competenceToISO(next),
+          ]),
+        fetchSecureItemValues(agencyId),
+        fetchSecureOccurrenceValues(agencyId, competenceToISO(prev), competenceToISO(next)),
+        fetchSecureTenantValues(agencyId),
+      ]);
 
-    if (itemsRes.error) toast.error("Erro ao carregar cadastros financeiros");
-    if (occRes.error) toast.error("Erro ao carregar movimentação do mês");
+      if (itemsRes.error || occRes.error) {
+        const message = itemsRes.error
+          ? "Erro ao carregar cadastros financeiros"
+          : "Erro ao carregar movimentação do mês";
+        toast.error(message);
+        setItems([]);
+        setOccurrences([]);
+        setLoadError(message);
+        return;
+      }
 
-    setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
-    setOccurrences(
-      mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
-    );
-    setSettings({
-      monthlyBudgetBrl: tenantValues?.monthlyBudgetBrl ?? null,
-      defaultUsdRate: tenantValues?.defaultUsdRate ?? null,
-    });
-    setLoading(false);
+      setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
+      setOccurrences(
+        mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
+      );
+      setSettings({
+        monthlyBudgetBrl: tenantValues.monthlyBudgetBrl,
+        defaultUsdRate: tenantValues.defaultUsdRate,
+      });
+      setLoadError(null);
+    } catch (err) {
+      const message =
+        err instanceof FinanceSecureReadError
+          ? "Não foi possível carregar os valores financeiros com segurança. Tente novamente."
+          : "Não foi possível carregar o Financeiro. Tente novamente.";
+      toast.error(message);
+      // Nunca deixar dados parciais no ar: zeros virariam “informação”.
+      setItems([]);
+      setOccurrences([]);
+      setSettings({ monthlyBudgetBrl: null, defaultUsdRate: null });
+      setLoadError(message);
+    } finally {
+      setLoading(false);
+    }
   }, [agencyId, normalized.year, normalized.month]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
 
   // Realtime: qualquer mudança de cadastro ou ocorrência reflete na hora.
   useEffect(() => {
@@ -252,11 +284,11 @@ export function useFinance(competence: Competence) {
   const saveSettings = useCallback(
     async (next: FinanceSettings) => {
       if (!agencyId) return false;
-      const { error } = await supabase.rpc("set_finance_settings", {
-        _tenant_id: agencyId,
-        _monthly_budget_brl: next.monthlyBudgetBrl ?? 0,
-        _default_usd_rate: next.defaultUsdRate ?? 0,
-      } as any);
+      const { error } = await supabase.rpc(
+        "set_finance_settings",
+        financeSettingsRpcPayload(agencyId, next) as any,
+      );
+
       if (error) {
         toast.error("Não foi possível salvar as configurações");
         return false;
@@ -304,6 +336,8 @@ export function useFinance(competence: Competence) {
 
   return {
     loading,
+    loadError,
+
     items,
     occurrences,
     rows,

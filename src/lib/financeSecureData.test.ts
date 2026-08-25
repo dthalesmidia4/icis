@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  FINANCE_ITEM_METADATA_COLUMNS,
+  FINANCE_OCCURRENCE_METADATA_COLUMNS,
+  FinanceSecureReadError,
   mergeItemValues,
   mergeOccurrenceValues,
   type SecureItemValues,
@@ -37,14 +40,40 @@ describe("financeSecureData — merge dos valores da camada segura", () => {
     expect(mergeItemValues(items, values)[0].default_amount_brl).toBe(439.77);
   });
 
-  it("sem mapa (RPC indisponível) devolve os itens intactos — fallback de transição", () => {
+  it("pós-cutover: item ausente do mapa NÃO conserva valor vindo da metadata", () => {
     const items = [item({ id: "a", name: "Adobe", default_amount_brl: 189 })];
-    expect(mergeItemValues(items, null)[0].default_amount_brl).toBe(189);
+    const merged = mergeItemValues(items, new Map())[0];
+    expect(merged.default_amount_brl).toBeNull();
+    expect(merged.name).toBe("Adobe");
   });
 
-  it("item ausente do mapa (escopo tools) não é alterado", () => {
+  it("item fora do escopo (tools) tem limite zerado, nunca herdado", () => {
     const items = [item({ id: "card1", name: "Cartão", kind: "card", card_limit_brl: 5000 })];
-    expect(mergeItemValues(items, new Map())[0].card_limit_brl).toBe(5000);
+    expect(mergeItemValues(items, new Map())[0].card_limit_brl).toBeNull();
+  });
+
+  it("ocorrência ausente do mapa não conserva valor monetário da metadata", () => {
+    const occ = [
+      { id: "o1", item_id: "a", competence_month: "2026-08-01", currency: "BRL", amount_brl: 99 } as FinanceOccurrence,
+    ];
+    expect(mergeOccurrenceValues(occ, new Map())[0].amount_brl).toBeNull();
+  });
+
+  it("constantes de metadata não expõem colunas cifradas nem plaintext monetário", () => {
+    const all = `${FINANCE_ITEM_METADATA_COLUMNS},${FINANCE_OCCURRENCE_METADATA_COLUMNS}`.split(",");
+    expect(all.filter((c) => c.endsWith("_enc"))).toEqual([]);
+    for (const forbidden of [
+      "default_amount_original",
+      "default_exchange_rate",
+      "default_amount_brl",
+      "card_limit_brl",
+      "amount_original",
+      "exchange_rate",
+      "amount_brl",
+      "paid_amount_brl",
+    ]) {
+      expect(all).not.toContain(forbidden);
+    }
   });
 
   it("aplica os valores nas ocorrências", () => {
@@ -74,5 +103,14 @@ describe("financeSecureData — merge dos valores da camada segura", () => {
     );
     const rows = buildMonthRows({ items, occurrences: [], competence: COMPETENCE });
     expect(computeTotals(rows).expected).toBe(2356.79);
+  });
+});
+
+describe("FinanceSecureReadError — fail-closed pós-cutover", () => {
+  it("carrega código estável para a UI reagir sem inventar zeros", () => {
+    const err = new FinanceSecureReadError("finance_read_item_values");
+    expect(err).toBeInstanceOf(Error);
+    expect(err.code).toBe("FINANCE_SECURE_READ_FAILED");
+    expect(err.source).toBe("finance_read_item_values");
   });
 });

@@ -1,19 +1,34 @@
 /**
  * Camada de leitura segura dos valores financeiros.
  *
- * Os números sensíveis (valores, câmbio, limites, orçamento) são armazenados
- * cifrados no banco. O frontend NUNCA vê ciphertext nem chave: os valores
- * chegam claros apenas pelas RPCs SECURITY DEFINER, que checam
+ * Os números sensíveis (valores, câmbio, limites, orçamento) existem no banco
+ * SOMENTE cifrados. O frontend NUNCA vê ciphertext nem chave: os valores
+ * chegam claros exclusivamente pelas RPCs SECURITY DEFINER, que checam
  * `has_finance_access` / `has_finance_tools_access` antes de descriptografar.
  *
  * A metadata não sensível (nome, tipo, datas, recorrência) continua vindo das
  * tabelas via RLS. Este módulo só ENRIQUECE essa metadata com os números.
  *
- * Fase de transição: se a RPC não existir no ambiente (dev/local antigo), o
- * helper devolve `null` e o chamador mantém os campos que vieram da tabela.
+ * Pós-cutover: a RPC segura é OBRIGATÓRIA. Não existe fallback para plaintext.
+ * Se a RPC falhar, os helpers lançam `FinanceSecureReadError` — o chamador deve
+ * mostrar erro e oferecer nova tentativa, nunca exibir zeros como se fossem
+ * dados válidos.
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { FinanceItem, FinanceOccurrence } from "@/lib/financeModel";
+
+/** Falha na leitura segura: nunca deve ser convertida em zeros na UI. */
+export class FinanceSecureReadError extends Error {
+  code = "FINANCE_SECURE_READ_FAILED" as const;
+  constructor(
+    public readonly source: string,
+    cause?: unknown,
+  ) {
+    super(`Falha na leitura segura dos valores financeiros (${source})`);
+    this.name = "FinanceSecureReadError";
+    (this as any).cause = cause;
+  }
+}
 
 export interface SecureItemValues {
   default_amount_original: number | null;
@@ -36,6 +51,7 @@ export interface SecureTenantValues {
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === "" ? null : Number(v);
+
 
 /* --------------------------- Colunas de metadata --------------------------- */
 
@@ -103,41 +119,38 @@ export const FINANCE_OCCURRENCE_METADATA_COLUMNS = [
 /* ------------------------------- Merges puros ------------------------------ */
 
 /**
- * Aplica os valores seguros sobre os itens. Sem mapa (RPC indisponível na fase
- * de transição), os itens são devolvidos intactos.
+ * Aplica os valores seguros sobre os itens. O mapa é OBRIGATÓRIO: a metadata
+ * não carrega valores monetários, então item ausente do mapa tem os campos
+ * monetários explicitamente zerados para `null` (nunca herda plaintext).
  */
 export function mergeItemValues(
   items: FinanceItem[],
-  values: Map<string, SecureItemValues> | null,
+  values: Map<string, SecureItemValues>,
 ): FinanceItem[] {
-  if (!values) return items;
   return items.map((item) => {
     const v = values.get(item.id);
-    if (!v) return item;
     return {
       ...item,
-      default_amount_original: v.default_amount_original,
-      default_exchange_rate: v.default_exchange_rate,
-      default_amount_brl: v.default_amount_brl,
-      card_limit_brl: v.card_limit_brl,
+      default_amount_original: v ? v.default_amount_original : null,
+      default_exchange_rate: v ? v.default_exchange_rate : null,
+      default_amount_brl: v ? v.default_amount_brl : null,
+      card_limit_brl: v ? v.card_limit_brl : null,
     };
   });
 }
 
 export function mergeOccurrenceValues(
   occurrences: FinanceOccurrence[],
-  values: Map<string, SecureOccurrenceValues> | null,
+  values: Map<string, SecureOccurrenceValues>,
 ): FinanceOccurrence[] {
-  if (!values) return occurrences;
   return occurrences.map((occ) => {
     const v = values.get(occ.id);
-    if (!v) return occ;
     return {
       ...occ,
-      amount_original: v.amount_original,
-      exchange_rate: v.exchange_rate,
-      amount_brl: v.amount_brl,
-      paid_amount_brl: v.paid_amount_brl,
+      amount_original: v ? v.amount_original : null,
+      exchange_rate: v ? v.exchange_rate : null,
+      amount_brl: v ? v.amount_brl : null,
+      paid_amount_brl: v ? v.paid_amount_brl : null,
     };
   });
 }
@@ -146,11 +159,12 @@ export function mergeOccurrenceValues(
 
 export async function fetchSecureItemValues(
   tenantId: string,
-): Promise<Map<string, SecureItemValues> | null> {
+): Promise<Map<string, SecureItemValues>> {
   const { data, error } = await (supabase as any).rpc("finance_read_item_values", {
     _tenant_id: tenantId,
   });
-  if (error || !Array.isArray(data)) return null;
+  if (error) throw new FinanceSecureReadError("finance_read_item_values", error);
+  if (!Array.isArray(data)) throw new FinanceSecureReadError("finance_read_item_values");
   const map = new Map<string, SecureItemValues>();
   for (const row of data as any[]) {
     map.set(row.id, {
@@ -167,13 +181,14 @@ export async function fetchSecureOccurrenceValues(
   tenantId: string,
   from?: string | null,
   to?: string | null,
-): Promise<Map<string, SecureOccurrenceValues> | null> {
+): Promise<Map<string, SecureOccurrenceValues>> {
   const { data, error } = await (supabase as any).rpc("finance_read_occurrence_values", {
     _tenant_id: tenantId,
     _from: from ?? null,
     _to: to ?? null,
   });
-  if (error || !Array.isArray(data)) return null;
+  if (error) throw new FinanceSecureReadError("finance_read_occurrence_values", error);
+  if (!Array.isArray(data)) throw new FinanceSecureReadError("finance_read_occurrence_values");
   const map = new Map<string, SecureOccurrenceValues>();
   for (const row of data as any[]) {
     map.set(row.id, {
@@ -187,13 +202,11 @@ export async function fetchSecureOccurrenceValues(
 }
 
 /** Orçamento e câmbio padrão — somente escopo `full`. */
-export async function fetchSecureTenantValues(
-  tenantId: string,
-): Promise<SecureTenantValues | null> {
+export async function fetchSecureTenantValues(tenantId: string): Promise<SecureTenantValues> {
   const { data, error } = await (supabase as any).rpc("finance_read_tenant_values", {
     _tenant_id: tenantId,
   });
-  if (error) return null;
+  if (error) throw new FinanceSecureReadError("finance_read_tenant_values", error);
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return { monthlyBudgetBrl: null, defaultUsdRate: null };
   return {
@@ -201,3 +214,4 @@ export async function fetchSecureTenantValues(
     defaultUsdRate: num(row.finance_default_usd_rate),
   };
 }
+

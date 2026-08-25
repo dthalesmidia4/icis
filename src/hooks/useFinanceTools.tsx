@@ -23,6 +23,7 @@ import { SafeCard } from "@/lib/financeSubscriptionMonth";
 import {
   FINANCE_ITEM_METADATA_COLUMNS,
   FINANCE_OCCURRENCE_METADATA_COLUMNS,
+  FinanceSecureReadError,
   fetchSecureItemValues,
   fetchSecureOccurrenceValues,
   mergeItemValues,
@@ -36,6 +37,8 @@ export function useFinanceTools(competence: Competence) {
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
   const [cards, setCards] = useState<SafeCard[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Pós-cutover: falha na leitura segura não pode virar total zerado. */
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const normalized = normalizeCompetence(competence);
 
@@ -44,32 +47,53 @@ export function useFinanceTools(competence: Competence) {
     setLoading(true);
 
     const monthISO = competenceToISO(normalized);
-    const [itemsRes, occRes, cardsRes, itemValues, occValues] = await Promise.all([
-      supabase
-        .from("finance_items")
-        .select(FINANCE_ITEM_METADATA_COLUMNS)
-        .eq("tenant_id", agencyId)
-        .in("kind", ["tool", "package", "included_resource"])
-        .order("name", { ascending: true }),
-      supabase
-        .from("finance_occurrences")
-        .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
-        .eq("tenant_id", agencyId)
-        .eq("competence_month", monthISO),
-      supabase.rpc("list_finance_safe_cards", { _tenant_id: agencyId }),
-      fetchSecureItemValues(agencyId),
-      fetchSecureOccurrenceValues(agencyId, monthISO, monthISO),
-    ]);
+    try {
+      const [itemsRes, occRes, cardsRes, itemValues, occValues] = await Promise.all([
+        supabase
+          .from("finance_items")
+          .select(FINANCE_ITEM_METADATA_COLUMNS)
+          .eq("tenant_id", agencyId)
+          .in("kind", ["tool", "package", "included_resource"])
+          .order("name", { ascending: true }),
+        supabase
+          .from("finance_occurrences")
+          .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
+          .eq("tenant_id", agencyId)
+          .eq("competence_month", monthISO),
+        supabase.rpc("list_finance_safe_cards", { _tenant_id: agencyId }),
+        fetchSecureItemValues(agencyId),
+        fetchSecureOccurrenceValues(agencyId, monthISO, monthISO),
+      ]);
 
-    if (itemsRes.error) toast.error("Erro ao carregar assinaturas e ferramentas");
-    if (occRes.error) toast.error("Erro ao carregar movimentação do mês");
+      if (itemsRes.error || occRes.error) {
+        const message = itemsRes.error
+          ? "Erro ao carregar assinaturas e ferramentas"
+          : "Erro ao carregar movimentação do mês";
+        toast.error(message);
+        setItems([]);
+        setOccurrences([]);
+        setLoadError(message);
+        return;
+      }
 
-    setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
-    setOccurrences(
-      mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
-    );
-    setCards(((cardsRes.data as any[]) ?? []) as SafeCard[]);
-    setLoading(false);
+      setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
+      setOccurrences(
+        mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
+      );
+      setCards(((cardsRes.data as any[]) ?? []) as SafeCard[]);
+      setLoadError(null);
+    } catch (err) {
+      const message =
+        err instanceof FinanceSecureReadError
+          ? "Não foi possível carregar os valores financeiros com segurança. Tente novamente."
+          : "Não foi possível carregar assinaturas e ferramentas. Tente novamente.";
+      toast.error(message);
+      setItems([]);
+      setOccurrences([]);
+      setLoadError(message);
+    } finally {
+      setLoading(false);
+    }
   }, [agencyId, normalized.year, normalized.month]);
 
   useEffect(() => {
@@ -196,6 +220,7 @@ export function useFinanceTools(competence: Competence) {
 
   return {
     loading,
+    loadError,
     items,
     occurrences,
     rows,
