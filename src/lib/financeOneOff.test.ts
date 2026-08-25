@@ -8,13 +8,12 @@
  * - fatura com valor real não aceita pagamento parcial;
  * - os 3 KPIs da abertura do Financeiro começam ocultos e têm um único olho.
  */
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { describe, expect, it } from "vitest";
 import { FinanceItem } from "./financeModel";
 import {
   OneOffFact,
-  buildOneOffOccurrenceInsert,
-  createItemWithOneOff,
+  buildOneOffRpcArgs,
   oneOffOnCard,
   shouldMaterializeOneOff,
 } from "./financeOneOff";
@@ -75,76 +74,110 @@ describe("gasto avulso vira fato do mês", () => {
     ).toBe(false);
   });
 
+  const args = (f: OneOffFact) =>
+    buildOneOffRpcArgs({ tenantId: TENANT, payload: { kind: "expense", name: "Cartório" }, fact: f });
+
   it("avulso direto (Pix) entra como vencimento em Pagamentos diretos, sem cartão", () => {
-    const insert = buildOneOffOccurrenceInsert({ tenantId: TENANT, itemId: "item-1", fact: fact() });
-    expect(insert.due_date).toBe("2026-08-14");
-    expect(insert.charge_date).toBeNull();
-    expect(insert.card_item_id_snapshot).toBeNull();
-    expect(insert.payment_method_snapshot).toBe("Pix");
-    expect(insert.competence_month).toBe("2026-08-01");
-    expect(insert.amount_brl).toBe(250);
+    const a = args(fact());
+    expect(a._date).toBe("2026-08-14");
+    expect(a._card_item_id).toBeNull();
+    expect(a._payment_method).toBe("Pix");
+    expect(a._competence_month).toBe("2026-08-01");
+    expect(a._amount_brl).toBe(250);
   });
 
-  it("avulso no cartão entra como COBRANÇA da fatura (quem vence é a fatura)", () => {
+  it("avulso no cartão manda o cartão (a RPC grava COBRANÇA, não vencimento)", () => {
     const onCard = fact({ paymentMethod: "Cartão de Crédito", cardItemId: "card-1" });
     expect(oneOffOnCard(onCard)).toBe(true);
-    const insert = buildOneOffOccurrenceInsert({ tenantId: TENANT, itemId: "item-1", fact: onCard });
-    expect(insert.charge_date).toBe("2026-08-14");
-    expect(insert.due_date).toBeNull();
-    expect(insert.card_item_id_snapshot).toBe("card-1");
+    expect(args(onCard)._card_item_id).toBe("card-1");
   });
 
-  it("nunca nasce pago", () => {
-    const insert = buildOneOffOccurrenceInsert({ tenantId: TENANT, itemId: "item-1", fact: fact() });
-    expect(insert.paid_at).toBeNull();
-    expect(insert.paid_amount_brl).toBeNull();
+  it("o cliente nunca envia valores cifrados nem estado de pagamento", () => {
+    const keys = Object.keys(args(fact()));
+    expect(keys.some((k) => k.includes("_enc"))).toBe(false);
+    expect(keys).not.toContain("_paid_at");
+    expect(keys).not.toContain("_paid_amount_brl");
+  });
+});
+
+describe("RPC transacional create_finance_one_off", () => {
+  const dir = "supabase/migrations";
+  /** Última definição da função no repositório (a que espelha produção). */
+  const sql = (() => {
+    let last = "";
+    for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
+      const content = readFileSync(`${dir}/${f}`, "utf8");
+      const marker = "CREATE OR REPLACE FUNCTION public.create_finance_one_off";
+      if (content.includes(marker)) last = content.slice(content.indexOf(marker));
+    }
+    return last;
+  })();
+  const body = sql.slice(0, sql.search(/REVOKE|GRANT/) === -1 ? sql.length : sql.search(/REVOKE|GRANT/));
+  /** Corpo sem comentários: guardas de escrita não devem casar com documentação. */
+  const code = body.replace(/--[^\n]*/g, "");
+
+  it("existe no repositório", () => {
+    expect(sql).not.toBe("");
   });
 
-  it("cria item + ocorrência na mesma operação", async () => {
-    const calls: string[] = [];
-    const result = await createItemWithOneOff({
-      insertItem: async () => {
-        calls.push("item");
-        return { id: "item-9", error: null };
-      },
-      insertOccurrence: async (id) => {
-        calls.push(`occ:${id}`);
-        return { error: null };
-      },
-      deleteItem: async () => {
-        calls.push("delete");
-      },
-
-    });
-    expect(result).toEqual({ ok: true, rolledBack: false });
-    expect(calls).toEqual(["item", "occ:item-9"]);
+  it("faz os DOIS inserts na mesma função e não tem DELETE compensatório", () => {
+    expect(body).toMatch(/INSERT INTO public\.finance_items/);
+    expect(body).toMatch(/INSERT INTO public\.finance_occurrences/);
+    expect(code).not.toMatch(/\bDELETE\b/i);
+    expect(code).not.toMatch(/\bUPDATE\b/i);
+    // Qualquer validação que falha aborta a transação inteira.
+    expect((body.match(/RAISE EXCEPTION/g) ?? []).length).toBeGreaterThanOrEqual(8);
   });
 
-  it("ocorrência falha => cadastro é desfeito (nunca item órfão)", async () => {
-    const deleted: string[] = [];
-    const result = await createItemWithOneOff({
-      insertItem: async () => ({ id: "item-9", error: null }),
-      insertOccurrence: async () => ({ error: new Error("boom") }),
-      deleteItem: async (id) => {
-        deleted.push(id);
-      },
-    });
-    expect(result).toEqual({ ok: false, rolledBack: true });
-    expect(deleted).toEqual(["item-9"]);
+  it("valida autenticação, tenant e escopo (bloqueia none)", () => {
+    expect(body).toMatch(/auth\.uid\(\) IS NULL/);
+    expect(body).toContain("public.user_has_tenant_access(auth.uid(), _tenant_id)");
+    expect(body).toContain("public.finance_access_scope(_tenant_id)");
+    expect(body.replace(/\s+/g, " ")).toMatch(/v_scope IS NULL OR v_scope = 'none'/);
   });
 
-  it("falha no cadastro não tenta criar ocorrência", async () => {
-    let occCalled = false;
-    const result = await createItemWithOneOff({
-      insertItem: async () => ({ id: null, error: new Error("boom") }),
-      insertOccurrence: async () => {
-        occCalled = true;
-        return { error: null };
-      },
-      deleteItem: async () => {},
-    });
-    expect(result).toEqual({ ok: false, rolledBack: false });
-    expect(occCalled).toBe(false);
+  it("tools só cria tool/package e nunca administrativo", () => {
+    const scoped = body.slice(body.indexOf("IF v_scope = 'tools'"));
+    expect(scoped).toMatch(/_kind NOT IN \('tool', 'package'\)/);
+    expect(scoped).toMatch(/_cost_center = 'administrativo'/);
+  });
+
+  it("full permite expense/tool/package e nunca card/included_resource", () => {
+    expect(body).toMatch(/_kind NOT IN \('expense', 'tool', 'package'\)/);
+    expect(body).not.toMatch(/'included_resource'/);
+    expect(body).not.toMatch(/_kind = 'card'/);
+  });
+
+  it("cartão de destino precisa ser do mesmo tenant e kind card", () => {
+    expect(body.replace(/\s+/g, " ")).toContain(
+      "v_card_tenant <> _tenant_id OR v_card_kind <> 'card'",
+    );
+  });
+
+  it("grava o fato sem pagamento e com snapshot da forma de pagamento", () => {
+    expect(body).toMatch(/payment_method_snapshot, card_item_id_snapshot/);
+    expect(body).toMatch(/paid_at, paid_amount_brl/);
+    expect(body).toMatch(/recurrence_type/);
+    expect(body).toMatch(/'one_off'/);
+  });
+
+  it("é SECURITY DEFINER com search_path vazio e não escreve colunas _enc", () => {
+    expect(body).toContain("SECURITY DEFINER");
+    expect(body).toMatch(/SET search_path TO ''/);
+    expect(code).not.toMatch(/_enc\b/);
+  });
+
+  it("não devolve valores financeiros, apenas item_id", () => {
+    expect(body.replace(/\s+/g, " ")).toContain("jsonb_build_object('ok', true, 'item_id', v_item_id)");
+    expect(body).not.toMatch(/RETURN.*amount/i);
+  });
+
+  it("revoga PUBLIC/anon e concede EXECUTE apenas a authenticated", () => {
+    const grants = sql.slice(body.length);
+    expect(grants).toMatch(/REVOKE ALL ON FUNCTION public\.create_finance_one_off[^;]*FROM PUBLIC/);
+    expect(grants).toMatch(/REVOKE ALL ON FUNCTION public\.create_finance_one_off[^;]*FROM anon/);
+    expect(grants).toMatch(/TO authenticated/);
+    expect(grants).not.toMatch(/GRANT EXECUTE[^;]*TO (anon|PUBLIC)/);
   });
 });
 
@@ -207,12 +240,22 @@ describe("fluxo de criação nas telas", () => {
     expect(src).toMatch(/competence=\{competence\}/);
   });
 
-  it("hooks materializam o avulso junto do cadastro", () => {
+  it("hooks criam o avulso APENAS pela RPC transacional, sem rollback no cliente", () => {
     for (const file of ["src/hooks/useFinance.tsx", "src/hooks/useFinanceTools.tsx"]) {
       const src = readFileSync(file, "utf8");
-      expect(src).toMatch(/createItemWithOneOff/);
-      expect(src).toMatch(/buildOneOffOccurrenceInsert/);
+      expect(src).toMatch(/supabase\.rpc\(\s*"create_finance_one_off"/);
+      expect(src).toMatch(/buildOneOffRpcArgs/);
+      // Nenhum DELETE compensatório: a atomicidade é do Postgres.
+      expect(src).not.toMatch(/createItemWithOneOff/);
+      expect(src).not.toMatch(/from\("finance_items"\)\.delete\(\)/);
     }
+  });
+
+  it("o fluxo client-side de insert+delete foi removido do código", () => {
+    const lib = readFileSync("src/lib/financeOneOff.ts", "utf8");
+    expect(lib).not.toMatch(/createItemWithOneOff/);
+    expect(lib).not.toMatch(/deleteItem/);
+    expect(lib).not.toMatch(/buildOneOffOccurrenceInsert/);
   });
 
   it("pagar fatura não promete mais liquidar componentes no banco", () => {

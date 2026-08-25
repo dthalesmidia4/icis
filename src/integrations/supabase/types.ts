@@ -3219,6 +3219,29 @@ export type Database = {
         }
         Returns: Json
       }
+      create_finance_one_off: {
+        Args: {
+          _amount_brl?: number
+          _amount_mode?: string
+          _amount_original?: number
+          _card_item_id?: string
+          _category?: string
+          _competence_month: string
+          _cost_center: string
+          _currency: string
+          _date?: string
+          _exchange_rate?: number
+          _kind: string
+          _link?: string
+          _name: string
+          _notes?: string
+          _parent_item_id?: string
+          _payment_method?: string
+          _purpose?: string
+          _tenant_id: string
+        }
+        Returns: Json
+      }
       create_manual_demand_atomic: { Args: { p_payload: Json }; Returns: Json }
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
       finance_access_scope: { Args: { _tenant_id: string }; Returns: string }

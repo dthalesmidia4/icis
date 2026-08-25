@@ -51,66 +51,42 @@ export function oneOffOnCard(fact: OneOffFact): boolean {
 }
 
 /**
- * Linha de `finance_occurrences` do avulso.
+ * Argumentos da RPC transacional `create_finance_one_off`.
  *
- * No cartão a data é COBRANÇA (quem vence é a fatura); fora do cartão a data é
- * VENCIMENTO. O snapshot de forma de pagamento é gravado para o mês nunca ser
- * reescrito por uma mudança futura no cadastro. Nunca marca como pago.
+ * ATOMICIDADE REAL: cadastro e fato do mês nascem na MESMA transação Postgres.
+ * Não existe mais insert+insert com DELETE compensatório no cliente — no escopo
+ * `tools` o DELETE em `finance_items` é restrito, então o rollback client-side
+ * podia falhar e deixar item órfão (avulso invisível no mês, mentindo nos KPIs).
+ *
+ * No cartão a data é COBRANÇA (quem vence é a fatura); fora do cartão é
+ * VENCIMENTO. Valores vão em plaintext: os BEFORE triggers cifram e nulificam o
+ * plaintext em repouso — o cliente NUNCA escreve colunas `_enc`.
  */
-export function buildOneOffOccurrenceInsert(params: {
+export function buildOneOffRpcArgs(params: {
   tenantId: string;
-  itemId: string;
+  payload: Partial<FinanceItem>;
   fact: OneOffFact;
-  createdBy?: string | null;
 }): Record<string, unknown> {
-  const { tenantId, itemId, fact } = params;
+  const { tenantId, payload, fact } = params;
   const onCard = oneOffOnCard(fact);
   return {
-    tenant_id: tenantId,
-    item_id: itemId,
-    competence_month: fact.competenceMonth,
-    charge_date: onCard ? fact.date : null,
-    due_date: onCard ? null : fact.date,
-    currency: fact.currency,
-    amount_original: fact.amountOriginal,
-    exchange_rate: fact.exchangeRate,
-    amount_brl: fact.amountBrl,
-    payment_method_snapshot: fact.paymentMethod,
-    card_item_id_snapshot: onCard ? fact.cardItemId : null,
-    paid_at: null,
-    paid_amount_brl: null,
-    created_by: params.createdBy ?? null,
+    _tenant_id: tenantId,
+    _kind: payload.kind ?? null,
+    _name: payload.name ?? null,
+    _cost_center: payload.cost_center ?? null,
+    _currency: fact.currency,
+    _competence_month: fact.competenceMonth,
+    _payment_method: fact.paymentMethod,
+    _card_item_id: onCard ? fact.cardItemId : null,
+    _date: fact.date,
+    _amount_mode: payload.amount_mode ?? "fixed",
+    _amount_original: fact.amountOriginal,
+    _exchange_rate: fact.exchangeRate,
+    _amount_brl: fact.amountBrl,
+    _purpose: payload.purpose ?? null,
+    _category: payload.category ?? null,
+    _link: payload.link ?? null,
+    _notes: payload.notes ?? null,
+    _parent_item_id: payload.parent_item_id ?? null,
   };
-}
-
-export interface OneOffCreateResult {
-  ok: boolean;
-  /** `true` quando o cadastro foi desfeito porque o fato do mês falhou. */
-  rolledBack: boolean;
-}
-
-/**
- * Criação atômica do par cadastro + fato.
- *
- * Se a ocorrência falhar, o cadastro é REMOVIDO: nunca deixamos item órfão
- * (um avulso sem ocorrência é invisível no mês e mentiria nos KPIs).
- */
-export async function createItemWithOneOff(deps: {
-  insertItem: () => Promise<{ id: string | null; error: unknown }>;
-  insertOccurrence: (itemId: string) => Promise<{ error: unknown }>;
-  deleteItem: (itemId: string) => Promise<void>;
-}): Promise<OneOffCreateResult> {
-  const created = await deps.insertItem();
-  if (created.error || !created.id) return { ok: false, rolledBack: false };
-
-  const occ = await deps.insertOccurrence(created.id);
-  if (occ.error) {
-    try {
-      await deps.deleteItem(created.id);
-    } catch {
-      // Falha ao desfazer não muda o resultado: a operação não foi concluída.
-    }
-    return { ok: false, rolledBack: true };
-  }
-  return { ok: true, rolledBack: false };
 }
