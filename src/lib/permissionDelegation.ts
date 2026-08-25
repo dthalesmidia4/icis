@@ -77,10 +77,48 @@ export function financeGrantableCapabilities(
   return { full: false, tools: false, any: false };
 }
 
+/**
+ * Capacidades financeiras que o ALVO pode receber por função.
+ * Espelha `public.has_finance_access`, que só reconhece `full` para
+ * super_admin / agency_admin / agency_manager.
+ */
+export function financeCapabilitiesForTargetRole(
+  targetRole: string | null | undefined,
+): FinanceGrantable {
+  if (targetRole === 'super_admin') return { full: false, tools: false, any: false };
+  if (targetRole === 'agency_admin' || targetRole === 'agency_manager') {
+    return { full: true, tools: true, any: true };
+  }
+  if (targetRole === 'agency_user') return { full: false, tools: true, any: true };
+  return { full: false, tools: false, any: false };
+}
+
+/** Visibilidade final = teto do editor ∩ capacidades da função do alvo. */
+export function visibleFinanceCapabilities(
+  editorRole: string | null | undefined,
+  editorScope: FinanceScope,
+  targetRole: string | null | undefined,
+): FinanceGrantable {
+  const editor = financeGrantableCapabilities(editorRole, editorScope);
+  const target = financeCapabilitiesForTargetRole(targetRole);
+  const full = editor.full && target.full;
+  const tools = editor.tools && target.tools;
+  return { full, tools, any: full || tools };
+}
+
 export interface FinanceFlags {
   finance_access: boolean;
   finance_tools_access: boolean;
 }
+
+/**
+ * Estado efetivo de Assinaturas/Ferramentas: `finance_access` já inclui tools no
+ * backend (`has_finance_tools_access`), então full implica tools na renderização.
+ */
+export function effectiveFinanceToolsAccess(flags: FinanceFlags): boolean {
+  return flags.finance_access || flags.finance_tools_access;
+}
+
 
 /**
  * Payload de gravação financeira: campo fora do teto do editor NÃO é enviado,
