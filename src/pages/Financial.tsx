@@ -685,7 +685,7 @@ function FinancialCockpit() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => setShowKpis((v) => !v)}
+                  onClick={toggleValuesVisible}
                   aria-label={showKpis ? "Ocultar valores do resumo" : "Exibir valores do resumo"}
                   aria-pressed={showKpis}
                 >
@@ -788,7 +788,7 @@ function FinancialCockpit() {
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-sm font-medium">Orçamento do mês</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatBRL(totals.expected)} de {formatBRL(settings.monthlyBudgetBrl)} planejados
+                      {money(totals.expected)} de {money(settings.monthlyBudgetBrl)} planejados
                     </p>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -799,8 +799,8 @@ function FinancialCockpit() {
                   </div>
                   <p className={`text-sm ${overBudget! > 0 ? "text-destructive" : "text-muted-foreground"}`}>
                     {overBudget! > 0
-                      ? `${formatBRL(overBudget!)} acima do planejado`
-                      : `${formatBRL(Math.abs(overBudget!))} ainda disponíveis no planejamento`}
+                      ? `${money(overBudget!)} acima do planejado`
+                      : `${money(Math.abs(overBudget!))} ainda disponíveis no planejamento`}
                   </p>
                 </div>
               ) : (
@@ -858,6 +858,18 @@ function FinancialCockpit() {
         {/* ====================== COMPOSIÇÃO DO MÊS ====================== */}
         {view === "composition" && (
           <section className="space-y-4">
+            <div className="flex items-center justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={toggleValuesVisible}
+                aria-label={showKpis ? "Ocultar valores" : "Exibir valores"}
+                aria-pressed={showKpis}
+              >
+                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
             {/* Tabs com os totais canônicos — nunca recomputados aqui. */}
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
               {COMPOSITION_STATUSES.map((status) => {
@@ -876,7 +888,7 @@ function FinancialCockpit() {
                       {COMPOSITION_TAB_LABELS[status]}
                     </span>
                     <span className="block text-[15px] font-semibold whitespace-nowrap">
-                      {formatBRL(compositionTotals[status])}
+                      {money(compositionTotals[status])}
                     </span>
                   </button>
                 );
@@ -972,8 +984,8 @@ function FinancialCockpit() {
 
               {compositionNarrowed && (
                 <span className="text-sm text-muted-foreground">
-                  Exibindo {formatBRL(compositionVisibleTotal)} de{" "}
-                  {formatBRL(compositionTotals[compositionStatus])} deste recorte
+                  Exibindo {money(compositionVisibleTotal)} de{" "}
+                  {money(compositionTotals[compositionStatus])} deste recorte
                 </span>
               )}
             </div>
@@ -991,10 +1003,22 @@ function FinancialCockpit() {
         {/* ====================== PAGAMENTOS DIRETOS ====================== */}
         {view === "accounts" && (
           <section className="space-y-4">
+            <div className="flex items-center justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={toggleValuesVisible}
+                aria-label={showKpis ? "Ocultar valores" : "Exibir valores"}
+                aria-pressed={showKpis}
+              >
+                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
             <Card className="p-4 flex flex-wrap gap-x-8 gap-y-2">
               <div>
                 <p className="text-sm text-muted-foreground">A pagar em {monthLabel}</p>
-                <p className="text-xl font-bold">{formatBRL(accountsSummary.open)}</p>
+                <p className="text-xl font-bold">{money(accountsSummary.open)}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pagamentos pendentes</p>
@@ -1106,6 +1130,18 @@ function FinancialCockpit() {
         {/* ====================== CARTÕES E FATURAS ====================== */}
         {view === "cards" && (
           <section className="space-y-4">
+            <div className="flex items-center justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={toggleValuesVisible}
+                aria-label={showKpis ? "Ocultar valores" : "Exibir valores"}
+                aria-pressed={showKpis}
+              >
+                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">
               A <strong>fatura</strong> é a conta que sai do seu caixa. As cobranças listadas dentro dela
               apenas explicam o valor — elas não são somadas duas vezes no total do mês.
