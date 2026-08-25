@@ -33,6 +33,8 @@ import {
   occurrenceAmountLabel,
   occurrencePaidHelp,
 } from "@/lib/financeInstallmentPresentation";
+import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
+import { effectiveUsdRate, usesReferenceRate } from "@/lib/financeModel";
 
 const BUCKET = "bill-attachments";
 
@@ -48,10 +50,13 @@ interface Props {
   /** Cartões cadastrados — permitem trocar a origem do pagamento SÓ neste mês. */
   cards?: FinanceItem[];
   defaultUsdRate: number | null;
+  /** Contexto para exibir a situação canônica de uma compra no cartão. */
+  statusContext?: RowStatusContext;
   onSave: (row: MonthRow, patch: Partial<FinanceOccurrence>) => Promise<FinanceOccurrence | null>;
   /** Abre o cadastro permanente (cronograma) do item desta linha. */
   onEditItem?: (item: FinanceItem) => void;
 }
+
 
 
 export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards = [], defaultUsdRate, onSave, onEditItem }: Props) {
