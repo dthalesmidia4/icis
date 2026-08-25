@@ -113,6 +113,8 @@ describe("RPC transacional create_finance_one_off", () => {
     return last;
   })();
   const body = sql.slice(0, sql.search(/REVOKE|GRANT/) === -1 ? sql.length : sql.search(/REVOKE|GRANT/));
+  /** Corpo sem comentários: guardas de escrita não devem casar com documentação. */
+  const code = body.replace(/--[^\n]*/g, "");
 
   it("existe no repositório", () => {
     expect(sql).not.toBe("");
@@ -121,8 +123,8 @@ describe("RPC transacional create_finance_one_off", () => {
   it("faz os DOIS inserts na mesma função e não tem DELETE compensatório", () => {
     expect(body).toMatch(/INSERT INTO public\.finance_items/);
     expect(body).toMatch(/INSERT INTO public\.finance_occurrences/);
-    expect(body).not.toMatch(/\bDELETE\b/i);
-    expect(body).not.toMatch(/\bUPDATE\b/i);
+    expect(code).not.toMatch(/\bDELETE\b/i);
+    expect(code).not.toMatch(/\bUPDATE\b/i);
     // Qualquer validação que falha aborta a transação inteira.
     expect((body.match(/RAISE EXCEPTION/g) ?? []).length).toBeGreaterThanOrEqual(8);
   });
@@ -162,7 +164,7 @@ describe("RPC transacional create_finance_one_off", () => {
   it("é SECURITY DEFINER com search_path vazio e não escreve colunas _enc", () => {
     expect(body).toContain("SECURITY DEFINER");
     expect(body).toMatch(/SET search_path TO ''/);
-    expect(body).not.toMatch(/_enc\b/);
+    expect(code).not.toMatch(/_enc\b/);
   });
 
   it("não devolve valores financeiros, apenas item_id", () => {
