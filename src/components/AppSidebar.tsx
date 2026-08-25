@@ -291,7 +291,14 @@ function DesktopSidebar() {
 
       {/* Nav Items */}
       <div className="flex-1 py-2 overflow-y-auto overflow-x-hidden">
+        {navigationLoading ? (
+          <div className="px-2">
+            <NavSkeleton count={placeholderCount} variant={expanded ? "row" : "icon"} />
+          </div>
+        ) : (
+        <>
         <nav className="flex flex-col gap-1 px-2">
+
           {/* Home */}
           {expanded ? (
             <button
