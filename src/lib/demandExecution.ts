@@ -313,3 +313,41 @@ export const executionExitDeps = {
   closeRun: closeExecutionRunById,
 };
 
+
+/**
+ * Persiste a ORDEM MANUAL do checklist de uma passagem.
+ * Valida que todos os ids pertencem ao mesmo run e grava posições contíguas
+ * 0..n-1. Sem DDL e sem função SECURITY DEFINER — apenas UPDATEs sob RLS.
+ */
+export async function persistExecutionItemOrder(params: {
+  runId: string;
+  /** Ids na nova ordem visível (pendentes primeiro, concluídos depois). */
+  orderedItemIds: string[];
+}): Promise<void> {
+  const ids = params.orderedItemIds.filter(Boolean);
+  if (ids.length === 0) return;
+  if (new Set(ids).size !== ids.length) throw new Error("Ordem inválida (ids repetidos)");
+
+  const { data: current, error: readError } = await supabase
+    .from(ITEMS)
+    .select("id")
+    .eq("execution_run_id", params.runId);
+  if (readError) throw readError;
+  const owned = new Set(((current as any[]) || []).map((i) => i.id as string));
+  if (ids.some((id) => !owned.has(id))) {
+    throw new Error("Itens de outra passagem não podem ser reordenados");
+  }
+
+  await Promise.all(
+    ids.map((id, index) =>
+      supabase
+        .from(ITEMS)
+        .update({ position: index } as any)
+        .eq("id", id)
+        .eq("execution_run_id", params.runId)
+        .then(({ error }) => {
+          if (error) throw error;
+        }),
+    ),
+  );
+}
