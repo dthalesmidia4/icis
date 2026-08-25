@@ -265,7 +265,7 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
     if (cycleStatement && ctx.competenceMonth && !sameCompetence(cycleStatement, competenceFromISO(ctx.competenceMonth))) {
       return {
         kind: "card_in_statement",
-        label: `Na fatura de ${monthFullLabel(cycleStatement)}`,
+        label: `${row.projected ? "Prevista na" : "Na"} fatura de ${monthFullLabel(cycleStatement)}`,
         tone: "neutral",
         direct: false,
         canPayDirectly: false,
