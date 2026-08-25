@@ -86,6 +86,7 @@ export default function FinanceOccurrenceModal({
   statusContext,
   onSave,
   onEditItem,
+  onRefresh,
 }: Props) {
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
@@ -97,8 +98,39 @@ export default function FinanceOccurrenceModal({
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
   /** Origem do pagamento DESTE mês (`NONE` = seguir o cadastro permanente). */
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
+
+  /**
+   * Fato FECHADO (pago direto ou liquidado por fatura paga) é imutável: a única
+   * resposta possível é preservar. A RPC valida isso de novo no banco.
+   */
+  const rowClosed = row
+    ? effectivePaid(row, statusContext?.rows ?? [row], statusContext?.settlement ?? null)
+    : false;
+  const deleteAction = row ? occurrenceDeleteActionForRow(row, rowClosed) : "nothing_to_delete";
+
+  const handleDestructive = async () => {
+    if (!row) return;
+    setRemoving(true);
+    const result =
+      deleteAction === "inactivate_item"
+        ? await inactivateFinanceItemSafe(row.item.id)
+        : row.occurrence
+          ? await deleteFinanceOccurrenceSafe(row.occurrence.id)
+          : { ok: false, message: "Nada informado neste mês" };
+    setRemoving(false);
+    if (!result.ok) {
+      toast.error(result.message ?? "Não foi possível concluir");
+      return;
+    }
+    toast.success(
+      deleteAction === "inactivate_item" ? "Cadastro inativado" : "Lançamento excluído",
+    );
+    onOpenChange(false);
+    onRefresh?.();
+  };
 
   /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
   const cardRow = !!row && isCardCharge(row);
