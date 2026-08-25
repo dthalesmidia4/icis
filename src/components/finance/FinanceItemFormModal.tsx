@@ -3,6 +3,7 @@
  * Um cadastro descreve O QUE é pago; os valores por mês são fatos separados.
  */
 import { useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,6 +155,7 @@ export default function FinanceItemFormModal({
 
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   /** Passo 1: intenção. Só existe para NOVOS cadastros. */
   const [step, setStep] = useState<"intent" | "form">("form");
   const [showMore, setShowMore] = useState(false);
