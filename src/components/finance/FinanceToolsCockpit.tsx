@@ -15,7 +15,6 @@ import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
 import { useFinanceTools } from "@/hooks/useFinanceTools";
 import { currentCompetence, todayISO } from "@/hooks/useFinance";
-import { addMonths } from "@/lib/financeCardCycle";
 import { FinanceItem, MonthRow } from "@/lib/financeModel";
 import { buildSafeSettlementIndex } from "@/lib/financeSettlement";
 import { RowStatusContext } from "@/lib/financeRowStatus";
@@ -127,7 +126,7 @@ export default function FinanceToolsCockpit() {
         ]}
       />
 
-      <div className={`${FINANCE_SHELL} py-5 space-y-7`}>
+      <div className={`${FINANCE_SHELL} py-5 space-y-4`}>
         {/* Mesmo eixo de período do Financeiro completo. */}
         <FinancePeriodBar competence={competence} onChange={setCompetence} today={today} />
 
