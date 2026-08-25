@@ -195,7 +195,7 @@ describe("status do componente com fatura real segura", () => {
       }),
     );
     expect(status.kind).toBe("card_statement_paid");
-    expect(status.label).toBe("Pago pela fatura");
+    expect(status.label).toBe("Pago pela fatura em 20 ago");
   });
 
 
@@ -238,7 +238,7 @@ describe("status do componente com fatura real segura", () => {
       component({ paid: true, occurrence: occ({ paid_at: "2026-08-20T13:00:00Z" }) }),
       ctx({ safeStatementStatuses: safeMap({ paid: false, paid_at: null }) }),
     );
-    expect(status.label).toBe("Pago");
+    expect(status.label).toBe("Pago em 20 ago");
   });
 
   it("o fallback seguro nunca cria vínculo contábil (statement_occurrence_id intocado)", () => {
@@ -300,7 +300,7 @@ describe("cabeçalho do grupo não contradiz a fatura real", () => {
       cycleWarning,
       today: TODAY,
     });
-    expect(notice.statementText).toBe("Fatura paga");
+    expect(notice.statementText).toBe("Fatura paga em 20 ago");
     expect(notice.projectionWarning).toBe(PROJECTION_WARNING);
     expect(notice.projectionWarning).not.toMatch(/Dados da fatura incompletos/);
   });
