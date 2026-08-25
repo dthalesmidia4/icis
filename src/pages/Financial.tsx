@@ -57,6 +57,16 @@ import {
 } from "@/lib/financeScope";
 import { toSafeCard } from "@/lib/financeSubscriptionMonth";
 import {
+  FinanceVisibilityProvider,
+  useFinanceVisibility,
+} from "@/contexts/FinanceVisibilityContext";
+import { visibleStatementGroups } from "@/lib/financeCardVisibility";
+import {
+  categoryFilterOptions,
+  filterEntriesByCategory,
+  tenantCategoryOptions,
+} from "@/lib/financeCategories";
+import {
   competenceMonthISO,
   safeStatementStatusesFromRows,
 } from "@/lib/financeSafeStatement";
@@ -200,15 +210,16 @@ function FinancialCockpit() {
   const [compositionSearch, setCompositionSearch] = useState("");
   const [compositionOrigin, setCompositionOrigin] = useState("all");
   const [compositionKind, setCompositionKind] = useState("all");
+  const [compositionCategory, setCompositionCategory] = useState("all");
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   /**
-   * Privacidade dos 3 KPIs da abertura: sempre OCULTOS ao montar a tela.
-   * Preferência não é persistida — abrir o Financeiro nunca expõe valores.
+   * Privacidade de valores: estado ÚNICO do domínio (ver
+   * `FinanceVisibilityProvider`). Começa oculto e atravessa todas as telas.
    */
-  const [showKpis, setShowKpis] = useState(false);
-  /** Máscara única dos três números do resumo. */
-  const kpiText = (value: number | null) => (showKpis ? formatBRL(value) : "R$ ***");
+  const { valuesVisible: showKpis, toggleValuesVisible, money } = useFinanceVisibility();
+  /** Máscara única de qualquer montante do Financeiro completo. */
+  const kpiText = (value: number | null) => money(value);
 
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
@@ -294,8 +305,18 @@ function FinancialCockpit() {
     [rows, cardsById],
   );
 
+  const compositionCategories = useMemo(
+    () => categoryFilterOptions(compositionEntries),
+    [compositionEntries],
+  );
+  /** Categorias já usadas pelo tenant — sugestões ao editar o cadastro. */
+  const knownCategories = useMemo(() => tenantCategoryOptions(items), [items]);
+
   const compositionFilterCount =
-    (compositionOrigin !== "all" ? 1 : 0) + (compositionKind !== "all" ? 1 : 0) + (costCenter !== "all" ? 1 : 0);
+    (compositionOrigin !== "all" ? 1 : 0) +
+    (compositionKind !== "all" ? 1 : 0) +
+    (compositionCategory !== "all" ? 1 : 0) +
+    (costCenter !== "all" ? 1 : 0);
 
   const compositionVisible = useMemo(() => {
     let result = compositionEntries;
@@ -303,6 +324,7 @@ function FinancialCockpit() {
     if (compositionOrigin !== "all")
       result = result.filter((e) => compositionOriginKey(e.row) === compositionOrigin);
     if (compositionKind !== "all") result = result.filter((e) => e.row.item.kind === compositionKind);
+    result = filterEntriesByCategory(result, compositionCategory);
     const term = compositionSearch.trim().toLowerCase();
     if (term) {
       result = result.filter(
@@ -313,7 +335,14 @@ function FinancialCockpit() {
       );
     }
     return result;
-  }, [compositionEntries, costCenter, compositionOrigin, compositionKind, compositionSearch]);
+  }, [
+    compositionEntries,
+    costCenter,
+    compositionOrigin,
+    compositionKind,
+    compositionCategory,
+    compositionSearch,
+  ]);
 
   const compositionTotals: Record<CompositionStatus, number> = {
     all: totals.expected,
@@ -377,13 +406,19 @@ function FinancialCockpit() {
     return { pending: pending.length, overdue: overdue.length, open };
   }, [accountRows, statusContext]);
 
+  /**
+   * Cartão inativo sem fato real na competência não aparece na tela
+   * operacional — o cadastro continua existindo em `Gerenciar cadastros`.
+   */
+  const visibleStatements = useMemo(() => visibleStatementGroups(statements), [statements]);
+
   const cardsSummary = useMemo(() => {
-    const unpaid = statements.filter((g) => !g.paid);
+    const unpaid = visibleStatements.filter((g) => !g.paid);
     const total = unpaid.reduce((sum, g) => sum + (g.actualTotal ?? g.projectedTotal), 0);
     const overdue = unpaid.filter((g) => g.dueDate && g.dueDate < today).length;
-    const incomplete = statements.filter((g) => g.configIncomplete).length;
-    return { count: cards.length, total, overdue, incomplete };
-  }, [statements, cards.length, today]);
+    const incomplete = visibleStatements.filter((g) => g.configIncomplete).length;
+    return { count: visibleStatements.length, total, overdue, incomplete };
+  }, [visibleStatements, today]);
 
   const subscriptionsSummary = useMemo(() => {
     const active = items.filter((i) => isSubscriptionsDomainItem(i) && i.active);
@@ -907,6 +942,18 @@ function FinancialCockpit() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label className="text-sm">Categoria</Label>
+                    <Select value={compositionCategory} onValueChange={setCompositionCategory}>
+                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {compositionCategories.map((c) => (
+                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -915,6 +962,7 @@ function FinancialCockpit() {
                       setCostCenter("all");
                       setCompositionOrigin("all");
                       setCompositionKind("all");
+                      setCompositionCategory("all");
                     }}
                   >
                     Limpar filtros
@@ -1063,7 +1111,7 @@ function FinancialCockpit() {
               apenas explicam o valor — elas não são somadas duas vezes no total do mês.
             </p>
 
-            {statements.length === 0 ? (
+            {visibleStatements.length === 0 ? (
               <Card className="p-10 text-center space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Nenhum cartão cadastrado. Cadastre o cartão para acompanhar limite, fechamento,
@@ -1075,7 +1123,7 @@ function FinancialCockpit() {
               </Card>
             ) : (
               <StatementPanel
-                groups={statements}
+                groups={visibleStatements}
                 competence={competence}
                 today={today}
                 focusCardId={focusCardId}
@@ -1193,6 +1241,7 @@ function FinancialCockpit() {
         allItems={items}
         defaultUsdRate={settings.defaultUsdRate}
         competence={competence}
+        knownCategories={knownCategories}
         onSave={saveItem}
 
       />
@@ -1259,7 +1308,9 @@ export default function Financial() {
   if (canAccessFullFinance) {
     return (
       <FinanceAccessGate>
-        <FinancialCockpit />
+        <FinanceVisibilityProvider>
+          <FinancialCockpit />
+        </FinanceVisibilityProvider>
       </FinanceAccessGate>
     );
   }
