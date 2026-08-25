@@ -161,14 +161,16 @@ export function linkedStatementRow(row: MonthRow, statementRows: MonthRow[]): Mo
 
 /** Dia da cobrança de uma linha de cartão: fato do mês > dia do cadastro. */
 export function rowChargeDay(row: MonthRow): number | null {
-  if (row.chargeDate) return Number(row.chargeDate.slice(8, 10));
-  return row.item.charge_day ?? null;
+  return chargeDayFrom(row.chargeDate, row.item.charge_day);
 }
 
 /**
  * Competência da FATURA que receberá esta cobrança, pelo ciclo real do cartão.
  * `null` quando não há prova suficiente (sem ciclo cadastrado ou sem dia de
  * cobrança) — nesse caso nada é afirmado sobre pertença.
+ *
+ * A competência-base é a da PRÓPRIA `charge_date` (data real da cobrança); a
+ * competência exibida na tela é apenas fallback quando não há charge_date.
  */
 export function resolveStatementCompetenceForRow(
   row: MonthRow,
@@ -181,12 +183,13 @@ export function resolveStatementCompetenceForRow(
   if (chargeDay == null) return null;
   const resolved = resolveStatementForCharge({
     chargeDay,
-    competence: competenceFromISO(ctx.competenceMonth),
+    competence: chargeDateCompetence(row.chargeDate, competenceFromISO(ctx.competenceMonth)),
     card: { closingDay: card.statement_closing_day, dueDay: card.statement_due_day },
   });
   if (resolved.incomplete || !resolved.statementCompetence) return null;
   return resolved.statementCompetence;
 }
+
 
 
 /**
