@@ -84,6 +84,8 @@ export default function ExecutionPanel({
   onToggleItem,
   onDeleteItem,
   onCompleteAll,
+  onReorderItems,
+  reordering = false,
   busyItemId = null,
   adding = false,
   completingAll = false,
@@ -92,6 +94,15 @@ export default function ExecutionPanel({
 
   const progress = computeExecutionProgress(active);
   const pending = countPendingExecutionItems(active);
+  const orderedItems = sortExecutionItems(active?.items ?? []);
+  const dragEnabled = !readOnly && !!onReorderItems && !reordering && !completingAll;
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination || !onReorderItems) return;
+    if (result.destination.index === result.source.index) return;
+    void onReorderItems(result.source.index, result.destination.index);
+  };
+
 
   const labelFor = (key?: string | null) =>
     (key && (stageLabels[key] || humanize(key))) || "sem etapa";
