@@ -15,7 +15,12 @@ export const DESK_OBJECT_KEYS = [
 
 export type DeskObjectKey = (typeof DESK_OBJECT_KEYS)[number];
 
-export const MAX_DESK_OBJECTS = 3;
+/**
+ * Seleção EXCLUSIVA: a mesa renderiza um único objeto pessoal, então o editor e
+ * a persistência aceitam no máximo 1. Registros legados com múltiplos itens são
+ * normalizados para o PRIMEIRO — exatamente o que já era renderizado.
+ */
+export const MAX_DESK_OBJECTS = 1;
 
 export const DESK_OBJECT_LABELS: Record<DeskObjectKey, string> = {
   mug: "Caneca",
@@ -34,7 +39,7 @@ export const DESK_SLOT_ORDER: DeskSlotName[] = ["left", "center-side", "right"];
 
 const KEY_SET = new Set<string>(DESK_OBJECT_KEYS);
 
-/** Normaliza o que veio do banco: só chaves válidas, sem repetição, máx. 3. */
+/** Normaliza o que veio do banco: só chaves válidas, sem repetição, máx. 1. */
 export function sanitizeDeskObjects(input: unknown): DeskObjectKey[] {
   const arr = Array.isArray(input) ? input : [];
   const out: DeskObjectKey[] = [];
@@ -48,11 +53,29 @@ export function sanitizeDeskObjects(input: unknown): DeskObjectKey[] {
   return out;
 }
 
-/** Alterna uma escolha respeitando o limite da V1. */
-export function toggleDeskObject(current: DeskObjectKey[], key: DeskObjectKey): DeskObjectKey[] {
-  if (current.includes(key)) return current.filter((k) => k !== key);
-  if (current.length >= MAX_DESK_OBJECTS) return current;
-  return [...current, key];
+/**
+ * Seleção única (comportamento de radio): escolher um item substitui o anterior
+ * e clicar no já selecionado preserva a seleção — nunca existe estado com dois
+ * itens marcados nem “nenhum” implícito.
+ */
+export function selectDeskObject(_current: DeskObjectKey[], key: DeskObjectKey): DeskObjectKey[] {
+  return [key];
+}
+
+/**
+ * Visibilidade de “Personalizar mesa”: depende SOMENTE de ownership real da
+ * mesa (id do usuário) e de existir gravação disponível. Estado operacional
+ * (demanda em andamento, fila, café, fora do expediente) é irrelevante.
+ */
+export function canCustomizeDesk(params: {
+  viewerUserId?: string | null;
+  deskOwnerUserId?: string | null;
+  canSave?: boolean;
+}): boolean {
+  const { viewerUserId, deskOwnerUserId, canSave } = params;
+  if (!canSave) return false;
+  if (!viewerUserId || !deskOwnerUserId) return false;
+  return viewerUserId === deskOwnerUserId;
 }
 
 /** Distribui as escolhas nos slots fixos, na ordem de seleção. */
