@@ -3,15 +3,19 @@
  *
  * Responde uma única pergunta: "que gasto é esse?". Não tem ação de pagar —
  * é auditoria. Clicar na linha abre o detalhe da despesa.
+ *
+ * As linhas são AGRUPADAS por categoria do cadastro: cada grupo começa
+ * colapsado e mostra apenas quantidade e total. O total de um grupo é a soma
+ * das próprias linhas, então soma dos grupos = total da lista.
  */
-import { AlertTriangle, CheckCircle2, Clock, CreditCard } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock, CreditCard } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   COST_CENTER_LABELS,
   MonthRow,
-  formatBRL,
   formatCurrencyValue,
   installmentRowLabel,
 } from "@/lib/financeModel";
@@ -27,6 +31,8 @@ import {
   compositionDateLabel,
   compositionStatusLabel,
 } from "@/lib/financeComposition";
+import { buildCategoryGroups } from "@/lib/financeCategories";
+import { useFinanceVisibility } from "@/contexts/FinanceVisibilityContext";
 
 interface Props {
   entries: CompositionEntry[];
@@ -81,6 +87,11 @@ export default function MonthCompositionList({
   emptyMessage,
   onOpenRow,
 }: Props) {
+  const { money } = useFinanceVisibility();
+  /** Grupos começam COLAPSADOS: só o que o usuário abriu vive aqui. */
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggle = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+
   if (loading) {
     return (
       <Card className="flex justify-center py-16">
@@ -97,6 +108,10 @@ export default function MonthCompositionList({
     );
   }
 
+  const groups = buildCategoryGroups(entries);
+
+  const groupSummary = (count: number) => (count === 1 ? "1 despesa" : `${count} despesas`);
+
   return (
     <>
       {/* ------------------------------ DESKTOP ------------------------------ */}
@@ -112,43 +127,81 @@ export default function MonthCompositionList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.map((entry) => {
-              const row = entry.row;
-              const status = compositionStatusLabel(row, statusContext, entry);
+            {groups.map((group) => {
+              const open = !!expanded[group.key];
               return (
-                <TableRow
-                  key={row.key}
-                  tabIndex={0}
-                  className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  onClick={() => onOpenRow(row)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onOpenRow(row);
-                    }
-                  }}
-                >
-                  <TableCell className="py-3">
-                    <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
-                    <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">{dateText(row)}</TableCell>
-                  <TableCell className="text-sm">
-                    <span className="flex items-center gap-1.5">
-                      {row.cardItemId && <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />}
-                      {paymentLabel(row, statusContext)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <span className="text-[15px] font-semibold">{formatBRL(entry.value)}</span>
-                    {row.currency === "USD" && (
-                      <p className="text-sm text-muted-foreground">
-                        {formatCurrencyValue(row.amountOriginal, "USD")}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell><StatusBadge status={status} /></TableCell>
-                </TableRow>
+                <>
+                  <TableRow
+                    key={`group:${group.key}`}
+                    tabIndex={0}
+                    aria-expanded={open}
+                    className="bg-muted/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                    onClick={() => toggle(group.key)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggle(group.key);
+                      }
+                    }}
+                  >
+                    <TableCell className="py-3" colSpan={3}>
+                      <span className="flex items-center gap-2">
+                        {open ? (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <span className="text-[15px] font-bold text-foreground">{group.label}</span>
+                        <span className="text-sm text-muted-foreground">{groupSummary(group.count)}</span>
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap text-[15px] font-bold">
+                      {money(group.total)}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+
+                  {open &&
+                    group.entries.map((entry) => {
+                      const row = entry.row;
+                      const status = compositionStatusLabel(row, statusContext, entry);
+                      return (
+                        <TableRow
+                          key={row.key}
+                          tabIndex={0}
+                          className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                          onClick={() => onOpenRow(row)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onOpenRow(row);
+                            }
+                          }}
+                        >
+                          <TableCell className="py-3 pl-10">
+                            <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
+                            <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-sm">{dateText(row)}</TableCell>
+                          <TableCell className="text-sm">
+                            <span className="flex items-center gap-1.5">
+                              {row.cardItemId && <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />}
+                              {paymentLabel(row, statusContext)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
+                            <span className="text-[15px] font-semibold">{money(entry.value)}</span>
+                            {row.currency === "USD" && (
+                              <p className="text-sm text-muted-foreground">
+                                {formatCurrencyValue(row.amountOriginal, "USD")}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell><StatusBadge status={status} /></TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </>
               );
             })}
           </TableBody>
@@ -157,41 +210,76 @@ export default function MonthCompositionList({
 
       {/* ------------------------------- MOBILE ------------------------------ */}
       <div className="md:hidden space-y-3">
-        {entries.map((entry) => {
-          const row = entry.row;
-          const status = compositionStatusLabel(row, statusContext, entry);
+        {groups.map((group) => {
+          const open = !!expanded[group.key];
           return (
-            <Card
-              key={row.key}
-              role="button"
-              tabIndex={0}
-              className="p-4 space-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => onOpenRow(row)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onOpenRow(row);
-                }
-              }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
-                  <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
-                </div>
-                <span className="text-[15px] font-semibold whitespace-nowrap">
-                  {formatBRL(entry.value)}
+            <div key={group.key} className="space-y-2">
+              <Card
+                role="button"
+                tabIndex={0}
+                aria-expanded={open}
+                className="p-4 flex items-center justify-between gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => toggle(group.key)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggle(group.key);
+                  }
+                }}
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  {open ? (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <span className="min-w-0">
+                    <span className="block text-[15px] font-bold truncate">{group.label}</span>
+                    <span className="block text-sm text-muted-foreground">{groupSummary(group.count)}</span>
+                  </span>
                 </span>
-              </div>
-              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                {row.cardItemId && <CreditCard className="w-3.5 h-3.5" />}
-                {paymentLabel(row, statusContext)}
-              </p>
-              <div className="flex flex-wrap items-center gap-2 justify-between">
-                <span className="text-sm text-muted-foreground">{dateText(row)}</span>
-                <StatusBadge status={status} />
-              </div>
-            </Card>
+                <span className="text-[15px] font-bold whitespace-nowrap">{money(group.total)}</span>
+              </Card>
+
+              {open &&
+                group.entries.map((entry) => {
+                  const row = entry.row;
+                  const status = compositionStatusLabel(row, statusContext, entry);
+                  return (
+                    <Card
+                      key={row.key}
+                      role="button"
+                      tabIndex={0}
+                      className="ml-3 p-4 space-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => onOpenRow(row)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpenRow(row);
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
+                          <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
+                        </div>
+                        <span className="text-[15px] font-semibold whitespace-nowrap">
+                          {money(entry.value)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        {row.cardItemId && <CreditCard className="w-3.5 h-3.5" />}
+                        {paymentLabel(row, statusContext)}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 justify-between">
+                        <span className="text-sm text-muted-foreground">{dateText(row)}</span>
+                        <StatusBadge status={status} />
+                      </div>
+                    </Card>
+                  );
+                })}
+            </div>
           );
         })}
       </div>
