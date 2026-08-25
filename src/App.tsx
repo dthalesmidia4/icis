@@ -438,9 +438,11 @@ function AppRoutes() {
       <Route path="/financeiro" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <Financial />
-            </Layout>
+            <RequireFinanceAccess>
+              <Layout>
+                <Financial />
+              </Layout>
+            </RequireFinanceAccess>
           </RequireTenant>
         </ProtectedRoute>
       } />
