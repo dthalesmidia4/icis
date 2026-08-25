@@ -133,6 +133,9 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
 
       {/* Menu Items */}
       <div className="flex-1 py-4 px-2 overflow-auto">
+        {navigationLoading ? (
+          <NavSkeleton count={placeholderCount} variant="row" />
+        ) : (
         <nav className="space-y-1">
           {/* Home (fixo) */}
           <button
@@ -169,11 +172,8 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
             );
           })}
 
-
-
-
           {/* Developer Menu */}
-          {canAccessAdmin && (
+          {showDeveloper && (
             <div className="mt-4 pt-4 border-t">
               {devMenuItems.map((item) => {
                 const Icon = item.icon;
@@ -197,6 +197,8 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </nav>
+        )}
+
       </div>
 
       {/* Footer Actions */}
