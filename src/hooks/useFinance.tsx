@@ -28,12 +28,14 @@ import {
 import {
   FINANCE_ITEM_METADATA_COLUMNS,
   FINANCE_OCCURRENCE_METADATA_COLUMNS,
+  FinanceSecureReadError,
   fetchSecureItemValues,
   fetchSecureOccurrenceValues,
   fetchSecureTenantValues,
   mergeItemValues,
   mergeOccurrenceValues,
 } from "@/lib/financeSecureData";
+
 
 export interface FinanceSettings {
   monthlyBudgetBrl: number | null;
