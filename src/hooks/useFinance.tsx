@@ -25,6 +25,7 @@ import {
   computeTotals,
   detectPackageOverlaps,
 } from "@/lib/financeModel";
+import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
 import {
   FINANCE_ITEM_METADATA_COLUMNS,
   FINANCE_OCCURRENCE_METADATA_COLUMNS,
