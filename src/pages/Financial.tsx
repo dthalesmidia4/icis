@@ -185,7 +185,7 @@ function FinancialCockpit() {
 
   const finance = useFinance(competence);
   const {
-    loading, loadError, rows, statements, totals, overlaps, items, cards, packages, settings,
+    loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     saveOccurrence, togglePaid, payStatement, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
@@ -241,10 +241,11 @@ function FinancialCockpit() {
       today,
       cardsById,
       statementRows,
+      settlement,
       safeStatementStatuses,
       competenceMonth: competenceMonthISO(competence),
     }),
-    [rows, today, cardsById, statementRows, safeStatementStatuses, competence],
+    [rows, today, cardsById, statementRows, settlement, safeStatementStatuses, competence],
   );
 
 
@@ -273,7 +274,7 @@ function FinancialCockpit() {
 
   /** Recorte bruto: reconcilia exatamente com os KPIs, sem filtros da UI. */
   const compositionEntries = useMemo(
-    () => buildMonthComposition({ rows, status: compositionStatus }),
+    () => buildMonthComposition({ rows, status: compositionStatus, settlement }),
     [rows, compositionStatus],
   );
 
@@ -334,7 +335,12 @@ function FinancialCockpit() {
     if (advanced === "overdue") {
       result = result.filter((row) => resolveRowStatus(row, statusContext).kind === "overdue");
     } else if (advanced !== "none") {
-      result = applyQuickFilter(result, advanced as unknown as Parameters<typeof applyQuickFilter>[1], today);
+      result = applyQuickFilter(
+        result,
+        advanced as unknown as Parameters<typeof applyQuickFilter>[1],
+        today,
+        settlement,
+      );
     }
 
     result = filterByCostCenter(result, costCenter);
