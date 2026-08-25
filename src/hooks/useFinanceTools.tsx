@@ -212,8 +212,9 @@ export function useFinanceTools(competence: Competence) {
 
   /**
    * Cria/atualiza cadastro. Ferramenta comprada UMA VEZ (`tool + one_off`) é um
-   * fato do mês: a ocorrência é criada junto, senão o lançamento não apareceria
-   * na competência. Ocorrência falha => cadastro desfeito (nunca item órfão).
+   * fato do mês: cadastro + ocorrência nascem na MESMA transação Postgres via
+   * `create_finance_one_off` (que revalida o escopo `tools`: só tool/pacote e
+   * nunca centro administrativo). Falha => rollback integral no banco.
    */
   const saveItem = useCallback(
     async (payload: Partial<FinanceItem>, id?: string, oneOff?: OneOffFact | null) => {
@@ -221,44 +222,19 @@ export function useFinanceTools(competence: Competence) {
       const body: any = { ...payload, tenant_id: agencyId };
 
       if (!id && oneOff && shouldMaterializeOneOff(payload)) {
-        const result = await createItemWithOneOff({
-          insertItem: async () => {
-            const { data, error } = await supabase
-              .from("finance_items")
-              .insert({ ...body, created_by: user?.id ?? null })
-              .select("id")
-              .maybeSingle();
-            return { id: (data as any)?.id ?? null, error };
-          },
-          insertOccurrence: async (itemId) => {
-            const { error } = await supabase
-              .from("finance_occurrences")
-              .insert(
-                buildOneOffOccurrenceInsert({
-                  tenantId: agencyId,
-                  itemId,
-                  fact: oneOff,
-                  createdBy: user?.id ?? null,
-                }) as any,
-              );
-            return { error };
-          },
-          deleteItem: async (itemId) => {
-            await supabase.from("finance_items").delete().eq("id", itemId);
-          },
-        });
-        if (!result.ok) {
-          toast.error(
-            result.rolledBack
-              ? "Não foi possível registrar o lançamento do mês — nada foi salvo"
-              : "Erro ao criar cadastro",
-          );
+        const { error } = await supabase.rpc(
+          "create_finance_one_off",
+          buildOneOffRpcArgs({ tenantId: agencyId, payload, fact: oneOff }) as any,
+        );
+        if (error) {
+          toast.error("Não foi possível criar o lançamento — nada foi salvo");
           return false;
         }
         toast.success("Lançamento criado");
         await fetchAll();
         return true;
       }
+
 
       const query = id
         ? supabase.from("finance_items").update(body).eq("id", id)
