@@ -25,7 +25,9 @@ import {
   computeTotals,
   detectPackageOverlaps,
 } from "@/lib/financeModel";
+import { buildStatementSettlementIndex } from "@/lib/financeSettlement";
 import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
+
 import { paymentDateToTimestamp } from "@/lib/financePaymentDate";
 import {
   FINANCE_ITEM_METADATA_COLUMNS,
