@@ -360,6 +360,22 @@ function FinancialCockpit() {
     open: totals.open,
   };
   const compositionVisibleTotal = useMemo(() => compositionTotal(compositionVisible), [compositionVisible]);
+  /** Grupos do recorte atual — base de `Expandir tudo` (só o que está na tela). */
+  const compositionGroups = useMemo(
+    () => buildCompositionGroups(compositionVisible, compositionGroupBy),
+    [compositionVisible, compositionGroupBy],
+  );
+  const compositionAllOpen =
+    compositionGroups.length > 0 && compositionGroups.every((g) => !!compositionExpanded[g.key]);
+  const toggleAllCompositionGroups = () => {
+    if (compositionAllOpen) {
+      setCompositionExpanded({});
+      return;
+    }
+    const next: Record<string, boolean> = {};
+    for (const group of compositionGroups) next[group.key] = true;
+    setCompositionExpanded(next);
+  };
   const compositionNarrowed = compositionVisible.length !== compositionEntries.length;
 
   const openItemModal = (item: FinanceItem | null, kind?: FinanceKind) => {
@@ -838,39 +854,44 @@ function FinancialCockpit() {
 
         {/* ====================== COMPOSIÇÃO DO MÊS ====================== */}
         {view === "composition" && (
-          <section className="space-y-4">
-            {/* Tabs com os totais canônicos — nunca recomputados aqui.
-                O olho vive NA MESMA linha dos totais: ele esconde resumo, não
-                detalhamento. */}
-            <div className="flex items-center gap-2">
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 flex-1">
-              {COMPOSITION_STATUSES.map((status) => {
-                const active = compositionStatus === status;
-                return (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => goToComposition(status)}
-                    aria-pressed={active}
-                    className={`flex-shrink-0 rounded-md border px-4 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      active ? "border-primary bg-primary/10" : "bg-card hover:bg-muted/50"
-                    }`}
-                  >
-                    <span className="block text-sm text-muted-foreground">
-                      {COMPOSITION_TAB_LABELS[status]}
-                    </span>
-                    <span className="block text-[15px] font-semibold whitespace-nowrap">
-                      {money(compositionTotals[status])}
-                    </span>
-                  </button>
-                );
-              })}
+          <section className="space-y-3">
+            {/* LINHA 1 — contexto + recorte: período, os três totais canônicos
+                em segmented control compacto e o olho colado ao resumo. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {periodBar}
+              <div
+                role="tablist"
+                aria-label="Recorte da composição"
+                className="flex flex-wrap items-stretch gap-1 rounded-lg border bg-muted/30 p-1 min-h-10"
+              >
+                {COMPOSITION_STATUSES.map((status) => {
+                  const active = compositionStatus === status;
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => goToComposition(status)}
+                      className={`inline-flex items-baseline gap-1.5 rounded-md px-3 min-h-8 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        active
+                          ? "border border-primary bg-primary/10 text-foreground"
+                          : "border border-transparent hover:bg-muted/60"
+                      }`}
+                    >
+                      <span className="text-muted-foreground">{COMPOSITION_TAB_LABELS[status]}</span>
+                      <span className="font-semibold whitespace-nowrap">
+                        {money(compositionTotals[status])}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="flex-shrink-0"
+                className="h-10 w-10"
                 onClick={toggleValuesVisible}
                 aria-label={showKpis ? "Ocultar valores do resumo" : "Exibir valores do resumo"}
                 aria-pressed={showKpis}
@@ -879,14 +900,16 @@ function FinancialCockpit() {
               </Button>
             </div>
 
-            <p className="text-sm text-muted-foreground">{COMPOSITION_HINTS[compositionStatus]}</p>
-
+            {/* LINHA 2 — exploração: hint flexível à esquerda, controles à direita. */}
             <div className="flex flex-wrap items-center gap-2">
+              <p className="flex-1 min-w-[180px] text-sm text-muted-foreground">
+                {COMPOSITION_HINTS[compositionStatus]}
+              </p>
               <Input
                 placeholder="Buscar despesa..."
                 value={compositionSearch}
                 onChange={(e) => setCompositionSearch(e.target.value)}
-                className="h-10 w-full sm:w-56"
+                className="h-10 w-full sm:w-52"
               />
 
               <Popover open={compositionFiltersOpen} onOpenChange={setCompositionFiltersOpen}>
@@ -966,8 +989,43 @@ function FinancialCockpit() {
                 </PopoverContent>
               </Popover>
 
+              <Select
+                value={compositionGroupBy}
+                onValueChange={(v) => setCompositionGroupBy(v as CompositionGroupBy)}
+              >
+                <SelectTrigger className="h-10 w-[190px]" aria-label="Agrupar por">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      Agrupar por: {COMPOSITION_GROUP_BY_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-10"
+                aria-pressed={compositionAllOpen}
+                onClick={toggleAllCompositionGroups}
+              >
+                {compositionAllOpen ? (
+                  <>
+                    <ChevronsUp className="w-4 h-4 mr-1.5" /> Recolher tudo
+                  </>
+                ) : (
+                  <>
+                    <ChevronsDown className="w-4 h-4 mr-1.5" /> Expandir tudo
+                  </>
+                )}
+              </Button>
+
               {compositionNarrowed && (
-                <span className="text-sm text-muted-foreground">
+                <span className="w-full text-sm text-muted-foreground">
                   Exibindo {money(compositionVisibleTotal)} de{" "}
                   {money(compositionTotals[compositionStatus])} deste recorte
                 </span>
@@ -981,7 +1039,8 @@ function FinancialCockpit() {
               emptyMessage="Nenhuma despesa neste recorte com esses filtros."
               onOpenRow={setOccurrenceRow}
               groupBy={compositionGroupBy}
-              onGroupByChange={setCompositionGroupBy}
+              expanded={compositionExpanded}
+              onToggleGroup={toggleCompositionGroup}
             />
           </section>
         )}
