@@ -1283,7 +1283,7 @@ function FinancialCockpit() {
         competence={competence}
         knownCategories={knownCategories}
         onSave={saveItem}
-
+        onAfterDelete={refresh}
       />
 
       <FinanceOccurrenceModal
