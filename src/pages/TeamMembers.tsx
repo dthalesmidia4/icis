@@ -449,212 +449,111 @@ export default function TeamMembers() {
         </div>
       )}
 
-      {/* Modal de Permissões */}
+      {/* Modal de Permissões — seções empilhadas, sem tabs comprimidas */}
       <Dialog open={!!selectedMember} onOpenChange={() => setSelectedMember(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-[720px] max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5" />
               Permissões de {selectedMember?.full_name}
             </DialogTitle>
             <DialogDescription>
-              Configure as permissões de acesso para este colaborador
+              Controle o que este colaborador enxerga no ICIS atual.
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub' | 'client_buttons' | 'notifications')} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="columns" className="gap-1 text-xs sm:text-sm">
-                <LayoutGrid className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Colunas</span> Kanban
-              </TabsTrigger>
-              <TabsTrigger value="hub" className="gap-1 text-xs sm:text-sm">
-                <Home className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Botões do</span> Hub
-              </TabsTrigger>
-              <TabsTrigger value="client_buttons" className="gap-1 text-xs sm:text-sm">
-                <MousePointerClick className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Botões</span> Cliente
-              </TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-1 text-xs sm:text-sm">
-                <Bell className="h-3 w-3 sm:h-4 sm:w-4" />
-                Alertas
-              </TabsTrigger>
-              <TabsTrigger value="finance" className="gap-1 text-xs sm:text-sm">
-                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
-                Financeiro
-              </TabsTrigger>
-            </TabsList>
-
-            <div className="flex-1 overflow-y-auto py-4">
-              <TabsContent value="columns" className="mt-0 space-y-3">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Selecione quais colunas do Kanban este colaborador pode visualizar:
+          <div className="flex-1 overflow-y-auto space-y-8 py-2 pr-1">
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold">Início</h3>
+                <p className="text-sm text-muted-foreground">
+                  Escolha quais áreas aparecem na tela inicial deste colaborador.
                 </p>
-                {columns.map(column => {
-                  const permission = columnPermissions.find(p => p.status_id === column.id);
-                  const canView = permission?.can_view ?? false;
+              </div>
 
-                  return (
-                    <div
-                      key={column.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <Checkbox
-                        id={`col-${column.id}`}
-                        checked={canView}
-                        onCheckedChange={() => toggleColumnPermission(column.id)}
-                      />
-                      <div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: column.color }}
-                      />
-                      <label htmlFor={`col-${column.id}`} className="flex-1 cursor-pointer font-medium">
-                        {column.name}
-                      </label>
+              <div className="space-y-2">
+                {HOME_PERMISSION_ITEMS.map(item => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{item.label}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
                     </div>
-                  );
-                })}
-              </TabsContent>
-
-              <TabsContent value="hub" className="mt-0 space-y-3">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Selecione quais seções do Hub este colaborador pode acessar:
-                </p>
-                {HUB_SECTIONS.map(section => {
-                  const permission = hubPermissions.find(p => p.hub_section === section.id);
-                  const canAccess = permission?.can_access ?? true;
-
-                  return (
-                    <div
-                      key={section.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <Checkbox
-                        id={`hub-${section.id}`}
-                        checked={canAccess}
-                        onCheckedChange={() => toggleHubPermission(section.id)}
-                      />
-                      <div className="flex-1">
-                        <label htmlFor={`hub-${section.id}`} className="cursor-pointer font-medium block">
-                          {section.label}
-                        </label>
-                        <span className="text-xs text-muted-foreground">
-                          {section.description}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </TabsContent>
-
-              <TabsContent value="client_buttons" className="mt-0 space-y-3">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Selecione quais botões dentro do Hub do Cliente este colaborador pode acessar:
-                </p>
-                {CLIENT_HUB_BUTTONS.map(button => {
-                  const permission = clientButtonPermissions.find(p => p.hub_section === button.id);
-                  const canAccess = permission?.can_access ?? true;
-
-                  return (
-                    <div
-                      key={button.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <Checkbox
-                        id={`btn-${button.id}`}
-                        checked={canAccess}
-                        onCheckedChange={() => toggleClientButtonPermission(button.id)}
-                      />
-                      <div className="flex-1">
-                        <label htmlFor={`btn-${button.id}`} className="cursor-pointer font-medium block">
-                          {button.label}
-                        </label>
-                        <span className="text-xs text-muted-foreground">
-                          {button.description}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </TabsContent>
-
-              <TabsContent value="notifications" className="mt-0 space-y-3">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Configure os alertas que este colaborador vai receber:
-                </p>
-                <div className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors">
-                  <div className="flex-1">
-                    <p className="font-medium">Demandas em atraso</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Esta pessoa vai receber alertas quando demandas entrarem em atraso
-                    </p>
+                    <Switch
+                      checked={homePermissions[item.id]}
+                      disabled={!canEditPerms}
+                      onCheckedChange={() => toggleHomePermission(item.id)}
+                    />
                   </div>
-                  <Switch
-                    checked={lateNotificationEnabled}
-                    onCheckedChange={setLateNotificationEnabled}
-                  />
-                </div>
-              </TabsContent>
+                ))}
+              </div>
+            </section>
 
-              <TabsContent value="finance" className="mt-0 space-y-3">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Defina o nível de acesso desta pessoa ao módulo Financeiro:
-                </p>
-
-                <div className="flex items-center justify-between gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
-                  <div className="flex-1">
-                    <p className="font-medium">Financeiro completo</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Resumo do mês, pagamentos diretos, cartões e faturas, orçamento e ajustes.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={financeFullAccess}
-                    disabled={!canEditRoles}
-                    onCheckedChange={setFinanceFullAccess}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
-                  <div className="flex-1">
-                    <p className="font-medium">Assinaturas e ferramentas do Financeiro</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Permite cadastrar e manter ferramentas, assinaturas e pacotes, sem acesso ao
-                      resumo financeiro, faturas, orçamento ou despesas administrativas.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={financeToolsAccess}
-                    disabled={!canEditRoles}
-                    onCheckedChange={setFinanceToolsAccess}
-                  />
-                </div>
-
-                {selectedMember?.role === 'super_admin' || selectedMember?.role === 'agency_admin' ? (
-                  <p className="text-xs text-muted-foreground">
-                    Esta função já tem Financeiro completo por padrão — estas chaves não são necessárias.
+            {financeGrantable.any && (
+              <section className="space-y-3">
+                <div>
+                  <h3 className="text-base font-semibold">Financeiro</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Você só concede o que você mesmo possui.
                   </p>
+                </div>
+
+                {selectedMember?.role === 'super_admin' ? (
+                  <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+                    Acesso total por função — não há chaves a configurar.
+                  </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Financeiro completo já inclui assinaturas e ferramentas.
-                  </p>
-                )}
+                  <div className="space-y-2">
+                    {financeGrantable.full && (
+                      <div className="flex flex-col gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium">Financeiro completo</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Resumo do mês, pagamentos, cartões e faturas, orçamento e ajustes.
+                            Já inclui assinaturas e ferramentas.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={financeFlags.finance_access}
+                          disabled={!canEditPerms}
+                          onCheckedChange={(v) =>
+                            setFinanceFlags(prev => ({ ...prev, finance_access: v }))
+                          }
+                        />
+                      </div>
+                    )}
 
-                {!canEditRoles && (
-                  <p className="text-xs text-muted-foreground">
-                    Apenas administradores da agência podem alterar o acesso ao Financeiro.
-                  </p>
+                    {financeGrantable.tools && (
+                      <div className="flex flex-col gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium">Assinaturas e ferramentas</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Permite cadastrar e manter ferramentas, assinaturas e pacotes, sem acesso
+                            ao resumo financeiro, faturas, orçamento ou despesas administrativas.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={financeFlags.finance_tools_access}
+                          disabled={!canEditPerms}
+                          onCheckedChange={(v) =>
+                            setFinanceFlags(prev => ({ ...prev, finance_tools_access: v }))
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
-              </TabsContent>
-            </div>
-          </Tabs>
+              </section>
+            )}
+          </div>
 
-          <div className="flex gap-3 justify-end pt-4 border-t">
+          <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-end sm:gap-3">
             <Button variant="outline" onClick={() => setSelectedMember(null)}>
               Cancelar
             </Button>
-            <Button onClick={savePermissions} disabled={isSavingPermissions}>
+            <Button onClick={savePermissions} disabled={isSavingPermissions || !canEditPerms}>
               {isSavingPermissions ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -667,6 +566,7 @@ export default function TeamMembers() {
           </div>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
