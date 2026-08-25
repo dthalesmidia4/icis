@@ -289,14 +289,26 @@ export function useFinance(competence: Competence) {
    * nem alterado aqui — o vencimento é histórico.
    */
   const payStatement = useCallback(
-    async (occurrenceId: string, paidAmountBrl: number | null, paidDateISO?: string | null) => {
-      const { error } = await supabase.rpc("pay_finance_statement", {
+    async (
+      occurrenceId: string,
+      paidAmountBrl: number | null,
+      paidDateISO?: string | null,
+      /**
+       * Reconciliação cambial das compras em dólar da fatura. A RPC recalcula
+       * cada câmbio no servidor, materializa projeções e SÓ ENTÃO marca a
+       * fatura como paga — tudo na mesma transação. Array vazio = fatura sem
+       * componentes USD, mesma rota única.
+       */
+      usdComponents?: unknown[],
+    ) => {
+      const { error } = await supabase.rpc("pay_finance_statement_reconciled", {
         _occurrence_id: occurrenceId,
+        _usd_components: usdComponents ?? [],
         ...(paidDateISO ? { _paid_at: paymentDateToTimestamp(paidDateISO) } : {}),
         ...(paidAmountBrl != null ? { _paid_amount_brl: paidAmountBrl } : {}),
       } as any);
       if (error) {
-        toast.error("Não foi possível pagar a fatura");
+        toast.error(error.message || "Não foi possível pagar a fatura");
         return false;
       }
       toast.success("Fatura registrada como paga — as compras dela contam como liquidadas");
@@ -305,6 +317,7 @@ export function useFinance(competence: Competence) {
     },
     [fetchAll],
   );
+
 
 
 

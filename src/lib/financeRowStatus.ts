@@ -35,7 +35,9 @@ import {
   formatBRL,
   isCostBearing,
   isStatementRow,
+  linkedStatementRowFor,
   missingCycleFields,
+
 } from "./financeModel";
 
 export type StatusTone = "positive" | "danger" | "warning" | "neutral";
@@ -146,30 +148,14 @@ export interface RowStatusContext {
 /**
  * Fatura vinculada a um componente de cartão.
  *
- * Só usa EVIDÊNCIA JÁ PERSISTIDA, nunca inferência por competência:
- *  a) `statement_occurrence_id` (vínculo explícito); ou
- *  b) `statement_competence_snapshot` + cartão conhecido (histórico migrado).
- * Sem uma dessas provas nenhuma fatura é atribuída — o ciclo de cobrança pode
- * cair na fatura seguinte, então "mesmo mês" NÃO é prova de vínculo.
+ * Delega para `linkedStatementRowFor` (financeModel): a MESMA prova consultada
+ * por `effectivePaid`. Assim o vínculo histórico que pinta o badge é exatamente
+ * o vínculo que entra na contabilidade — sem divergência possível.
  */
 export function linkedStatementRow(row: MonthRow, statementRows: MonthRow[]): MonthRow | null {
-  const occ = row.occurrence;
-  const statementId = occ?.statement_occurrence_id ?? null;
-  if (statementId) {
-    return statementRows.find((r) => r.occurrence?.id === statementId) ?? null;
-  }
-  const snapshot = occ?.statement_competence_snapshot ?? null;
-  const cardId = occ?.card_item_id_snapshot ?? row.cardItemId ?? null;
-  if (!snapshot || !cardId) return null;
-  return (
-    statementRows.find(
-      (r) =>
-        r.item.id === cardId &&
-        !!r.occurrence &&
-        r.occurrence.competence_month.slice(0, 10) === snapshot.slice(0, 10),
-    ) ?? null
-  );
+  return linkedStatementRowFor(row, statementRows);
 }
+
 
 /** Dia da cobrança de uma linha de cartão: fato do mês > dia do cadastro. */
 export function rowChargeDay(row: MonthRow): number | null {
@@ -222,16 +208,23 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
   /* -------------------------- CARTÃO (componente) --------------------- */
   if (isCardCharge(row)) {
+    const statement = linkedStatementRow(row, statementRows);
+    /**
+     * BOOLEANO CANÔNICO — a MESMA prova de `effectivePaid`: fato próprio,
+     * liquidação derivada da fatura, ou vínculo com uma fatura paga. Se ele é
+     * `false`, NENHUM caminho abaixo pode devolver semântica de pago — é o que
+     * impede `Fatura paga` aparecer dentro do recorte `Em aberto`.
+     */
+    const canonicalPaid = row.paid
+      || !!ctx.settlement?.paidComponentKeys.has(row.key)
+      || !!statement?.paid;
+
     // Fato real de pagamento prevalece sobre qualquer lacuna de configuração.
     if (row.paid) {
       return { kind: "paid", label: "Pago", tone: "positive", direct: false, canPayDirectly: false };
     }
 
-    /**
-     * LIQUIDAÇÃO PELA FATURA (fonte canônica): este componente pertence a um
-     * grupo de fatura já paga. Mesmo booleano usado por totais e composição.
-     */
-    if (ctx.settlement?.paidComponentKeys.has(row.key)) {
+    if (canonicalPaid && ctx.settlement?.paidComponentKeys.has(row.key) && !statement?.paid) {
       return {
         kind: "card_statement_paid",
         label: "Pago pela fatura",
@@ -241,11 +234,8 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
       };
     }
 
-
-
-    const statement = linkedStatementRow(row, statementRows);
     if (statement) {
-      if (statement.paid) {
+      if (canonicalPaid && statement.paid) {
         return { kind: "card_statement_paid", label: "Fatura paga", tone: "positive", direct: false, canPayDirectly: false };
       }
       if (statement.dueDate && statement.dueDate < today) {
@@ -256,6 +246,8 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
         : "Fatura a pagar";
       return { kind: "card_in_statement", label, tone: "neutral", direct: false, canPayDirectly: false };
     }
+
+
 
     /**
      * CICLO REAL DO CARTÃO: uma cobrança feita depois do fechamento pertence à

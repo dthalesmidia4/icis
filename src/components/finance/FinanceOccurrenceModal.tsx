@@ -1,6 +1,14 @@
 /**
  * Registro do fato do mês (`finance_occurrences`): valor real, câmbio,
- * vencimento, pagamento e comprovante. Só aqui a linha é materializada.
+ * data, pagamento e comprovante. Só aqui a linha é materializada.
+ *
+ * DUAS NATUREZAS, DUAS DATAS:
+ *  - compra no cartão → o fato é a COBRANÇA (`charge_date`). O vencimento
+ *    pertence à fatura, nunca à compra: `due_date` fica NULL.
+ *  - obrigação direta → o fato é o VENCIMENTO (`due_date`).
+ *
+ * Compra no cartão também não tem switch `Pago`: a liquidação é derivada do
+ * pagamento da fatura.
  */
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +32,7 @@ import {
   formatDateBR,
   installmentRowLabel,
   KIND_LABELS,
+  effectiveUsdRate,
 } from "@/lib/financeModel";
 import { parseLocalizedNumber } from "@/lib/financeNumber";
 import {
@@ -33,6 +42,8 @@ import {
   occurrenceAmountLabel,
   occurrencePaidHelp,
 } from "@/lib/financeInstallmentPresentation";
+import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
+import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
 
 const BUCKET = "bill-attachments";
 
@@ -48,16 +59,27 @@ interface Props {
   /** Cartões cadastrados — permitem trocar a origem do pagamento SÓ neste mês. */
   cards?: FinanceItem[];
   defaultUsdRate: number | null;
+  /** Contexto para exibir a situação canônica de uma compra no cartão. */
+  statusContext?: RowStatusContext;
   onSave: (row: MonthRow, patch: Partial<FinanceOccurrence>) => Promise<FinanceOccurrence | null>;
   /** Abre o cadastro permanente (cronograma) do item desta linha. */
   onEditItem?: (item: FinanceItem) => void;
 }
 
-
-export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards = [], defaultUsdRate, onSave, onEditItem }: Props) {
+export default function FinanceOccurrenceModal({
+  open,
+  onOpenChange,
+  row,
+  cards = [],
+  defaultUsdRate,
+  statusContext,
+  onSave,
+  onEditItem,
+}: Props) {
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  /** Data do fato: cobrança (cartão) ou vencimento (obrigação direta). */
+  const [factDate, setFactDate] = useState("");
   const [paid, setPaid] = useState(false);
   const [observations, setObservations] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
@@ -67,6 +89,11 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
   /** Origem do pagamento DESTE mês (`NONE` = seguir o cadastro permanente). */
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
 
+  /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
+  const cardRow = !!row && isCardCharge(row);
+  /** Câmbio já provado pelo par (BRL real / USD original) desta compra. */
+  const persistedRate = row ? effectiveUsdRate(row) : null;
+
   useEffect(() => {
     if (!open || !row) return;
     setAmount(
@@ -74,8 +101,25 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
         ? row.amountOriginal != null ? String(row.amountOriginal) : ""
         : row.amountBrl != null ? String(row.amountBrl) : "",
     );
-    setRate(row.exchangeRate != null ? String(row.exchangeRate) : defaultUsdRate != null ? String(defaultUsdRate) : "");
-    setDueDate(row.dueDate ?? row.chargeDate ?? "");
+    /**
+     * Câmbio EFETIVO tem prioridade: uma vez que existe valor real em reais,
+     * o câmbio de referência do mês nunca volta a sobrescrever o fato.
+     */
+    const effective = effectiveUsdRate(row);
+    setRate(
+      effective != null
+        ? String(effective)
+        : row.exchangeRate != null
+          ? String(row.exchangeRate)
+          : defaultUsdRate != null
+            ? String(defaultUsdRate)
+            : "",
+    );
+    setFactDate(
+      isCardCharge(row)
+        ? row.chargeDate ?? ""
+        : row.dueDate ?? row.chargeDate ?? "",
+    );
     setPaid(row.paid);
     setObservations(row.occurrence?.observations ?? "");
     setAttachmentUrl(row.occurrence?.attachment_url ?? null);
@@ -94,6 +138,12 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
     if (row?.currency === "USD") return rateNumber != null ? Number((amountNumber * rateNumber).toFixed(2)) : null;
     return amountNumber;
   }, [amountNumber, rateNumber, row?.currency]);
+
+  /** Situação canônica read-only de uma compra no cartão. */
+  const cardStatus = useMemo(() => {
+    if (!row || !cardRow || !statusContext) return null;
+    return resolveRowStatus(row, statusContext);
+  }, [row, cardRow, statusContext]);
 
   const handleUpload = async (file: File) => {
     if (!row) return;
@@ -129,22 +179,21 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
   const handleSave = async () => {
     if (!row) return;
     setSaving(true);
-    const patch: Partial<FinanceOccurrence> = {
-      currency: row.currency,
-      amount_original: amountNumber,
-      exchange_rate: row.currency === "USD" ? rateNumber : null,
-      amount_brl: brl,
-      due_date: dueDate || null,
-      charge_date: row.chargeDate,
-      is_estimated: false,
-      observations: observations.trim() || null,
-      attachment_url: attachmentUrl,
-      attachment_name: attachmentName,
-      paid_at: paid ? row.occurrence?.paid_at ?? new Date().toISOString() : null,
-      paid_amount_brl: paid ? brl : null,
-      ...originPatch,
-    };
+    const patch = buildOccurrencePatch({
+      row,
+      cardRow,
+      factDate,
+      amountOriginal: amountNumber,
+      amountBrl: brl,
+      exchangeRate: rateNumber,
+      paid,
+      observations,
+      attachmentUrl,
+      attachmentName,
+      originPatch,
+    });
     const saved = await onSave(row, patch);
+
     setSaving(false);
     if (saved) {
       toast.success("Lançamento salvo");
@@ -153,6 +202,12 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
   };
 
   if (!row) return null;
+
+  const dateLabel = cardRow ? "Data da cobrança no cartão" : "Vencimento";
+  const rateLabel = persistedRate != null ? "Câmbio efetivo" : "Câmbio de referência";
+  const whenText = cardRow
+    ? `cobrança ${row.projected ? "prevista" : "real"} em ${formatDateBR(row.chargeDate)}`
+    : `vencimento previsto ${formatDateBR(row.dueDate ?? row.chargeDate)}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,7 +219,7 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
               <>
                 {installmentHeaderLine(row) ?? installmentRowLabel(row) ?? "Parcelamento"}
                 <br />
-                {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
+                {KIND_LABELS[row.item.kind]} · {whenText}
                 {installmentProjectedNote(row) && (
                   <>
                     <br />
@@ -174,7 +229,7 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
               </>
             ) : (
               <>
-                {KIND_LABELS[row.item.kind]} · vencimento previsto {formatDateBR(row.dueDate ?? row.chargeDate)}
+                {KIND_LABELS[row.item.kind]} · {whenText}
                 {row.projected && " · ainda não lançado neste mês"}
               </>
             )}
@@ -190,27 +245,40 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
 
             {row.currency === "USD" ? (
               <div>
-                <Label>Câmbio do mês</Label>
+                <Label>{rateLabel}</Label>
                 <Input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" />
               </div>
             ) : (
               <div>
-                <Label>Vencimento</Label>
-                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                <Label>{dateLabel}</Label>
+                <Input type="date" value={factDate} onChange={(e) => setFactDate(e.target.value)} />
               </div>
             )}
           </div>
 
           {row.currency === "USD" && (
-            <div className="grid grid-cols-2 gap-4 items-end">
-              <div>
-                <Label>Vencimento</Label>
-                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <>
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <div>
+                  <Label>{dateLabel}</Label>
+                  <Input type="date" value={factDate} onChange={(e) => setFactDate(e.target.value)} />
+                </div>
+                <p className="text-sm text-muted-foreground pb-2">
+                  Em reais: <span className="font-semibold text-foreground">{formatBRL(brl)}</span>
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground pb-2">
-                Em reais: <span className="font-semibold text-foreground">{formatBRL(brl)}</span>
+              <p className="text-xs text-muted-foreground">
+                {persistedRate != null
+                  ? "Câmbio efetivo desta compra, calculado pelo valor exato cobrado em reais."
+                  : "Usado apenas para estimativa até o valor real ser confirmado."}
               </p>
-            </div>
+            </>
+          )}
+
+          {cardRow && (
+            <p className="text-xs text-muted-foreground">
+              O vencimento pertence à fatura do cartão, não a esta compra.
+            </p>
           )}
 
           <div>
@@ -236,14 +304,25 @@ export default function FinanceOccurrenceModal({ open, onOpenChange, row, cards 
             </p>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <p className="text-sm font-medium">Pago</p>
-              <p className="text-xs text-muted-foreground">{occurrencePaidHelp(row)}</p>
+          {cardRow ? (
+            <div className="rounded-lg border p-3">
+              <p className="text-sm font-medium">Situação</p>
+              <p className="text-sm text-foreground mt-0.5">
+                {cardStatus?.label ?? (row.paid ? "Pago" : "Na fatura do cartão")}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Compras no cartão são liquidadas pelo pagamento da fatura.
+              </p>
             </div>
-            <Switch checked={paid} onCheckedChange={setPaid} />
-          </div>
-
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Pago</p>
+                <p className="text-xs text-muted-foreground">{occurrencePaidHelp(row)}</p>
+              </div>
+              <Switch checked={paid} onCheckedChange={setPaid} />
+            </div>
+          )}
 
           <div>
             <Label>Comprovante</Label>
