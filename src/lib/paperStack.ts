@@ -41,6 +41,27 @@ const WIDTH_BREAKPOINTS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /**
+ * Interpolação linear por trechos entre os pontos de calibração de folhas.
+ * Garante monotonicidade e arredonda para inteiro.
+ */
+function interpolateSheets(count: number): number {
+  const bp = SHEET_BREAKPOINTS;
+  if (count <= bp[0][0]) return bp[0][1];
+  const last = bp[bp.length - 1];
+  if (count >= last[0]) return last[1];
+  for (let i = 1; i < bp.length; i++) {
+    const [x0, y0] = bp[i - 1];
+    const [x1, y1] = bp[i];
+    if (count <= x1) {
+      if (x1 === x0) return y1;
+      const t = (count - x0) / (x1 - x0);
+      return Math.round(y0 + t * (y1 - y0));
+    }
+  }
+  return last[1];
+}
+
+/**
  * Largura da folha por faixa de carga (degraus, não interpolado): a largura
  * só muda ao cruzar um limiar, evitando crescimento gradual imperceptível.
  */
