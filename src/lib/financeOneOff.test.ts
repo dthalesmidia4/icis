@@ -214,16 +214,19 @@ describe("pagamento parcial de fatura não é suportado", () => {
   });
 });
 
-describe("privacidade dos 3 KPIs da abertura", () => {
+describe("privacidade dos valores do Financeiro", () => {
   const src = readFileSync("src/pages/Financial.tsx", "utf8");
+  const ctx = readFileSync("src/contexts/FinanceVisibilityContext.tsx", "utf8");
 
   it("começa oculto e não persiste preferência", () => {
-    expect(src).toMatch(/useState\(false\);\s*\n\s*\/\*\* Máscara única/);
+    expect(ctx).toContain("useState(false)");
+    expect(ctx).not.toContain("localStorage");
     expect(src).not.toMatch(/localStorage[^\n]*showKpis/);
   });
 
-  it("um único olho controla os três valores", () => {
-    expect(src.match(/setShowKpis\(\(v\) => !v\)/g)?.length).toBe(1);
+  it("estado único do domínio governa os três valores do resumo", () => {
+    expect(src).toContain("useFinanceVisibility()");
+    expect(src).not.toContain("setShowKpis");
     expect(src).toMatch(/Ocultar valores do resumo/);
     expect(src).toMatch(/Exibir valores do resumo/);
     expect(src.match(/kpiText\(totals\.(expected|paid|open)\)/g)?.length).toBe(3);
