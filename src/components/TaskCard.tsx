@@ -85,7 +85,10 @@ import {
   ensureExecutionRun,
   loadExecutionRuns,
   setExecutionItemCompleted,
+  updateExecutionItemText,
+  applyExecutionItemText,
   persistExecutionItemOrder,
+
   reorderExecutionItems,
   reorderDraftExecutionItems,
   applyExecutionToggleOrder,
