@@ -253,6 +253,30 @@ export function partitionExecutionItems<T extends { is_completed: boolean; posit
   };
 }
 
+/**
+ * Decide se o arraste manual do checklist está liberado. Bloqueia durante
+ * operações concorrentes (reordenação em salva, concluir-tudo, marcação/
+ * remoção de um item, adição) e em modo somente leitura ou sem callback.
+ * Centralizada aqui para a UI não divergir da intenção testada.
+ */
+export function isExecutionDragEnabled(params: {
+  readOnly?: boolean;
+  hasReorderHandler: boolean;
+  reordering?: boolean;
+  completingAll?: boolean;
+  busyItemId?: string | null;
+  adding?: boolean;
+}): boolean {
+  return (
+    !params.readOnly &&
+    params.hasReorderHandler &&
+    !params.reordering &&
+    !params.completingAll &&
+    !params.busyItemId &&
+    !params.adding
+  );
+}
+
 /** Reindexa `position` para 0..n-1 respeitando a ordem recebida. */
 function reindex<T extends { position: number }>(items: T[]): T[] {
   return items.map((item, index) => ({ ...item, position: index }));
