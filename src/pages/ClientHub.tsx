@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import { Card } from "@/components/ui/card";
 import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw, X, Activity } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { useHubPermissions, type ClientHubButtonId } from "@/hooks/useHubPermissions";
+
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useRef, useState } from "react";
@@ -102,7 +102,6 @@ const ClientHub = () => {
   const location = useLocation();
   const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
-  const { canAccess: canAccessButton } = useHubPermissions();
   const { role } = useAgencyRole();
   
   const [contentModalOpen, setContentModalOpen] = useState(false);
@@ -1872,23 +1871,22 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   const allActionCards = [
 
-    { id: 'client_anamnese' as ClientHubButtonId, title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
-    { id: 'client_estrategia' as ClientHubButtonId, title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
-    { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
-    { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true), disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
-    { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (approvedCardsCount + rejectedCardsCount) > 0 ? (approvedCardsCount + rejectedCardsCount) : undefined },
-    { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },
-    { id: 'client_evolucao' as ClientHubButtonId, title: "Evolução das Demandas", icon: Activity, action: () => navigate("/client-evolution") },
-    { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
-    { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
+    { id: 'client_anamnese', title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
+    { id: 'client_estrategia', title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
+    { id: 'client_identidade_visual', title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
+    { id: 'client_planejar_periodo', title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true), disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
+    { id: 'client_aprovar_producao', title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (approvedCardsCount + rejectedCardsCount) > 0 ? (approvedCardsCount + rejectedCardsCount) : undefined },
+    { id: 'client_cronograma_atual', title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },
+    { id: 'client_evolucao', title: "Evolução das Demandas", icon: Activity, action: () => navigate("/client-evolution") },
+    { id: 'client_historico', title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
+    { id: 'client_conteudo_avulso', title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
     
-    { id: 'client_demanda_planejada' as ClientHubButtonId, title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaHubModalOpen(true) },
+    { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaHubModalOpen(true) },
   ];
 
-  // Admins see all buttons; others are filtered by permissions
-  const actionCards = isAdmin
-    ? allActionCards
-    : allActionCards.filter(card => canAccessButton(card.id));
+  // Ações operacionais do workspace atual: regras de papel já bastam.
+  // Permissões legadas `client_*` não filtram mais esta barra.
+  const actionCards = allActionCards;
 
   return (
     <div className="pb-8" style={buildClientBrandStyle(clientBrandColors)}>
@@ -1910,7 +1908,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           daysCount={workspaceDays}
           creativesCount={workspaceCreatives}
           deliveredCount={workspaceDelivered}
-          canOpenRegistration={isAdmin || canAccessButton('client_cadastro' as ClientHubButtonId)}
+          canOpenRegistration={true}
           onOpenRegistration={() => navigate(`/clientes/${selectedClient.id}`)}
           onPlanPeriod={() => setPlanPeriodModalOpen(true)}
           planPeriodDisabled={!hasVisualIdentity}

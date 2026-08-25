@@ -21,26 +21,8 @@ export const HUB_SECTIONS = [
   { id: 'reprovada-cliente', label: 'Demanda Reprovada pelo Cliente', description: 'Gestão de demandas reprovadas pelo cliente' },
 ] as const;
 
-// Botões dentro do Hub do Cliente que podem ter permissões controladas
-export const CLIENT_HUB_BUTTONS = [
-  { id: 'client_cadastro', label: 'Cadastro', description: 'Acesso ao cadastro do cliente' },
-  { id: 'client_anamnese', label: 'Anamnese', description: 'Acesso à anamnese do cliente' },
-  { id: 'client_estrategia', label: 'Estratégia', description: 'Acesso à estratégia do cliente' },
-  { id: 'client_planejar_periodo', label: 'Planejar Período', description: 'Planejamento de períodos' },
-  { id: 'client_aprovar_producao', label: 'Aprovar Produção', description: 'Aprovação de demandas' },
-  { id: 'client_demandas_reprovadas', label: 'Demandas Reprovadas', description: 'Visualização de demandas reprovadas' },
-  { id: 'client_cronograma_atual', label: 'Cronograma Atual', description: 'Cronograma do período atual' },
-  { id: 'client_evolucao', label: 'Evolução das Demandas', description: 'Visão geral do andamento das demandas por etapa do fluxo' },
-  { id: 'client_historico', label: 'Histórico de Períodos', description: 'Histórico de períodos anteriores' },
-  { id: 'client_identidade_visual', label: 'Identidade Visual', description: 'Gestão da identidade visual' },
-  { id: 'client_conteudo_avulso', label: 'Conteúdo Avulso', description: 'Criação de conteúdo avulso' },
-  { id: 'client_demanda_planejada', label: 'Demanda Planejada', description: 'Criação de demanda planejada com IA' },
-  { id: 'client_demanda_planejada_historico', label: 'Histórico de Demanda Planejada', description: 'Histórico de demandas planejadas geradas' },
-] as const;
-
-export type ClientHubButtonId = typeof CLIENT_HUB_BUTTONS[number]['id'];
-
 export type HubSectionId = typeof HUB_SECTIONS[number]['id'];
+
 
 interface HubPermission {
   hub_section: string;
@@ -112,7 +94,7 @@ export function useHubPermissions() {
   }, [user?.id, agencyId, fetchPermissions]);
 
   // Função para verificar se o usuário pode acessar uma seção específica
-  const canAccess = useCallback((sectionId: HubSectionId | ClientHubButtonId | string): boolean => {
+  const canAccess = useCallback((sectionId: HubSectionId | string): boolean => {
     // Se não há permissões carregadas/salvas para este usuário, permitir tudo por padrão
     if (permissions.length === 0) {
       return true;
