@@ -23,10 +23,12 @@ import {
   buildFinanceUpdate,
   buildHomePermissionUpserts,
   canEditPermissions,
-  financeGrantableCapabilities,
+  effectiveFinanceToolsAccess,
   resolveHomePermissionState,
+  visibleFinanceCapabilities,
   type HomePermissionId,
 } from '@/lib/permissionDelegation';
+
 
 interface TeamMember {
   id: string;
