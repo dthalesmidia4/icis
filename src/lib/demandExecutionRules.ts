@@ -436,3 +436,33 @@ export function buildDraftExecutionRun(
 export function draftExecutionItemTexts(items: DraftExecutionItem[]): string[] {
   return normalizeExecutionItemTexts(items.map((i) => i.text)).map((i) => i.text);
 }
+
+/**
+ * Reordena o checklist do RASCUNHO (só memória) usando exatamente as mesmas
+ * regras de grupo da demanda salva. A ordem resultante é a ordem que será
+ * materializada no banco quando a demanda for criada.
+ */
+export function reorderDraftExecutionItems(
+  items: DraftExecutionItem[],
+  sourceIndex: number,
+  destinationIndex: number,
+): DraftExecutionItem[] {
+  const withPosition = sortExecutionItems(
+    items.map((item, index) => ({ ...item, position: index })),
+  );
+  return reorderExecutionItems(withPosition, sourceIndex, destinationIndex).map(
+    ({ id, text, is_completed }) => ({ id, text, is_completed }),
+  );
+}
+
+/** Move o item alternado para o fim do grupo correto, no rascunho. */
+export function applyDraftExecutionToggleOrder(
+  items: DraftExecutionItem[],
+  itemId: string,
+  completed: boolean,
+): DraftExecutionItem[] {
+  const withPosition = items.map((item, index) => ({ ...item, position: index }));
+  return applyExecutionToggleOrder(withPosition, itemId, completed).map(
+    ({ id, text, is_completed }) => ({ id, text, is_completed }),
+  );
+}
