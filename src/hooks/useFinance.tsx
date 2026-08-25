@@ -283,14 +283,11 @@ export function useFinance(competence: Competence) {
   const saveSettings = useCallback(
     async (next: FinanceSettings) => {
       if (!agencyId) return false;
-      const { error } = await supabase.rpc("set_finance_settings", {
-        _tenant_id: agencyId,
-        // `null` significa “não definido” — nunca converter para zero (0 é
-        // valor inválido de câmbio e orçamento zero não é ausência).
-        _monthly_budget_brl: next.monthlyBudgetBrl,
-        _default_usd_rate: next.defaultUsdRate,
+      const { error } = await supabase.rpc(
+        "set_finance_settings",
+        financeSettingsRpcPayload(agencyId, next) as any,
+      );
 
-      } as any);
       if (error) {
         toast.error("Não foi possível salvar as configurações");
         return false;
