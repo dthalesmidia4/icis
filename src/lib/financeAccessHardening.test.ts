@@ -16,26 +16,41 @@ const migrations = readdirSync(resolve(process.cwd(), "supabase/migrations"))
   .filter((f) => f.endsWith(".sql"))
   .map((f) => read(`supabase/migrations/${f}`));
 
+const FINANCE_RPCS = [
+  "finance_access_scope(uuid)",
+  "has_finance_tools_access(uuid)",
+  "finance_tools_item_allowed(uuid, uuid)",
+  "list_finance_safe_cards(uuid)",
+  "finance_password_status(uuid)",
+  "verify_finance_password(uuid, text)",
+];
+
+const allSql = migrations.join("\n");
+
 const hardening = migrations.filter((sql) =>
   /REVOKE EXECUTE ON FUNCTION public\.verify_finance_password\(uuid, text\) FROM anon/i.test(sql),
 );
 
 describe("hardening de acesso ao Financeiro", () => {
+  it("revoga EXECUTE de PUBLIC (privilégio herdado) e concede a authenticated/service_role", () => {
+    // `anon` herda EXECUTE de PUBLIC, então revogar só de `anon` não fecha o acesso.
+    for (const fn of FINANCE_RPCS) {
+      expect(allSql).toContain(`REVOKE EXECUTE ON FUNCTION public.${fn} FROM PUBLIC`);
+      expect(allSql).toContain(
+        `GRANT EXECUTE ON FUNCTION public.${fn} TO authenticated, service_role`,
+      );
+    }
+  });
+
   it("existe migration que revoga anon nas RPCs financeiras e concede authenticated", () => {
     expect(hardening.length).toBeGreaterThan(0);
     const sql = hardening.join("\n");
-    for (const fn of [
-      "finance_access_scope(uuid)",
-      "has_finance_tools_access(uuid)",
-      "finance_tools_item_allowed(uuid, uuid)",
-      "list_finance_safe_cards(uuid)",
-      "finance_password_status(uuid)",
-      "verify_finance_password(uuid, text)",
-    ]) {
+    for (const fn of FINANCE_RPCS) {
       expect(sql).toContain(`REVOKE EXECUTE ON FUNCTION public.${fn} FROM anon`);
       expect(sql).toContain(`GRANT EXECUTE ON FUNCTION public.${fn} TO authenticated`);
     }
   });
+
 
   it("senha do Financeiro exige FULL no banco (status levanta erro, verify retorna false)", () => {
     const sql = hardening.join("\n");
