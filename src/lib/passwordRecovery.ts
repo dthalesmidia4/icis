@@ -125,9 +125,10 @@ export function hasValidRecoveryEvidence(evidence: RecoveryEvidence): boolean {
   return false;
 }
 
-export type ResetPasswordValidation =
-  | { ok: true }
-  | { ok: false; message: string };
+export interface ResetPasswordValidation {
+  ok: boolean;
+  message?: string;
+}
 
 /** Valida nova senha + confirmação com a mesma regra mínima do cadastro. */
 export function validateNewPassword(
