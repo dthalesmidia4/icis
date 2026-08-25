@@ -191,6 +191,22 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
       return { kind: "paid", label: "Pago", tone: "positive", direct: false, canPayDirectly: false };
     }
 
+    /**
+     * LIQUIDAÇÃO PELA FATURA (fonte canônica): este componente pertence a um
+     * grupo de fatura já paga. Mesmo booleano usado por totais e composição.
+     */
+    if (ctx.settlement?.paidComponentKeys.has(row.key)) {
+      return {
+        kind: "card_statement_paid",
+        label: "Pago pela fatura",
+        tone: "positive",
+        direct: false,
+        canPayDirectly: false,
+      };
+    }
+
+
+
     const statement = linkedStatementRow(row, statementRows);
     if (statement) {
       if (statement.paid) {
