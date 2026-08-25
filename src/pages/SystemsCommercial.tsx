@@ -169,7 +169,8 @@ const formFromClient = (c: SystemsClient): DrawerForm => ({
 export default function SystemsCommercial() {
   const { tenantId } = useTenant();
   const navigate = useNavigate();
-  const { collaborators } = useCollaborators(tenantId);
+  // Dono comercial é papel de atendimento: lista de integrantes do tenant.
+  const { members: collaborators } = useCollaborators(tenantId);
   const { user } = useAuth();
 
   const [companies, setCompanies] = useState<SystemsCompany[]>([]);
