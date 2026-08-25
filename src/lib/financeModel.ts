@@ -564,30 +564,44 @@ export interface SettlementIndexLike {
   paidComponentKeys: Set<string>;
 }
 
-/** Uma despesa no cartão herda o status de pagamento da fatura vinculada. */
-function rowIsPaid(
+/**
+ * FATURA VINCULADA a um componente de cartão — prova JÁ PERSISTIDA.
+ *
+ * Duas provas válidas, nesta ordem:
+ *  a) `statement_occurrence_id` (vínculo explícito);
+ *  b) `statement_competence_snapshot` + cartão conhecido (histórico migrado).
+ *
+ * "Mesmo mês" NUNCA é prova: a cobrança pode cair na fatura seguinte.
+ *
+ * Esta é a MESMA função consultada por `effectivePaid` (contabilidade) e pela
+ * apresentação (`financeRowStatus`), para que badge e recorte não divirjam.
+ */
+export function linkedStatementRowFor(
   row: MonthRow,
-  statementPaidById: Map<string, boolean>,
-  settlement?: SettlementIndexLike | null,
-): boolean {
-  if (row.paid) return true;
-  const statementId = row.occurrence?.statement_occurrence_id ?? null;
-  if (statementId && statementPaidById.get(statementId)) return true;
-  if (settlement?.paidComponentKeys.has(row.key)) return true;
-  return false;
+  statementRows: MonthRow[],
+): MonthRow | null {
+  const occ = row.occurrence;
+  const statementId = occ?.statement_occurrence_id ?? null;
+  if (statementId) {
+    return statementRows.find((r) => r.occurrence?.id === statementId) ?? null;
+  }
+  const snapshot = occ?.statement_competence_snapshot ?? null;
+  const cardId = occ?.card_item_id_snapshot ?? row.cardItemId ?? null;
+  if (!snapshot || !cardId) return null;
+  return (
+    statementRows.find(
+      (r) =>
+        r.item.id === cardId &&
+        !!r.occurrence &&
+        r.occurrence.competence_month.slice(0, 10) === snapshot.slice(0, 10),
+    ) ?? null
+  );
 }
 
 export function computeTotals(
   rows: MonthRow[],
   settlement?: SettlementIndexLike | null,
 ): MonthTotals {
-  const statementPaidById = new Map<string, boolean>();
-  for (const row of rows) {
-    if (isStatementRow(row) && row.occurrence) {
-      statementPaidById.set(row.occurrence.id, row.paid);
-    }
-  }
-
   let expected = 0;
   let paid = 0;
   let open = 0;
@@ -602,7 +616,8 @@ export function computeTotals(
     }
     expected += value;
     if (row.item.kind === "tool" || row.item.kind === "package") toolsAndAi += value;
-    if (rowIsPaid(row, statementPaidById, settlement)) paid += row.paidAmountBrl ?? value;
+    // MESMO booleano canônico usado por composição, filtros e badges.
+    if (effectivePaid(row, rows, settlement)) paid += row.paidAmountBrl ?? value;
     else open += value;
   }
 
@@ -617,8 +632,14 @@ export function computeTotals(
 }
 
 /**
- * Status efetivo de pagamento considerando a fatura do cartão.
- * `settlement` traz a liquidação derivada dos grupos de fatura pagos.
+ * AUTORIDADE ÚNICA de "pago" no Financeiro.
+ *
+ * Decide simultaneamente: entrada em `paid`/`open`, badge de pago, totais,
+ * lista de Assinaturas e tools-only. Se esta função devolve `false`, nenhuma
+ * camada de apresentação pode pintar semântica de pago.
+ *
+ * Provas aceitas: fato próprio (`paid_at`), liquidação derivada da fatura
+ * (`settlement`) ou vínculo histórico com uma fatura paga.
  */
 export function effectivePaid(
   row: MonthRow,
@@ -627,10 +648,49 @@ export function effectivePaid(
 ): boolean {
   if (row.paid) return true;
   if (settlement?.paidComponentKeys.has(row.key)) return true;
-  const statementId = row.occurrence?.statement_occurrence_id ?? null;
-  if (!statementId) return false;
-  return rows.some((r) => isStatementRow(r) && r.occurrence?.id === statementId && r.paid);
+  const statement = linkedStatementRowFor(row, rows.filter(isStatementRow));
+  return !!statement?.paid;
 }
+
+/* -------------------------------------------------------------------------- */
+/*                        CÂMBIO: REFERÊNCIA vs EFETIVO                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Câmbio EFETIVO de uma linha USD: só existe quando há fato real, e é sempre
+ * derivado do próprio par (BRL exato / USD original) daquela compra.
+ *
+ * Duas compras da mesma fatura podem ter câmbios diferentes — não existe
+ * "câmbio da fatura" nem "câmbio do mês" como fato.
+ */
+export function effectiveUsdRate(row: MonthRow): number | null {
+  if (row.currency !== "USD") return null;
+  const occ = row.occurrence;
+  if (!occ) return null;
+  const original = occ.amount_original ?? null;
+  const brl = occ.amount_brl ?? null;
+  if (original != null && original > 0 && brl != null) {
+    return Number((brl / original).toFixed(6));
+  }
+  return null;
+}
+
+/** A linha USD ainda depende de câmbio de REFERÊNCIA (estimativa)? */
+export function usesReferenceRate(row: MonthRow): boolean {
+  if (row.currency !== "USD") return false;
+  return effectiveUsdRate(row) == null;
+}
+
+/** Câmbio calculado a partir de um par informado, com precisão de 6 casas. */
+export function computeUsdRate(
+  amountBrl: number | null | undefined,
+  amountOriginal: number | null | undefined,
+): number | null {
+  if (amountBrl == null || amountOriginal == null) return null;
+  if (!(amountOriginal > 0) || !(amountBrl > 0)) return null;
+  return Number((amountBrl / amountOriginal).toFixed(6));
+}
+
 
 
 /* -------------------------------------------------------------------------- */
