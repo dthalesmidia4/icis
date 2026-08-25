@@ -32,10 +32,13 @@ import {
   StatementGroup,
   cardDisplayLabel,
   cycleGapLabel,
+  effectivePaid,
   formatBRL,
   isCostBearing,
   isStatementRow,
+  linkedStatementRowFor,
   missingCycleFields,
+
 } from "./financeModel";
 
 export type StatusTone = "positive" | "danger" | "warning" | "neutral";
