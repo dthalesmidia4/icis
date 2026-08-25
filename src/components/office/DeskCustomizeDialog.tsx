@@ -15,9 +15,8 @@ import DeskObject from "./DeskObject";
 import {
   DESK_OBJECT_KEYS,
   DESK_OBJECT_LABELS,
-  MAX_DESK_OBJECTS,
   sanitizeDeskObjects,
-  toggleDeskObject,
+  selectDeskObject,
   type DeskObjectKey,
 } from "@/lib/officeDeskObjects";
 
@@ -29,7 +28,7 @@ interface DeskCustomizeDialogProps {
   onSave: (objects: DeskObjectKey[]) => void | Promise<unknown>;
 }
 
-/** Catálogo padrão de objetos da PRÓPRIA mesa (até 3, slots decididos pelo sistema). */
+/** Catálogo da PRÓPRIA mesa: UM objeto (radio), slot decidido pelo sistema. */
 export default function DeskCustomizeDialog({
   open,
   onOpenChange,
@@ -62,24 +61,23 @@ export default function DeskCustomizeDialog({
         <DialogHeader>
           <DialogTitle>Personalizar mesa</DialogTitle>
           <DialogDescription>
-            Escolha até {MAX_DESK_OBJECTS} objetos. Eles aparecem sobre o seu tampo para todo o time.
+            Escolha um objeto. Ele aparece sobre o seu tampo para todo o time.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div role="radiogroup" aria-label="Objeto da mesa" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {DESK_OBJECT_KEYS.map((key) => {
             const active = selected.includes(key);
-            const blocked = !active && selected.length >= MAX_DESK_OBJECTS;
             return (
               <button
                 key={key}
                 type="button"
-                disabled={blocked}
-                onClick={() => setSelected((cur) => toggleDeskObject(cur, key))}
+                role="radio"
+                aria-checked={active}
+                onClick={() => setSelected((cur) => selectDeskObject(cur, key))}
                 className={cn(
                   "relative flex flex-col items-center gap-1 rounded-lg border p-2 transition-colors",
                   active ? "border-primary bg-primary/10" : "border-border hover:bg-muted",
-                  blocked && "opacity-40",
                 )}
               >
                 <span className="flex h-9 items-end">
@@ -96,7 +94,7 @@ export default function DeskCustomizeDialog({
 
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <span className="text-[11px] text-muted-foreground">
-            {selected.length}/{MAX_DESK_OBJECTS} selecionados
+            {selected.length === 1 ? "1 objeto selecionado" : "Nenhum objeto selecionado"}
           </span>
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving ? "Salvando…" : "Salvar"}

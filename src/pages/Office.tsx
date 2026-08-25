@@ -320,7 +320,7 @@ export default function Office() {
                   onOpenCard={setOpenCardId}
                   onOpenQueue={setQueueUserId}
                   deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
-                  isSelf={!!user && user.id === station.collaborator.userId}
+                  viewerUserId={user?.id ?? null}
                   monitorPct={monitorPct}
                   onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
@@ -355,7 +355,7 @@ export default function Office() {
                     onOpenCard={setOpenCardId}
                     onOpenQueue={setQueueUserId}
                     deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
-                    isSelf={!!user && user.id === station.collaborator.userId}
+                    viewerUserId={user?.id ?? null}
                   monitorPct={monitorPct}
                     onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}

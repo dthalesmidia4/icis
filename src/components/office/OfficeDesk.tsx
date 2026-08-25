@@ -7,7 +7,12 @@ import OfficeCharacter from "./OfficeCharacter";
 import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
-import { assignDeskSlots, type DeskObjectKey, type DeskSlotName } from "@/lib/officeDeskObjects";
+import {
+  assignDeskSlots,
+  canCustomizeDesk,
+  type DeskObjectKey,
+  type DeskSlotName,
+} from "@/lib/officeDeskObjects";
 import { isCoffeeEligible } from "@/lib/officePresence";
 
 const timeLabel = (date?: string | null, time?: string | null) => {
@@ -29,8 +34,8 @@ interface OfficeDeskProps {
   onOpenQueue: (userId: string) => void;
   /** Objetos pessoais salvos desta mesa. */
   deskObjects?: DeskObjectKey[];
-  /** É a mesa do usuário logado (única que pode ser personalizada). */
-  isSelf?: boolean;
+  /** id do usuário autenticado — ownership real da mesa (nunca nome/e-mail). */
+  viewerUserId?: string | null;
   onSaveDeskObjects?: (objects: DeskObjectKey[]) => void | Promise<unknown>;
   /** Largura relativa (%) do monitor dentro da estação (vem do perfil do mundo). */
   monitorPct?: number;
@@ -57,7 +62,7 @@ export const OfficeDesk = memo(function OfficeDesk({
   onOpenCard,
   onOpenQueue,
   deskObjects = [],
-  isSelf = false,
+  viewerUserId = null,
   onSaveDeskObjects,
   monitorPct = 57,
 
@@ -109,6 +114,12 @@ export const OfficeDesk = memo(function OfficeDesk({
   // ATRASO VISUAL ÚNICO: borda do monitor e ícone usam o MESMO sinal da barra
   // (prazo estourado), nunca o "início já passou" — senão fica vermelho sem atraso.
   const overdue = progress !== null && progress >= 1;
+  // “Personalizar mesa”: só ownership real, nunca estado de demanda/presença.
+  const canCustomize = canCustomizeDesk({
+    viewerUserId,
+    deskOwnerUserId: collaborator.userId,
+    canSave: !!onSaveDeskObjects,
+  });
 
 
   return (
@@ -289,7 +300,7 @@ export const OfficeDesk = memo(function OfficeDesk({
                 retorna {presence.returnsAt}
               </span>
             )}
-            {isSelf && onSaveDeskObjects && (
+            {canCustomize && (
               <button
                 type="button"
                 onClick={() => setEditing(true)}
@@ -297,13 +308,11 @@ export const OfficeDesk = memo(function OfficeDesk({
                 title="Personalizar mesa"
                 className={cn(
                   "inline-flex shrink-0 items-center gap-0.5 rounded-full border px-1 py-[1px] text-[8px] font-semibold leading-4 transition-colors",
-                  deskObjects.length === 0
-                    ? "border-primary/60 bg-primary/10 text-primary hover:bg-primary/20"
-                    : "border-border bg-background/80 text-muted-foreground hover:border-primary/60 hover:text-foreground",
+                  "border-primary/60 bg-primary/10 text-primary hover:bg-primary/20",
                 )}
               >
                 <Settings2 className="h-2.5 w-2.5" />
-                {deskObjects.length === 0 && <span>Personalizar mesa</span>}
+                <span>Personalizar mesa</span>
               </button>
             )}
           </div>
@@ -343,7 +352,7 @@ export const OfficeDesk = memo(function OfficeDesk({
         />
       </div>
 
-      {isSelf && onSaveDeskObjects && (
+      {canCustomize && (
         <DeskCustomizeDialog
           open={editing}
           onOpenChange={setEditing}
