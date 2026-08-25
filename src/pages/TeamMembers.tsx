@@ -435,14 +435,17 @@ export default function TeamMembers() {
 
                   </div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleOpenPermissions(member)}
-                >
-                  <Settings2 className="h-4 w-4 mr-2" />
-                  Permissões
-                </Button>
+                {canEditPerms && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenPermissions(member)}
+                  >
+                    <Settings2 className="h-4 w-4 mr-2" />
+                    Permissões
+                  </Button>
+                )}
+
               </CardContent>
             </Card>
           ))}
