@@ -1422,6 +1422,7 @@ export type Database = {
           card_item_id: string | null
           card_last4: string | null
           card_limit_brl: number | null
+          card_limit_brl_enc: string | null
           category: string | null
           charge_day: number | null
           cost_center: string
@@ -1429,8 +1430,11 @@ export type Database = {
           created_by: string | null
           currency: string
           default_amount_brl: number | null
+          default_amount_brl_enc: string | null
           default_amount_original: number | null
+          default_amount_original_enc: string | null
           default_exchange_rate: number | null
+          default_exchange_rate_enc: string | null
           due_day: number | null
           id: string
           installment_count: number | null
@@ -1458,6 +1462,7 @@ export type Database = {
           card_item_id?: string | null
           card_last4?: string | null
           card_limit_brl?: number | null
+          card_limit_brl_enc?: string | null
           category?: string | null
           charge_day?: number | null
           cost_center?: string
@@ -1465,8 +1470,11 @@ export type Database = {
           created_by?: string | null
           currency?: string
           default_amount_brl?: number | null
+          default_amount_brl_enc?: string | null
           default_amount_original?: number | null
+          default_amount_original_enc?: string | null
           default_exchange_rate?: number | null
+          default_exchange_rate_enc?: string | null
           due_day?: number | null
           id?: string
           installment_count?: number | null
@@ -1494,6 +1502,7 @@ export type Database = {
           card_item_id?: string | null
           card_last4?: string | null
           card_limit_brl?: number | null
+          card_limit_brl_enc?: string | null
           category?: string | null
           charge_day?: number | null
           cost_center?: string
@@ -1501,8 +1510,11 @@ export type Database = {
           created_by?: string | null
           currency?: string
           default_amount_brl?: number | null
+          default_amount_brl_enc?: string | null
           default_amount_original?: number | null
+          default_amount_original_enc?: string | null
           default_exchange_rate?: number | null
+          default_exchange_rate_enc?: string | null
           due_day?: number | null
           id?: string
           installment_count?: number | null
@@ -1550,7 +1562,9 @@ export type Database = {
       finance_occurrences: {
         Row: {
           amount_brl: number | null
+          amount_brl_enc: string | null
           amount_original: number | null
+          amount_original_enc: string | null
           attachment_name: string | null
           attachment_url: string | null
           card_item_id_snapshot: string | null
@@ -1561,12 +1575,14 @@ export type Database = {
           currency: string
           due_date: string | null
           exchange_rate: number | null
+          exchange_rate_enc: string | null
           id: string
           is_estimated: boolean
           item_id: string
           legacy_bill_id: string | null
           observations: string | null
           paid_amount_brl: number | null
+          paid_amount_brl_enc: string | null
           paid_at: string | null
           payment_method_snapshot: string | null
           statement_competence_snapshot: string | null
@@ -1576,7 +1592,9 @@ export type Database = {
         }
         Insert: {
           amount_brl?: number | null
+          amount_brl_enc?: string | null
           amount_original?: number | null
+          amount_original_enc?: string | null
           attachment_name?: string | null
           attachment_url?: string | null
           card_item_id_snapshot?: string | null
@@ -1587,12 +1605,14 @@ export type Database = {
           currency?: string
           due_date?: string | null
           exchange_rate?: number | null
+          exchange_rate_enc?: string | null
           id?: string
           is_estimated?: boolean
           item_id: string
           legacy_bill_id?: string | null
           observations?: string | null
           paid_amount_brl?: number | null
+          paid_amount_brl_enc?: string | null
           paid_at?: string | null
           payment_method_snapshot?: string | null
           statement_competence_snapshot?: string | null
@@ -1602,7 +1622,9 @@ export type Database = {
         }
         Update: {
           amount_brl?: number | null
+          amount_brl_enc?: string | null
           amount_original?: number | null
+          amount_original_enc?: string | null
           attachment_name?: string | null
           attachment_url?: string | null
           card_item_id_snapshot?: string | null
@@ -1613,12 +1635,14 @@ export type Database = {
           currency?: string
           due_date?: string | null
           exchange_rate?: number | null
+          exchange_rate_enc?: string | null
           id?: string
           is_estimated?: boolean
           item_id?: string
           legacy_bill_id?: string | null
           observations?: string | null
           paid_amount_brl?: number | null
+          paid_amount_brl_enc?: string | null
           paid_at?: string | null
           payment_method_snapshot?: string | null
           statement_competence_snapshot?: string | null
@@ -2692,7 +2716,9 @@ export type Database = {
           email: string | null
           finance_access_password_hash: string | null
           finance_default_usd_rate: number | null
+          finance_default_usd_rate_enc: string | null
           finance_monthly_budget_brl: number | null
+          finance_monthly_budget_brl_enc: string | null
           hierarchy_level: number | null
           hierarchy_path: string | null
           id: string
@@ -2712,7 +2738,9 @@ export type Database = {
           email?: string | null
           finance_access_password_hash?: string | null
           finance_default_usd_rate?: number | null
+          finance_default_usd_rate_enc?: string | null
           finance_monthly_budget_brl?: number | null
+          finance_monthly_budget_brl_enc?: string | null
           hierarchy_level?: number | null
           hierarchy_path?: string | null
           id?: string
@@ -2732,7 +2760,9 @@ export type Database = {
           email?: string | null
           finance_access_password_hash?: string | null
           finance_default_usd_rate?: number | null
+          finance_default_usd_rate_enc?: string | null
           finance_monthly_budget_brl?: number | null
+          finance_monthly_budget_brl_enc?: string | null
           hierarchy_level?: number | null
           hierarchy_path?: string | null
           id?: string
@@ -3193,6 +3223,33 @@ export type Database = {
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
       finance_access_scope: { Args: { _tenant_id: string }; Returns: string }
       finance_password_status: { Args: { _tenant_id: string }; Returns: Json }
+      finance_read_item_values: {
+        Args: { _tenant_id: string }
+        Returns: {
+          card_limit_brl: number
+          default_amount_brl: number
+          default_amount_original: number
+          default_exchange_rate: number
+          id: string
+        }[]
+      }
+      finance_read_occurrence_values: {
+        Args: { _from?: string; _tenant_id: string; _to?: string }
+        Returns: {
+          amount_brl: number
+          amount_original: number
+          exchange_rate: number
+          id: string
+          paid_amount_brl: number
+        }[]
+      }
+      finance_read_tenant_values: {
+        Args: { _tenant_id: string }
+        Returns: {
+          finance_default_usd_rate: number
+          finance_monthly_budget_brl: number
+        }[]
+      }
       finance_tools_item_allowed: {
         Args: { _item_id: string; _tenant_id: string }
         Returns: boolean
