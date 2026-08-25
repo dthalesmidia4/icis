@@ -44,6 +44,15 @@ import {
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
 import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
+import { effectivePaid } from "@/lib/financeModel";
+import {
+  OCCURRENCE_ACTION_LABELS,
+  occurrenceDeleteActionForRow,
+} from "@/lib/financeDeletePolicy";
+import {
+  deleteFinanceOccurrenceSafe,
+  inactivateFinanceItemSafe,
+} from "@/lib/financeSafeDelete";
 
 const BUCKET = "bill-attachments";
 
@@ -64,6 +73,8 @@ interface Props {
   onSave: (row: MonthRow, patch: Partial<FinanceOccurrence>) => Promise<FinanceOccurrence | null>;
   /** Abre o cadastro permanente (cronograma) do item desta linha. */
   onEditItem?: (item: FinanceItem) => void;
+  /** Recarrega a tela após exclusão/inativação (o dado deixou de existir). */
+  onRefresh?: () => void;
 }
 
 export default function FinanceOccurrenceModal({
@@ -385,6 +396,19 @@ export default function FinanceOccurrenceModal({
             <span />
           )}
           <div className="flex gap-2">
+            {deleteAction === "delete_statement" ||
+            deleteAction === "delete_one_off" ||
+            deleteAction === "inactivate_item" ? (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={handleDestructive}
+                disabled={saving || removing}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {removing ? "Processando..." : OCCURRENCE_ACTION_LABELS[deleteAction]}
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving || uploading}>
               {saving ? "Salvando..." : "Salvar lançamento"}
