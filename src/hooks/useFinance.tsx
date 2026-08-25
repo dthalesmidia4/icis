@@ -263,11 +263,15 @@ export function useFinance(competence: Competence) {
   /**
    * Paga a fatura do cartão: liquida a fatura e, na mesma transação do banco,
    * os componentes vinculados a ela.
+   *
+   * `paidDateISO` é o FATO do pagamento (`paid_at`). `due_date` nunca é enviado
+   * nem alterado aqui — o vencimento é histórico.
    */
   const payStatement = useCallback(
-    async (occurrenceId: string, paidAmountBrl: number | null) => {
+    async (occurrenceId: string, paidAmountBrl: number | null, paidDateISO?: string | null) => {
       const { error } = await supabase.rpc("pay_finance_statement", {
         _occurrence_id: occurrenceId,
+        ...(paidDateISO ? { _paid_at: paymentDateToTimestamp(paidDateISO) } : {}),
         ...(paidAmountBrl != null ? { _paid_amount_brl: paidAmountBrl } : {}),
       } as any);
       if (error) {
@@ -280,6 +284,7 @@ export function useFinance(competence: Competence) {
     },
     [fetchAll],
   );
+
 
   const saveSettings = useCallback(
     async (next: FinanceSettings) => {
