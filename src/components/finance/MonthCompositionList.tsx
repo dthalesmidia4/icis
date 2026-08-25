@@ -8,7 +8,7 @@
  * colapsado e mostra apenas quantidade e total. O total de um grupo é a soma
  * das próprias linhas, então soma dos grupos = total da lista.
  */
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock, CreditCard } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -130,9 +130,8 @@ export default function MonthCompositionList({
             {groups.map((group) => {
               const open = !!expanded[group.key];
               return (
-                <>
+                <Fragment key={group.key}>
                   <TableRow
-                    key={`group:${group.key}`}
                     tabIndex={0}
                     aria-expanded={open}
                     className="bg-muted/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
@@ -201,7 +200,7 @@ export default function MonthCompositionList({
                         </TableRow>
                       );
                     })}
-                </>
+                </Fragment>
               );
             })}
           </TableBody>
