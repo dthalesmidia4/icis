@@ -19,6 +19,8 @@ import {
 } from "./financeCardCycle";
 
 import type { FinanceSettlementContext } from "./financeSettlement";
+import { visibleStatementGroups } from "./financeCardVisibility";
+
 import {
   SafeStatementStatusMap,
   findSafeStatementStatus,
