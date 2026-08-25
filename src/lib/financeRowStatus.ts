@@ -536,7 +536,8 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
   }
 
   // 4. Cartões sem fechamento/vencimento — detalhe por cartão vive na view Cards
-  const incomplete = statements.filter((g) => g.configIncomplete);
+  // Cartão INATIVO não precisa ser completado: nada será projetado para ele.
+  const incomplete = statements.filter((g) => g.configIncomplete && g.card.active);
   if (incomplete.length > 0) {
     insights.push({
       id: "cards-config",
