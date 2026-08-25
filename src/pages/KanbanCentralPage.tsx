@@ -490,17 +490,9 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
   }, [focusedColumnId, changeFocusColumn]);
 
   // Decisão de foco inicial (antes do primeiro render das colunas, evita "piscada"):
-  // colaborador sempre abre focado na própria coluna; gestor abre a visão completa.
+  // gestor → visão completa; colaborador com cards próprios → própria coluna;
+  // colaborador sem nenhum card atribuído → visão completa (não abrir foco vazio).
   const didFocusDecisionRef = useRef(false);
-  useEffect(() => {
-    if (didFocusDecisionRef.current) return;
-    if (roleLoading) return;
-    if (!authUser?.id) return;
-
-    didFocusDecisionRef.current = true;
-    setFocusedColumnId(canManageQueue ? null : authUser.id);
-    setFocusDecisionReady(true);
-  }, [roleLoading, canManageQueue, authUser?.id]);
 
 
 
