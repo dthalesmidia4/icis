@@ -13,7 +13,7 @@ const item = (over: Partial<FinanceItem> = {}) =>
     kind: "expense",
     recurrence_type: "monthly",
     category: null,
-    cost_center: "agency",
+    cost_center: "midia",
     name: "X",
     ...over,
   }) as FinanceItem;
@@ -84,9 +84,9 @@ describe("excluir x inativar", () => {
 
 describe("agrupamento ortogonal da composição", () => {
   const entries = [
-    { row: row({ key: "a", item: item({ id: "a", category: "Nuvem", cost_center: "agency" }) }), value: 100 },
-    { row: row({ key: "b", item: item({ id: "b", category: "Nuvem", cost_center: "client" }) }), value: 50 },
-    { row: row({ key: "c", item: item({ id: "c", category: null, cost_center: "client" }) }), value: 25 },
+    { row: row({ key: "a", item: item({ id: "a", category: "Nuvem", cost_center: "midia" }) }), value: 100 },
+    { row: row({ key: "b", item: item({ id: "b", category: "Nuvem", cost_center: "sistemas" }) }), value: 50 },
+    { row: row({ key: "c", item: item({ id: "c", category: null, cost_center: "sistemas" }) }), value: 25 },
   ];
 
   it("trocar a dimensão nunca muda o total da lista", () => {
@@ -101,7 +101,7 @@ describe("agrupamento ortogonal da composição", () => {
   it("centro de custo agrupa por área, independente da categoria", () => {
     const groups = buildCompositionGroups(entries, "cost_center");
     expect(groups.length).toBe(2);
-    expect(groups.find((g) => g.key === "client")?.total).toBe(75);
+    expect(groups.find((g) => g.key === "sistemas")?.total).toBe(75);
   });
 
   it("dimensão desconhecida cai em categoria", () => {
