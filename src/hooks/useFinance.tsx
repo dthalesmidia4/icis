@@ -29,8 +29,7 @@ import { buildStatementSettlementIndex } from "@/lib/financeSettlement";
 import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
 import {
   OneOffFact,
-  buildOneOffOccurrenceInsert,
-  createItemWithOneOff,
+  buildOneOffRpcArgs,
   shouldMaterializeOneOff,
 } from "@/lib/financeOneOff";
 

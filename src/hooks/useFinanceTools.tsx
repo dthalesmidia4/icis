@@ -22,8 +22,7 @@ import {
 import { SafeCard } from "@/lib/financeSubscriptionMonth";
 import {
   OneOffFact,
-  buildOneOffOccurrenceInsert,
-  createItemWithOneOff,
+  buildOneOffRpcArgs,
   shouldMaterializeOneOff,
 } from "@/lib/financeOneOff";
 
