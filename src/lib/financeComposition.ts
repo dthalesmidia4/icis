@@ -94,8 +94,12 @@ export function compositionTotal(entries: CompositionEntry[]): number {
 }
 
 /**
- * Situação legível na auditoria. Reaproveita o status global e só torna
- * explícito, no recorte de pagos, que a quitação veio pela fatura do cartão.
+ * Situação legível na auditoria.
+ *
+ * INVARIANTE: `entry.paid` (o recorte em que a linha caiu) é a autoridade.
+ * No recorte de pagos, deixa explícito que a quitação veio pela fatura; no
+ * recorte `Em aberto`, qualquer semântica de pago vinda do status global é
+ * neutralizada — uma linha em aberto nunca exibe badge de pago.
  */
 export function compositionStatusLabel(
   row: MonthRow,
@@ -103,11 +107,18 @@ export function compositionStatusLabel(
   entry: { paid: boolean },
 ): RowStatus {
   const status = resolveRowStatus(row, ctx);
-  if (entry.paid && isCardCharge(row) && !row.paid) {
-    return { ...status, kind: "paid", label: "Pago pela fatura", tone: "positive" };
+  if (entry.paid) {
+    if (isCardCharge(row) && !row.paid) {
+      return { ...status, kind: "paid", label: "Pago pela fatura", tone: "positive" };
+    }
+    return status;
+  }
+  if (status.tone === "positive" || /pag/i.test(status.label)) {
+    return { ...status, kind: "open", label: "Em aberto", tone: "neutral" };
   }
   return status;
 }
+
 
 
 
