@@ -524,15 +524,31 @@ export function isStatementRow(row: MonthRow): boolean {
   return row.item.kind === "card";
 }
 
+/**
+ * Índice de liquidação por fatura (ver `financeSettlement.ts`).
+ * Tipado estruturalmente aqui para manter `financeModel` sem dependências.
+ */
+export interface SettlementIndexLike {
+  paidComponentKeys: Set<string>;
+}
+
 /** Uma despesa no cartão herda o status de pagamento da fatura vinculada. */
-function rowIsPaid(row: MonthRow, statementPaidById: Map<string, boolean>): boolean {
+function rowIsPaid(
+  row: MonthRow,
+  statementPaidById: Map<string, boolean>,
+  settlement?: SettlementIndexLike | null,
+): boolean {
   if (row.paid) return true;
   const statementId = row.occurrence?.statement_occurrence_id ?? null;
   if (statementId && statementPaidById.get(statementId)) return true;
+  if (settlement?.paidComponentKeys.has(row.key)) return true;
   return false;
 }
 
-export function computeTotals(rows: MonthRow[]): MonthTotals {
+export function computeTotals(
+  rows: MonthRow[],
+  settlement?: SettlementIndexLike | null,
+): MonthTotals {
   const statementPaidById = new Map<string, boolean>();
   for (const row of rows) {
     if (isStatementRow(row) && row.occurrence) {
@@ -554,7 +570,7 @@ export function computeTotals(rows: MonthRow[]): MonthTotals {
     }
     expected += value;
     if (row.item.kind === "tool" || row.item.kind === "package") toolsAndAi += value;
-    if (rowIsPaid(row, statementPaidById)) paid += row.paidAmountBrl ?? value;
+    if (rowIsPaid(row, statementPaidById, settlement)) paid += row.paidAmountBrl ?? value;
     else open += value;
   }
 
@@ -568,13 +584,22 @@ export function computeTotals(rows: MonthRow[]): MonthTotals {
   };
 }
 
-/** Status efetivo de pagamento considerando a fatura do cartão. */
-export function effectivePaid(row: MonthRow, rows: MonthRow[]): boolean {
+/**
+ * Status efetivo de pagamento considerando a fatura do cartão.
+ * `settlement` traz a liquidação derivada dos grupos de fatura pagos.
+ */
+export function effectivePaid(
+  row: MonthRow,
+  rows: MonthRow[],
+  settlement?: SettlementIndexLike | null,
+): boolean {
   if (row.paid) return true;
+  if (settlement?.paidComponentKeys.has(row.key)) return true;
   const statementId = row.occurrence?.statement_occurrence_id ?? null;
   if (!statementId) return false;
   return rows.some((r) => isStatementRow(r) && r.occurrence?.id === statementId && r.paid);
 }
+
 
 /* -------------------------------------------------------------------------- */
 /*                            FATURAS / COMPOSIÇÃO                            */
