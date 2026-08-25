@@ -374,11 +374,15 @@ function FinancialCockpit() {
     group: StatementGroup;
     paidDateISO: string;
     paidAmountBrl: number | null;
-  }) => {
+  }): Promise<boolean> => {
     const occ = group.statementRow?.occurrence;
-    if (!occ) return;
+    if (!occ) return false;
     // `due_date` não é enviado: o vencimento é histórico e não muda ao pagar.
-    await payStatement(occ.id, paidAmountBrl ?? group.actualTotal ?? group.projectedTotal, paidDateISO);
+    return await payStatement(
+      occ.id,
+      paidAmountBrl ?? group.actualTotal ?? group.projectedTotal,
+      paidDateISO,
+    );
   };
 
   const handleOpenStatement = (group: StatementGroup) => {
