@@ -43,6 +43,8 @@ interface Props {
   packages: FinanceItem[];
   /** Cadastros existentes — usados só para AVISAR sobre nome parecido. */
   allItems?: FinanceItem[];
+  /** Categorias já usadas pelo tenant — sugestões; texto livre continua válido. */
+  knownCategories?: string[];
   defaultUsdRate: number | null;
   /** Escopo do usuário: `tools` não cadastra despesa/cartão nem administrativo. */
   scope?: FinanceScope;
@@ -720,7 +722,23 @@ export default function FinanceItemFormModal({
                 )}
                 <div>
                   <Label>Categoria</Label>
-                  <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ex: IA, Infra, Design" />
+                  {/* Categoria pertence ao CADASTRO: organiza o histórico deste
+                      item e vale para os meses/projeções futuros. */}
+                  <Input
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    list="finance-category-options"
+                    placeholder="Ex: Folha de pagamento, Encargos trabalhistas, Assinaturas"
+                  />
+                  <datalist id="finance-category-options">
+                    {knownCategories.map((option) => (
+                      <option key={option} value={option} />
+                    ))}
+                  </datalist>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Escolha uma categoria existente ou digite uma nova. Ela agrupa este item na
+                    Composição do mês e vale também para os próximos meses.
+                  </p>
                 </div>
                 <div>
                   <Label>Link / painel</Label>
