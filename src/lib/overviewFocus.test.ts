@@ -114,11 +114,14 @@ describe("wiring", () => {
 
   it("D. sidebar desktop e mobile mostram Financeiro para full/tools e ocultam none/loading", () => {
     const sidebar = readFileSync("src/components/AppSidebar.tsx", "utf8");
-    expect(sidebar.match(/filterMainMenuItems\(mainMenuItems/g)?.length).toBe(2);
+    expect(sidebar.match(/resolveSidebarNavigation\(mainMenuItems/g)?.length).toBe(2);
     expect(sidebar.match(/useFinanceAccessScope\(\)/g)?.length).toBe(2);
     expect(sidebar).toContain("canAccessFinance: financeCanAccess");
-    // fail closed: enquanto carrega, o item não aparece
-    expect(sidebar).toContain("opts.financeLoading || !opts.financeCanAccess");
+    // fail closed: enquanto qualquer permissão carrega, nenhum botão real é renderizado
+    expect(sidebar.match(/navigationLoading \?/g)?.length).toBe(2);
+    const nav = readFileSync("src/lib/sidebarNavigation.ts", "utf8");
+    expect(nav).toContain("opts.financeLoading || opts.roleLoading");
+
   });
 
   it("B/O. escopo tools entra no cockpit restrito SEM senha; full continua atrás do gate", () => {

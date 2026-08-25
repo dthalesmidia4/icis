@@ -33,6 +33,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { resolveSidebarNavigation } from "@/lib/sidebarNavigation";
 
 // Menu principal (após Home)
 const mainMenuItems = [
@@ -42,9 +43,9 @@ const mainMenuItems = [
 ];
 
 /**
- * Filtra o menu principal. O item Financeiro só aparece quando a RPC
- * `finance_access_scope` retorna `full` ou `tools` — enquanto carrega, fica escondido
- * (fail closed visual).
+ * Filtra o menu principal (uso legado/testes). Preferir
+ * `resolveSidebarNavigation` de `@/lib/sidebarNavigation`, que também garante
+ * entrada simultânea de todos os itens.
  */
 export function filterMainMenuItems<T extends { requiresAgency?: boolean; requiresFinanceAccess?: boolean }>(
   items: T[],
@@ -57,10 +58,27 @@ export function filterMainMenuItems<T extends { requiresAgency?: boolean; requir
   });
 }
 
+
 // Menu developer
 const devMenuItems = [
   { title: "Developer", url: "/dev-hub", icon: Code, adminOnly: true },
 ];
+
+/** Placeholders estáveis do bloco de navegação (sem revelar permissões). */
+function NavSkeleton({ count, variant }: { count: number; variant: "icon" | "row" }) {
+  return (
+    <div className="space-y-1" aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) =>
+        variant === "icon" ? (
+          <div key={i} className="h-10 w-10 mx-auto rounded-xl bg-muted/50 animate-pulse" />
+        ) : (
+          <div key={i} className="h-10 w-full rounded-xl bg-muted/50 animate-pulse" />
+        )
+      )}
+    </div>
+  );
+}
+
 
 // Mobile Sidebar Content
 function MobileSidebarContent({ onClose }: { onClose: () => void }) {
@@ -68,10 +86,18 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
-  const { canAccessAdmin, role } = useUserRole();
+  const { canAccessAdmin, role, isLoading: roleLoading } = useUserRole();
   const { agencyId } = useAgency();
   const { canAccessFinance: financeCanAccess, isLoading: financeLoading } = useFinanceAccessScope();
-  const visibleMainItems = filterMainMenuItems(mainMenuItems, { agencyId, financeCanAccess, financeLoading });
+  const { loading: navigationLoading, mainItems: visibleMainItems, showDeveloper, placeholderCount } =
+    resolveSidebarNavigation(mainMenuItems, {
+      agencyId,
+      financeCanAccess,
+      financeLoading,
+      roleLoading,
+      canAccessAdmin,
+    });
+
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -107,6 +133,9 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
 
       {/* Menu Items */}
       <div className="flex-1 py-4 px-2 overflow-auto">
+        {navigationLoading ? (
+          <NavSkeleton count={placeholderCount} variant="row" />
+        ) : (
         <nav className="space-y-1">
           {/* Home (fixo) */}
           <button
@@ -143,11 +172,8 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
             );
           })}
 
-
-
-
           {/* Developer Menu */}
-          {canAccessAdmin && (
+          {showDeveloper && (
             <div className="mt-4 pt-4 border-t">
               {devMenuItems.map((item) => {
                 const Icon = item.icon;
@@ -171,6 +197,8 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </nav>
+        )}
+
       </div>
 
       {/* Footer Actions */}
@@ -200,10 +228,18 @@ function DesktopSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
-  const { canAccessAdmin } = useUserRole();
+  const { canAccessAdmin, isLoading: roleLoading } = useUserRole();
   const { agencyId } = useAgency();
   const { canAccessFinance: financeCanAccess, isLoading: financeLoading } = useFinanceAccessScope();
-  const visibleMainItems = filterMainMenuItems(mainMenuItems, { agencyId, financeCanAccess, financeLoading });
+  const { loading: navigationLoading, mainItems: visibleMainItems, showDeveloper, placeholderCount } =
+    resolveSidebarNavigation(mainMenuItems, {
+      agencyId,
+      financeCanAccess,
+      financeLoading,
+      roleLoading,
+      canAccessAdmin,
+    });
+
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -255,7 +291,14 @@ function DesktopSidebar() {
 
       {/* Nav Items */}
       <div className="flex-1 py-2 overflow-y-auto overflow-x-hidden">
+        {navigationLoading ? (
+          <div className="px-2">
+            <NavSkeleton count={placeholderCount} variant={expanded ? "row" : "icon"} />
+          </div>
+        ) : (
+        <>
         <nav className="flex flex-col gap-1 px-2">
+
           {/* Home */}
           {expanded ? (
             <button
@@ -329,7 +372,7 @@ function DesktopSidebar() {
         </nav>
 
         {/* Developer Menu */}
-        {canAccessAdmin && (
+        {showDeveloper && (
 
           <div className="mt-4 pt-2 border-t mx-2">
             <nav className="flex flex-col gap-1">
@@ -372,6 +415,9 @@ function DesktopSidebar() {
             </nav>
           </div>
         )}
+        </>
+        )}
+
       </div>
 
       {/* Footer - Logout */}
