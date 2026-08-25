@@ -16,6 +16,7 @@ import { useFinanceTools } from "@/hooks/useFinanceTools";
 import { currentCompetence, todayISO } from "@/hooks/useFinance";
 import { addMonths } from "@/lib/financeCardCycle";
 import { FinanceItem, MonthRow } from "@/lib/financeModel";
+import { buildSafeSettlementIndex } from "@/lib/financeSettlement";
 import { RowStatusContext, formatDayMonth } from "@/lib/financeRowStatus";
 import { competenceMonthISO } from "@/lib/financeSafeStatement";
 
@@ -70,15 +71,31 @@ export default function FinanceToolsCockpit() {
    * O status da fatura vem da RPC segura (existência, vencimento e pagamento).
    * Nenhum valor, limite ou orçamento entra neste escopo.
    */
+  const competenceMonth = competenceMonthISO(competence);
+  /**
+   * Liquidação por fatura no escopo `tools`: se a fatura real do cartão daquela
+   * competência está paga, os lançamentos exibidos naquele grupo constam pagos.
+   * Nada é persistido e nenhum valor da fatura é lido.
+   */
+  const settlement = useMemo(
+    () =>
+      buildSafeSettlementIndex({
+        rows,
+        isPaidCard: (cardId) =>
+          !!findSafeStatementStatus(statementStatuses, cardId, competenceMonth)?.paid,
+      }),
+    [rows, statementStatuses, competenceMonth],
+  );
   const statusContext = useMemo<RowStatusContext>(
     () => ({
       rows,
       today,
       cardsById,
+      settlement,
       safeStatementStatuses: statementStatuses,
-      competenceMonth: competenceMonthISO(competence),
+      competenceMonth,
     }),
-    [rows, today, cardsById, statementStatuses, competence],
+    [rows, today, cardsById, settlement, statementStatuses, competenceMonth],
   );
 
 
