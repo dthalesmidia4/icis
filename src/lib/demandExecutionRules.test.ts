@@ -283,3 +283,43 @@ describe("reordenação manual do checklist", () => {
     expect(toggled.map((i) => i.text)).toEqual(["a", "b", "c"]);
   });
 });
+
+describe("trava de arraste (isExecutionDragEnabled)", () => {
+  const base = { readOnly: false, hasReorderHandler: true };
+
+  it("libera quando nada está em curso", () => {
+    expect(isExecutionDragEnabled(base)).toBe(true);
+  });
+
+  it("bloqueia em modo somente leitura e sem callback de reorder", () => {
+    expect(isExecutionDragEnabled({ ...base, readOnly: true })).toBe(false);
+    expect(isExecutionDragEnabled({ ...base, hasReorderHandler: false })).toBe(false);
+  });
+
+  it("bloqueia durante reordenação salvando ou concluir-tudo", () => {
+    expect(isExecutionDragEnabled({ ...base, reordering: true })).toBe(false);
+    expect(isExecutionDragEnabled({ ...base, completingAll: true })).toBe(false);
+  });
+
+  it("bloqueia enquanto um item está sendo marcado/removido (busyItemId)", () => {
+    expect(isExecutionDragEnabled({ ...base, busyItemId: "p1" })).toBe(false);
+    expect(isExecutionDragEnabled({ ...base, busyItemId: null })).toBe(true);
+  });
+
+  it("bloqueia enquanto um item está sendo adicionado", () => {
+    expect(isExecutionDragEnabled({ ...base, adding: true })).toBe(false);
+  });
+
+  it("combina todas as travas: qualquer flag basta para bloquear", () => {
+    expect(
+      isExecutionDragEnabled({
+        readOnly: false,
+        hasReorderHandler: true,
+        reordering: false,
+        completingAll: false,
+        busyItemId: "x",
+        adding: true,
+      }),
+    ).toBe(false);
+  });
+});
