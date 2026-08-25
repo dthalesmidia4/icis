@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 
 /** Feriados injetados no motor de reorganização (mutável entre testes). */
 const HOLIDAYS: string[] = [];
