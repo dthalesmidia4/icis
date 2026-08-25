@@ -133,6 +133,29 @@ export function candidateChargeCompetences(statement: Competence): Competence[] 
   return [addMonths(statement, -1), statement];
 }
 
+/**
+ * REGRA CANÔNICA: `competence_month` é a competência contábil do fato;
+ * `charge_date` é a DATA REAL da cobrança no cartão. Para saber a QUAL FATURA
+ * uma cobrança pertence usa-se SEMPRE a competência da própria `charge_date`
+ * quando ela existe — a competência exibida é apenas fallback.
+ */
+export function chargeDateCompetence(
+  chargeDate: string | null | undefined,
+  fallbackCompetence: Competence,
+): Competence {
+  if (chargeDate) return competenceFromISO(chargeDate);
+  return normalizeCompetence(fallbackCompetence);
+}
+
+/** Dia real da cobrança: dia da `charge_date` > dia cadastrado. */
+export function chargeDayFrom(
+  chargeDate: string | null | undefined,
+  fallbackDay: number | null | undefined,
+): number | null {
+  if (chargeDate) return Number(chargeDate.slice(8, 10));
+  return fallbackDay ?? null;
+}
+
 /** A cobrança do mês `chargeCompetence` pertence à fatura de `statement`? */
 export function chargeBelongsToStatement(params: {
   chargeDay: number | null | undefined;
@@ -148,3 +171,4 @@ export function chargeBelongsToStatement(params: {
   if (resolved.incomplete) return false;
   return sameCompetence(resolved.statementCompetence, params.statement);
 }
+
