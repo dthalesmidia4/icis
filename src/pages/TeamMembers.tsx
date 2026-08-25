@@ -151,100 +151,18 @@ export default function TeamMembers() {
     }
   };
 
-  const loadColumns = async () => {
-    if (!agencyId) return;
-
-    try {
-      // Buscar pipeline padrão
-      const { data: pipeline } = await supabase
-        .from('pipelines')
-        .select('id')
-        .eq('tenant_id', agencyId)
-        .eq('is_default', true)
-        .single();
-
-      if (!pipeline) return;
-
-      // Buscar status do pipeline
-      const { data: statuses } = await supabase
-        .from('pipeline_statuses')
-        .select('id, name, color, position')
-        .eq('pipeline_id', pipeline.id)
-        .order('position');
-
-      if (statuses) {
-        setColumns(statuses);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar colunas:', error);
-    }
-  };
-
   const loadMemberPermissions = async (userId: string) => {
     if (!agencyId) return;
 
     try {
-      // Carregar permissões de colunas
-      const { data: colPerms } = await supabase
-        .from('user_column_permissions')
-        .select('status_id, can_view')
-        .eq('user_id', userId)
-        .eq('tenant_id', agencyId);
-
-      if (colPerms && colPerms.length > 0) {
-        // Mesclar com colunas existentes para incluir novas colunas criadas depois
-        const mergedPerms = columns.map(col => {
-          const existing = colPerms.find(p => p.status_id === col.id);
-          return { status_id: col.id, can_view: existing?.can_view ?? false };
-        });
-        setColumnPermissions(mergedPerms);
-      } else {
-        // Se não tem permissões, assume deny-by-default
-        setColumnPermissions(columns.map(col => ({ status_id: col.id, can_view: false })));
-      }
-
-      // Carregar permissões de hub
+      // Tela inicial: somente os ids atuais são considerados.
       const { data: hubPerms } = await supabase
         .from('user_hub_permissions')
         .select('hub_section, can_access')
         .eq('user_id', userId)
         .eq('tenant_id', agencyId);
 
-      if (hubPerms && hubPerms.length > 0) {
-        setHubPermissions(hubPerms);
-      } else {
-        // Se não tem permissões, assume que pode acessar tudo
-        setHubPermissions(HUB_SECTIONS.map(s => ({ hub_section: s.id, can_access: true })));
-      }
-
-      // Carregar permissões de botões do cliente
-      const { data: clientBtnPerms } = await supabase
-        .from('user_hub_permissions')
-        .select('hub_section, can_access')
-        .eq('user_id', userId)
-        .eq('tenant_id', agencyId)
-        .like('hub_section', 'client_%');
-
-      if (clientBtnPerms && clientBtnPerms.length > 0) {
-        // Merge with all available buttons
-        const merged = CLIENT_HUB_BUTTONS.map(btn => {
-          const existing = clientBtnPerms.find(p => p.hub_section === btn.id);
-          return { hub_section: btn.id, can_access: existing?.can_access ?? true };
-        });
-        setClientButtonPermissions(merged);
-      } else {
-        setClientButtonPermissions(CLIENT_HUB_BUTTONS.map(b => ({ hub_section: b.id, can_access: true })));
-      }
-
-      // Carregar configuração de notificações de atraso
-      const { data: lateNotif } = await supabase
-        .from('user_late_notification_settings')
-        .select('enabled')
-        .eq('user_id', userId)
-        .eq('tenant_id', agencyId)
-        .maybeSingle();
-
-      setLateNotificationEnabled(lateNotif?.enabled ?? false);
+      setHomePermissions(resolveHomePermissionState(hubPerms ?? []));
 
       // Permissões do Financeiro: nunca concedidas automaticamente.
       const { data: roleRow } = await supabase
@@ -254,8 +172,12 @@ export default function TeamMembers() {
         .eq('tenant_id', agencyId)
         .maybeSingle();
 
-      setFinanceFullAccess(!!(roleRow as any)?.finance_access);
-      setFinanceToolsAccess(!!(roleRow as any)?.finance_tools_access);
+      const flags: FinanceFlagsState = {
+        finance_access: !!(roleRow as any)?.finance_access,
+        finance_tools_access: !!(roleRow as any)?.finance_tools_access,
+      };
+      setFinanceFlags(flags);
+      setSavedFinanceFlags(flags);
     } catch (error) {
       console.error('Erro ao carregar permissões:', error);
     }
@@ -263,42 +185,13 @@ export default function TeamMembers() {
 
   const handleOpenPermissions = async (member: TeamMember) => {
     setSelectedMember(member);
-    setActiveTab('columns');
     await loadMemberPermissions(member.id);
   };
 
-  const toggleColumnPermission = (statusId: string) => {
-    setColumnPermissions(prev => {
-      const existing = prev.find(p => p.status_id === statusId);
-      if (existing) {
-        return prev.map(p => p.status_id === statusId ? { ...p, can_view: !p.can_view } : p);
-      } else {
-        return [...prev, { status_id: statusId, can_view: true }];
-      }
-    });
+  const toggleHomePermission = (sectionId: HomePermissionId) => {
+    setHomePermissions(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
   };
 
-  const toggleHubPermission = (sectionId: string) => {
-    setHubPermissions(prev => {
-      const existing = prev.find(p => p.hub_section === sectionId);
-      if (existing) {
-        return prev.map(p => p.hub_section === sectionId ? { ...p, can_access: !p.can_access } : p);
-      } else {
-        return [...prev, { hub_section: sectionId, can_access: true }];
-      }
-    });
-  };
-
-  const toggleClientButtonPermission = (buttonId: string) => {
-    setClientButtonPermissions(prev => {
-      const existing = prev.find(p => p.hub_section === buttonId);
-      if (existing) {
-        return prev.map(p => p.hub_section === buttonId ? { ...p, can_access: !p.can_access } : p);
-      } else {
-        return [...prev, { hub_section: buttonId, can_access: true }];
-      }
-    });
-  };
 
   const savePermissions = async () => {
     if (!selectedMember || !agencyId) return;
