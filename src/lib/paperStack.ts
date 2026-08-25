@@ -74,10 +74,10 @@ export function paperStackVisualMetrics(queueCount: number): {
   } else if (count <= 6) {
     sheets = count;
   } else {
-    sheets = Math.min(MAX_SHEETS, interpolate(SHEET_BREAKPOINTS, count));
+    sheets = Math.min(MAX_SHEETS, interpolateSheets(count));
   }
 
-  const sheetWidth = interpolate(WIDTH_BREAKPOINTS, count);
+  const sheetWidth = sheetWidthFor(count);
 
   return { sheets, sheetWidth, overload, empty };
 }
