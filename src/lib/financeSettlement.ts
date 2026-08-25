@@ -109,13 +109,14 @@ export function buildSafeSettlementIndex(params: {
       !!card && card.statement_closing_day != null && card.statement_due_day != null;
 
     if (cycleComplete && params.competence) {
-      const chargeDay =
-        row.chargeDate != null ? Number(row.chargeDate.slice(8, 10)) : row.item.charge_day ?? null;
+      const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
       // Sem dia de cobrança não há prova de pertença: não marcamos como paga.
       if (chargeDay == null) continue;
       const belongs = chargeBelongsToStatement({
         chargeDay,
-        chargeCompetence: params.competence,
+        // A competência da cobrança é a da PRÓPRIA charge_date (pode ser o mês
+        // anterior à competência contábil exibida).
+        chargeCompetence: chargeDateCompetence(row.chargeDate, params.competence),
         statement: params.competence,
         card: { closingDay: card!.statement_closing_day, dueDay: card!.statement_due_day },
       });
