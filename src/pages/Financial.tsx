@@ -1294,6 +1294,7 @@ function FinancialCockpit() {
         defaultUsdRate={settings.defaultUsdRate}
         statusContext={statusContext}
         onSave={saveOccurrence}
+        onRefresh={refresh}
         onEditItem={(item) => {
           setOccurrenceRow(null);
           openItemModal(item);
