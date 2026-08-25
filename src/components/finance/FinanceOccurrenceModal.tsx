@@ -356,6 +356,12 @@ export default function FinanceOccurrenceModal({
             )}
           </div>
 
+          {/* Categoria é do CADASTRO permanente, nunca do fato mensal. */}
+          <p className="text-sm text-muted-foreground">
+            Categoria: <strong>{row.item.category?.trim() || "Sem categoria"}</strong> — definida no
+            cadastro do item e válida para os próximos meses.
+          </p>
+
           <div>
             <Label>Observações</Label>
             <Textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={2} />
@@ -363,7 +369,7 @@ export default function FinanceOccurrenceModal({
         </div>
 
         <DialogFooter className="sm:justify-between gap-2">
-          {isInstallmentRow(row) && onEditItem ? (
+          {onEditItem ? (
             <Button
               variant="ghost"
               className="justify-start"
@@ -373,7 +379,7 @@ export default function FinanceOccurrenceModal({
               }}
             >
               <Pencil className="w-4 h-4 mr-2" />
-              Editar parcelamento
+              {isInstallmentRow(row) ? "Editar parcelamento" : "Editar cadastro / categoria"}
             </Button>
           ) : (
             <span />

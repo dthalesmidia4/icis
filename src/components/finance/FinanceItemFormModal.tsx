@@ -111,6 +111,7 @@ export default function FinanceItemFormModal({
   cards,
   packages,
   allItems = [],
+  knownCategories = [],
   defaultUsdRate,
   scope = "full",
   competence = null,
