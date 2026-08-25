@@ -21,6 +21,8 @@ import {
 } from "@/lib/financeModel";
 import { SafeCard } from "@/lib/financeSubscriptionMonth";
 import {
+  FINANCE_ITEM_METADATA_COLUMNS,
+  FINANCE_OCCURRENCE_METADATA_COLUMNS,
   fetchSecureItemValues,
   fetchSecureOccurrenceValues,
   mergeItemValues,
@@ -45,13 +47,13 @@ export function useFinanceTools(competence: Competence) {
     const [itemsRes, occRes, cardsRes, itemValues, occValues] = await Promise.all([
       supabase
         .from("finance_items")
-        .select("*")
+        .select(FINANCE_ITEM_METADATA_COLUMNS)
         .eq("tenant_id", agencyId)
         .in("kind", ["tool", "package", "included_resource"])
         .order("name", { ascending: true }),
       supabase
         .from("finance_occurrences")
-        .select("*")
+        .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
         .eq("tenant_id", agencyId)
         .eq("competence_month", monthISO),
       supabase.rpc("list_finance_safe_cards", { _tenant_id: agencyId }),
@@ -110,7 +112,7 @@ export function useFinanceTools(competence: Competence) {
           .from("finance_occurrences")
           .update(patch as any)
           .eq("id", row.occurrence.id)
-          .select("*")
+          .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
           .maybeSingle();
         if (error) {
           toast.error("Não foi possível salvar o lançamento");
@@ -134,7 +136,7 @@ export function useFinanceTools(competence: Competence) {
           created_by: user?.id ?? null,
           ...(patch as any),
         } as any)
-        .select("*")
+        .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
         .maybeSingle();
       if (error) {
         toast.error("Não foi possível registrar o lançamento");
