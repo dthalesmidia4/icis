@@ -1110,14 +1110,22 @@ function FinancialCockpit() {
 }
 
 /**
- * A trava de senha envolve TODO o cockpit: nenhum número aparece (nem consulta
- * financeira acontece) antes de `FinanceAccessGate` liberar o acesso — e esse
- * desbloqueio vive apenas em memória, então cada nova entrada pede a senha.
+ * Trava de senha do Financeiro.
+ *
+ * A senha protege apenas o escopo `full`: envolve TODO o cockpit completo, de
+ * forma que nenhum número aparece (nem consulta financeira acontece) antes de
+ * `FinanceAccessGate` liberar o acesso — e esse desbloqueio vive apenas em
+ * memória, então cada nova entrada pede a senha.
+ *
+ * Escopo `tools` (Assinaturas e ferramentas) NÃO passa pela senha: abre direto
+ * o cockpit de ferramentas, sem consultar `finance_password_status` e sem poder
+ * criar/configurar a senha financeira.
  */
 export default function Financial() {
   const { canAccessFullFinance, canAccessTools, isLoading } = useFinanceAccessScope();
   const navigate = useNavigate();
 
+  // O gate nunca pode ser montado antes de o escopo estar resolvido.
   if (isLoading) return <LoadingScreen title="Verificando acesso ao Financeiro..." />;
 
   if (!canAccessTools) {
@@ -1133,10 +1141,15 @@ export default function Financial() {
     );
   }
 
-  // A senha é exigida nos DOIS escopos — ela não concede autorização, só protege.
-  return (
-    <FinanceAccessGate>
-      {canAccessFullFinance ? <FinancialCockpit /> : <FinanceToolsCockpit />}
-    </FinanceAccessGate>
-  );
+  // `full` prevalece sobre `tools` e exige senha a cada entrada.
+  if (canAccessFullFinance) {
+    return (
+      <FinanceAccessGate>
+        <FinancialCockpit />
+      </FinanceAccessGate>
+    );
+  }
+
+  return <FinanceToolsCockpit />;
 }
+

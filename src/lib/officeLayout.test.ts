@@ -116,18 +116,13 @@ describe("zona reservada da cafeteria", () => {
 });
 
 describe("acessórios da mesa", () => {
-  it("distribui em 3 posições distintas", () => {
+  it("usa o slot esquerdo para o único objeto pessoal", () => {
     const slots = assignDeskSlots(["mug", "plant", "lamp"]);
-    expect(slots.map((s) => s.slot)).toEqual(["left", "center-side", "right"]);
-    expect(new Set(slots.map((s) => s.slot)).size).toBe(3);
+    expect(slots.map((s) => s.slot)).toEqual(["left"]);
   });
 
-  it("sanitize mantém máximo de 3", () => {
-    expect(sanitizeDeskObjects(["mug", "plant", "lamp", "notebook", "mug", "x"])).toEqual([
-      "mug",
-      "plant",
-      "lamp",
-    ]);
+  it("sanitize mantém no máximo 1 item (o primeiro já renderizado)", () => {
+    expect(sanitizeDeskObjects(["mug", "plant", "lamp", "notebook", "mug", "x"])).toEqual(["mug"]);
   });
 });
 
