@@ -120,6 +120,11 @@ export interface RowStatusContext {
   /** Linhas de fatura conhecidas (para herdar o status do statement). */
   statementRows?: MonthRow[];
   /**
+   * Liquidação canônica por fatura (derivada de `buildStatementGroups`).
+   * Mesma fonte usada por `computeTotals` e pela composição do mês.
+   */
+  settlement?: FinanceSettlementContext | null;
+  /**
    * Status SEGURO das faturas reais da competência (`cardId|YYYY-MM-01`).
    * Usado apenas para APRESENTAÇÃO: nunca cria vínculo contábil.
    */
@@ -127,6 +132,7 @@ export interface RowStatusContext {
   /** Competência exibida na tela (`YYYY-MM-01`), chave do mapa seguro. */
   competenceMonth?: string;
 }
+
 
 
 /**
