@@ -98,7 +98,7 @@ function component(over: Partial<MonthRow> = {}): MonthRow {
       card_item_id: CARD_ID,
     } as FinanceItem,
     occurrence: occ({ id: "occ-2", item_id: "item-2" }),
-    chargeDate: "2026-07-28",
+    chargeDate: "2026-08-05",
     dueDate: null,
     paid: false,
     paidAmountBrl: null,
@@ -176,8 +176,8 @@ describe("status informa a data quando ela existe", () => {
 
   it("charge_date NUNCA é usada como data de pagamento", () => {
     const status = resolveRowStatus(component(), ctx({ safeStatementStatuses: safeMap(null) }));
-    // cobrança em 28/07 não pode aparecer como "pago em 28 jul".
-    expect(status.label).not.toMatch(/jul/);
+    // a data de cobrança (05/08) não pode virar "pago em 05 ago".
+    expect(status.label).not.toMatch(/05 ago/);
   });
 
   it("linha aberta não ganha data nenhuma", () => {
