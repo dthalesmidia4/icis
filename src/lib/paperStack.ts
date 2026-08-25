@@ -40,23 +40,16 @@ const WIDTH_BREAKPOINTS: ReadonlyArray<readonly [number, number]> = [
   [32, 34],
 ];
 
-function interpolate(
-  breakpoints: ReadonlyArray<readonly [number, number]>,
-  x: number,
-): number {
-  if (x <= breakpoints[0][0]) return breakpoints[0][1];
-  const last = breakpoints[breakpoints.length - 1];
-  if (x >= last[0]) return last[1];
-  for (let i = 1; i < breakpoints.length; i++) {
-    const [x0, y0] = breakpoints[i - 1];
-    const [x1, y1] = breakpoints[i];
-    if (x <= x1) {
-      if (x1 === x0) return y1;
-      const t = (x - x0) / (x1 - x0);
-      return Math.round(y0 + t * (y1 - y0));
-    }
+/**
+ * Largura da folha por faixa de carga (degraus, não interpolado): a largura
+ * só muda ao cruzar um limiar, evitando crescimento gradual imperceptível.
+ */
+function sheetWidthFor(count: number): number {
+  let w = BASE_SHEET_WIDTH;
+  for (const [threshold, width] of WIDTH_BREAKPOINTS) {
+    if (count >= threshold) w = width;
   }
-  return last[1];
+  return w;
 }
 
 /**
