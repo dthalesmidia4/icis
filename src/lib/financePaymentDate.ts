@@ -8,8 +8,21 @@
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * Valida um dia civil real: além do formato, o dia precisa existir no calendário
+ * (rejeita `2026-02-31`). A checagem usa `Date.UTC` só para aritmética de
+ * calendário — não há conversão de fuso, então o dia nunca escorrega.
+ */
 export function isValidPaymentDate(dateISO: string | null | undefined): boolean {
-  return !!dateISO && DATE_RE.test(dateISO);
+  if (!dateISO || !DATE_RE.test(dateISO)) return false;
+  const [year, month, day] = dateISO.split("-").map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
 }
 
 /** `2026-08-20` -> `2026-08-20T12:00:00-03:00` (dia civil estável em SP). */
