@@ -10,6 +10,7 @@ import { SelectedClientProvider } from "./contexts/SelectedClientContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RequireTenant } from "./components/RequireTenant";
+import { RequireFinanceAccess } from "./components/RequireFinanceAccess";
 import { RequireRole } from "./components/RequireRole";
 import { Layout } from "./components/Layout";
 import Home from "./pages/Home";
@@ -438,9 +439,11 @@ function AppRoutes() {
       <Route path="/financeiro" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <Financial />
-            </Layout>
+            <RequireFinanceAccess>
+              <Layout>
+                <Financial />
+              </Layout>
+            </RequireFinanceAccess>
           </RequireTenant>
         </ProtectedRoute>
       } />
