@@ -65,7 +65,7 @@ function directRow(over: Partial<MonthRow> = {}): MonthRow {
       currency: "BRL",
       recurrence_type: "monthly",
     } as FinanceItem,
-    occurrence: occ({ paid: true, paid_at: "2026-08-24T14:00:00Z" }),
+    occurrence: occ({ paid_at: "2026-08-24T14:00:00Z" }),
     projected: false,
     amountBrl: 300,
     amountOriginal: 300,
@@ -159,7 +159,7 @@ describe("status informa a data quando ela existe", () => {
   });
 
   it("pagamento direto sem paid_at => Pago, sem data inventada", () => {
-    const row = directRow({ occurrence: occ({ paid: true, paid_at: null }) });
+    const row = directRow({ occurrence: occ({ paid_at: null }) });
     expect(resolveRowStatus(row, ctx()).label).toBe("Pago");
   });
 
@@ -181,7 +181,7 @@ describe("status informa a data quando ela existe", () => {
   });
 
   it("linha aberta não ganha data nenhuma", () => {
-    const row = directRow({ paid: false, occurrence: occ({ paid: false, paid_at: null }) });
+    const row = directRow({ paid: false, occurrence: occ({ paid_at: null }) });
     expect(resolveRowStatus(row, ctx()).label).not.toMatch(/ em \d/);
   });
 });
