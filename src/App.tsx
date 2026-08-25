@@ -16,6 +16,7 @@ import { Layout } from "./components/Layout";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword";
 
 // Code splitting global de rotas: cada página pesada vira um chunk próprio e
 // só é baixada quando a rota é realmente visitada. `Home`, `Auth` e `NotFound`
@@ -85,6 +86,8 @@ function AppRoutes() {
     <Suspense fallback={<RouteFallback />}>
       <Routes>
       <Route path="/auth" element={<Auth />} />
+      {/* Rota pública: o link de recuperação cria sessão temporária e não pode passar por ProtectedRoute */}
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/profile-settings" element={
         <ProtectedRoute>
           <Layout>
