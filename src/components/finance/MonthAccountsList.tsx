@@ -140,7 +140,7 @@ export default function MonthAccountsList({
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">{whenLabel(row, today)}</TableCell>
                   <TableCell className="text-right whitespace-nowrap">
-                    <span className="text-[15px] font-semibold">{formatBRL(row.amountBrl)}</span>
+                    <span className="text-[15px] font-semibold">{money(row.amountBrl)}</span>
                     {row.currency === "USD" && (
                       <p className="text-sm text-muted-foreground">
                         {formatCurrencyValue(row.amountOriginal, "USD")}
@@ -204,7 +204,7 @@ export default function MonthAccountsList({
                   <p className="text-sm text-muted-foreground">{metaFor(row)}</p>
                 </div>
                 <span className="text-[15px] font-semibold whitespace-nowrap">
-                  {formatBRL(row.amountBrl)}
+                  {money(row.amountBrl)}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2 justify-between">

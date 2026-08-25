@@ -143,7 +143,7 @@ export default function StatementPanel({
               <div className="flex flex-wrap gap-x-8 gap-y-3">
                 <Fact
                   label="Limite do cartão"
-                  value={limit != null ? formatBRL(limit) : "Limite não informado"}
+                  value={limit != null ? money(limit) : "Limite não informado"}
                   tone={limit != null ? undefined : "muted"}
                 />
                 <Fact
@@ -162,7 +162,7 @@ export default function StatementPanel({
                       ? `Fatura de ${monthLabel}`
                       : valueLabel.label
                   }
-                  value={valueLabel.value != null ? formatBRL(valueLabel.value) : "Ainda não informada"}
+                  value={valueLabel.value != null ? money(valueLabel.value) : "Ainda não informada"}
                   tone={valueLabel.value == null ? "muted" : undefined}
                   hint={valueLabel.hint ?? undefined}
                 />
@@ -180,8 +180,8 @@ export default function StatementPanel({
                 <div className="space-y-2">
                   <p className="text-sm text-foreground">
                     {group.actualTotal != null
-                      ? `Fatura: ${formatBRL(usageBase)} de ${formatBRL(limit)} de limite`
-                      : `Projeção no ICIS: ${formatBRL(usageBase)} de ${formatBRL(limit)} de limite`}
+                      ? `Fatura: ${money(usageBase)} de ${money(limit)} de limite`
+                      : `Projeção no ICIS: ${money(usageBase)} de ${money(limit)} de limite`}
                     {usagePercent != null ? ` · ${usagePercent}%` : ""}
                   </p>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -239,7 +239,7 @@ export default function StatementPanel({
               <div className="flex items-center gap-2 px-4 py-3 bg-muted text-sm">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
                 <span>
-                  Diferença a classificar: <strong>{formatBRL(group.difference)}</strong> entre o valor da
+                  Diferença a classificar: <strong>{money(group.difference)}</strong> entre o valor da
                   fatura e as cobranças conhecidas.
                 </span>
               </div>
@@ -271,7 +271,7 @@ export default function StatementPanel({
                             {formatCurrencyValue(row.amountOriginal, "USD")}
                           </span>
                         )}
-                        <span className="font-semibold">{formatBRL(row.amountBrl)}</span>
+                        <span className="font-semibold">{money(row.amountBrl)}</span>
                       </span>
                     </button>
                   ))
