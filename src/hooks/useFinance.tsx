@@ -285,8 +285,11 @@ export function useFinance(competence: Competence) {
       if (!agencyId) return false;
       const { error } = await supabase.rpc("set_finance_settings", {
         _tenant_id: agencyId,
-        _monthly_budget_brl: next.monthlyBudgetBrl ?? 0,
-        _default_usd_rate: next.defaultUsdRate ?? 0,
+        // `null` significa “não definido” — nunca converter para zero (0 é
+        // valor inválido de câmbio e orçamento zero não é ausência).
+        _monthly_budget_brl: next.monthlyBudgetBrl,
+        _default_usd_rate: next.defaultUsdRate,
+
       } as any);
       if (error) {
         toast.error("Não foi possível salvar as configurações");
