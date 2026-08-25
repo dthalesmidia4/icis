@@ -60,8 +60,12 @@ export default function TeamMembers() {
   const { role: editorRole, isSuperAdmin, isAgencyAdmin } = useAgencyRole();
   const { scope: editorFinanceScope } = useFinanceAccessScope();
   const canEditRoles = isSuperAdmin || isAgencyAdmin;
-  const canEditPerms = canEditPermissions(editorRole);
-  const financeGrantable = financeGrantableCapabilities(editorRole, editorFinanceScope);
+  const financeGrantable = visibleFinanceCapabilities(
+    editorRole,
+    editorFinanceScope,
+    selectedMember?.role,
+  );
+
   // Permissões do Financeiro (colunas de `user_roles`).
   const [financeFlags, setFinanceFlags] = useState<FinanceFlagsState>({
     finance_access: false,
