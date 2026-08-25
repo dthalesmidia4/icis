@@ -12,7 +12,12 @@
  * gravados por inferência. O índice é recalculado por competência/tela.
  */
 
-import { Competence, chargeBelongsToStatement } from "./financeCardCycle";
+import {
+  Competence,
+  chargeBelongsToStatement,
+  chargeDateCompetence,
+  chargeDayFrom,
+} from "./financeCardCycle";
 import {
   FinanceItem,
   MonthRow,
