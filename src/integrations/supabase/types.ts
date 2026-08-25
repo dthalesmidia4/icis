@@ -3320,6 +3320,16 @@ export type Database = {
       }
       is_review_function: { Args: { _key: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      list_finance_safe_card_statement_status: {
+        Args: { _competence_month: string; _tenant_id: string }
+        Returns: {
+          card_id: string
+          competence_month: string
+          due_date: string
+          paid: boolean
+          paid_at: string
+        }[]
+      }
       list_finance_safe_cards: {
         Args: { _tenant_id: string }
         Returns: {

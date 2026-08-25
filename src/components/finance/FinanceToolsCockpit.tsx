@@ -17,6 +17,8 @@ import { currentCompetence, todayISO } from "@/hooks/useFinance";
 import { addMonths } from "@/lib/financeCardCycle";
 import { FinanceItem, MonthRow } from "@/lib/financeModel";
 import { RowStatusContext, formatDayMonth } from "@/lib/financeRowStatus";
+import { competenceMonthISO } from "@/lib/financeSafeStatement";
+
 
 const MONTH_LABELS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -29,7 +31,7 @@ export default function FinanceToolsCockpit() {
   const [competence, setCompetence] = useState(currentCompetence());
   const today = todayISO();
   const {
-    items, rows, cards, packages, overlaps, loadError, refresh,
+    items, rows, cards, packages, overlaps, loadError, refresh, statementStatuses,
     saveOccurrence, togglePaid, saveItem, setItemActive,
   } = useFinanceTools(competence);
 
@@ -64,10 +66,21 @@ export default function FinanceToolsCockpit() {
     () => new Map(safeCardItems.map((c) => [c.id, c])),
     [safeCardItems],
   );
+  /**
+   * O status da fatura vem da RPC segura (existência, vencimento e pagamento).
+   * Nenhum valor, limite ou orçamento entra neste escopo.
+   */
   const statusContext = useMemo<RowStatusContext>(
-    () => ({ rows, today, cardsById }),
-    [rows, today, cardsById],
+    () => ({
+      rows,
+      today,
+      cardsById,
+      safeStatementStatuses: statementStatuses,
+      competenceMonth: competenceMonthISO(competence),
+    }),
+    [rows, today, cardsById, statementStatuses, competence],
   );
+
 
   const openItemModal = (item: FinanceItem | null) => {
     setEditingItem(item);

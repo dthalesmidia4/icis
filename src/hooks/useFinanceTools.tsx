@@ -21,6 +21,10 @@ import {
 } from "@/lib/financeModel";
 import { SafeCard } from "@/lib/financeSubscriptionMonth";
 import {
+  SafeStatementStatusMap,
+  buildSafeStatementStatusMap,
+} from "@/lib/financeSafeStatement";
+import {
   FINANCE_ITEM_METADATA_COLUMNS,
   FINANCE_OCCURRENCE_METADATA_COLUMNS,
   FinanceSecureReadError,
@@ -30,12 +34,19 @@ import {
   mergeOccurrenceValues,
 } from "@/lib/financeSecureData";
 
+
 export function useFinanceTools(competence: Competence) {
   const { agencyId } = useAgency();
   const { user } = useAuth();
   const [items, setItems] = useState<FinanceItem[]>([]);
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
   const [cards, setCards] = useState<SafeCard[]>([]);
+  /**
+   * Estado SEGURO das faturas reais da competência (existência, vencimento e
+   * pagamento). Sem isso, um componente do cartão cairia em "aguardando dados
+   * da fatura" mesmo com a fatura do mês já paga.
+   */
+  const [statementStatuses, setStatementStatuses] = useState<SafeStatementStatusMap>(new Map());
   const [loading, setLoading] = useState(true);
   /** Pós-cutover: falha na leitura segura não pode virar total zerado. */
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -48,7 +59,7 @@ export function useFinanceTools(competence: Competence) {
 
     const monthISO = competenceToISO(normalized);
     try {
-      const [itemsRes, occRes, cardsRes, itemValues, occValues] = await Promise.all([
+      const [itemsRes, occRes, cardsRes, statementRes, itemValues, occValues] = await Promise.all([
         supabase
           .from("finance_items")
           .select(FINANCE_ITEM_METADATA_COLUMNS)
@@ -61,6 +72,10 @@ export function useFinanceTools(competence: Competence) {
           .eq("tenant_id", agencyId)
           .eq("competence_month", monthISO),
         supabase.rpc("list_finance_safe_cards", { _tenant_id: agencyId }),
+        supabase.rpc("list_finance_safe_card_statement_status", {
+          _tenant_id: agencyId,
+          _competence_month: monthISO,
+        } as any),
         fetchSecureItemValues(agencyId),
         fetchSecureOccurrenceValues(agencyId, monthISO, monthISO),
       ]);
@@ -81,7 +96,9 @@ export function useFinanceTools(competence: Competence) {
         mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
       );
       setCards(((cardsRes.data as any[]) ?? []) as SafeCard[]);
+      setStatementStatuses(buildSafeStatementStatusMap((statementRes.data as any[]) ?? []));
       setLoadError(null);
+
     } catch (err) {
       const message =
         err instanceof FinanceSecureReadError
@@ -90,7 +107,9 @@ export function useFinanceTools(competence: Competence) {
       toast.error(message);
       setItems([]);
       setOccurrences([]);
+      setStatementStatuses(new Map());
       setLoadError(message);
+
     } finally {
       setLoading(false);
     }
@@ -225,6 +244,8 @@ export function useFinanceTools(competence: Competence) {
     occurrences,
     rows,
     cards,
+    statementStatuses,
+
     packages,
     overlaps,
     refresh: fetchAll,

@@ -53,6 +53,11 @@ import {
   resolveFinanceView,
 } from "@/lib/financeScope";
 import { toSafeCard } from "@/lib/financeSubscriptionMonth";
+import {
+  competenceMonthISO,
+  safeStatementStatusesFromRows,
+} from "@/lib/financeSafeStatement";
+
 import { addMonths } from "@/lib/financeCardCycle";
 import {
   COST_CENTER_LABELS,
@@ -222,10 +227,26 @@ function FinancialCockpit() {
     () => statements.map((g) => g.statementRow).filter((r): r is MonthRow => !!r),
     [statements],
   );
-  const statusContext = useMemo<RowStatusContext>(
-    () => ({ rows, today, cardsById, statementRows }),
-    [rows, today, cardsById, statementRows],
+  /**
+   * Mesmo estado SEGURO consumido pelo escopo `tools`, derivado das faturas
+   * reais já carregadas: garante semântica idêntica de status nos dois cockpits.
+   */
+  const safeStatementStatuses = useMemo(
+    () => safeStatementStatusesFromRows(statementRows),
+    [statementRows],
   );
+  const statusContext = useMemo<RowStatusContext>(
+    () => ({
+      rows,
+      today,
+      cardsById,
+      statementRows,
+      safeStatementStatuses,
+      competenceMonth: competenceMonthISO(competence),
+    }),
+    [rows, today, cardsById, statementRows, safeStatementStatuses, competence],
+  );
+
 
   const operationalRows = useMemo(() => rows.filter((row) => !isStatementRow(row)), [rows]);
   const accountRows = useMemo(() => operationalRows.filter(isDirectPayableRow), [operationalRows]);
