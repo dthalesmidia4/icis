@@ -338,6 +338,8 @@ export function useFinance(competence: Competence) {
 
   return {
     loading,
+    loadError,
+
     items,
     occurrences,
     rows,
