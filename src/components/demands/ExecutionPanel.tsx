@@ -7,16 +7,19 @@
  *
  * O checklist NUNCA bloqueia o fluxo — ele apenas orienta e avisa.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import {
+  Check,
   CheckCircle2,
   Clock,
   GripVertical,
   Loader2,
+  PencilLine,
   Plus,
   Trash2,
   Workflow,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -29,9 +32,11 @@ import {
   countPendingExecutionItems,
   isExecutionDragEnabled,
   passLabel,
+  resolveExecutionItemEdit,
   sortExecutionItems,
   type ExecutionRunWithItems,
 } from "@/lib/demandExecutionRules";
+
 
 export interface ExecutionPanelProps {
   active: ExecutionRunWithItems | null;
