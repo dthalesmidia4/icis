@@ -32,7 +32,6 @@ import {
   StatementGroup,
   cardDisplayLabel,
   cycleGapLabel,
-  effectivePaid,
   formatBRL,
   isCostBearing,
   isStatementRow,

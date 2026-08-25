@@ -13,6 +13,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const FN = "public.pay_finance_statement";
+/** Assinatura exata: evita casar com `pay_finance_statement_reconciled`. */
+const SIGNATURE = `CREATE OR REPLACE FUNCTION ${FN}(`;
 
 /** Última definição da função entre todas as migrations, em ordem cronológica. */
 function finalDefinition(): string {
@@ -24,9 +26,9 @@ function finalDefinition(): string {
   let last: string | null = null;
   for (const file of files) {
     const sql = readFileSync(resolve(dir, file), "utf8");
-    if (!sql.includes(`CREATE OR REPLACE FUNCTION ${FN}`)) continue;
+    if (!sql.includes(SIGNATURE)) continue;
     // Corpo da função + grants que a acompanham no mesmo arquivo.
-    last = sql.slice(sql.indexOf(`CREATE OR REPLACE FUNCTION ${FN}`));
+    last = sql.slice(sql.indexOf(SIGNATURE));
   }
   return last ?? "";
 }
