@@ -12,10 +12,12 @@
  */
 
 import { Competence, competenceFromISO } from "./financeCardCycle";
+import type { FinanceSettlementContext } from "./financeSettlement";
 import {
   SafeStatementStatusMap,
   findSafeStatementStatus,
 } from "./financeSafeStatement";
+
 
 import {
   CARD_PAYMENT_METHOD,
