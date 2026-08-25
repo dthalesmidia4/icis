@@ -226,8 +226,106 @@ export function resolvePostLoadOverride<T extends string>(params: {
   return null;
 }
 
+/* ============================== ORDEM DO CHECKLIST ============================== */
+
+/**
+ * Ordem canônica do checklist: PENDENTES primeiro (na ordem de `position`),
+ * CONCLUÍDOS depois (também por `position`). Usada tanto na UI quanto na
+ * persistência, para nunca divergirem.
+ */
+export function sortExecutionItems<T extends { is_completed: boolean; position: number }>(
+  items: T[] | null | undefined,
+): T[] {
+  return [...(items ?? [])].sort((a, b) => {
+    if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
+    return a.position - b.position;
+  });
+}
+
+/** Partição em pendentes/concluídos já na ordem canônica. */
+export function partitionExecutionItems<T extends { is_completed: boolean; position: number }>(
+  items: T[] | null | undefined,
+): { pending: T[]; completed: T[] } {
+  const sorted = sortExecutionItems(items);
+  return {
+    pending: sorted.filter((i) => !i.is_completed),
+    completed: sorted.filter((i) => i.is_completed),
+  };
+}
+
+/** Reindexa `position` para 0..n-1 respeitando a ordem recebida. */
+function reindex<T extends { position: number }>(items: T[]): T[] {
+  return items.map((item, index) => ({ ...item, position: index }));
+}
+
+/**
+ * Reordena manualmente um item na LISTA VISÍVEL (ordem canônica).
+ * A movimentação é limitada ao grupo do item arrastado: pendentes trocam de
+ * lugar entre pendentes, concluídos entre concluídos. Se o destino cruzar a
+ * fronteira, ele é limitado (clamp) à borda do próprio grupo.
+ *
+ * Retorna a lista completa, na nova ordem, com posições contíguas 0..n-1.
+ */
+export function reorderExecutionItems<T extends { id: string; is_completed: boolean; position: number }>(
+  items: T[] | null | undefined,
+  sourceIndex: number,
+  destinationIndex: number,
+): T[] {
+  const sorted = sortExecutionItems(items);
+  if (sourceIndex < 0 || sourceIndex >= sorted.length) return reindex(sorted);
+
+  const { pending, completed } = partitionExecutionItems(sorted);
+  const moving = sorted[sourceIndex];
+  const group = moving.is_completed ? completed : pending;
+  const offset = moving.is_completed ? pending.length : 0;
+
+  const localFrom = sourceIndex - offset;
+  const localTo = Math.max(0, Math.min(group.length - 1, destinationIndex - offset));
+  if (localFrom === localTo) return reindex(sorted);
+
+  const nextGroup = [...group];
+  nextGroup.splice(localFrom, 1);
+  nextGroup.splice(localTo, 0, moving);
+
+  const merged = moving.is_completed ? [...pending, ...nextGroup] : [...nextGroup, ...completed];
+  return reindex(merged);
+}
+
+/**
+ * Alterna a conclusão de um item e o joga para o FIM do grupo de destino
+ * (concluído → fim dos concluídos; reaberto → fim dos pendentes).
+ * Retorna a lista completa reindexada.
+ */
+export function applyExecutionToggleOrder<T extends { id: string; is_completed: boolean; position: number }>(
+  items: T[] | null | undefined,
+  itemId: string,
+  completed: boolean,
+): T[] {
+  const sorted = sortExecutionItems(items).map((i) =>
+    i.id === itemId ? ({ ...i, is_completed: completed } as T) : i,
+  );
+  const { pending, completed: done } = partitionExecutionItems(sorted);
+  const move = (list: T[]) => {
+    const idx = list.findIndex((i) => i.id === itemId);
+    if (idx < 0) return list;
+    const [item] = list.splice(idx, 1);
+    list.push(item);
+    return list;
+  };
+  return reindex(
+    completed ? [...pending, ...move([...done])] : [...move([...pending]), ...done],
+  );
+}
+
+/** Lista de `{ id, position }` para gravar depois de uma reordenação. */
+export function executionPositionUpdates(
+  items: Array<{ id: string; position: number }>,
+): Array<{ id: string; position: number }> {
+  return items.map((i, index) => ({ id: i.id, position: index }));
+}
 
 /* ============================== DRAFTS ============================== */
+
 
 /** Normaliza itens digitados: remove vazios, deduplica e reindexa posições. */
 export function normalizeExecutionItemTexts(
@@ -337,4 +435,34 @@ export function buildDraftExecutionRun(
 /** Textos que devem ser materializados no banco após criar a demanda. */
 export function draftExecutionItemTexts(items: DraftExecutionItem[]): string[] {
   return normalizeExecutionItemTexts(items.map((i) => i.text)).map((i) => i.text);
+}
+
+/**
+ * Reordena o checklist do RASCUNHO (só memória) usando exatamente as mesmas
+ * regras de grupo da demanda salva. A ordem resultante é a ordem que será
+ * materializada no banco quando a demanda for criada.
+ */
+export function reorderDraftExecutionItems(
+  items: DraftExecutionItem[],
+  sourceIndex: number,
+  destinationIndex: number,
+): DraftExecutionItem[] {
+  const withPosition = sortExecutionItems(
+    items.map((item, index) => ({ ...item, position: index })),
+  );
+  return reorderExecutionItems(withPosition, sourceIndex, destinationIndex).map(
+    ({ id, text, is_completed }) => ({ id, text, is_completed }),
+  );
+}
+
+/** Move o item alternado para o fim do grupo correto, no rascunho. */
+export function applyDraftExecutionToggleOrder(
+  items: DraftExecutionItem[],
+  itemId: string,
+  completed: boolean,
+): DraftExecutionItem[] {
+  const withPosition = items.map((item, index) => ({ ...item, position: index }));
+  return applyExecutionToggleOrder(withPosition, itemId, completed).map(
+    ({ id, text, is_completed }) => ({ id, text, is_completed }),
+  );
 }

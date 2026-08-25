@@ -85,6 +85,13 @@ import {
   ensureExecutionRun,
   loadExecutionRuns,
   setExecutionItemCompleted,
+  persistExecutionItemOrder,
+  reorderExecutionItems,
+  reorderDraftExecutionItems,
+  applyExecutionToggleOrder,
+  applyDraftExecutionToggleOrder,
+  sortExecutionItems,
+
   shouldShowExecutionTab,
   hasOperationalExecutionContext,
   buildDraftExecutionRun,
@@ -856,6 +863,8 @@ export default function TaskCard({
   const [busyExecutionItemId, setBusyExecutionItemId] = useState<string | null>(null);
   const [addingExecutionItem, setAddingExecutionItem] = useState(false);
   const [completingAllExecution, setCompletingAllExecution] = useState(false);
+  const [reorderingExecution, setReorderingExecution] = useState(false);
+
   const [executionGuardAction, setExecutionGuardAction] = useState<{
     label: string;
     preflight: ExecutionExitPreflight;
@@ -983,17 +992,62 @@ export default function TaskCard({
     }
   };
 
+  /**
+   * REORDENAÇÃO MANUAL do checklist da passagem ativa.
+   * A movimentação é limitada ao grupo (pendentes/concluídos) pelas funções
+   * puras; aqui só aplicamos otimista + persistência contígua + rollback.
+   */
+  const handleReorderExecutionItems = async (sourceIndex: number, destinationIndex: number) => {
+    if (readOnly || reorderingExecution || completingAllExecution) return;
+    if (isDraft) {
+      setDraftExecutionItems((prev) => reorderDraftExecutionItems(prev, sourceIndex, destinationIndex));
+      return;
+    }
+    const run = execution.active;
+    if (!run) return;
+    const previous = run.items;
+    const next = reorderExecutionItems(previous, sourceIndex, destinationIndex);
+    setExecution((prev) =>
+      prev.active && prev.active.id === run.id
+        ? { ...prev, active: { ...prev.active, items: next } }
+        : prev,
+    );
+    setReorderingExecution(true);
+    try {
+      await persistExecutionItemOrder({ runId: run.id, orderedItemIds: next.map((i) => i.id) });
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] reorder execution items", err);
+      setExecution((prev) =>
+        prev.active && prev.active.id === run.id
+          ? { ...prev, active: { ...prev.active, items: previous } }
+          : prev,
+      );
+      toast.error("Não foi possível salvar a nova ordem do checklist.");
+      await refreshExecution();
+    } finally {
+      setReorderingExecution(false);
+    }
+  };
+
   const handleToggleExecutionItem = async (itemId: string, completed: boolean) => {
     if (readOnly) return;
     if (isDraft) {
-      setDraftExecutionItems((prev) =>
-        prev.map((i) => (i.id === itemId ? { ...i, is_completed: completed } : i)),
-      );
+      setDraftExecutionItems((prev) => applyDraftExecutionToggleOrder(prev, itemId, completed));
       return;
     }
     setBusyExecutionItemId(itemId);
     try {
       await setExecutionItemCompleted(itemId, completed, currentUserId);
+      // Concluído vai para o fim dos concluídos; reaberto, para o fim dos pendentes.
+      const run = execution.active;
+      if (run && run.items.some((i) => i.id === itemId)) {
+        const reordered = applyExecutionToggleOrder(run.items, itemId, completed);
+        await persistExecutionItemOrder({
+          runId: run.id,
+          orderedItemIds: sortExecutionItems(reordered).map((i) => i.id),
+        });
+      }
       await refreshExecution();
     } catch (err) {
       console.error("[TaskCard] toggle execution item", err);
@@ -1003,6 +1057,7 @@ export default function TaskCard({
       setBusyExecutionItemId(null);
     }
   };
+
 
   const handleDeleteExecutionItem = async (itemId: string) => {
     if (readOnly) return;
@@ -4571,6 +4626,9 @@ export default function TaskCard({
                                 onToggleItem={handleToggleExecutionItem}
                                 onDeleteItem={handleDeleteExecutionItem}
                                 onCompleteAll={handleCompleteAllExecution}
+                                onReorderItems={handleReorderExecutionItems}
+                                reordering={reorderingExecution}
+
                                 busyItemId={busyExecutionItemId}
                                 adding={addingExecutionItem}
                                 completingAll={completingAllExecution}
