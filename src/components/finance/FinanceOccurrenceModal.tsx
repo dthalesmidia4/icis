@@ -43,6 +43,7 @@ import {
   occurrencePaidHelp,
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
+import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
 
 const BUCKET = "bill-attachments";
 
