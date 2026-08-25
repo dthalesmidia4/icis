@@ -30,6 +30,7 @@ import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 import { Competence, competenceToISO } from "@/lib/financeCardCycle";
 import { OneOffFact, shouldMaterializeOneOff } from "@/lib/financeOneOff";
+import FinanceItemDeleteModal from "./FinanceItemDeleteModal";
 
 
 
@@ -764,7 +765,18 @@ export default function FinanceItemFormModal({
         )}
 
         {step === "form" && (
-          <DialogFooter>
+          <DialogFooter className="sm:justify-between">
+            {/* Destruir/inativar é decisão do banco: o botão só abre a consulta. */}
+            {item && scope === "full" ? (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive sm:mr-auto"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Excluir cadastro
+              </Button>
+            ) : null}
             {!item && (
               <Button variant="ghost" onClick={() => setStep("intent")}>Voltar</Button>
             )}
@@ -779,6 +791,14 @@ export default function FinanceItemFormModal({
           </DialogFooter>
         )}
       </DialogContent>
+      {item && (
+        <FinanceItemDeleteModal
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          item={item}
+          onDone={() => onOpenChange(false)}
+        />
+      )}
     </Dialog>
   );
 }
