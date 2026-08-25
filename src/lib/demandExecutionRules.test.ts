@@ -13,6 +13,13 @@ import {
   normalizeExecutionItemTexts,
   passLabel,
   resolveAutoOpenTab,
+  sortExecutionItems,
+  partitionExecutionItems,
+  reorderExecutionItems,
+  applyExecutionToggleOrder,
+  executionPositionUpdates,
+  reorderDraftExecutionItems,
+  applyDraftExecutionToggleOrder,
   runMatchesContext,
   shouldShowExecutionTab,
   type ExecutionItem,
@@ -188,5 +195,90 @@ describe("checklist de rascunho", () => {
       makeDraftExecutionItem("Editar"),
     ];
     expect(draftExecutionItemTexts(items)).toEqual(["Gravar", "Editar"]);
+  });
+});
+
+describe("reordenação manual do checklist", () => {
+  const items = [
+    item({ id: "p1", text: "p1", position: 0 }),
+    item({ id: "p2", text: "p2", position: 1 }),
+    item({ id: "p3", text: "p3", position: 2 }),
+    item({ id: "c1", text: "c1", position: 3, is_completed: true }),
+    item({ id: "c2", text: "c2", position: 4, is_completed: true }),
+  ];
+
+  it("ordem canônica: pendentes antes de concluídos", () => {
+    const shuffled = [items[3], items[1], items[4], items[0], items[2]];
+    expect(sortExecutionItems(shuffled).map((i) => i.id)).toEqual(["p1", "p2", "p3", "c1", "c2"]);
+    expect(partitionExecutionItems(shuffled).completed.map((i) => i.id)).toEqual(["c1", "c2"]);
+  });
+
+  it("reordena pendentes entre pendentes com posições contíguas", () => {
+    const out = reorderExecutionItems(items, 0, 2);
+    expect(out.map((i) => i.id)).toEqual(["p2", "p3", "p1", "c1", "c2"]);
+    expect(out.map((i) => i.position)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("reordena concluídos entre concluídos", () => {
+    expect(reorderExecutionItems(items, 4, 3).map((i) => i.id)).toEqual([
+      "p1",
+      "p2",
+      "p3",
+      "c2",
+      "c1",
+    ]);
+  });
+
+  it("tentativa de cruzar grupos é limitada à borda do próprio grupo", () => {
+    // pendente arrastado para dentro dos concluídos para no fim dos pendentes
+    expect(reorderExecutionItems(items, 0, 4).map((i) => i.id)).toEqual([
+      "p2",
+      "p3",
+      "p1",
+      "c1",
+      "c2",
+    ]);
+    // concluído arrastado para o topo para no início dos concluídos
+    expect(reorderExecutionItems(items, 4, 0).map((i) => i.id)).toEqual([
+      "p1",
+      "p2",
+      "p3",
+      "c2",
+      "c1",
+    ]);
+  });
+
+  it("concluir manda para o fim dos concluídos; reabrir, para o fim dos pendentes", () => {
+    const done = applyExecutionToggleOrder(items, "p1", true);
+    expect(done.map((i) => i.id)).toEqual(["p2", "p3", "c1", "c2", "p1"]);
+    expect(done.map((i) => i.position)).toEqual([0, 1, 2, 3, 4]);
+
+    const reopened = applyExecutionToggleOrder(items, "c1", false);
+    expect(reopened.map((i) => i.id)).toEqual(["p1", "p2", "p3", "c1", "c2"]);
+    expect(reopened.find((i) => i.id === "c1")?.is_completed).toBe(false);
+  });
+
+  it("posições gravadas são contíguas 0..n-1", () => {
+    expect(executionPositionUpdates(reorderExecutionItems(items, 1, 0))).toEqual([
+      { id: "p2", position: 0 },
+      { id: "p1", position: 1 },
+      { id: "p3", position: 2 },
+      { id: "c1", position: 3 },
+      { id: "c2", position: 4 },
+    ]);
+  });
+
+  it("rascunho reordena em memória preservando a ordem materializada", () => {
+    const drafts = [
+      makeDraftExecutionItem("a"),
+      makeDraftExecutionItem("b"),
+      makeDraftExecutionItem("c"),
+    ];
+    const moved = reorderDraftExecutionItems(drafts, 2, 0);
+    expect(moved.map((i) => i.text)).toEqual(["c", "a", "b"]);
+    expect(draftExecutionItemTexts(moved)).toEqual(["c", "a", "b"]);
+
+    const toggled = applyDraftExecutionToggleOrder(moved, moved[0].id, true);
+    expect(toggled.map((i) => i.text)).toEqual(["a", "b", "c"]);
   });
 });
