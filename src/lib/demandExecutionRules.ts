@@ -266,6 +266,8 @@ export function isExecutionDragEnabled(params: {
   completingAll?: boolean;
   busyItemId?: string | null;
   adding?: boolean;
+  /** Linha em edição inline: arraste fica suspenso para não conflitar. */
+  editingItemId?: string | null;
 }): boolean {
   return (
     !params.readOnly &&
@@ -273,9 +275,39 @@ export function isExecutionDragEnabled(params: {
     !params.reordering &&
     !params.completingAll &&
     !params.busyItemId &&
-    !params.adding
+    !params.adding &&
+    !params.editingItemId
   );
 }
+
+/**
+ * Decide se uma edição inline de texto deve ir ao banco.
+ * Texto vazio nunca salva; texto igual ao atual apenas cancela.
+ */
+export function resolveExecutionItemEdit(params: {
+  currentText: string;
+  nextText: string;
+}): { shouldSave: boolean; text: string } {
+  const text = (params.nextText ?? "").trim();
+  if (!text) return { shouldSave: false, text: "" };
+  if (text === (params.currentText ?? "").trim()) return { shouldSave: false, text };
+  return { shouldSave: true, text };
+}
+
+/**
+ * Aplica o novo texto a UM item, preservando ordem, conclusão e metadados.
+ * Usada tanto no otimista da demanda salva quanto no rascunho.
+ */
+export function applyExecutionItemText<T extends { id: string; text: string }>(
+  items: T[] | null | undefined,
+  itemId: string,
+  text: string,
+): T[] {
+  const value = (text ?? "").trim();
+  if (!value) return [...(items ?? [])];
+  return (items ?? []).map((i) => (i.id === itemId ? { ...i, text: value } : i));
+}
+
 
 /** Reindexa `position` para 0..n-1 respeitando a ordem recebida. */
 function reindex<T extends { position: number }>(items: T[]): T[] {

@@ -21,6 +21,8 @@ import {
   reorderDraftExecutionItems,
   applyDraftExecutionToggleOrder,
   isExecutionDragEnabled,
+  resolveExecutionItemEdit,
+  applyExecutionItemText,
   runMatchesContext,
   shouldShowExecutionTab,
   type ExecutionItem,
@@ -321,5 +323,49 @@ describe("trava de arraste (isExecutionDragEnabled)", () => {
         adding: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("edição inline do texto do item", () => {
+  it("texto vazio não salva", () => {
+    expect(resolveExecutionItemEdit({ currentText: "a", nextText: "   " })).toEqual({
+      shouldSave: false,
+      text: "",
+    });
+  });
+
+  it("texto igual (após trim) cancela sem request", () => {
+    expect(resolveExecutionItemEdit({ currentText: "fazer", nextText: " fazer " })).toEqual({
+      shouldSave: false,
+      text: "fazer",
+    });
+  });
+
+  it("texto novo salva com trim", () => {
+    expect(resolveExecutionItemEdit({ currentText: "fazer", nextText: "  fazer melhor " })).toEqual({
+      shouldSave: true,
+      text: "fazer melhor",
+    });
+  });
+
+  it("aplica texto ao item correto preservando posição e conclusão", () => {
+    const items = [
+      item({ id: "a", text: "a", position: 0 }),
+      item({ id: "b", text: "b", position: 1, is_completed: true }),
+    ];
+    const out = applyExecutionItemText(items, "b", " novo ");
+    expect(out.map((i) => [i.id, i.text, i.position, i.is_completed])).toEqual([
+      ["a", "a", 0, false],
+      ["b", "novo", 1, true],
+    ]);
+  });
+
+  it("edição em linha suspende o arraste mas o restante segue liberado", () => {
+    expect(
+      isExecutionDragEnabled({ readOnly: false, hasReorderHandler: true, editingItemId: "a" }),
+    ).toBe(false);
+    expect(
+      isExecutionDragEnabled({ readOnly: false, hasReorderHandler: true, editingItemId: null }),
+    ).toBe(true);
   });
 });

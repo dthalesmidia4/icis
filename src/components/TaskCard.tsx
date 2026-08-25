@@ -85,7 +85,10 @@ import {
   ensureExecutionRun,
   loadExecutionRuns,
   setExecutionItemCompleted,
+  updateExecutionItemText,
+  applyExecutionItemText,
   persistExecutionItemOrder,
+
   reorderExecutionItems,
   reorderDraftExecutionItems,
   applyExecutionToggleOrder,
@@ -864,6 +867,8 @@ export default function TaskCard({
   const [addingExecutionItem, setAddingExecutionItem] = useState(false);
   const [completingAllExecution, setCompletingAllExecution] = useState(false);
   const [reorderingExecution, setReorderingExecution] = useState(false);
+  const [editingExecutionItemId, setEditingExecutionItemId] = useState<string | null>(null);
+
 
   const [executionGuardAction, setExecutionGuardAction] = useState<{
     label: string;
@@ -1056,6 +1061,45 @@ export default function TaskCard({
       await refreshExecution();
     } finally {
       setBusyExecutionItemId(null);
+    }
+  };
+
+
+  /**
+   * EDIÇÃO INLINE do texto de um item da passagem ativa.
+   * Nunca cria item novo, nunca muda posição nem conclusão.
+   */
+  const handleEditExecutionItem = async (itemId: string, text: string) => {
+    if (readOnly) return;
+    const value = (text || "").trim();
+    if (!value) return;
+    if (isDraft) {
+      setDraftExecutionItems((prev) => applyExecutionItemText(prev, itemId, value));
+      return;
+    }
+    const run = execution.active;
+    if (!run) return;
+    const previous = run.items;
+    setExecution((prev) =>
+      prev.active && prev.active.id === run.id
+        ? { ...prev, active: { ...prev.active, items: applyExecutionItemText(previous, itemId, value) } }
+        : prev,
+    );
+    setEditingExecutionItemId(itemId);
+    try {
+      await updateExecutionItemText(itemId, value);
+      await refreshExecution();
+    } catch (err) {
+      console.error("[TaskCard] edit execution item", err);
+      setExecution((prev) =>
+        prev.active && prev.active.id === run.id
+          ? { ...prev, active: { ...prev.active, items: previous } }
+          : prev,
+      );
+      toast.error("Não foi possível salvar o texto da tarefa.");
+      await refreshExecution();
+    } finally {
+      setEditingExecutionItemId(null);
     }
   };
 
@@ -4628,6 +4672,9 @@ export default function TaskCard({
                                 onDeleteItem={handleDeleteExecutionItem}
                                 onCompleteAll={handleCompleteAllExecution}
                                 onReorderItems={handleReorderExecutionItems}
+                                onEditItem={handleEditExecutionItem}
+                                editingBusyItemId={editingExecutionItemId}
+
                                 reordering={reorderingExecution}
 
                                 busyItemId={busyExecutionItemId}
