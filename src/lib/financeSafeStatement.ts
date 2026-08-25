@@ -12,6 +12,7 @@
  */
 import { Competence, competenceToISO } from "./financeCardCycle";
 import { MonthRow } from "./financeModel";
+import { paidLabelWithDate } from "./financeRowStatus";
 
 export interface SafeCardStatementStatus {
   cardId: string;
@@ -129,6 +130,14 @@ export interface GroupStatementNotice {
   projectionWarning: string | null;
 }
 
+/**
+ * `Fatura paga` + data real quando a RPC segura devolve `paid_at`.
+ * Sem `paid_at`, nenhuma data é inventada.
+ */
+export function safeStatementPaidLabel(safe: SafeCardStatementStatus): string {
+  return paidLabelWithDate("Fatura paga", safe.paidAt);
+}
+
 export const PROJECTION_WARNING =
   "Fechamento não configurado — projeções futuras podem ficar imprecisas";
 
@@ -155,7 +164,11 @@ export function groupStatementNotice(params: {
 
   const projectionWarning = cycleWarning ? PROJECTION_WARNING : null;
   if (safe.paid) {
-    return { statementText: "Fatura paga", statementTone: "positive", projectionWarning };
+    return {
+      statementText: safeStatementPaidLabel(safe),
+      statementTone: "positive",
+      projectionWarning,
+    };
   }
   if (safe.dueDate && safe.dueDate < today) {
     return { statementText: "Fatura atrasada", statementTone: "danger", projectionWarning };

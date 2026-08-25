@@ -16,7 +16,14 @@ import {
   isStatementRow,
 } from "./financeModel";
 import { FinanceSettlementContext } from "./financeSettlement";
-import { RowStatus, RowStatusContext, isCardCharge, resolveRowStatus } from "./financeRowStatus";
+import {
+  RowStatus,
+  RowStatusContext,
+  isCardCharge,
+  paidLabelWithDate,
+  resolvePaidAtForRow,
+  resolveRowStatus,
+} from "./financeRowStatus";
 
 
 export type CompositionStatus = "all" | "paid" | "open";
@@ -109,7 +116,12 @@ export function compositionStatusLabel(
   const status = resolveRowStatus(row, ctx);
   if (entry.paid) {
     if (isCardCharge(row) && !row.paid) {
-      return { ...status, kind: "paid", label: "Pago pela fatura", tone: "positive" };
+      return {
+        ...status,
+        kind: "paid",
+        label: paidLabelWithDate("Pago pela fatura", resolvePaidAtForRow(row, ctx)),
+        tone: "positive",
+      };
     }
     return status;
   }
