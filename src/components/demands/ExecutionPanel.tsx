@@ -237,7 +237,11 @@ export default function ExecutionPanel({
                       index={index}
                       isDragDisabled={!dragEnabled}
                     >
-                      {(dragProvided, dragSnapshot) => (
+                      {(dragProvided, dragSnapshot) => {
+                        const editing = editingItemId === item.id;
+                        const savingEdit = editingBusyItemId === item.id;
+                        const rowBusy = busyItemId === item.id || savingEdit;
+                        return (
                         <div
                           ref={dragProvided.innerRef}
                           {...dragProvided.draggableProps}
@@ -247,7 +251,9 @@ export default function ExecutionPanel({
                               : "hover:bg-muted/60"
                           }`}
                         >
-                          {dragEnabled ? (
+                          {readOnly ? (
+                            <span className="mt-0.5 h-3.5 w-3.5" aria-hidden="true" />
+                          ) : dragEnabled ? (
                             <span
                               {...dragProvided.dragHandleProps}
                               aria-label={`Reordenar tarefa: ${item.text}`}
@@ -256,25 +262,52 @@ export default function ExecutionPanel({
                               <GripVertical className="h-3.5 w-3.5" />
                             </span>
                           ) : (
-                            <span className="mt-0.5 h-3.5 w-3.5" aria-hidden="true" />
+                            <span
+                              aria-label={`Reordenar tarefa: ${item.text}`}
+                              aria-disabled="true"
+                              title="Aguarde a operação em andamento para reordenar"
+                              className="mt-0.5 cursor-not-allowed text-muted-foreground/40 opacity-30"
+                            >
+                              <GripVertical className="h-3.5 w-3.5" />
+                            </span>
                           )}
                           <Checkbox
                             checked={item.is_completed}
-                            disabled={readOnly || busyItemId === item.id || completingAll}
+                            disabled={readOnly || rowBusy || completingAll || editing}
                             onCheckedChange={(v) => onToggleItem(item.id, v === true)}
                             className="mt-0.5"
                           />
                           <span className="min-w-0 flex-1">
-                            <span
-                              className={
-                                item.is_completed
-                                  ? "block text-sm text-muted-foreground line-through"
-                                  : "block text-sm"
-                              }
-                            >
-                              {item.text}
-                            </span>
-                            {item.is_completed && (
+                            {editing ? (
+                              <Input
+                                autoFocus
+                                value={editingText}
+                                aria-label="Editar texto da tarefa"
+                                className="h-7 text-sm"
+                                disabled={savingEdit}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    void commitEdit(item.id, item.text);
+                                  } else if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    cancelEdit(item.id);
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <span
+                                className={
+                                  item.is_completed
+                                    ? "block text-sm text-muted-foreground line-through"
+                                    : "block text-sm"
+                                }
+                              >
+                                {item.text}
+                              </span>
+                            )}
+                            {item.is_completed && !editing && (
                               <span className="block text-[11px] text-muted-foreground">
                                 {item.completed_by && userNames[item.completed_by]
                                   ? `${userNames[item.completed_by]} · `
@@ -283,24 +316,68 @@ export default function ExecutionPanel({
                               </span>
                             )}
                           </span>
-                          {busyItemId === item.id ? (
+                          {savingEdit ? (
                             <Loader2 className="mt-0.5 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                          ) : (
-                            !readOnly && (
+                          ) : editing ? (
+                            <span className="flex items-center gap-0.5">
                               <Button
                                 type="button"
                                 size="icon"
                                 variant="ghost"
-                                aria-label="Remover tarefa"
-                                className="h-6 w-6 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                                onClick={() => void onDeleteItem(item.id)}
+                                aria-label="Salvar tarefa"
+                                className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                onClick={() => void commitEdit(item.id, item.text)}
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Check className="h-3.5 w-3.5" />
                               </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                aria-label="Cancelar edição"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={() => cancelEdit(item.id)}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </span>
+                          ) : busyItemId === item.id ? (
+                            <Loader2 className="mt-0.5 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                          ) : (
+                            !readOnly && (
+                              <span className="flex items-center gap-0.5">
+                                {onEditItem && (
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    ref={(el) => {
+                                      editButtonRefs.current[item.id] = el;
+                                    }}
+                                    aria-label="Editar tarefa"
+                                    className="h-6 w-6 text-muted-foreground opacity-60 transition-opacity hover:text-primary focus-visible:opacity-100 group-hover:opacity-100 md:opacity-0"
+                                    onClick={() => startEdit(item.id, item.text)}
+                                  >
+                                    <PencilLine className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label="Remover tarefa"
+                                  className="h-6 w-6 text-muted-foreground opacity-60 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 md:opacity-0"
+                                  onClick={() => void onDeleteItem(item.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </span>
                             )
                           )}
                         </div>
-                      )}
+                        );
+                      }}
+
                     </Draggable>
                   ))}
                   {dropProvided.placeholder}
