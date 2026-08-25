@@ -18,7 +18,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatementGroup, cardDisplayLabel, formatBRL } from "@/lib/financeModel";
-import { parseLocalizedNumber } from "@/lib/financeNumber";
+import {
+  resolveStatementPaymentAmount,
+  statementPaymentAmountMessage,
+} from "@/lib/financeStatementPaymentForm";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { isValidPaymentDate } from "@/lib/financePaymentDate";
 
@@ -28,7 +31,12 @@ interface Props {
   group: StatementGroup | null;
   /** Hoje no fuso America/Sao_Paulo (`YYYY-MM-DD`). */
   today: string;
-  onConfirm: (params: { group: StatementGroup; paidDateISO: string; paidAmountBrl: number | null }) => Promise<void>;
+  /** `true` = pagamento confirmado no banco. `false` mantém o modal aberto. */
+  onConfirm: (params: {
+    group: StatementGroup;
+    paidDateISO: string;
+    paidAmountBrl: number | null;
+  }) => Promise<boolean>;
 }
 
 export default function PayStatementModal({ open, onOpenChange, group, today, onConfirm }: Props) {
@@ -46,15 +54,21 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
 
   if (!group) return null;
 
-  const parsed = parseLocalizedNumber(amount);
-  const valid = isValidPaymentDate(date);
+  const amountResult = resolveStatementPaymentAmount(amount, suggested);
+  const amountMessage = statementPaymentAmountMessage(amountResult);
+  const dateValid = isValidPaymentDate(date);
+  const canSubmit = dateValid && amountResult.state === "ok";
 
   const submit = async () => {
-    if (!valid) return;
+    if (!canSubmit || amountResult.state !== "ok") return;
     setSaving(true);
     try {
-      await onConfirm({ group, paidDateISO: date, paidAmountBrl: parsed ?? suggested ?? null });
-      onOpenChange(false);
+      const ok = await onConfirm({
+        group,
+        paidDateISO: date,
+        paidAmountBrl: amountResult.amountBrl,
+      });
+      if (ok) onOpenChange(false);
     } finally {
       setSaving(false);
     }
@@ -81,6 +95,9 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
+            {!dateValid && (
+              <p className="text-xs text-destructive">Informe uma data válida</p>
+            )}
             <p className="text-xs text-muted-foreground">
               Use a data real em que a fatura foi paga, mesmo que seja retroativa.
             </p>
@@ -95,6 +112,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
               onChange={(e) => setAmount(e.target.value)}
               placeholder={suggested != null ? formatBRL(suggested) : "0,00"}
             />
+            {amountMessage && <p className="text-xs text-destructive">{amountMessage}</p>}
           </div>
         </div>
 
@@ -102,7 +120,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={saving || !valid}>
+          <Button onClick={submit} disabled={saving || !canSubmit}>
             {saving ? "Registrando..." : "Confirmar pagamento"}
           </Button>
         </DialogFooter>
