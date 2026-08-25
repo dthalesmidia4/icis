@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.finance_encryption_health() TO supabase_read_only_user;
