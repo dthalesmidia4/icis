@@ -134,3 +134,25 @@ describe("payload financeiro preserva campo não delegável", () => {
     ).toBeNull();
   });
 });
+
+describe("teto de delegação depende do EDITOR, nunca do alvo", () => {
+  it("G: agency_admin sem acesso financeiro não vê/concede Financeiro mesmo se o alvo tem finance_access", () => {
+    const grantable = financeGrantableCapabilities("agency_admin", "none");
+    expect(grantable).toEqual({ full: false, tools: false, any: false });
+    // Visibilidade da seção = grantable.any do editor.
+    expect(grantable.any).toBe(false);
+    // E nada é gravado, ainda que o alvo já tenha permissões.
+    expect(
+      buildFinanceUpdate(
+        grantable,
+        { finance_access: false, finance_tools_access: false },
+        { finance_access: true, finance_tools_access: true },
+      ),
+    ).toBeNull();
+  });
+
+  it("o mesmo alvo continua editável por um editor com escopo completo", () => {
+    const grantable = financeGrantableCapabilities("agency_admin", "full");
+    expect(grantable.any).toBe(true);
+  });
+});

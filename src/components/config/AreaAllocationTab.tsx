@@ -65,7 +65,8 @@ const normalizeRow = (r: any): ScheduleBlock => ({
 
 export function AreaAllocationTab() {
   const { agencyId } = useAgency();
-  const { collaborators, loading: loadingCollabs } = useCollaborators(agencyId);
+  // Configuração de horários: todos os integrantes do tenant.
+  const { members: collaborators, loading: loadingCollabs } = useCollaborators(agencyId);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [rows, setRows] = useState<ScheduleBlock[]>([]);
   const [defaultAreas, setDefaultAreas] = useState<Record<string, DefaultArea>>({});

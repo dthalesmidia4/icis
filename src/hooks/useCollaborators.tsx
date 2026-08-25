@@ -1,78 +1,62 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { VALID_AGENCY_ROLES, type ValidAgencyRole, getRoleLabel } from "@/lib/constants/roles";
-import { countOperationalDemands, type CountableDemandRow } from "@/lib/operationalCount";
+import {
+  buildOperationalCollaborators,
+  type OperationalCollaborator,
+} from "@/lib/operationalCollaborators";
+import type { CountableDemandRow } from "@/lib/operationalCount";
 
-export interface Collaborator {
-  userId: string;
-  fullName: string;
-  avatarUrl: string | null;
-  role: ValidAgencyRole;
-  roleLabel: string;
-  /** @deprecated número ambíguo — use `operationalDemandCount`. */
-  demandCount: number;
-  /** Fila que o usuário reconhece no Kanban (sem publicação agendada). */
-  operationalDemandCount: number;
-  /** Ativas com dispatch de publicação ativo (fora da fila operacional). */
-  scheduledDemandCount: number;
-  /** Ativas não arquivadas/não rascunho como responsável principal. */
-  totalActiveDemandCount: number;
-}
-
+/** Alias histórico — o formato agora vem de `operationalCollaborators`. */
+export type Collaborator = OperationalCollaborator;
 
 /**
- * Retorna colaboradores internos do tenant (agency_admin/manager/user)
- * com a contagem de demandas atribuídas (demands.assigned_to) não arquivadas.
- * Não inclui clientes externos (client_user, subclient_user, etc.).
+ * Colaboradores do tenant.
+ *
+ * A fonte canônica de quem é OPERACIONAL é `collaborator_function_assignments`
+ * (allowed = true), nunca o papel administrativo. Ver
+ * `src/lib/operationalCollaborators.ts` para a semântica das três listas:
+ *  - `collaborators` → colunas/exibição (função operacional ou cards legados);
+ *  - `assignable`    → única lista válida para NOVAS atribuições;
+ *  - `members`       → todos os integrantes (telas de configuração).
  */
 export function useCollaborators(tenantId: string | null | undefined) {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [assignable, setAssignable] = useState<Collaborator[]>([]);
+  const [members, setMembers] = useState<Collaborator[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const load = useCallback(async () => {
     if (!tenantId) {
       setCollaborators([]);
+      setAssignable([]);
+      setMembers([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const { data: roles, error: rolesErr } = await supabase
-        .from("user_roles")
-        .select("user_id, role")
-        .eq("tenant_id", tenantId)
-        .in("role", VALID_AGENCY_ROLES as unknown as ValidAgencyRole[]);
-      if (rolesErr) throw rolesErr;
-
-      if (!roles || roles.length === 0) {
-        setCollaborators([]);
-        return;
-      }
-
-      // Dedup por user_id (usa role mais alto se houver duplicidade)
-      const rolePriority: Record<string, number> = {
-        agency_admin: 3, agency_manager: 2, agency_user: 1,
-      };
-      const roleByUser = new Map<string, ValidAgencyRole>();
-      for (const r of roles) {
-        const existing = roleByUser.get(r.user_id);
-        if (!existing || (rolePriority[r.role] || 0) > (rolePriority[existing] || 0)) {
-          roleByUser.set(r.user_id, r.role as ValidAgencyRole);
-        }
-      }
-      const userIds = Array.from(roleByUser.keys());
-
-      const [{ data: profiles }, { data: demands }, { data: dispatches }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
+      const [
+        { data: roles, error: rolesErr },
+        { data: functions },
+        { data: demands },
+        { data: dispatches },
+      ] = await Promise.all([
+        supabase
+          .from("user_roles")
+          .select("user_id, role, manager_work_area")
+          .eq("tenant_id", tenantId),
+        (supabase.from("collaborator_function_assignments") as any)
+          .select("user_id, function_key, work_area, allowed")
+          .eq("tenant_id", tenantId)
+          .eq("allowed", true),
         supabase
           .from("demands")
           .select("id, assigned_to, archived_at, is_draft, current_function_key, publish_date")
           .eq("tenant_id", tenantId)
           .is("archived_at", null)
-          .eq("is_draft", false)
-          .in("assigned_to", userIds),
+          .eq("is_draft", false),
         // Mesma exclusão estrutural da Visão Geral: publicação agendada sai da fila.
         supabase
           .from("scheduled_publication_dispatches")
@@ -80,32 +64,56 @@ export function useCollaborators(tenantId: string | null | undefined) {
           .eq("tenant_id", tenantId)
           .in("status", ["scheduled", "dispatching"]),
       ]);
+      if (rolesErr) throw rolesErr;
 
-      const rows = (demands || []) as CountableDemandRow[];
+      const roleRows = ((roles || []) as any[]).map((r) => ({
+        user_id: r.user_id,
+        role: r.role,
+        manager_work_area: r.manager_work_area ?? null,
+      }));
+      const functionRows = ((functions || []) as any[]).map((f) => ({
+        user_id: f.user_id,
+        function_key: f.function_key,
+        work_area: f.work_area ?? null,
+        allowed: f.allowed ?? true,
+      }));
+      const demandRows = (demands || []) as CountableDemandRow[];
       const activeDispatchIds = new Set<string>(
         ((dispatches || []) as any[]).map((d) => d.card_id).filter(Boolean),
       );
 
-      const result: Collaborator[] = userIds.map((uid) => {
-        const p = profiles?.find((pr: any) => pr.id === uid);
-        const role = roleByUser.get(uid)!;
-        const counts = countOperationalDemands(rows, uid, activeDispatchIds);
-        return {
-          userId: uid,
-          fullName: p?.full_name || "Colaborador",
-          avatarUrl: p?.avatar_url || null,
-          role,
-          roleLabel: getRoleLabel(role),
-          demandCount: counts.operationalDemandCount,
-          operationalDemandCount: counts.operationalDemandCount,
-          scheduledDemandCount: counts.scheduledDemandCount,
-          totalActiveDemandCount: counts.totalActiveDemandCount,
-        };
+      const userIds = [
+        ...new Set([
+          ...roleRows.map((r) => r.user_id),
+          ...functionRows.map((f) => f.user_id),
+          ...demandRows.map((d) => d.assigned_to).filter(Boolean),
+        ]),
+      ] as string[];
+
+      let profiles: any[] = [];
+      if (userIds.length) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", userIds);
+        profiles = (data || []) as any[];
+      }
+
+      const res = buildOperationalCollaborators({
+        roleRows,
+        functionRows,
+        profiles: profiles.map((p) => ({
+          id: p.id,
+          full_name: p.full_name,
+          avatar_url: p.avatar_url,
+        })),
+        demandRows,
+        activeDispatchIds,
       });
 
-
-      result.sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
-      setCollaborators(result);
+      setCollaborators(res.collaborators);
+      setAssignable(res.assignable);
+      setMembers(res.members);
     } catch (err) {
       console.error("[useCollaborators] error:", err);
       setError(err as Error);
@@ -135,5 +143,5 @@ export function useCollaborators(tenantId: string | null | undefined) {
     };
   }, [tenantId, load]);
 
-  return { collaborators, loading, error, refresh: load };
+  return { collaborators, assignable, members, loading, error, refresh: load };
 }

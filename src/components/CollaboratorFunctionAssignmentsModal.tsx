@@ -31,7 +31,9 @@ const AREA_TABS: { key: WorkAreaKey; label: string }[] = [
 
 export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Props) {
   const { agencyId } = useAgency();
-  const { collaborators, loading: loadingCollabs } = useCollaborators(agencyId);
+  // Tela de CONCESSÃO de funções: precisa listar todos os integrantes,
+  // inclusive quem ainda não tem nenhuma função operacional.
+  const { members: collaborators, loading: loadingCollabs } = useCollaborators(agencyId);
   const [area, setArea] = useState<WorkAreaKey>("midia");
   const [functions, setFunctions] = useState<FlowFunction[]>([]);
   const [assignments, setAssignments] = useState<Record<string, Record<string, boolean>>>({});

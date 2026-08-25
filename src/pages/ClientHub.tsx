@@ -1953,6 +1953,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 period={workspace.period}
                 planItems={workspace.planItems}
                 demands={workspace.demands}
+                stageNames={workspace.stageNames}
                 onOpenDemand={(id) => setDrawerDemandId(id)}
               />
             </TabsContent>

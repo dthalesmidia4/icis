@@ -73,7 +73,8 @@ export default function BulkAllocationModal({
   activeDispatchIds,
   onApplied,
 }: Props) {
-  const { collaborators, loading: loadingCollabs } = useCollaborators(tenantId ?? null);
+  // Nova atribuição: apenas quem tem função operacional habilitada.
+  const { assignable: collaborators, loading: loadingCollabs } = useCollaborators(tenantId ?? null);
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
   const [plan, setPlan] = useState<BulkAllocationPlan | null>(null);
   const [loading, setLoading] = useState(false);

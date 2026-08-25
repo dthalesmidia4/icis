@@ -5,6 +5,7 @@ import type { CurrentPeriodInfo } from "@/lib/periodCounts";
 
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { cn } from "@/lib/utils";
+import { resolveStageName } from "@/lib/stageLabel";
 import { dedupeSnapshotAgainstLive } from "@/lib/demandCode";
 import {
   CLASSIFICATION_OPTIONS,
@@ -35,6 +36,8 @@ interface CalendarEntry {
   isDemand: boolean;
   demandId: string | null;
   classifications: string[];
+  /** Etapa operacional atual (current_function_key resolvida em flow_functions). */
+  stage: string | null;
 }
 
 const todayIso = () => {
@@ -70,10 +73,12 @@ interface CalendarTabProps {
   period: CurrentPeriodInfo | null;
   planItems: WorkspacePlanItem[];
   demands: WorkspaceDemand[];
+  /** Nomes de `flow_functions` por function_key (fonte canônica da etapa). */
+  stageNames?: Record<string, string>;
   onOpenDemand?: (demandId: string) => void;
 }
 
-export default function CalendarTab({ period, planItems, demands, onOpenDemand }: CalendarTabProps) {
+export default function CalendarTab({ period, planItems, demands, stageNames, onOpenDemand }: CalendarTabProps) {
   const [filters, setFilters] = useState<ContentFilterState>(EMPTY_CONTENT_FILTERS);
   const { search, type: typeFilter, classification: opFilter } = filters;
   const setSearch = (search: string) => setFilters((prev) => ({ ...prev, search }));
@@ -100,6 +105,7 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
         isDemand: true,
         demandId: d.id,
         classifications: Array.isArray(d.classifications) ? d.classifications : [],
+        stage: resolveStageName(d.current_function_key, stageNames || {}),
       });
     });
 
@@ -116,11 +122,12 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
         isDemand: false,
         demandId: null,
         classifications: [],
+        stage: null,
       });
     });
 
     return entries;
-  }, [demands, planItems]);
+  }, [demands, planItems, stageNames]);
 
 
 
@@ -198,6 +205,14 @@ export default function CalendarTab({ period, planItems, demands, onOpenDemand }
           {kicker}
         </p>
         <p className="mt-0.5 line-clamp-2 text-[11px] font-bold leading-[1.15]">{item.title}</p>
+        {!!item.stage && (
+          <span
+            title={`Etapa atual: ${item.stage}`}
+            className="mt-1 inline-flex max-w-full items-center rounded-sm bg-muted px-1 py-0 text-[8px] font-black uppercase leading-[1.5] tracking-[0.08em] text-muted-foreground"
+          >
+            <span className="truncate">{item.stage}</span>
+          </span>
+        )}
         {!!item.classifications.length && (
           <span className="mt-1 flex flex-wrap gap-1">
             {item.classifications.map((c) => (

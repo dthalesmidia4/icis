@@ -294,7 +294,8 @@ const CollaboratorDemands = () => {
       : <ArrowDown className="h-3.5 w-3.5" />;
   };
 
-  const { collaborators } = useCollaborators(tenantId);
+  // `collaborators` = exibição (inclui legado); `assignable` = novas atribuições.
+  const { collaborators, assignable } = useCollaborators(tenantId);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const { requestExit, dialog: executionExitDialog } = useExecutionExitGuard();
@@ -737,7 +738,7 @@ const CollaboratorDemands = () => {
                     <Select value={editDraft.assigned_to} onValueChange={(v) => setEditDraft((d) => ({ ...d, assigned_to: v }))}>
                       <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                       <SelectContent>
-                        {collaborators.map((c) => (
+                        {assignable.map((c) => (
                           <SelectItem key={c.userId} value={c.userId}>{c.fullName}</SelectItem>
                         ))}
                       </SelectContent>

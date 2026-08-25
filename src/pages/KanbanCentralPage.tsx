@@ -42,7 +42,6 @@ import {
 } from "@/lib/releaseQueue";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
-import { useColumnPermissions } from "@/hooks/useColumnPermissions";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
@@ -68,6 +67,7 @@ import { useCollaborators } from "@/hooks/useCollaborators";
 import { resolveInitialOverviewFocus, shouldExitEmptyOwnFocus } from "@/lib/overviewFocus";
 import { countColumnBadge, describeColumnBadge } from "@/lib/columnBadge";
 import { recordFlowHistory } from "@/lib/flowHistory";
+import { STAGE_PATCH_COLUMNS } from "@/lib/boardRefreshPolicy";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { ensureExecutionRun } from "@/lib/demandExecution";
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
@@ -687,13 +687,9 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
   const [pendingScheduleCard, setPendingScheduleCard] = useState<CentralKanbanCard | null>(null);
   const [pendingScheduleSourceColumn, setPendingScheduleSourceColumn] = useState<string | null>(null);
 
-  // Hook de permissões de colunas
-  const { filterColumns, loading: permissionsLoading } = useColumnPermissions();
-
-  // Filtrar colunas baseado nas permissões do usuário
-  const visibleColumns = useMemo(() => {
-    return filterColumns(columns);
-  }, [columns, filterColumns]);
+  // LEGADO REMOVIDO: `useColumnPermissions`/`visibleColumns` eram herança do
+  // Kanban por status. A Visão Geral usa COLABORADORES como colunas, então o
+  // filtro não tinha consumo e só adicionava um loading bloqueante à tela.
 
   // Extrair lista única de clientes (dos cards ativos)
   const clients = useMemo(() => {
@@ -1150,6 +1146,34 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
     }
   };
 
+  /**
+   * RECARGA PONTUAL de cards (sem loading global e sem refetch do quadro).
+   *
+   * Trocar etapa/responsável muda poucos campos de UM card. Chamar
+   * `fetchAllCards()` nesses casos recarregava ativos + arquivados + joins e
+   * piscava a tela inteira — era a lentidão relatada ao prosseguir.
+   * Ver `src/lib/boardRefreshPolicy.ts`.
+   */
+  const patchCardsById = useCallback(async (ids: string[]) => {
+    const list = ids.filter(Boolean);
+    if (!tenantId || list.length === 0) return;
+    const { data, error } = await supabase
+      .from("demands")
+      .select(STAGE_PATCH_COLUMNS.join(", "))
+      .eq("tenant_id", tenantId)
+      .in("id", list);
+    if (error) {
+      console.error("[patchCardsById]", error);
+      return;
+    }
+    const byId = new Map<string, any>(((data || []) as any[]).map((r) => [r.id, r]));
+    if (byId.size === 0) return;
+    const merge = (prev: CentralKanbanCard[]) =>
+      prev.map((c) => (byId.has(c.id) ? ({ ...c, ...byId.get(c.id) } as CentralKanbanCard) : c));
+    setCards(merge);
+    setArchivedCards(merge);
+  }, [tenantId]);
+
   const fetchAllCards = async () => {
     if (!tenantId) return;
     try {
@@ -1483,12 +1507,13 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
           assigned_to: (card as any).assigned_to ?? null,
         }}
         disabled={disabled}
-        onChanged={() => fetchAllCards()}
+        // Recarga PONTUAL: troca de etapa/tipo não recarrega o quadro inteiro.
+        onChanged={() => { void patchCardsById([card.id]); }}
       >
         {chip}
       </StageQuickChangePopover>
     ),
-    [tenantId],
+    [tenantId, patchCardsById],
   );
 
   const resolveStageLabel = useCallback((
@@ -2439,7 +2464,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
     fetchColumns();
   };
 
-  if (tenantLoading || loading || permissionsLoading || roleLoading || !focusDecisionReady) {
+  if (tenantLoading || loading || roleLoading || !focusDecisionReady) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -3860,7 +3885,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                                             attachments={card.attachments as any}
                                             demandType={card.demand_type}
                                             title={card.title}
-                                            onDone={() => fetchAllCards()}
+                                            onDone={() => { void patchCardsById([card.id]); }}
                                           />
                                         ) : null
                                       }
