@@ -27,6 +27,7 @@ import {
 } from "@/lib/financeModel";
 import { parseDayOfMonth, parseLocalizedNumber, parsePositiveInt } from "@/lib/financeNumber";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
+import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 
 
 interface Props {
@@ -40,6 +41,8 @@ interface Props {
   /** Cadastros existentes — usados só para AVISAR sobre nome parecido. */
   allItems?: FinanceItem[];
   defaultUsdRate: number | null;
+  /** Escopo do usuário: `tools` não cadastra despesa/cartão nem administrativo. */
+  scope?: FinanceScope;
   onSave: (payload: Partial<FinanceItem>, id?: string) => Promise<boolean>;
 }
 
@@ -93,8 +96,12 @@ export default function FinanceItemFormModal({
   packages,
   allItems = [],
   defaultUsdRate,
+  scope = "full",
   onSave,
 }: Props) {
+  // Opções derivadas do escopo — a RLS confirma, aqui só evitamos oferecer.
+  const kindOptions = KIND_OPTIONS.filter((k) => allowedKindsForScope(scope).includes(k));
+  const costCenterOptions = COST_CENTERS.filter((c) => allowedCostCentersForScope(scope).includes(c));
   const [kind, setKind] = useState<FinanceKind>("expense");
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -132,11 +139,14 @@ export default function FinanceItemFormModal({
     if (!open) return;
     setStep(item || initialKind ? "form" : "intent");
     setShowMore(false);
-    setKind((item?.kind as FinanceKind) ?? initialKind ?? "expense");
+    setKind((item?.kind as FinanceKind) ?? initialKind ?? (scope === "tools" ? "tool" : "expense"));
     setName(item?.name ?? "");
     setPurpose(item?.purpose ?? "");
     setCategory(item?.category ?? "");
-    setCostCenter((item?.cost_center as FinanceCostCenter) ?? "administrativo");
+    setCostCenter(
+      (item?.cost_center as FinanceCostCenter) ??
+        (scope === "tools" ? "midia" : "administrativo"),
+    );
     setActive(item?.active ?? true);
     setChargeMode(chargeModeFromItem(item));
     setFrequency(frequencyFromItem(item));
@@ -279,12 +289,13 @@ export default function FinanceItemFormModal({
     if (ok) onOpenChange(false);
   };
 
-  const INTENTS: { kind: FinanceKind; title: string; description: string; recurrence?: FinanceRecurrence }[] = [
+  const ALL_INTENTS: { kind: FinanceKind; title: string; description: string; recurrence?: FinanceRecurrence }[] = [
     { kind: "expense", title: "Conta ou despesa", description: "Uma cobrança ou pagamento" },
     { kind: "tool", title: "Assinatura ou ferramenta", description: "Ex.: Adobe, ChatGPT, Canva" },
     { kind: "card", title: "Cartão de crédito", description: "Para organizar suas faturas" },
     { kind: "package", title: "Pacote de ferramentas", description: "Um plano que inclui vários serviços" },
   ];
+  const INTENTS = ALL_INTENTS.filter((intent) => kindOptions.includes(intent.kind));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -335,7 +346,7 @@ export default function FinanceItemFormModal({
               <Select value={kind} onValueChange={(v) => setKind(v as FinanceKind)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {KIND_OPTIONS.map((k) => (
+                  {kindOptions.map((k) => (
                     <SelectItem key={k} value={k}>{KIND_LABELS[k]}</SelectItem>
                   ))}
                 </SelectContent>
@@ -354,7 +365,7 @@ export default function FinanceItemFormModal({
               <Select value={costCenter} onValueChange={(v) => setCostCenter(v as FinanceCostCenter)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {COST_CENTERS.map((c) => (
+                  {costCenterOptions.map((c) => (
                     <SelectItem key={c} value={c}>{COST_CENTER_LABELS[c]}</SelectItem>
                   ))}
                 </SelectContent>

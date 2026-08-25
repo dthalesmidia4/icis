@@ -44,7 +44,14 @@ import PaymentQueue from "@/components/finance/PaymentQueue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseLocalizedNumber } from "@/lib/financeNumber";
 import { useFinance, currentCompetence, todayISO } from "@/hooks/useFinance";
-import { useFinanceAccess } from "@/hooks/useFinanceAccess";
+import { useFinanceAccessScope } from "@/hooks/useFinanceAccessScope";
+import FinanceToolsCockpit from "@/components/finance/FinanceToolsCockpit";
+import {
+  FinanceView,
+  FINANCE_VIEWS as SCOPE_VIEWS,
+  resolveFinanceView,
+} from "@/lib/financeScope";
+import { toSafeCard } from "@/lib/financeSubscriptionMonth";
 import { addMonths } from "@/lib/financeCardCycle";
 import {
   COST_CENTER_LABELS,
@@ -91,10 +98,10 @@ const MONTH_LABELS = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-/** Domínios do Financeiro — a URL manda. */
-type View = "overview" | "composition" | "accounts" | "cards" | "subscriptions" | "settings";
+/** Domínios do Financeiro — a URL manda, o escopo filtra (ver `financeScope`). */
+type View = FinanceView;
 
-const VIEWS: View[] = ["overview", "composition", "accounts", "cards", "subscriptions", "settings"];
+const VIEWS: View[] = SCOPE_VIEWS;
 
 const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   overview: {
@@ -144,12 +151,9 @@ const ADVANCED_FILTERS: { value: AdvancedFilter; label: string }[] = [
 ];
 
 function FinancialCockpit() {
-  const navigate = useNavigate();
-  const { canAccess, isLoading: accessLoading } = useFinanceAccess();
   const [params, setParams] = useSearchParams();
-  const view: View = VIEWS.includes(params.get("view") as View)
-    ? (params.get("view") as View)
-    : "overview";
+  // Escopo `full` neste cockpit: a view proibida nunca é montada.
+  const view: View = resolveFinanceView("full", params.get("view"));
   const goTo = (next: View) => {
     const copy = new URLSearchParams(params);
     if (next === "overview") copy.delete("view");
@@ -203,6 +207,8 @@ function FinancialCockpit() {
   }, [settings.monthlyBudgetBrl, settings.defaultUsdRate]);
 
   const cardsById = useMemo(() => new Map(cards.map((c) => [c.id, c])), [cards]);
+  /** Assinaturas só precisam de rótulo/ciclo do cartão — nunca limite ou fatura. */
+  const safeCards = useMemo(() => cards.map(toSafeCard), [cards]);
   const statusContext = useMemo<RowStatusContext>(
     () => ({ rows, today, cardsById }),
     [rows, today, cardsById],
@@ -382,21 +388,6 @@ function FinancialCockpit() {
     setHighlightIncomplete(false);
     setFocusCardId(action.cardId);
   };
-
-  if (accessLoading) return <LoadingScreen title="Verificando acesso ao Financeiro..." />;
-
-  if (!canAccess) {
-    return (
-      <div className="container max-w-lg mx-auto px-4 py-20 text-center space-y-4">
-        <AlertTriangle className="w-10 h-10 mx-auto text-muted-foreground" />
-        <h1 className="text-2xl font-bold">Acesso restrito</h1>
-        <p className="text-muted-foreground">
-          O Financeiro está disponível apenas para administradores da agência e gestores autorizados.
-        </p>
-        <Button onClick={() => navigate("/")}>Voltar para o início</Button>
-      </div>
-    );
-  }
 
   const currentComp = currentCompetence();
   const isCurrentMonth =
@@ -982,12 +973,11 @@ function FinancialCockpit() {
         {view === "subscriptions" && (
           <SubscriptionsPanel
             items={items}
-            cards={cards}
+            cards={safeCards}
             rows={subscriptionRows}
             statusContext={statusContext}
             overlaps={overlaps}
             competence={competence}
-            monthlyTotal={totals.toolsAndAi}
             search={subscriptionSearch}
             onSearchChange={setSubscriptionSearch}
             onEdit={(item) => openItemModal(item)}
@@ -1108,9 +1098,28 @@ function FinancialCockpit() {
  * desbloqueio vive apenas em memória, então cada nova entrada pede a senha.
  */
 export default function Financial() {
+  const { canAccessFullFinance, canAccessTools, isLoading } = useFinanceAccessScope();
+  const navigate = useNavigate();
+
+  if (isLoading) return <LoadingScreen title="Verificando acesso ao Financeiro..." />;
+
+  if (!canAccessTools) {
+    return (
+      <div className="container max-w-lg mx-auto px-4 py-20 text-center space-y-4">
+        <AlertTriangle className="w-10 h-10 mx-auto text-muted-foreground" />
+        <h1 className="text-2xl font-bold">Acesso restrito</h1>
+        <p className="text-muted-foreground">
+          O Financeiro está disponível apenas para administradores da agência e pessoas autorizadas.
+        </p>
+        <Button onClick={() => navigate("/")}>Voltar para o início</Button>
+      </div>
+    );
+  }
+
+  // A senha é exigida nos DOIS escopos — ela não concede autorização, só protege.
   return (
     <FinanceAccessGate>
-      <FinancialCockpit />
+      {canAccessFullFinance ? <FinancialCockpit /> : <FinanceToolsCockpit />}
     </FinanceAccessGate>
   );
 }

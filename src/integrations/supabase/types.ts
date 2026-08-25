@@ -2914,6 +2914,7 @@ export type Database = {
         Row: {
           created_at: string | null
           finance_access: boolean
+          finance_tools_access: boolean
           id: string
           manager_work_area: Database["public"]["Enums"]["work_area"] | null
           role: Database["public"]["Enums"]["app_role"]
@@ -2923,6 +2924,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           finance_access?: boolean
+          finance_tools_access?: boolean
           id?: string
           manager_work_area?: Database["public"]["Enums"]["work_area"] | null
           role: Database["public"]["Enums"]["app_role"]
@@ -2932,6 +2934,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           finance_access?: boolean
+          finance_tools_access?: boolean
           id?: string
           manager_work_area?: Database["public"]["Enums"]["work_area"] | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -3188,7 +3191,12 @@ export type Database = {
       }
       create_manual_demand_atomic: { Args: { p_payload: Json }; Returns: Json }
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
+      finance_access_scope: { Args: { _tenant_id: string }; Returns: string }
       finance_password_status: { Args: { _tenant_id: string }; Returns: Json }
+      finance_tools_item_allowed: {
+        Args: { _item_id: string; _tenant_id: string }
+        Returns: boolean
+      }
       generate_demand_fingerprint: {
         Args: { p_channel: string; p_demand_type: string; p_title: string }
         Returns: string
@@ -3231,6 +3239,10 @@ export type Database = {
       get_user_tenant: { Args: { _user_id: string }; Returns: string }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
       has_finance_access: { Args: { _tenant_id: string }; Returns: boolean }
+      has_finance_tools_access: {
+        Args: { _tenant_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3250,6 +3262,16 @@ export type Database = {
       }
       is_review_function: { Args: { _key: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      list_finance_safe_cards: {
+        Args: { _tenant_id: string }
+        Returns: {
+          bank_name: string
+          card_last4: string
+          id: string
+          statement_closing_day: number
+          statement_due_day: number
+        }[]
+      }
       pay_finance_statement: {
         Args: {
           _occurrence_id: string

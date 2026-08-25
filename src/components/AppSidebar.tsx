@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAgency } from "@/contexts/AgencyContext";
-import { useFinanceAccess } from "@/hooks/useFinanceAccess";
+import { useFinanceAccessScope } from "@/hooks/useFinanceAccessScope";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/RoleBadge";
@@ -43,7 +43,7 @@ const mainMenuItems = [
 
 /**
  * Filtra o menu principal. O item Financeiro só aparece quando a RPC
- * `has_finance_access` confirma acesso — enquanto carrega, fica escondido
+ * `finance_access_scope` retorna `full` ou `tools` — enquanto carrega, fica escondido
  * (fail closed visual).
  */
 export function filterMainMenuItems<T extends { requiresAgency?: boolean; requiresFinanceAccess?: boolean }>(
@@ -70,7 +70,7 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin, role } = useUserRole();
   const { agencyId } = useAgency();
-  const { canAccess: financeCanAccess, isLoading: financeLoading } = useFinanceAccess();
+  const { canAccessFinance: financeCanAccess, isLoading: financeLoading } = useFinanceAccessScope();
   const visibleMainItems = filterMainMenuItems(mainMenuItems, { agencyId, financeCanAccess, financeLoading });
 
   const isActive = (path: string) => location.pathname === path;
@@ -202,7 +202,7 @@ function DesktopSidebar() {
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin } = useUserRole();
   const { agencyId } = useAgency();
-  const { canAccess: financeCanAccess, isLoading: financeLoading } = useFinanceAccess();
+  const { canAccessFinance: financeCanAccess, isLoading: financeLoading } = useFinanceAccessScope();
   const visibleMainItems = filterMainMenuItems(mainMenuItems, { agencyId, financeCanAccess, financeLoading });
 
   const isActive = (path: string) => location.pathname === path;
