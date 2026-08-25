@@ -8,9 +8,11 @@
  * O checklist NUNCA bloqueia o fluxo — ele apenas orienta e avisa.
  */
 import { useState } from "react";
+import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import {
   CheckCircle2,
   Clock,
+  GripVertical,
   Loader2,
   Plus,
   Trash2,
@@ -26,6 +28,7 @@ import {
   computeExecutionProgress,
   countPendingExecutionItems,
   passLabel,
+  sortExecutionItems,
   type ExecutionRunWithItems,
 } from "@/lib/demandExecutionRules";
 
@@ -46,10 +49,14 @@ export interface ExecutionPanelProps {
   onToggleItem: (itemId: string, completed: boolean) => void | Promise<void>;
   onDeleteItem: (itemId: string) => void | Promise<void>;
   onCompleteAll?: () => void | Promise<void>;
+  /** Reordenação manual (índices da lista visível). */
+  onReorderItems?: (sourceIndex: number, destinationIndex: number) => void | Promise<void>;
+  reordering?: boolean;
   busyItemId?: string | null;
   adding?: boolean;
   completingAll?: boolean;
 }
+
 
 const fmt = (iso: string | null | undefined) =>
   iso
