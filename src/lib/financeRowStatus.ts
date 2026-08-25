@@ -209,20 +209,23 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
   /* -------------------------- CARTÃO (componente) --------------------- */
   if (isCardCharge(row)) {
+    const statement = linkedStatementRow(row, statementRows);
     /**
-     * BOOLEANO CANÔNICO: exatamente o mesmo consultado por `computeTotals` e
-     * pela composição do mês. Se ele é `false`, NENHUM caminho abaixo pode
-     * devolver semântica de pago — é o que impede `Fatura paga` dentro do
-     * recorte `Em aberto`.
+     * BOOLEANO CANÔNICO — a MESMA prova de `effectivePaid`: fato próprio,
+     * liquidação derivada da fatura, ou vínculo com uma fatura paga. Se ele é
+     * `false`, NENHUM caminho abaixo pode devolver semântica de pago — é o que
+     * impede `Fatura paga` aparecer dentro do recorte `Em aberto`.
      */
-    const canonicalPaid = effectivePaid(row, ctx.rows, ctx.settlement ?? null);
+    const canonicalPaid = row.paid
+      || !!ctx.settlement?.paidComponentKeys.has(row.key)
+      || !!statement?.paid;
 
     // Fato real de pagamento prevalece sobre qualquer lacuna de configuração.
     if (row.paid) {
       return { kind: "paid", label: "Pago", tone: "positive", direct: false, canPayDirectly: false };
     }
 
-    if (canonicalPaid) {
+    if (canonicalPaid && ctx.settlement?.paidComponentKeys.has(row.key) && !statement?.paid) {
       return {
         kind: "card_statement_paid",
         label: "Pago pela fatura",
@@ -232,10 +235,10 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
       };
     }
 
-    const statement = linkedStatementRow(row, statementRows);
     if (statement) {
-      // `statement.paid` sem `canonicalPaid` é impossível (mesma prova); ainda
-      // assim o caminho pago só existe acima, nunca aqui.
+      if (canonicalPaid && statement.paid) {
+        return { kind: "card_statement_paid", label: "Fatura paga", tone: "positive", direct: false, canPayDirectly: false };
+      }
       if (statement.dueDate && statement.dueDate < today) {
         return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: false, canPayDirectly: false };
       }
@@ -244,6 +247,7 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
         : "Fatura a pagar";
       return { kind: "card_in_statement", label, tone: "neutral", direct: false, canPayDirectly: false };
     }
+
 
 
     /**
