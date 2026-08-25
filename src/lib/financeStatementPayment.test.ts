@@ -119,7 +119,7 @@ describe("status de componente de cartão", () => {
       ctx({ cardsById: new Map([[CARD_ID, cardItem({ statement_closing_day: null })]]) }),
     );
     expect(status.kind).toBe("paid");
-    expect(status.label).toBe("Pago");
+    expect(status.label).toMatch(/^Pago( em \d{2} \w{3})?$/);
   });
 
   it("paid_at real => Pago (nunca aguardando fatura)", () => {
@@ -130,12 +130,12 @@ describe("status de componente de cartão", () => {
     expect(status.label).not.toMatch(/[Aa]guardando/);
   });
 
-  it("statement link pago => Fatura paga", () => {
+  it("statement link pago => Pago pela fatura", () => {
     const stmt = statementRow({ paid: true });
     const component = row({ occurrence: occ({ statement_occurrence_id: "stmt-1" }) });
     const status = resolveRowStatus(component, ctx({ statementRows: [stmt] }));
     expect(status.kind).toBe("card_statement_paid");
-    expect(status.label).toBe("Fatura paga");
+    expect(status.label).toBe("Pago pela fatura");
   });
 
   it("snapshot de competência + cartão resolve fatura paga sem statement_occurrence_id", () => {
@@ -146,7 +146,7 @@ describe("status de componente de cartão", () => {
         card_item_id_snapshot: CARD_ID,
       }),
     });
-    expect(resolveRowStatus(component, ctx({ statementRows: [stmt] })).label).toBe("Fatura paga");
+    expect(resolveRowStatus(component, ctx({ statementRows: [stmt] })).label).toBe("Pago pela fatura");
   });
 
   it("sem link, sem paid e ciclo incompleto => Aguardando dados da fatura", () => {

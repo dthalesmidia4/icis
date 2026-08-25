@@ -8,14 +8,12 @@
  * colapsado e mostra apenas quantidade e total. O total de um grupo é a soma
  * das próprias linhas, então soma dos grupos = total da lista.
  */
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  ChevronsDown,
-  ChevronsUp,
   Clock,
   CreditCard,
 } from "lucide-react";
@@ -41,13 +39,7 @@ import {
   compositionDateLabel,
   compositionStatusLabel,
 } from "@/lib/financeComposition";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  COMPOSITION_GROUP_BY_LABELS,
-  CompositionGroupBy,
-  buildCompositionGroups,
-} from "@/lib/financeGrouping";
+import { CompositionGroupBy, buildCompositionGroups } from "@/lib/financeGrouping";
 
 interface Props {
   entries: CompositionEntry[];
@@ -57,7 +49,12 @@ interface Props {
   onOpenRow: (row: MonthRow) => void;
   /** Dimensão de agrupamento: natureza (categoria) x área (centro de custo). */
   groupBy: CompositionGroupBy;
-  onGroupByChange: (next: CompositionGroupBy) => void;
+  /**
+   * Estado de expansão CONTROLADO pelo control deck da tela: a toolbar de
+   * agrupar/expandir vive no topo, então a lista não mantém a sua própria.
+   */
+  expanded: Record<string, boolean>;
+  onToggleGroup: (key: string) => void;
 }
 
 const TONE_ICON: Record<StatusTone, typeof Clock> = {
@@ -105,11 +102,10 @@ export default function MonthCompositionList({
   emptyMessage,
   onOpenRow,
   groupBy,
-  onGroupByChange,
+  expanded,
+  onToggleGroup,
 }: Props) {
-  /** Grupos começam COLAPSADOS: só o que o usuário abriu vive aqui. */
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const toggle = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggle = (key: string) => onToggleGroup(key);
 
   if (loading) {
     return (
@@ -131,52 +127,8 @@ export default function MonthCompositionList({
 
   const groupSummary = (count: number) => (count === 1 ? "1 despesa" : `${count} despesas`);
 
-  /**
-   * `Expandir tudo` age apenas sobre os grupos do RECORTE ATUAL. Grupos que
-   * somem por filtro não deixam estado ativo para trás.
-   */
-  const allOpen = groups.every((group) => !!expanded[group.key]);
-  const toggleAll = () => {
-    if (allOpen) {
-      setExpanded({});
-      return;
-    }
-    const next: Record<string, boolean> = {};
-    for (const group of groups) next[group.key] = true;
-    setExpanded(next);
-  };
-
   return (
     <>
-      {/* Toolbar da lista: dimensão do agrupamento + expandir/recolher. */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Agrupar por</span>
-          <Select value={groupBy} onValueChange={(v) => onGroupByChange(v as CompositionGroupBy)}>
-            <SelectTrigger className="h-9 w-[168px]" aria-label="Agrupar por">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
-                <SelectItem key={key} value={key}>
-                  {COMPOSITION_GROUP_BY_LABELS[key]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button type="button" variant="ghost" size="sm" className="min-h-9" onClick={toggleAll}>
-          {allOpen ? (
-            <>
-              <ChevronsUp className="w-4 h-4 mr-1.5" /> Recolher tudo
-            </>
-          ) : (
-            <>
-              <ChevronsDown className="w-4 h-4 mr-1.5" /> Expandir tudo
-            </>
-          )}
-        </Button>
-      </div>
       {/* ------------------------------ DESKTOP ------------------------------ */}
       <Card className="hidden md:block overflow-hidden">
         <Table>

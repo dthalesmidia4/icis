@@ -25,8 +25,19 @@ import { visibleStatementGroups } from "./financeCardVisibility";
 
 import {
   SafeStatementStatusMap,
+  competenceMonthISO,
   findSafeStatementStatus,
 } from "./financeSafeStatement";
+
+import {
+  formatDayMonth,
+  paidAtDayMonth,
+  paidLabelWithDate,
+} from "./financePaidLabel";
+
+/** Reexport: a formatação canônica vive em `financePaidLabel`. */
+export { formatDayMonth, paidAtDayMonth, paidLabelWithDate };
+
 
 
 import {
@@ -73,11 +84,6 @@ export interface RowStatus {
 }
 
 
-const MONTH_SHORT = [
-  "jan", "fev", "mar", "abr", "mai", "jun",
-  "jul", "ago", "set", "out", "nov", "dez",
-];
-
 const MONTH_FULL = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
@@ -87,14 +93,33 @@ export function monthFullLabel(competence: Competence): string {
   return MONTH_FULL[competence.month - 1] ?? String(competence.month);
 }
 
-/** `2026-08-01` -> `01 ago`. */
-export function formatDayMonth(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const [, m, d] = iso.slice(0, 10).split("-");
-  const month = MONTH_SHORT[Number(m) - 1];
-  if (!d || !month) return iso;
-  return `${d} ${month}`;
+
+
+/* -------------------------------------------------------------------------- */
+/*                        DATA REAL DO PAGAMENTO (badge)                      */
+/* -------------------------------------------------------------------------- */
+
+
+/**
+ * Data REAL do pagamento que quitou a linha.
+ * - pagamento direto/fato próprio: `row.occurrence.paid_at`;
+ * - componente de cartão: fatura vinculada, senão status seguro da fatura da
+ *   competência REAL da cobrança (nunca a competência exibida por padrão).
+ */
+export function resolvePaidAtForRow(
+  row: MonthRow,
+  ctx: RowStatusContext,
+  statement?: MonthRow | null,
+): string | null {
+  if (row.occurrence?.paid_at) return row.occurrence.paid_at;
+  if (statement?.occurrence?.paid_at) return statement.occurrence.paid_at;
+  if (!row.cardItemId) return null;
+  const cycle = resolveStatementCompetenceForRow(row, ctx);
+  const competenceMonth = cycle ? competenceMonthISO(cycle) : ctx.competenceMonth ?? null;
+  const safe = findSafeStatementStatus(ctx.safeStatementStatuses, row.cardItemId, competenceMonth);
+  return safe?.paid ? safe.paidAt ?? null : null;
 }
+
 
 export function addDaysISO(iso: string, days: number): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -205,7 +230,13 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
   /* ------------------------------ FATURA ------------------------------ */
   if (isStatementRow(row)) {
     if (row.paid) {
-      return { kind: "paid", label: "Fatura paga", tone: "positive", direct: true, canPayDirectly: false };
+      return {
+        kind: "paid",
+        label: paidLabelWithDate("Fatura paga", row.occurrence?.paid_at),
+        tone: "positive",
+        direct: true,
+        canPayDirectly: false,
+      };
     }
     if (row.dueDate && row.dueDate < today) {
       return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: true, canPayDirectly: true };
@@ -228,13 +259,19 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
     // Fato real de pagamento prevalece sobre qualquer lacuna de configuração.
     if (row.paid) {
-      return { kind: "paid", label: "Pago", tone: "positive", direct: false, canPayDirectly: false };
+      return {
+        kind: "paid",
+        label: paidLabelWithDate("Pago", row.occurrence?.paid_at),
+        tone: "positive",
+        direct: false,
+        canPayDirectly: false,
+      };
     }
 
     if (canonicalPaid && ctx.settlement?.paidComponentKeys.has(row.key) && !statement?.paid) {
       return {
         kind: "card_statement_paid",
-        label: "Pago pela fatura",
+        label: paidLabelWithDate("Pago pela fatura", resolvePaidAtForRow(row, ctx)),
         tone: "positive",
         direct: false,
         canPayDirectly: false,
@@ -243,8 +280,17 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
     if (statement) {
       if (canonicalPaid && statement.paid) {
-        return { kind: "card_statement_paid", label: "Fatura paga", tone: "positive", direct: false, canPayDirectly: false };
+        return {
+          kind: "card_statement_paid",
+          // Consistência: no FILHO o rótulo fala do componente ("Pago pela
+          // fatura"), com a data real da fatura que o quitou.
+          label: paidLabelWithDate("Pago pela fatura", resolvePaidAtForRow(row, ctx, statement)),
+          tone: "positive",
+          direct: false,
+          canPayDirectly: false,
+        };
       }
+
       if (statement.dueDate && statement.dueDate < today) {
         return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: false, canPayDirectly: false };
       }
@@ -354,7 +400,14 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
   /* -------------------------- OBRIGAÇÃO DIRETA ------------------------ */
   if (row.paid) {
-    return { kind: "paid", label: "Pago", tone: "positive", direct: true, canPayDirectly: true };
+    return {
+      kind: "paid",
+      label: paidLabelWithDate("Pago", row.occurrence?.paid_at),
+      tone: "positive",
+      direct: true,
+      canPayDirectly: true,
+    };
+
   }
   const ref = row.dueDate ?? row.chargeDate ?? null;
   const isInstallment = row.item.recurrence_type === "installments";

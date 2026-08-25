@@ -241,14 +241,21 @@ describe("categorias de despesa", () => {
     expect(form).toContain("category: category.trim() || null");
   });
 
-  it("a lista da composição renderiza grupos colapsados por padrão", () => {
+  it("a lista da composição renderiza grupos colapsados, controlada pelo control deck", () => {
     const list = readFileSync("src/components/finance/MonthCompositionList.tsx", "utf8");
     expect(list).toContain("buildCompositionGroups");
+    // A expansão é CONTROLADA pela tela: a lista não mantém estado nem toolbar.
+    expect(list).toContain("expanded");
+    expect(list).toContain("onToggleGroup");
+    expect(list).not.toContain("useState");
+    expect(list).not.toContain("Expandir tudo");
+    expect(list).not.toContain("COMPOSITION_GROUP_BY_LABELS");
+    // Os controles vivem no control deck da tela, uma vez só.
+    const page = readFileSync("src/pages/Financial.tsx", "utf8");
+    expect(page).toContain("Expandir tudo");
+    expect(page).toContain("Recolher tudo");
     // Nenhum grupo começa aberto: o mapa de expandidos nasce vazio.
-    expect(list).toContain("useState<Record<string, boolean>>({})");
-    // Atalho de leitura em massa, restrito ao recorte atual.
-    expect(list).toContain("Expandir tudo");
-    expect(list).toContain("Recolher tudo");
+    expect(page).toContain("useState<Record<string, boolean>>({})");
   });
 });
 
