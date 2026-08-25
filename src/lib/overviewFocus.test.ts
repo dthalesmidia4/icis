@@ -121,7 +121,7 @@ describe("wiring", () => {
     expect(sidebar).toContain("opts.financeLoading || !opts.financeCanAccess");
   });
 
-  it("B/O. escopo tools entra no cockpit restrito e a senha continua exigida", () => {
+  it("B/O. escopo tools entra no cockpit restrito SEM senha; full continua atrás do gate", () => {
     const page = readFileSync("src/pages/Financial.tsx", "utf8");
     // senha SÓ para o escopo full; tools abre o cockpit restrito sem gate.
     expect(page).toContain("<FinanceAccessGate>");
