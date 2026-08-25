@@ -70,3 +70,22 @@ export function settledByStatement(
   if (row.paid) return false;
   return !!settlement?.paidComponentKeys.has(row.key);
 }
+
+/**
+ * Liquidação no escopo `tools`: não há acesso à fatura completa, então a
+ * pertença usa o agrupamento mensal por cartão + status SEGURO da fatura real
+ * daquela competência. Mesma regra de negócio, sem expor valores.
+ */
+export function buildSafeSettlementIndex(params: {
+  rows: MonthRow[];
+  isPaidCard: (cardId: string) => boolean;
+}): FinanceSettlementContext {
+  const paidComponentKeys = new Set<string>();
+  for (const row of params.rows) {
+    if (isStatementRow(row)) continue;
+    const cardId = row.cardItemId;
+    if (!cardId) continue;
+    if (params.isPaidCard(cardId)) paidComponentKeys.add(row.key);
+  }
+  return { paidComponentKeys, statementByComponentKey: new Map() };
+}
