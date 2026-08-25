@@ -863,6 +863,8 @@ export default function TaskCard({
   const [busyExecutionItemId, setBusyExecutionItemId] = useState<string | null>(null);
   const [addingExecutionItem, setAddingExecutionItem] = useState(false);
   const [completingAllExecution, setCompletingAllExecution] = useState(false);
+  const [reorderingExecution, setReorderingExecution] = useState(false);
+
   const [executionGuardAction, setExecutionGuardAction] = useState<{
     label: string;
     preflight: ExecutionExitPreflight;
