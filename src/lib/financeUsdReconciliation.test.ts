@@ -22,7 +22,7 @@ import {
   usesReferenceRate,
 } from "./financeModel";
 import { buildMonthComposition, compositionStatusLabel, compositionDateLabel } from "./financeComposition";
-import { buildSettlementContext } from "./financeSettlement";
+
 import { resolveRowStatus, type RowStatusContext } from "./financeRowStatus";
 import { buildOccurrencePatch } from "./financeOccurrencePatch";
 import { buildReconciliation, usdComponentsOf, blockingUsdComponents } from "./financeReconciliation";
@@ -122,7 +122,7 @@ describe("status único: recorte e badge nunca divergem", () => {
     const stmt = statementRow({ paid: false });
     const component = row({ key: "c1", occurrence: occ({ statement_occurrence_id: "stmt-1" }) });
     const rows = [stmt, component];
-    const settlement = buildSettlementContext(rows);
+    const settlement = null;
     const open = buildMonthComposition({ rows, status: "open", settlement });
 
     expect(open.length).toBeGreaterThan(0);
@@ -157,7 +157,7 @@ describe("status único: recorte e badge nunca divergem", () => {
     const a = row({ key: "a", amountBrl: 300, occurrence: occ({ statement_occurrence_id: "stmt-1" }) });
     const b = row({ key: "b", amountBrl: 200, cardItemId: null, paymentMethod: "Pix", item: item({ card_item_id: null, payment_method: "Pix" }) });
     const rows = [stmt, a, b];
-    const totals = computeTotals(rows, buildSettlementContext(rows));
+    const totals = computeTotals(rows, null);
     expect(totals.paid + totals.open).toBeCloseTo(totals.expected, 2);
     expect(totals.paid).toBeCloseTo(300, 2);
   });
