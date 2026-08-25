@@ -21,12 +21,12 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
   if (isRecoveryPending()) {
     return <Navigate to={`/?${RECOVERY_ENTRY_QUERY}`} replace />;
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
   }
 
   return <>{children}</>;

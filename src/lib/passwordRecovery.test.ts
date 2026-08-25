@@ -203,8 +203,8 @@ describe("bloqueio de sessão temporária de recovery", () => {
   it("3. ProtectedRoute bloqueia pending recovery mesmo com user presente", () => {
     expect(protectedRouteSource).toContain("isRecoveryPending()");
     expect(protectedRouteSource).toContain("<Navigate to={`/?${RECOVERY_ENTRY_QUERY}`} replace />");
-    expect(protectedRouteSource.indexOf("if (!user)")).toBeLessThan(
-      protectedRouteSource.indexOf("if (isRecoveryPending())"),
+    expect(protectedRouteSource.indexOf("if (isRecoveryPending())")).toBeLessThan(
+      protectedRouteSource.indexOf("if (!user)"),
     );
   });
 
