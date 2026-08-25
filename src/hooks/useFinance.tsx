@@ -357,7 +357,9 @@ export function useFinance(competence: Competence) {
     occurrences,
     rows,
     statements,
+    settlement,
     totals,
+
     overlaps,
     cards,
     packages,
