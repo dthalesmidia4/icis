@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { paperStackVisualMetrics } from "@/lib/paperStack";
 
 interface PaperStackProps {
   /** Total de demandas na fila (excluindo a que está no monitor). */
@@ -16,6 +17,10 @@ interface PaperStackProps {
  * PILHA FÍSICA SIMPLES (visualização leve): uma única pilha de folhas anônimas
  * cuja altura reflete o volume da fila, com contador. Clicar abre a fila
  * lateral — nada de agrupamentos nem nomes aqui.
+ *
+ * A escala visual é progressiva: 1:1 até 6 demandas, depois compressão
+ * controlada até o teto de 14 folhas (ver `paperStackVisualMetrics`). O
+ * contador mostra o número REAL de demandas.
  */
 export const PaperStack = memo(function PaperStack({
   queueCount,
@@ -24,9 +29,7 @@ export const PaperStack = memo(function PaperStack({
   onOpenQueue,
   anchorRef,
 }: PaperStackProps) {
-  const sheets = Math.min(6, queueCount);
-  const overload = queueCount >= 16;
-  const empty = queueCount === 0;
+  const { sheets, sheetWidth, overload, empty } = paperStackVisualMetrics(queueCount);
 
   return (
     <div className="flex items-end gap-1.5">
