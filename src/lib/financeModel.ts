@@ -746,22 +746,41 @@ export function buildStatementGroups(params: {
         if (row.cardItemId === card.id) components.push(row);
       }
     } else {
+      /**
+       * DEDUPE POR IDENTIDADE DE COBRANÇA: a mesma cobrança pode chegar duas
+       * vezes — como projeção do mês da charge_date e como ocorrência REAL
+       * arquivada em outra competência. O fato real sempre vence a projeção.
+       */
+      const byChargeIdentity = new Map<string, MonthRow>();
       for (const chargeCompetence of candidateChargeCompetences(competence)) {
         const monthRows = sameCompetence(chargeCompetence, competence)
           ? currentRows
           : buildMonthRows({ items: cardItems, occurrences, competence: chargeCompetence, fallbackRate });
         for (const row of monthRows) {
           if (row.cardItemId !== card.id) continue;
-          const chargeDay =
-            row.chargeDate != null ? Number(row.chargeDate.slice(8, 10)) : row.item.charge_day ?? null;
-          const resolved = resolveStatementForCharge({ chargeDay, competence: chargeCompetence, card: cycle });
+          const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
+          // Competência REAL da cobrança (charge_date), não a do loop.
+          const actualChargeCompetence = chargeDateCompetence(row.chargeDate, chargeCompetence);
+          const resolved = resolveStatementForCharge({
+            chargeDay,
+            competence: actualChargeCompetence,
+            card: cycle,
+          });
           if (resolved.incomplete || !resolved.statementCompetence) continue;
           if (!sameCompetence(resolved.statementCompetence, competence)) continue;
-          if (components.some((c) => c.key === row.key)) continue;
-          components.push(row);
+          const identity = `${card.id}|${row.item.id}|${row.chargeDate ?? competenceToISO(actualChargeCompetence)}`;
+          const existing = byChargeIdentity.get(identity);
+          if (existing) {
+            const existingReal = !!existing.occurrence && !existing.projected;
+            const rowReal = !!row.occurrence && !row.projected;
+            if (existingReal || !rowReal) continue;
+          }
+          byChargeIdentity.set(identity, row);
         }
       }
+      components.push(...byChargeIdentity.values());
     }
+
 
     const statementRow = currentRows.find((r) => r.item.id === card.id) ?? null;
     const projectedTotal = Number(
