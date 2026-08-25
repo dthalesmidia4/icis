@@ -12,7 +12,7 @@
  */
 import { Competence, competenceToISO } from "./financeCardCycle";
 import { MonthRow } from "./financeModel";
-import { paidLabelWithDate } from "./financeRowStatus";
+import { paidLabelWithDate } from "./financePaidLabel";
 
 export interface SafeCardStatementStatus {
   cardId: string;

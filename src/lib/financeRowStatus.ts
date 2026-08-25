@@ -29,7 +29,14 @@ import {
   findSafeStatementStatus,
 } from "./financeSafeStatement";
 
-import { paymentTimestampToDate } from "./financePaymentDate";
+import {
+  formatDayMonth,
+  paidAtDayMonth,
+  paidLabelWithDate,
+} from "./financePaidLabel";
+
+/** Reexport: a formatação canônica vive em `financePaidLabel`. */
+export { formatDayMonth, paidAtDayMonth, paidLabelWithDate };
 
 
 
@@ -77,11 +84,6 @@ export interface RowStatus {
 }
 
 
-const MONTH_SHORT = [
-  "jan", "fev", "mar", "abr", "mai", "jun",
-  "jul", "ago", "set", "out", "nov", "dez",
-];
-
 const MONTH_FULL = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
@@ -91,38 +93,12 @@ export function monthFullLabel(competence: Competence): string {
   return MONTH_FULL[competence.month - 1] ?? String(competence.month);
 }
 
-/** `2026-08-01` -> `01 ago`. */
-export function formatDayMonth(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const [, m, d] = iso.slice(0, 10).split("-");
-  const month = MONTH_SHORT[Number(m) - 1];
-  if (!d || !month) return iso;
-  return `${d} ${month}`;
-}
 
 
 /* -------------------------------------------------------------------------- */
 /*                        DATA REAL DO PAGAMENTO (badge)                      */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Dia civil de um `paid_at`. Aceita tanto `YYYY-MM-DD` (dia já civil) quanto
- * timestamptz. NUNCA usa `charge_date`: cobrança não é pagamento.
- */
-export function paidAtDayMonth(paidAt: string | null | undefined): string | null {
-  if (!paidAt) return null;
-  const iso = /^\d{4}-\d{2}-\d{2}$/.test(paidAt.slice(0, 10)) && paidAt.length <= 10
-    ? paidAt
-    : paymentTimestampToDate(paidAt);
-  if (!iso) return null;
-  return formatDayMonth(iso);
-}
-
-/** `Pago` + data quando ela existe; fallback é o próprio rótulo base. */
-export function paidLabelWithDate(base: string, paidAt: string | null | undefined): string {
-  const day = paidAtDayMonth(paidAt);
-  return day ? `${base} em ${day}` : base;
-}
 
 /**
  * Data REAL do pagamento que quitou a linha.
