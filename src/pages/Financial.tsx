@@ -408,10 +408,12 @@ function FinancialCockpit() {
     group,
     paidDateISO,
     paidAmountBrl,
+    usdComponents,
   }: {
     group: StatementGroup;
     paidDateISO: string;
     paidAmountBrl: number | null;
+    usdComponents?: unknown[];
   }): Promise<boolean> => {
     const occ = group.statementRow?.occurrence;
     if (!occ) return false;
@@ -420,8 +422,10 @@ function FinancialCockpit() {
       occ.id,
       paidAmountBrl ?? group.actualTotal ?? group.projectedTotal,
       paidDateISO,
+      usdComponents ?? [],
     );
   };
+
 
   const handleOpenStatement = (group: StatementGroup) => {
     if (group.statementRow) setOccurrenceRow(group.statementRow);
