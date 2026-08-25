@@ -94,6 +94,8 @@ export function formatDayMonth(iso: string | null | undefined): string {
   const month = MONTH_SHORT[Number(m) - 1];
   if (!d || !month) return iso;
   return `${d} ${month}`;
+}
+
 
 /* -------------------------------------------------------------------------- */
 /*                        DATA REAL DO PAGAMENTO (badge)                      */
