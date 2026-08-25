@@ -273,6 +273,27 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
     }
 
     /**
+     * A cobrança pertence, PELO CICLO, à fatura da competência exibida. Se essa
+     * fatura existe e está em aberto, informe o estado dela (a pagar / vence
+     * hoje / atrasada). Apresentação apenas: nada é persistido.
+     */
+    if (cycleStatement && ctx.competenceMonth && sameCompetence(cycleStatement, competenceFromISO(ctx.competenceMonth))) {
+      const own = statementRows.find((s) => s.item.id === row.cardItemId) ?? null;
+      if (own && !own.paid) {
+        if (own.dueDate && own.dueDate < today) {
+          return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: false, canPayDirectly: false };
+        }
+        return {
+          kind: "card_in_statement",
+          label: own.dueDate === today ? "Fatura vence hoje" : "Fatura a pagar",
+          tone: own.dueDate === today ? "warning" : "neutral",
+          direct: false,
+          canPayDirectly: false,
+        };
+      }
+    }
+
+    /**
      * FATO SEGURO da competência: existe fatura real deste cartão no mês?
      *
      * Só serve para INFORMAR o estado da fatura em aberto (a pagar / vence hoje
