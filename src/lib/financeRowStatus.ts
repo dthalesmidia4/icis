@@ -94,7 +94,50 @@ export function formatDayMonth(iso: string | null | undefined): string {
   const month = MONTH_SHORT[Number(m) - 1];
   if (!d || !month) return iso;
   return `${d} ${month}`;
+
+/* -------------------------------------------------------------------------- */
+/*                        DATA REAL DO PAGAMENTO (badge)                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Dia civil de um `paid_at`. Aceita tanto `YYYY-MM-DD` (dia já civil) quanto
+ * timestamptz. NUNCA usa `charge_date`: cobrança não é pagamento.
+ */
+export function paidAtDayMonth(paidAt: string | null | undefined): string | null {
+  if (!paidAt) return null;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(paidAt.slice(0, 10)) && paidAt.length <= 10
+    ? paidAt
+    : paymentTimestampToDate(paidAt);
+  if (!iso) return null;
+  return formatDayMonth(iso);
 }
+
+/** `Pago` + data quando ela existe; fallback é o próprio rótulo base. */
+export function paidLabelWithDate(base: string, paidAt: string | null | undefined): string {
+  const day = paidAtDayMonth(paidAt);
+  return day ? `${base} em ${day}` : base;
+}
+
+/**
+ * Data REAL do pagamento que quitou a linha.
+ * - pagamento direto/fato próprio: `row.occurrence.paid_at`;
+ * - componente de cartão: fatura vinculada, senão status seguro da fatura da
+ *   competência REAL da cobrança (nunca a competência exibida por padrão).
+ */
+export function resolvePaidAtForRow(
+  row: MonthRow,
+  ctx: RowStatusContext,
+  statement?: MonthRow | null,
+): string | null {
+  if (row.occurrence?.paid_at) return row.occurrence.paid_at;
+  if (statement?.occurrence?.paid_at) return statement.occurrence.paid_at;
+  if (!row.cardItemId) return null;
+  const cycle = resolveStatementCompetenceForRow(row, ctx);
+  const competenceMonth = cycle ? competenceMonthISO(cycle) : ctx.competenceMonth ?? null;
+  const safe = findSafeStatementStatus(ctx.safeStatementStatuses, row.cardItemId, competenceMonth);
+  return safe?.paid ? safe.paidAt ?? null : null;
+}
+
 
 export function addDaysISO(iso: string, days: number): string {
   const [y, m, d] = iso.split("-").map(Number);
