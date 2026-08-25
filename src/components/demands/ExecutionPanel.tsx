@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   computeExecutionProgress,
   countPendingExecutionItems,
+  isExecutionDragEnabled,
   passLabel,
   sortExecutionItems,
   type ExecutionRunWithItems,
