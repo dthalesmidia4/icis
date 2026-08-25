@@ -7,6 +7,10 @@ import {
   paymentDateToTimestamp,
   paymentTimestampToDate,
 } from "./financePaymentDate";
+import {
+  resolveStatementPaymentAmount,
+  statementPaymentAmountMessage,
+} from "./financeStatementPaymentForm";
 
 const TODAY = "2026-08-25";
 
@@ -189,5 +193,71 @@ describe("data real do pagamento", () => {
     expect(rpc).toHaveBeenCalledWith("pay_finance_statement", payload);
     expect(Object.keys(payload)).not.toContain("_due_date");
     expect(JSON.stringify(payload)).not.toMatch(/due_date/);
+  });
+});
+
+describe("hardening do pagamento de fatura", () => {
+  it("rejeita datas civis impossíveis", () => {
+    expect(isValidPaymentDate("2026-02-31")).toBe(false);
+    expect(isValidPaymentDate("2026-13-01")).toBe(false);
+    expect(isValidPaymentDate("2026-04-31")).toBe(false);
+    expect(isValidPaymentDate("2026-00-10")).toBe(false);
+  });
+
+  it("mantém 2026-08-20 válida e preserva o dia civil", () => {
+    expect(isValidPaymentDate("2026-08-20")).toBe(true);
+    expect(paymentDateToTimestamp("2026-08-20")).toBe("2026-08-20T12:00:00-03:00");
+    expect(paymentTimestampToDate("2026-08-20T12:00:00-03:00")).toBe("2026-08-20");
+  });
+
+  it("aceita 29/02 em ano bissexto e rejeita fora dele", () => {
+    expect(isValidPaymentDate("2028-02-29")).toBe(true);
+    expect(isValidPaymentDate("2026-02-29")).toBe(false);
+  });
+
+  it("valor vazio herda a sugestão, mas texto inválido não faz fallback", () => {
+    expect(resolveStatementPaymentAmount("", 1200)).toEqual({ state: "ok", amountBrl: 1200 });
+    expect(resolveStatementPaymentAmount("", null)).toEqual({ state: "ok", amountBrl: null });
+    expect(resolveStatementPaymentAmount("abc", 1200)).toEqual({
+      state: "invalid",
+      reason: "not_a_number",
+    });
+    expect(statementPaymentAmountMessage(resolveStatementPaymentAmount("abc", 1200))).toBe(
+      "Informe um valor válido",
+    );
+  });
+
+  it("rejeita negativo e zero no pagamento de fatura", () => {
+    expect(resolveStatementPaymentAmount("-10", 1200).state).toBe("invalid");
+    expect(resolveStatementPaymentAmount("0", 1200)).toEqual({ state: "invalid", reason: "zero" });
+    expect(resolveStatementPaymentAmount("1.234,56", null)).toEqual({
+      state: "ok",
+      amountBrl: 1234.56,
+    });
+  });
+
+  it("contrato: RPC false não é sucesso e mantém o modal aberto", async () => {
+    const payStatement = vi.fn().mockResolvedValue(false);
+    const onOpenChange = vi.fn();
+
+    // Espelha `confirmPayStatement` + `PayStatementModal.submit`.
+    const confirmPayStatement = async (occId: string | null): Promise<boolean> => {
+      if (!occId) return false;
+      return await payStatement(occId, 100, "2026-08-20");
+    };
+    const submit = async (occId: string | null) => {
+      const ok = await confirmPayStatement(occId);
+      if (ok) onOpenChange(false);
+    };
+
+    await submit("occ-1");
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await submit(null);
+    expect(payStatement).toHaveBeenCalledTimes(1);
+
+    payStatement.mockResolvedValue(true);
+    await submit("occ-1");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
