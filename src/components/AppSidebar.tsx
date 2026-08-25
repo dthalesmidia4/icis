@@ -85,10 +85,18 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
-  const { canAccessAdmin, role } = useUserRole();
+  const { canAccessAdmin, role, isLoading: roleLoading } = useUserRole();
   const { agencyId } = useAgency();
   const { canAccessFinance: financeCanAccess, isLoading: financeLoading } = useFinanceAccessScope();
-  const visibleMainItems = filterMainMenuItems(mainMenuItems, { agencyId, financeCanAccess, financeLoading });
+  const { loading: navigationLoading, mainItems: visibleMainItems, showDeveloper, placeholderCount } =
+    resolveSidebarNavigation(mainMenuItems, {
+      agencyId,
+      financeCanAccess,
+      financeLoading,
+      roleLoading,
+      canAccessAdmin,
+    });
+
 
   const isActive = (path: string) => location.pathname === path;
 
