@@ -95,9 +95,11 @@ export default function ExecutionPanel({
   const progress = computeExecutionProgress(active);
   const pending = countPendingExecutionItems(active);
   const orderedItems = sortExecutionItems(active?.items ?? []);
-  const dragEnabled = !readOnly && !!onReorderItems && !reordering && !completingAll;
+  const dragEnabled =
+    !readOnly && !!onReorderItems && !reordering && !completingAll && !busyItemId && !adding;
 
   const handleDragEnd = (result: DropResult) => {
+    if (!dragEnabled) return;
     if (!result.destination || !onReorderItems) return;
     if (result.destination.index === result.source.index) return;
     void onReorderItems(result.source.index, result.destination.index);
