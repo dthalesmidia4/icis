@@ -178,34 +178,21 @@ export default function FinanceOccurrenceModal({
   const handleSave = async () => {
     if (!row) return;
     setSaving(true);
-    /** Data do fato conforme a natureza — nunca as duas ao mesmo tempo. */
-    const datePatch: Partial<FinanceOccurrence> = cardRow
-      ? { charge_date: factDate || null, due_date: null }
-      : { due_date: factDate || null, charge_date: row.chargeDate };
-    /**
-     * Compra no cartão NÃO carrega pagamento próprio: `paid_at` viria do
-     * pagamento da fatura, então este modal nunca o envia.
-     */
-    const paymentPatch: Partial<FinanceOccurrence> = cardRow
-      ? {}
-      : {
-          paid_at: paid ? row.occurrence?.paid_at ?? new Date().toISOString() : null,
-          paid_amount_brl: paid ? brl : null,
-        };
-    const patch: Partial<FinanceOccurrence> = {
-      currency: row.currency,
-      amount_original: amountNumber,
-      exchange_rate: row.currency === "USD" ? rateNumber : null,
-      amount_brl: brl,
-      is_estimated: false,
-      observations: observations.trim() || null,
-      attachment_url: attachmentUrl,
-      attachment_name: attachmentName,
-      ...datePatch,
-      ...paymentPatch,
-      ...originPatch,
-    };
+    const patch = buildOccurrencePatch({
+      row,
+      cardRow,
+      factDate,
+      amountOriginal: amountNumber,
+      amountBrl: brl,
+      exchangeRate: rateNumber,
+      paid,
+      observations,
+      attachmentUrl,
+      attachmentName,
+      originPatch,
+    });
     const saved = await onSave(row, patch);
+
     setSaving(false);
     if (saved) {
       toast.success("Lançamento salvo");
