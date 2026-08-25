@@ -28,6 +28,7 @@ import {
   formatCurrencyValue,
 } from "@/lib/financeModel";
 import { Competence } from "@/lib/financeCardCycle";
+import { useFinanceVisibility } from "@/contexts/FinanceVisibilityContext";
 import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
 import { paymentTimestampToDate } from "@/lib/financePaymentDate";
 
@@ -71,6 +72,8 @@ export default function StatementPanel({
   onPayStatement,
   onEditCard,
 }: Props) {
+  /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
+  const { money } = useFinanceVisibility();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {

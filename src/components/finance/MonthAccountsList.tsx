@@ -26,6 +26,7 @@ import {
   installmentRowLabel,
 } from "@/lib/financeModel";
 import { RowStatus, RowStatusContext, StatusTone, resolveRowStatus, whenLabel } from "@/lib/financeRowStatus";
+import { useFinanceVisibility } from "@/contexts/FinanceVisibilityContext";
 
 interface Props {
   rows: MonthRow[];
@@ -77,6 +78,7 @@ export default function MonthAccountsList({
   onTogglePaid,
   onEditItem,
 }: Props) {
+  const { money } = useFinanceVisibility();
   const metaFor = (row: MonthRow) => {
     const center = COST_CENTER_LABELS[row.item.cost_center] ?? row.item.cost_center;
     const payment = row.cardItemId
