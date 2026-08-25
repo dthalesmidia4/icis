@@ -57,11 +57,16 @@ export interface ExecutionPanelProps {
   onCompleteAll?: () => void | Promise<void>;
   /** Reordenação manual (índices da lista visível). */
   onReorderItems?: (sourceIndex: number, destinationIndex: number) => void | Promise<void>;
+  /** Edição inline do texto de um item (não muda ordem nem conclusão). */
+  onEditItem?: (itemId: string, text: string) => void | Promise<void>;
   reordering?: boolean;
   busyItemId?: string | null;
   adding?: boolean;
   completingAll?: boolean;
+  /** Item cujo texto está sendo salvo. */
+  editingBusyItemId?: string | null;
 }
+
 
 
 const fmt = (iso: string | null | undefined) =>
