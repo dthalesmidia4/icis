@@ -415,6 +415,9 @@ function DesktopSidebar() {
             </nav>
           </div>
         )}
+        </>
+        )}
+
       </div>
 
       {/* Footer - Logout */}
