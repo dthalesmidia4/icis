@@ -275,7 +275,7 @@ function FinancialCockpit() {
   /** Recorte bruto: reconcilia exatamente com os KPIs, sem filtros da UI. */
   const compositionEntries = useMemo(
     () => buildMonthComposition({ rows, status: compositionStatus, settlement }),
-    [rows, compositionStatus],
+    [rows, compositionStatus, settlement],
   );
 
   const compositionOrigins = useMemo(
@@ -355,7 +355,7 @@ function FinancialCockpit() {
       );
     }
     return result;
-  }, [accountRows, mainView, advanced, costCenter, search, today, statusContext]);
+  }, [accountRows, mainView, advanced, costCenter, search, today, statusContext, settlement]);
 
   /* ------------------------- Números por domínio ------------------------- */
 
