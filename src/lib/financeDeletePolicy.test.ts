@@ -70,7 +70,8 @@ describe("excluir x inativar", () => {
 
   it("cliente nunca faz DELETE direto: só RPCs seguras", () => {
     const src = readFileSync("src/lib/financeSafeDelete.ts", "utf8");
-    expect(src).not.toContain(".delete()");
+    // Nenhum acesso direto de tabela: só chamadas de RPC.
+    expect(src).not.toMatch(/\.from\(/);
     for (const rpc of [
       "finance_item_delete_decision",
       "delete_finance_item_safe",
