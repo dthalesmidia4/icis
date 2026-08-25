@@ -5,11 +5,12 @@
  * na tela, nem em consulta. Os cartões vêm da RPC segura (rótulo e ciclo).
  */
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/PageHeader";
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
+import FinancePeriodBar from "@/components/finance/FinancePeriodBar";
 import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
 import { useFinanceTools } from "@/hooks/useFinanceTools";
@@ -17,14 +18,9 @@ import { currentCompetence, todayISO } from "@/hooks/useFinance";
 import { addMonths } from "@/lib/financeCardCycle";
 import { FinanceItem, MonthRow } from "@/lib/financeModel";
 import { buildSafeSettlementIndex } from "@/lib/financeSettlement";
-import { RowStatusContext, formatDayMonth } from "@/lib/financeRowStatus";
+import { RowStatusContext } from "@/lib/financeRowStatus";
 import { competenceMonthISO, findSafeStatementStatus } from "@/lib/financeSafeStatement";
 
-
-const MONTH_LABELS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
 
 import { FinanceLoadErrorState } from "@/components/finance/FinanceLoadErrorState";
 
@@ -107,10 +103,6 @@ export default function FinanceToolsCockpit() {
     setItemModalOpen(true);
   };
 
-  const currentComp = currentCompetence();
-  const isCurrentMonth =
-    competence.year === currentComp.year && competence.month === currentComp.month;
-
   if (loadError) {
     return (
       <div className="pb-16 pt-4">
@@ -136,43 +128,8 @@ export default function FinanceToolsCockpit() {
       />
 
       <div className={`${FINANCE_SHELL} py-5 space-y-7`}>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-1 rounded-md border bg-card px-1 py-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              aria-label="Mês anterior"
-              onClick={() => setCompetence(addMonths(competence, -1))}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <span className="px-2 text-[15px] font-semibold min-w-[130px] text-center">
-              {MONTH_LABELS[competence.month - 1]} {competence.year}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              aria-label="Mês seguinte"
-              onClick={() => setCompetence(addMonths(competence, 1))}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-          {isCurrentMonth ? (
-            <span className="text-sm text-muted-foreground">Hoje, {formatDayMonth(today)}</span>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="min-h-9"
-              onClick={() => setCompetence(currentCompetence())}
-            >
-              Voltar ao mês atual
-            </Button>
-          )}
-        </div>
+        {/* Mesmo eixo de período do Financeiro completo. */}
+        <FinancePeriodBar competence={competence} onChange={setCompetence} today={today} />
 
         <SubscriptionsPanel
           items={items}
