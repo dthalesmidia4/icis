@@ -254,7 +254,13 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
   /* ------------------------------ FATURA ------------------------------ */
   if (isStatementRow(row)) {
     if (row.paid) {
-      return { kind: "paid", label: "Fatura paga", tone: "positive", direct: true, canPayDirectly: false };
+      return {
+        kind: "paid",
+        label: paidLabelWithDate("Fatura paga", row.occurrence?.paid_at),
+        tone: "positive",
+        direct: true,
+        canPayDirectly: false,
+      };
     }
     if (row.dueDate && row.dueDate < today) {
       return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: true, canPayDirectly: true };
@@ -277,13 +283,19 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
     // Fato real de pagamento prevalece sobre qualquer lacuna de configuração.
     if (row.paid) {
-      return { kind: "paid", label: "Pago", tone: "positive", direct: false, canPayDirectly: false };
+      return {
+        kind: "paid",
+        label: paidLabelWithDate("Pago", row.occurrence?.paid_at),
+        tone: "positive",
+        direct: false,
+        canPayDirectly: false,
+      };
     }
 
     if (canonicalPaid && ctx.settlement?.paidComponentKeys.has(row.key) && !statement?.paid) {
       return {
         kind: "card_statement_paid",
-        label: "Pago pela fatura",
+        label: paidLabelWithDate("Pago pela fatura", resolvePaidAtForRow(row, ctx)),
         tone: "positive",
         direct: false,
         canPayDirectly: false,
@@ -292,8 +304,17 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
     if (statement) {
       if (canonicalPaid && statement.paid) {
-        return { kind: "card_statement_paid", label: "Fatura paga", tone: "positive", direct: false, canPayDirectly: false };
+        return {
+          kind: "card_statement_paid",
+          // Consistência: no FILHO o rótulo fala do componente ("Pago pela
+          // fatura"), com a data real da fatura que o quitou.
+          label: paidLabelWithDate("Pago pela fatura", resolvePaidAtForRow(row, ctx, statement)),
+          tone: "positive",
+          direct: false,
+          canPayDirectly: false,
+        };
       }
+
       if (statement.dueDate && statement.dueDate < today) {
         return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: false, canPayDirectly: false };
       }
