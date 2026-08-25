@@ -21,6 +21,13 @@ import {
 } from "@/lib/financeModel";
 import { SafeCard } from "@/lib/financeSubscriptionMonth";
 import {
+  OneOffFact,
+  buildOneOffOccurrenceInsert,
+  createItemWithOneOff,
+  shouldMaterializeOneOff,
+} from "@/lib/financeOneOff";
+
+import {
   SafeStatementStatusMap,
   buildSafeStatementStatusMap,
 } from "@/lib/financeSafeStatement";
@@ -204,10 +211,56 @@ export function useFinanceTools(competence: Competence) {
     [saveOccurrence],
   );
 
+  /**
+   * Cria/atualiza cadastro. Ferramenta comprada UMA VEZ (`tool + one_off`) é um
+   * fato do mês: a ocorrência é criada junto, senão o lançamento não apareceria
+   * na competência. Ocorrência falha => cadastro desfeito (nunca item órfão).
+   */
   const saveItem = useCallback(
-    async (payload: Partial<FinanceItem>, id?: string) => {
+    async (payload: Partial<FinanceItem>, id?: string, oneOff?: OneOffFact | null) => {
       if (!agencyId) return false;
       const body: any = { ...payload, tenant_id: agencyId };
+
+      if (!id && oneOff && shouldMaterializeOneOff(payload)) {
+        const result = await createItemWithOneOff({
+          insertItem: async () => {
+            const { data, error } = await supabase
+              .from("finance_items")
+              .insert({ ...body, created_by: user?.id ?? null })
+              .select("id")
+              .maybeSingle();
+            return { id: (data as any)?.id ?? null, error };
+          },
+          insertOccurrence: async (itemId) => {
+            const { error } = await supabase
+              .from("finance_occurrences")
+              .insert(
+                buildOneOffOccurrenceInsert({
+                  tenantId: agencyId,
+                  itemId,
+                  fact: oneOff,
+                  createdBy: user?.id ?? null,
+                }) as any,
+              );
+            return { error };
+          },
+          deleteItem: async (itemId) => {
+            await supabase.from("finance_items").delete().eq("id", itemId);
+          },
+        });
+        if (!result.ok) {
+          toast.error(
+            result.rolledBack
+              ? "Não foi possível registrar o lançamento do mês — nada foi salvo"
+              : "Erro ao criar cadastro",
+          );
+          return false;
+        }
+        toast.success("Lançamento criado");
+        await fetchAll();
+        return true;
+      }
+
       const query = id
         ? supabase.from("finance_items").update(body).eq("id", id)
         : supabase.from("finance_items").insert({ ...body, created_by: user?.id ?? null });
@@ -222,6 +275,7 @@ export function useFinanceTools(competence: Competence) {
     },
     [agencyId, user?.id, fetchAll],
   );
+
 
   const setItemActive = useCallback(
     async (id: string, active: boolean) => {

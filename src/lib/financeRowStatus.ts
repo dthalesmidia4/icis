@@ -11,7 +11,13 @@
  * Nada aqui altera cálculo contábil: os totais continuam em `financeModel`.
  */
 
-import { Competence, competenceFromISO } from "./financeCardCycle";
+import {
+  Competence,
+  competenceFromISO,
+  resolveStatementForCharge,
+  sameCompetence,
+} from "./financeCardCycle";
+
 import type { FinanceSettlementContext } from "./financeSettlement";
 import {
   SafeStatementStatusMap,
@@ -165,6 +171,36 @@ export function linkedStatementRow(row: MonthRow, statementRows: MonthRow[]): Mo
   );
 }
 
+/** Dia da cobrança de uma linha de cartão: fato do mês > dia do cadastro. */
+export function rowChargeDay(row: MonthRow): number | null {
+  if (row.chargeDate) return Number(row.chargeDate.slice(8, 10));
+  return row.item.charge_day ?? null;
+}
+
+/**
+ * Competência da FATURA que receberá esta cobrança, pelo ciclo real do cartão.
+ * `null` quando não há prova suficiente (sem ciclo cadastrado ou sem dia de
+ * cobrança) — nesse caso nada é afirmado sobre pertença.
+ */
+export function resolveStatementCompetenceForRow(
+  row: MonthRow,
+  ctx: RowStatusContext,
+): Competence | null {
+  if (!ctx.competenceMonth) return null;
+  const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
+  if (!card || cardConfigIncomplete(card)) return null;
+  const chargeDay = rowChargeDay(row);
+  if (chargeDay == null) return null;
+  const resolved = resolveStatementForCharge({
+    chargeDay,
+    competence: competenceFromISO(ctx.competenceMonth),
+    card: { closingDay: card.statement_closing_day, dueDay: card.statement_due_day },
+  });
+  if (resolved.incomplete || !resolved.statementCompetence) return null;
+  return resolved.statementCompetence;
+}
+
+
 /**
  * Resolve o status de apresentação de uma linha do mês.
  * Único lugar autorizado a decidir "Atrasada" na UI.
@@ -222,27 +258,36 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
     }
 
     /**
+     * CICLO REAL DO CARTÃO: uma cobrança feita depois do fechamento pertence à
+     * fatura SEGUINTE. Dizer o mês certo é honesto e evita o erro de tratar a
+     * fatura paga do mês como quitação de uma cobrança que ainda vai fechar.
+     */
+    const cycleStatement = resolveStatementCompetenceForRow(row, ctx);
+    if (cycleStatement && ctx.competenceMonth && !sameCompetence(cycleStatement, competenceFromISO(ctx.competenceMonth))) {
+      return {
+        kind: "card_in_statement",
+        label: `Na fatura de ${monthFullLabel(cycleStatement)}`,
+        tone: "neutral",
+        direct: false,
+        canPayDirectly: false,
+      };
+    }
+
+    /**
      * FATO SEGURO da competência: existe fatura real deste cartão no mês?
      *
-     * Isso é APRESENTAÇÃO da visão mensal agrupada por cartão — não afirma que
-     * esta cobrança específica pertence contabilmente àquela fatura, então nada
-     * é persistido e `statement_occurrence_id` continua intocado.
+     * Só serve para INFORMAR o estado da fatura em aberto (a pagar / vence hoje
+     * / atrasada). NUNCA pode afirmar "Fatura paga": pertença é decidida pela
+     * liquidação exata (`settlement`), pelo vínculo histórico ou pelo ciclo —
+     * caso contrário a fatura paga de um mês quitaria a cobrança do mês
+     * seguinte. Nada é persistido aqui.
      */
     const safe = findSafeStatementStatus(
       ctx.safeStatementStatuses,
       row.cardItemId,
       ctx.competenceMonth,
     );
-    if (safe) {
-      if (safe.paid) {
-        return {
-          kind: "card_statement_paid",
-          label: "Fatura paga",
-          tone: "positive",
-          direct: false,
-          canPayDirectly: false,
-        };
-      }
+    if (safe && !safe.paid) {
       if (safe.dueDate && safe.dueDate < today) {
         return {
           kind: "card_statement_overdue",
@@ -260,6 +305,7 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
         canPayDirectly: false,
       };
     }
+
 
     const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
     if (cardConfigIncomplete(card)) {

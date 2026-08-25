@@ -171,12 +171,33 @@ describe("RPC segura de status de fatura", () => {
 });
 
 describe("status do componente com fatura real segura", () => {
-  it("cartão 7587 em ago/2026 com fatura paga => Fatura paga, nunca Aguardando", () => {
+  /**
+   * O status SEGURO informa o estado da fatura, mas NÃO prova pertença: a
+   * fatura paga de um mês não pode quitar uma cobrança que ainda vai fechar.
+   * Quem afirma "pago" é a liquidação derivada (settlement).
+   */
+  it("fatura paga sem liquidação derivada não pinta o filho como pago", () => {
     const status = resolveRowStatus(component(), ctx({ safeStatementStatuses: safeMap() }));
-    expect(status.kind).toBe("card_statement_paid");
-    expect(status.label).toBe("Fatura paga");
-    expect(status.label).not.toMatch(/[Aa]guardando/);
+    expect(status.kind).not.toBe("card_statement_paid");
+    expect(status.label).not.toMatch(/[Pp]ag/);
   });
+
+  it("fatura paga + liquidação derivada (o que o cockpit passa) => Pago pela fatura", () => {
+    const row = component();
+    const status = resolveRowStatus(
+      row,
+      ctx({
+        safeStatementStatuses: safeMap(),
+        settlement: {
+          paidComponentKeys: new Set([row.key]),
+          statementByComponentKey: new Map(),
+        },
+      }),
+    );
+    expect(status.kind).toBe("card_statement_paid");
+    expect(status.label).toBe("Pago pela fatura");
+  });
+
 
   it("fatura real aberta vencendo hoje => Fatura vence hoje", () => {
     const status = resolveRowStatus(
@@ -309,10 +330,17 @@ describe("cabeçalho do grupo não contradiz a fatura real", () => {
 });
 
 describe("nenhum dado do cartão é alterado", () => {
-  it("a migration não escreve em cartões, faturas ou vínculos", () => {
+  it("a migration do status seguro não escreve em cartões, faturas ou vínculos", () => {
+    // Apenas a migration que criou a RPC de status seguro: outras migrations do
+    // Financeiro (ex. pagamento da fatura) legitimamente escrevem em ocorrências.
     const migration =
-      allSql.split(/-- Status SEGURO da fatura/)[1] ?? "";
+      readdirSync(resolve(process.cwd(), "supabase/migrations"))
+        .filter((f) => f.endsWith(".sql"))
+        .map((f) => read(`supabase/migrations/${f}`))
+        .find((sql) => sql.includes(`CREATE OR REPLACE FUNCTION public.${RPC}`)) ?? "";
+    expect(migration).not.toBe("");
     expect(migration).not.toMatch(/\bUPDATE\b|\bINSERT\b|\bDELETE\b/i);
     expect(migration).not.toMatch(/statement_closing_day\s*=|statement_due_day\s*=/);
   });
 });
+

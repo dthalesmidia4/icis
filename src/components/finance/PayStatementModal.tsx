@@ -45,6 +45,8 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   const [saving, setSaving] = useState(false);
 
   const suggested = group ? group.actualTotal ?? group.projectedTotal : null;
+  /** Fatura com valor real informado: o total é fato, não pode pagar parcial. */
+  const exactRequired = group?.actualTotal != null;
 
   useEffect(() => {
     if (!open) return;
@@ -54,10 +56,11 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
 
   if (!group) return null;
 
-  const amountResult = resolveStatementPaymentAmount(amount, suggested);
+  const amountResult = resolveStatementPaymentAmount(amount, suggested, { exactRequired });
   const amountMessage = statementPaymentAmountMessage(amountResult);
   const dateValid = isValidPaymentDate(date);
   const canSubmit = dateValid && amountResult.state === "ok";
+
 
   const submit = async () => {
     if (!canSubmit || amountResult.state !== "ok") return;
@@ -113,8 +116,14 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
               placeholder={suggested != null ? formatBRL(suggested) : "0,00"}
             />
             {amountMessage && <p className="text-xs text-destructive">{amountMessage}</p>}
+            {exactRequired && !amountMessage && (
+              <p className="text-xs text-muted-foreground">
+                A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(suggested)}.
+              </p>
+            )}
           </div>
         </div>
+
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

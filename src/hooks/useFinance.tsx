@@ -27,6 +27,13 @@ import {
 } from "@/lib/financeModel";
 import { buildStatementSettlementIndex } from "@/lib/financeSettlement";
 import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
+import {
+  OneOffFact,
+  buildOneOffOccurrenceInsert,
+  createItemWithOneOff,
+  shouldMaterializeOneOff,
+} from "@/lib/financeOneOff";
+
 
 import { paymentDateToTimestamp } from "@/lib/financePaymentDate";
 import {
@@ -271,8 +278,13 @@ export function useFinance(competence: Competence) {
   );
 
   /**
-   * Paga a fatura do cartão: liquida a fatura e, na mesma transação do banco,
-   * os componentes vinculados a ela.
+   * Paga a FATURA do cartão.
+   *
+   * A fatura é a única unidade de liquidação: o banco grava `paid_at` e
+   * `paid_amount_brl` APENAS na ocorrência da fatura. Os componentes não são
+   * marcados um a um nem recebem `statement_occurrence_id` por efeito
+   * colateral — eles passam a ser considerados liquidados pela regra DERIVADA
+   * da fatura (`financeSettlement.ts`), recalculada em cada tela.
    *
    * `paidDateISO` é o FATO do pagamento (`paid_at`). `due_date` nunca é enviado
    * nem alterado aqui — o vencimento é histórico.
@@ -288,12 +300,13 @@ export function useFinance(competence: Competence) {
         toast.error("Não foi possível pagar a fatura");
         return false;
       }
-      toast.success("Fatura paga — componentes liquidados");
+      toast.success("Fatura registrada como paga — as compras dela contam como liquidadas");
       await fetchAll();
       return true;
     },
     [fetchAll],
   );
+
 
 
   const saveSettings = useCallback(
@@ -316,10 +329,57 @@ export function useFinance(competence: Competence) {
     [agencyId, fetchAll],
   );
 
+  /**
+   * Cria/atualiza cadastro. Para um gasto AVULSO novo, cria também a ocorrência
+   * da competência na mesma operação lógica: sem ela o avulso não apareceria no
+   * mês (`one_off` não é projetável) e não haveria linha para registrar o fato.
+   * Se a ocorrência falhar, o cadastro é desfeito — nunca item órfão.
+   */
   const saveItem = useCallback(
-    async (payload: Partial<FinanceItem>, id?: string) => {
+    async (payload: Partial<FinanceItem>, id?: string, oneOff?: OneOffFact | null) => {
       if (!agencyId) return false;
       const body: any = { ...payload, tenant_id: agencyId };
+
+      if (!id && oneOff && shouldMaterializeOneOff(payload)) {
+        const result = await createItemWithOneOff({
+          insertItem: async () => {
+            const { data, error } = await supabase
+              .from("finance_items")
+              .insert({ ...body, created_by: user?.id ?? null })
+              .select("id")
+              .maybeSingle();
+            return { id: (data as any)?.id ?? null, error };
+          },
+          insertOccurrence: async (itemId) => {
+            const { error } = await supabase
+              .from("finance_occurrences")
+              .insert(
+                buildOneOffOccurrenceInsert({
+                  tenantId: agencyId,
+                  itemId,
+                  fact: oneOff,
+                  createdBy: user?.id ?? null,
+                }) as any,
+              );
+            return { error };
+          },
+          deleteItem: async (itemId) => {
+            await supabase.from("finance_items").delete().eq("id", itemId);
+          },
+        });
+        if (!result.ok) {
+          toast.error(
+            result.rolledBack
+              ? "Não foi possível registrar o lançamento do mês — nada foi salvo"
+              : "Erro ao criar cadastro",
+          );
+          return false;
+        }
+        toast.success("Lançamento criado");
+        await fetchAll();
+        return true;
+      }
+
       const query = id
         ? supabase.from("finance_items").update(body).eq("id", id)
         : supabase.from("finance_items").insert({ ...body, created_by: user?.id ?? null });
@@ -334,6 +394,7 @@ export function useFinance(competence: Competence) {
     },
     [agencyId, user?.id, fetchAll],
   );
+
 
   const setItemActive = useCallback(
     async (id: string, active: boolean) => {

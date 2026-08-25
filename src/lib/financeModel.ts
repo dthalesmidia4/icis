@@ -390,27 +390,58 @@ function projectedDates(item: FinanceItem, competence: Competence) {
   return { chargeDate, dueDate };
 }
 
+/**
+ * O item tem valor PREVISÍVEL (fixo)? Consumo/créditos/variável não são fixos:
+ * neles o valor só existe quando o fato do mês é registrado.
+ */
+export function hasFixedAmount(item: FinanceItem): boolean {
+  if (item.amount_mode === "variable") return false;
+  return item.recurrence_type !== "credits" && item.recurrence_type !== "variable";
+}
+
 function rowFromOccurrence(
   item: FinanceItem,
   occ: FinanceOccurrence,
   fallbackRate: number | null,
 ): MonthRow {
-  const amountBrl = toBrl({
-    currency: occ.currency ?? item.currency,
+  const currency = (occ.currency ?? item.currency) as FinanceCurrency;
+  /** Valor REAL do fato do mês. `null` quando a ocorrência não tem valor. */
+  const actualBrl = toBrl({
+    currency,
     amountOriginal: occ.amount_original,
     amountBrl: occ.amount_brl,
     exchangeRate: occ.exchange_rate,
     fallbackRate,
   });
+
+  /**
+   * Ocorrência de item FIXO sem valor não pode virar R$ 0: isso apagaria uma
+   * conta existente dos totais. Nesse caso caímos no valor de referência do
+   * cadastro e marcamos a linha como estimada — nunca como valor confirmado.
+   * Consumo/créditos/variável NÃO herdam o default: lá o default é só palpite.
+   */
+  const useDefaultFallback = actualBrl == null && hasFixedAmount(item);
+  const defaultBrl = useDefaultFallback
+    ? toBrl({
+        currency: item.currency,
+        amountOriginal: item.default_amount_original,
+        amountBrl: item.default_amount_brl,
+        exchangeRate: item.default_exchange_rate,
+        fallbackRate,
+      })
+    : null;
+  const fellBack = useDefaultFallback && defaultBrl != null;
+  const amountBrl = fellBack ? defaultBrl : actualBrl;
+
   return {
     key: `occ:${occ.id}`,
     item,
     occurrence: occ,
     projected: false,
     amountBrl,
-    amountOriginal: occ.amount_original ?? null,
-    currency: (occ.currency ?? item.currency) as FinanceCurrency,
-    exchangeRate: occ.exchange_rate ?? null,
+    amountOriginal: occ.amount_original ?? (fellBack ? item.default_amount_original ?? null : null),
+    currency: fellBack ? item.currency : currency,
+    exchangeRate: occ.exchange_rate ?? (fellBack ? item.default_exchange_rate ?? null : null),
     chargeDate: occ.charge_date ?? null,
     dueDate: occ.due_date ?? null,
     paid: !!occ.paid_at,
@@ -420,7 +451,7 @@ function rowFromOccurrence(
     paymentOverridden:
       occ.payment_method_snapshot != null &&
       occ.payment_method_snapshot !== (item.payment_method ?? null),
-    estimated: !!occ.is_estimated,
+    estimated: !!occ.is_estimated || fellBack,
     installmentNumber: installmentNumberForCompetence(
       item,
       competenceFromISO(occ.competence_month),
@@ -428,6 +459,7 @@ function rowFromOccurrence(
     installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
   };
 }
+
 
 function rowFromProjection(
   item: FinanceItem,
