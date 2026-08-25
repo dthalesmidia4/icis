@@ -309,10 +309,17 @@ describe("cabeçalho do grupo não contradiz a fatura real", () => {
 });
 
 describe("nenhum dado do cartão é alterado", () => {
-  it("a migration não escreve em cartões, faturas ou vínculos", () => {
+  it("a migration do status seguro não escreve em cartões, faturas ou vínculos", () => {
+    // Apenas a migration que criou a RPC de status seguro: outras migrations do
+    // Financeiro (ex. pagamento da fatura) legitimamente escrevem em ocorrências.
     const migration =
-      allSql.split(/-- Status SEGURO da fatura/)[1] ?? "";
+      readdirSync(resolve(process.cwd(), "supabase/migrations"))
+        .filter((f) => f.endsWith(".sql"))
+        .map((f) => read(`supabase/migrations/${f}`))
+        .find((sql) => sql.includes(`CREATE OR REPLACE FUNCTION public.${RPC}`)) ?? "";
+    expect(migration).not.toBe("");
     expect(migration).not.toMatch(/\bUPDATE\b|\bINSERT\b|\bDELETE\b/i);
     expect(migration).not.toMatch(/statement_closing_day\s*=|statement_due_day\s*=/);
   });
 });
+
