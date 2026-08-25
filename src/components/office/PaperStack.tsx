@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { paperStackVisualMetrics } from "@/lib/paperStack";
 
 interface PaperStackProps {
   /** Total de demandas na fila (excluindo a que está no monitor). */
@@ -16,6 +17,10 @@ interface PaperStackProps {
  * PILHA FÍSICA SIMPLES (visualização leve): uma única pilha de folhas anônimas
  * cuja altura reflete o volume da fila, com contador. Clicar abre a fila
  * lateral — nada de agrupamentos nem nomes aqui.
+ *
+ * A escala visual é progressiva: 1:1 até 6 demandas, depois compressão
+ * controlada até o teto de 14 folhas (ver `paperStackVisualMetrics`). O
+ * contador mostra o número REAL de demandas.
  */
 export const PaperStack = memo(function PaperStack({
   queueCount,
@@ -24,9 +29,7 @@ export const PaperStack = memo(function PaperStack({
   onOpenQueue,
   anchorRef,
 }: PaperStackProps) {
-  const sheets = Math.min(6, queueCount);
-  const overload = queueCount >= 16;
-  const empty = queueCount === 0;
+  const { sheets, sheetWidth, overload, empty } = paperStackVisualMetrics(queueCount);
 
   return (
     <div className="flex items-end gap-1.5">
@@ -43,14 +46,17 @@ export const PaperStack = memo(function PaperStack({
           className="flex flex-col items-center gap-[2px] rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {empty ? (
-            <span className="h-[3px] w-[30px] rounded-[2px] border border-dashed border-foreground/25" />
+            <span
+              className="rounded-[2px] border border-dashed border-foreground/25"
+              style={{ height: "3px", width: `${sheetWidth}px` }}
+            />
           ) : (
             <span className="flex flex-col-reverse gap-[1px]">
               {Array.from({ length: sheets }).map((_, i) => (
                 <span
                   key={i}
-                  className="block h-[3px] w-[30px] rounded-[2px] border border-border bg-card shadow-[0_1px_1px_-1px_hsl(var(--foreground)/0.5)]"
-                  style={{ marginLeft: i % 2 === 0 ? 0 : 1 }}
+                  className="block h-[3px] rounded-[2px] border border-border bg-card shadow-[0_1px_1px_-1px_hsl(var(--foreground)/0.5)]"
+                  style={{ width: `${sheetWidth}px`, marginLeft: i % 2 === 0 ? 0 : 1 }}
                 />
               ))}
             </span>
