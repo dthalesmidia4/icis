@@ -73,7 +73,7 @@ export function useFinance(competence: Competence) {
     const prev = normalizeCompetence({ year: normalized.year, month: normalized.month - 1 });
     const next = normalizeCompetence({ year: normalized.year, month: normalized.month + 1 });
 
-    const [itemsRes, occRes, tenantRes] = await Promise.all([
+    const [itemsRes, occRes, itemValues, occValues, tenantValues] = await Promise.all([
       supabase
         .from("finance_items")
         .select("*")
@@ -88,21 +88,21 @@ export function useFinance(competence: Competence) {
           competenceToISO(normalized),
           competenceToISO(next),
         ]),
-      supabase
-        .from("tenants")
-        .select("finance_monthly_budget_brl, finance_default_usd_rate")
-        .eq("id", agencyId)
-        .maybeSingle(),
+      fetchSecureItemValues(agencyId),
+      fetchSecureOccurrenceValues(agencyId, competenceToISO(prev), competenceToISO(next)),
+      fetchSecureTenantValues(agencyId),
     ]);
 
     if (itemsRes.error) toast.error("Erro ao carregar cadastros financeiros");
     if (occRes.error) toast.error("Erro ao carregar movimentação do mês");
 
-    setItems(((itemsRes.data as any[]) ?? []) as FinanceItem[]);
-    setOccurrences(((occRes.data as any[]) ?? []) as FinanceOccurrence[]);
+    setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
+    setOccurrences(
+      mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
+    );
     setSettings({
-      monthlyBudgetBrl: (tenantRes.data as any)?.finance_monthly_budget_brl ?? null,
-      defaultUsdRate: (tenantRes.data as any)?.finance_default_usd_rate ?? null,
+      monthlyBudgetBrl: tenantValues?.monthlyBudgetBrl ?? null,
+      defaultUsdRate: tenantValues?.defaultUsdRate ?? null,
     });
     setLoading(false);
   }, [agencyId, normalized.year, normalized.month]);
