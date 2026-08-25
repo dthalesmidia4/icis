@@ -9,13 +9,23 @@
  * das próprias linhas, então soma dos grupos = total da lista.
  */
 import { Fragment, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock, CreditCard } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  ChevronsDown,
+  ChevronsUp,
+  Clock,
+  CreditCard,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   COST_CENTER_LABELS,
   MonthRow,
+  formatBRL,
   formatCurrencyValue,
   installmentRowLabel,
 } from "@/lib/financeModel";
@@ -31,8 +41,13 @@ import {
   compositionDateLabel,
   compositionStatusLabel,
 } from "@/lib/financeComposition";
-import { buildCategoryGroups } from "@/lib/financeCategories";
-import { useFinanceVisibility } from "@/contexts/FinanceVisibilityContext";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  COMPOSITION_GROUP_BY_LABELS,
+  CompositionGroupBy,
+  buildCompositionGroups,
+} from "@/lib/financeGrouping";
 
 interface Props {
   entries: CompositionEntry[];
@@ -40,6 +55,9 @@ interface Props {
   loading?: boolean;
   emptyMessage?: string;
   onOpenRow: (row: MonthRow) => void;
+  /** Dimensão de agrupamento: natureza (categoria) x área (centro de custo). */
+  groupBy: CompositionGroupBy;
+  onGroupByChange: (next: CompositionGroupBy) => void;
 }
 
 const TONE_ICON: Record<StatusTone, typeof Clock> = {
@@ -86,8 +104,9 @@ export default function MonthCompositionList({
   loading,
   emptyMessage,
   onOpenRow,
+  groupBy,
+  onGroupByChange,
 }: Props) {
-  const { money } = useFinanceVisibility();
   /** Grupos começam COLAPSADOS: só o que o usuário abriu vive aqui. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -108,12 +127,56 @@ export default function MonthCompositionList({
     );
   }
 
-  const groups = buildCategoryGroups(entries);
+  const groups = buildCompositionGroups(entries, groupBy);
 
   const groupSummary = (count: number) => (count === 1 ? "1 despesa" : `${count} despesas`);
 
+  /**
+   * `Expandir tudo` age apenas sobre os grupos do RECORTE ATUAL. Grupos que
+   * somem por filtro não deixam estado ativo para trás.
+   */
+  const allOpen = groups.every((group) => !!expanded[group.key]);
+  const toggleAll = () => {
+    if (allOpen) {
+      setExpanded({});
+      return;
+    }
+    const next: Record<string, boolean> = {};
+    for (const group of groups) next[group.key] = true;
+    setExpanded(next);
+  };
+
   return (
     <>
+      {/* Toolbar da lista: dimensão do agrupamento + expandir/recolher. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Agrupar por</span>
+          <Select value={groupBy} onValueChange={(v) => onGroupByChange(v as CompositionGroupBy)}>
+            <SelectTrigger className="h-9 w-[168px]" aria-label="Agrupar por">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
+                <SelectItem key={key} value={key}>
+                  {COMPOSITION_GROUP_BY_LABELS[key]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button type="button" variant="ghost" size="sm" className="min-h-9" onClick={toggleAll}>
+          {allOpen ? (
+            <>
+              <ChevronsUp className="w-4 h-4 mr-1.5" /> Recolher tudo
+            </>
+          ) : (
+            <>
+              <ChevronsDown className="w-4 h-4 mr-1.5" /> Expandir tudo
+            </>
+          )}
+        </Button>
+      </div>
       {/* ------------------------------ DESKTOP ------------------------------ */}
       <Card className="hidden md:block overflow-hidden">
         <Table>
@@ -155,7 +218,7 @@ export default function MonthCompositionList({
                       </span>
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap text-[15px] font-bold">
-                      {money(group.total)}
+                      {formatBRL(group.total)}
                     </TableCell>
                     <TableCell />
                   </TableRow>
@@ -189,7 +252,7 @@ export default function MonthCompositionList({
                             </span>
                           </TableCell>
                           <TableCell className="text-right whitespace-nowrap">
-                            <span className="text-[15px] font-semibold">{money(entry.value)}</span>
+                            <span className="text-[15px] font-semibold">{formatBRL(entry.value)}</span>
                             {row.currency === "USD" && (
                               <p className="text-sm text-muted-foreground">
                                 {formatCurrencyValue(row.amountOriginal, "USD")}
@@ -237,7 +300,7 @@ export default function MonthCompositionList({
                     <span className="block text-sm text-muted-foreground">{groupSummary(group.count)}</span>
                   </span>
                 </span>
-                <span className="text-[15px] font-bold whitespace-nowrap">{money(group.total)}</span>
+                <span className="text-[15px] font-bold whitespace-nowrap">{formatBRL(group.total)}</span>
               </Card>
 
               {open &&
@@ -264,7 +327,7 @@ export default function MonthCompositionList({
                           <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
                         </div>
                         <span className="text-[15px] font-semibold whitespace-nowrap">
-                          {money(entry.value)}
+                          {formatBRL(entry.value)}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground flex items-center gap-1.5">

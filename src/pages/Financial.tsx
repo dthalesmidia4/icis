@@ -61,6 +61,7 @@ import {
   useFinanceVisibility,
 } from "@/contexts/FinanceVisibilityContext";
 import { visibleStatementGroups } from "@/lib/financeCardVisibility";
+import { CompositionGroupBy } from "@/lib/financeGrouping";
 import {
   categoryFilterOptions,
   filterEntriesByCategory,
@@ -211,6 +212,8 @@ function FinancialCockpit() {
   const [compositionOrigin, setCompositionOrigin] = useState("all");
   const [compositionKind, setCompositionKind] = useState("all");
   const [compositionCategory, setCompositionCategory] = useState("all");
+  /** Dimensão de agrupamento da composição (categoria x centro de custo). */
+  const [compositionGroupBy, setCompositionGroupBy] = useState<CompositionGroupBy>("category");
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   /**
@@ -412,13 +415,21 @@ function FinancialCockpit() {
    */
   const visibleStatements = useMemo(() => visibleStatementGroups(statements), [statements]);
 
+  /**
+   * Cartão que realmente precisa ser completado: inativo não projeta nada,
+   * então nunca gera pendência de configuração.
+   */
+  const incompleteCards = useMemo(
+    () => visibleStatements.filter((g) => g.configIncomplete && g.card.active),
+    [visibleStatements],
+  );
+
   const cardsSummary = useMemo(() => {
     const unpaid = visibleStatements.filter((g) => !g.paid);
     const total = unpaid.reduce((sum, g) => sum + (g.actualTotal ?? g.projectedTotal), 0);
     const overdue = unpaid.filter((g) => g.dueDate && g.dueDate < today).length;
-    const incomplete = visibleStatements.filter((g) => g.configIncomplete).length;
-    return { count: visibleStatements.length, total, overdue, incomplete };
-  }, [visibleStatements, today]);
+    return { count: visibleStatements.length, total, overdue, incomplete: incompleteCards.length };
+  }, [visibleStatements, incompleteCards, today]);
 
   const subscriptionsSummary = useMemo(() => {
     const active = items.filter((i) => isSubscriptionsDomainItem(i) && i.active);
@@ -858,20 +869,11 @@ function FinancialCockpit() {
         {/* ====================== COMPOSIÇÃO DO MÊS ====================== */}
         {view === "composition" && (
           <section className="space-y-4">
-            <div className="flex items-center justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={toggleValuesVisible}
-                aria-label={showKpis ? "Ocultar valores" : "Exibir valores"}
-                aria-pressed={showKpis}
-              >
-                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </Button>
-            </div>
-            {/* Tabs com os totais canônicos — nunca recomputados aqui. */}
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {/* Tabs com os totais canônicos — nunca recomputados aqui.
+                O olho vive NA MESMA linha dos totais: ele esconde resumo, não
+                detalhamento. */}
+            <div className="flex items-center gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 flex-1">
               {COMPOSITION_STATUSES.map((status) => {
                 const active = compositionStatus === status;
                 return (
@@ -893,6 +895,18 @@ function FinancialCockpit() {
                   </button>
                 );
               })}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="flex-shrink-0"
+                onClick={toggleValuesVisible}
+                aria-label={showKpis ? "Ocultar valores do resumo" : "Exibir valores do resumo"}
+                aria-pressed={showKpis}
+              >
+                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
             </div>
 
             <p className="text-sm text-muted-foreground">{COMPOSITION_HINTS[compositionStatus]}</p>
@@ -996,6 +1010,8 @@ function FinancialCockpit() {
               loading={loading}
               emptyMessage="Nenhuma despesa neste recorte com esses filtros."
               onOpenRow={setOccurrenceRow}
+              groupBy={compositionGroupBy}
+              onGroupByChange={setCompositionGroupBy}
             />
           </section>
         )}
@@ -1003,19 +1019,8 @@ function FinancialCockpit() {
         {/* ====================== PAGAMENTOS DIRETOS ====================== */}
         {view === "accounts" && (
           <section className="space-y-4">
-            <div className="flex items-center justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={toggleValuesVisible}
-                aria-label={showKpis ? "Ocultar valores" : "Exibir valores"}
-                aria-pressed={showKpis}
-              >
-                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </Button>
-            </div>
-            <Card className="p-4 flex flex-wrap gap-x-8 gap-y-2">
+            {/* Resumo agregado: é o único bloco desta view sujeito ao olho. */}
+            <Card className="p-4 flex flex-wrap items-start gap-x-8 gap-y-2">
               <div>
                 <p className="text-sm text-muted-foreground">A pagar em {monthLabel}</p>
                 <p className="text-xl font-bold">{money(accountsSummary.open)}</p>
@@ -1030,6 +1035,17 @@ function FinancialCockpit() {
                   {accountsSummary.overdue}
                 </p>
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="ml-auto -mt-1"
+                onClick={toggleValuesVisible}
+                aria-label={showKpis ? "Ocultar valores do resumo" : "Exibir valores do resumo"}
+                aria-pressed={showKpis}
+              >
+                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
             </Card>
 
             <p className="text-sm text-muted-foreground">
@@ -1130,18 +1146,8 @@ function FinancialCockpit() {
         {/* ====================== CARTÕES E FATURAS ====================== */}
         {view === "cards" && (
           <section className="space-y-4">
-            <div className="flex items-center justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={toggleValuesVisible}
-                aria-label={showKpis ? "Ocultar valores" : "Exibir valores"}
-                aria-pressed={showKpis}
-              >
-                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </Button>
-            </div>
+            {/* Sem resumo agregado nesta view: valores detalhados são sempre
+                visíveis, logo não existe olho aqui. */}
             <p className="text-sm text-muted-foreground">
               A <strong>fatura</strong> é a conta que sai do seu caixa. As cobranças listadas dentro dela
               apenas explicam o valor — elas não são somadas duas vezes no total do mês.
@@ -1241,12 +1247,10 @@ function FinancialCockpit() {
                   Sem fechamento e vencimento não é possível projetar as próximas faturas.
                 </p>
               </div>
-              {statements.filter((g) => g.configIncomplete).length === 0 ? (
+              {incompleteCards.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Todos os cartões estão completos.</p>
               ) : (
-                statements
-                  .filter((g) => g.configIncomplete)
-                  .map((g) => (
+                incompleteCards.map((g) => (
                     <div key={g.card.id} className="flex items-center justify-between gap-2">
                       <span className="text-sm truncate">{cardDisplayLabel(g.card)}</span>
                       <Button
@@ -1279,7 +1283,7 @@ function FinancialCockpit() {
         competence={competence}
         knownCategories={knownCategories}
         onSave={saveItem}
-
+        onAfterDelete={refresh}
       />
 
       <FinanceOccurrenceModal
@@ -1290,6 +1294,7 @@ function FinancialCockpit() {
         defaultUsdRate={settings.defaultUsdRate}
         statusContext={statusContext}
         onSave={saveOccurrence}
+        onRefresh={refresh}
         onEditItem={(item) => {
           setOccurrenceRow(null);
           openItemModal(item);

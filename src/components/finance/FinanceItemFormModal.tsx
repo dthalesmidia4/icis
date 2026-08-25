@@ -3,6 +3,7 @@
  * Um cadastro descreve O QUE é pago; os valores por mês são fatos separados.
  */
 import { useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 import { Competence, competenceToISO } from "@/lib/financeCardCycle";
 import { OneOffFact, shouldMaterializeOneOff } from "@/lib/financeOneOff";
+import FinanceItemDeleteModal from "./FinanceItemDeleteModal";
 
 
 
@@ -37,6 +39,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item?: FinanceItem | null;
+  /** Recarrega a lista depois de excluir/inativar o cadastro. */
+  onAfterDelete?: () => void;
   /** Quando vem de um domínio (Cartões, Assinaturas...), pula o passo de intenção. */
   initialKind?: FinanceKind | null;
   cards: FinanceItem[];
@@ -116,7 +120,7 @@ export default function FinanceItemFormModal({
   scope = "full",
   competence = null,
   onSave,
-
+  onAfterDelete,
 }: Props) {
   // Opções derivadas do escopo — a RLS confirma, aqui só evitamos oferecer.
   const kindOptions = KIND_OPTIONS.filter((k) => allowedKindsForScope(scope).includes(k));
@@ -153,6 +157,7 @@ export default function FinanceItemFormModal({
 
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   /** Passo 1: intenção. Só existe para NOVOS cadastros. */
   const [step, setStep] = useState<"intent" | "form">("form");
   const [showMore, setShowMore] = useState(false);
@@ -764,7 +769,18 @@ export default function FinanceItemFormModal({
         )}
 
         {step === "form" && (
-          <DialogFooter>
+          <DialogFooter className="sm:justify-between">
+            {/* Destruir/inativar é decisão do banco: o botão só abre a consulta. */}
+            {item && scope === "full" ? (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive sm:mr-auto"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Excluir cadastro
+              </Button>
+            ) : null}
             {!item && (
               <Button variant="ghost" onClick={() => setStep("intent")}>Voltar</Button>
             )}
@@ -779,6 +795,17 @@ export default function FinanceItemFormModal({
           </DialogFooter>
         )}
       </DialogContent>
+      {item && (
+        <FinanceItemDeleteModal
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          item={item}
+          onDone={() => {
+            onOpenChange(false);
+            onAfterDelete?.();
+          }}
+        />
+      )}
     </Dialog>
   );
 }

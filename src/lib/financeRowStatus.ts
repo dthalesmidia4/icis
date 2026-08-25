@@ -19,6 +19,8 @@ import {
 } from "./financeCardCycle";
 
 import type { FinanceSettlementContext } from "./financeSettlement";
+import { visibleStatementGroups } from "./financeCardVisibility";
+
 import {
   SafeStatementStatusMap,
   findSafeStatementStatus,
@@ -470,10 +472,17 @@ export interface AttentionParams {
  * Nunca conta cobrança de cartão como conta direta atrasada.
  */
 export function buildAttentionInsights(params: AttentionParams): AttentionInsight[] {
-  const { rows, statements, today, cardsById } = params;
+  const { rows, today, cardsById } = params;
+  /**
+   * Cartão inativo SEM fato real na competência não existe para a operação:
+   * mesma regra da tela `Cartões e faturas` (`visibleStatementGroups`), nunca
+   * uma segunda regra paralela.
+   */
+  const statements = visibleStatementGroups(params.statements);
   const ctx: RowStatusContext = { rows, today, cardsById };
   const operational = rows.filter((r) => !isStatementRow(r));
   const insights: AttentionInsight[] = [];
+
 
   // 1. Obrigações DIRETAS atrasadas — um único alerta, sem separar por kind
   const overdue = overdueDirectRows(operational, ctx).filter(isDirectPayableRow);
@@ -529,7 +538,8 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
   }
 
   // 4. Cartões sem fechamento/vencimento — detalhe por cartão vive na view Cards
-  const incomplete = statements.filter((g) => g.configIncomplete);
+  // Cartão INATIVO não precisa ser completado: nada será projetado para ele.
+  const incomplete = statements.filter((g) => g.configIncomplete && g.card.active);
   if (incomplete.length > 0) {
     insights.push({
       id: "cards-config",
@@ -609,9 +619,12 @@ export interface PaymentQueueParams {
  * Componentes de cartão e recursos incluídos nunca entram como pagamento.
  */
 export function buildPaymentQueue(params: PaymentQueueParams): PaymentQueueEntry[] {
-  const { rows, statements, today, cardsById } = params;
+  const { rows, today, cardsById } = params;
+  /** Mesma regra de visibilidade dos cartões da operação. */
+  const statements = visibleStatementGroups(params.statements);
   const includeOverdue = params.includeOverdue ?? false;
   const ctx: RowStatusContext = { rows, today, cardsById };
+
   const entries: PaymentQueueEntry[] = [];
 
   for (const row of rows) {

@@ -144,17 +144,18 @@ describe("privacidade monetária", () => {
     expect(src).not.toContain("localStorage");
   });
 
-  it("as telas do domínio consomem o mesmo contexto, sem estado local", () => {
+  it("o olho vive só no resumo: detalhamento de linhas nunca é mascarado", () => {
     const page = readFileSync("src/pages/Financial.tsx", "utf8");
     expect(page).toContain("useFinanceVisibility()");
     expect(page).toContain("<FinanceVisibilityProvider>");
     expect(page).not.toContain("setShowKpis");
+    // Listas e faturas são auditoria: valor sempre legível.
     for (const file of [
       "src/components/finance/MonthCompositionList.tsx",
       "src/components/finance/StatementPanel.tsx",
       "src/components/finance/MonthAccountsList.tsx",
     ]) {
-      expect(readFileSync(file, "utf8")).toContain("useFinanceVisibility");
+      expect(readFileSync(file, "utf8")).not.toContain("useFinanceVisibility");
     }
   });
 });
@@ -242,9 +243,12 @@ describe("categorias de despesa", () => {
 
   it("a lista da composição renderiza grupos colapsados por padrão", () => {
     const list = readFileSync("src/components/finance/MonthCompositionList.tsx", "utf8");
-    expect(list).toContain("buildCategoryGroups");
+    expect(list).toContain("buildCompositionGroups");
     // Nenhum grupo começa aberto: o mapa de expandidos nasce vazio.
     expect(list).toContain("useState<Record<string, boolean>>({})");
+    // Atalho de leitura em massa, restrito ao recorte atual.
+    expect(list).toContain("Expandir tudo");
+    expect(list).toContain("Recolher tudo");
   });
 });
 

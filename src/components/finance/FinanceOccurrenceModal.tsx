@@ -44,6 +44,15 @@ import {
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
 import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
+import { effectivePaid } from "@/lib/financeModel";
+import {
+  OCCURRENCE_ACTION_LABELS,
+  occurrenceDeleteActionForRow,
+} from "@/lib/financeDeletePolicy";
+import {
+  deleteFinanceOccurrenceSafe,
+  inactivateFinanceItemSafe,
+} from "@/lib/financeSafeDelete";
 
 const BUCKET = "bill-attachments";
 
@@ -64,6 +73,8 @@ interface Props {
   onSave: (row: MonthRow, patch: Partial<FinanceOccurrence>) => Promise<FinanceOccurrence | null>;
   /** Abre o cadastro permanente (cronograma) do item desta linha. */
   onEditItem?: (item: FinanceItem) => void;
+  /** Recarrega a tela após exclusão/inativação (o dado deixou de existir). */
+  onRefresh?: () => void;
 }
 
 export default function FinanceOccurrenceModal({
@@ -75,6 +86,7 @@ export default function FinanceOccurrenceModal({
   statusContext,
   onSave,
   onEditItem,
+  onRefresh,
 }: Props) {
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
@@ -86,8 +98,39 @@ export default function FinanceOccurrenceModal({
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
   /** Origem do pagamento DESTE mês (`NONE` = seguir o cadastro permanente). */
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
+
+  /**
+   * Fato FECHADO (pago direto ou liquidado por fatura paga) é imutável: a única
+   * resposta possível é preservar. A RPC valida isso de novo no banco.
+   */
+  const rowClosed = row
+    ? effectivePaid(row, statusContext?.rows ?? [row], statusContext?.settlement ?? null)
+    : false;
+  const deleteAction = row ? occurrenceDeleteActionForRow(row, rowClosed) : "nothing_to_delete";
+
+  const handleDestructive = async () => {
+    if (!row) return;
+    setRemoving(true);
+    const result =
+      deleteAction === "inactivate_item"
+        ? await inactivateFinanceItemSafe(row.item.id)
+        : row.occurrence
+          ? await deleteFinanceOccurrenceSafe(row.occurrence.id)
+          : { ok: false, message: "Nada informado neste mês" };
+    setRemoving(false);
+    if (!result.ok) {
+      toast.error(result.message ?? "Não foi possível concluir");
+      return;
+    }
+    toast.success(
+      deleteAction === "inactivate_item" ? "Cadastro inativado" : "Lançamento excluído",
+    );
+    onOpenChange(false);
+    onRefresh?.();
+  };
 
   /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
   const cardRow = !!row && isCardCharge(row);
@@ -385,6 +428,19 @@ export default function FinanceOccurrenceModal({
             <span />
           )}
           <div className="flex gap-2">
+            {deleteAction === "delete_statement" ||
+            deleteAction === "delete_one_off" ||
+            deleteAction === "inactivate_item" ? (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={handleDestructive}
+                disabled={saving || removing}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {removing ? "Processando..." : OCCURRENCE_ACTION_LABELS[deleteAction]}
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving || uploading}>
               {saving ? "Salvando..." : "Salvar lançamento"}
