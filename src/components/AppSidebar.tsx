@@ -42,9 +42,9 @@ const mainMenuItems = [
 ];
 
 /**
- * Filtra o menu principal. O item Financeiro só aparece quando a RPC
- * `finance_access_scope` retorna `full` ou `tools` — enquanto carrega, fica escondido
- * (fail closed visual).
+ * Filtra o menu principal (uso legado/testes). Preferir
+ * `resolveSidebarNavigation` de `@/lib/sidebarNavigation`, que também garante
+ * entrada simultânea de todos os itens.
  */
 export function filterMainMenuItems<T extends { requiresAgency?: boolean; requiresFinanceAccess?: boolean }>(
   items: T[],
@@ -56,6 +56,7 @@ export function filterMainMenuItems<T extends { requiresAgency?: boolean; requir
     return true;
   });
 }
+
 
 // Menu developer
 const devMenuItems = [
