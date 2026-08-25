@@ -209,16 +209,20 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
   /* -------------------------- CARTÃO (componente) --------------------- */
   if (isCardCharge(row)) {
+    /**
+     * BOOLEANO CANÔNICO: exatamente o mesmo consultado por `computeTotals` e
+     * pela composição do mês. Se ele é `false`, NENHUM caminho abaixo pode
+     * devolver semântica de pago — é o que impede `Fatura paga` dentro do
+     * recorte `Em aberto`.
+     */
+    const canonicalPaid = effectivePaid(row, ctx.rows, ctx.settlement ?? null);
+
     // Fato real de pagamento prevalece sobre qualquer lacuna de configuração.
     if (row.paid) {
       return { kind: "paid", label: "Pago", tone: "positive", direct: false, canPayDirectly: false };
     }
 
-    /**
-     * LIQUIDAÇÃO PELA FATURA (fonte canônica): este componente pertence a um
-     * grupo de fatura já paga. Mesmo booleano usado por totais e composição.
-     */
-    if (ctx.settlement?.paidComponentKeys.has(row.key)) {
+    if (canonicalPaid) {
       return {
         kind: "card_statement_paid",
         label: "Pago pela fatura",
@@ -228,13 +232,10 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
       };
     }
 
-
-
     const statement = linkedStatementRow(row, statementRows);
     if (statement) {
-      if (statement.paid) {
-        return { kind: "card_statement_paid", label: "Fatura paga", tone: "positive", direct: false, canPayDirectly: false };
-      }
+      // `statement.paid` sem `canonicalPaid` é impossível (mesma prova); ainda
+      // assim o caminho pago só existe acima, nunca aqui.
       if (statement.dueDate && statement.dueDate < today) {
         return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: false, canPayDirectly: false };
       }
@@ -243,6 +244,7 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
         : "Fatura a pagar";
       return { kind: "card_in_statement", label, tone: "neutral", direct: false, canPayDirectly: false };
     }
+
 
     /**
      * CICLO REAL DO CARTÃO: uma cobrança feita depois do fechamento pertence à
