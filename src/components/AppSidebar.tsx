@@ -36,9 +36,25 @@ import { cn } from "@/lib/utils";
 // Menu principal (após Home)
 const mainMenuItems = [
   { title: "Minha Empresa", url: "/minha-empresa", icon: Briefcase, requiresAgency: true },
-  { title: "Financeiro", url: "/financeiro", icon: DollarSign },
+  { title: "Financeiro", url: "/financeiro", icon: DollarSign, requiresFinanceAccess: true },
   { title: "Configurações", url: "/configuracoes", icon: SettingsIcon },
 ];
+
+/**
+ * Filtra o menu principal. O item Financeiro só aparece quando a RPC
+ * `has_finance_access` confirma acesso — enquanto carrega, fica escondido
+ * (fail closed visual).
+ */
+export function filterMainMenuItems<T extends { requiresAgency?: boolean; requiresFinanceAccess?: boolean }>(
+  items: T[],
+  opts: { agencyId?: string | null; financeCanAccess: boolean; financeLoading: boolean }
+): T[] {
+  return items.filter((item) => {
+    if (item.requiresAgency && !opts.agencyId) return false;
+    if (item.requiresFinanceAccess && (opts.financeLoading || !opts.financeCanAccess)) return false;
+    return true;
+  });
+}
 
 // Menu developer
 const devMenuItems = [
