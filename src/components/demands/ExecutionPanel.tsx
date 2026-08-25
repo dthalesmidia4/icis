@@ -96,12 +96,21 @@ export default function ExecutionPanel({
   onDeleteItem,
   onCompleteAll,
   onReorderItems,
+  onEditItem,
   reordering = false,
   busyItemId = null,
   adding = false,
   completingAll = false,
+  editingBusyItemId = null,
 }: ExecutionPanelProps) {
   const [draft, setDraft] = useState("");
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const editButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  useEffect(() => {
+    if (readOnly) setEditingItemId(null);
+  }, [readOnly]);
 
   const progress = computeExecutionProgress(active);
   const pending = countPendingExecutionItems(active);
@@ -113,6 +122,7 @@ export default function ExecutionPanel({
     completingAll,
     busyItemId,
     adding,
+    editingItemId,
   });
 
   const handleDragEnd = (result: DropResult) => {
@@ -122,9 +132,35 @@ export default function ExecutionPanel({
     void onReorderItems(result.source.index, result.destination.index);
   };
 
+  const startEdit = (itemId: string, text: string) => {
+    setEditingItemId(itemId);
+    setEditingText(text);
+  };
+
+  const cancelEdit = (itemId?: string) => {
+    setEditingItemId(null);
+    setEditingText("");
+    if (itemId) editButtonRefs.current[itemId]?.focus();
+  };
+
+  const commitEdit = async (itemId: string, currentText: string) => {
+    const { shouldSave, text } = resolveExecutionItemEdit({
+      currentText,
+      nextText: editingText,
+    });
+    if (!shouldSave || !onEditItem) {
+      cancelEdit(itemId);
+      return;
+    }
+    setEditingItemId(null);
+    setEditingText("");
+    await onEditItem(itemId, text);
+    editButtonRefs.current[itemId]?.focus();
+  };
 
   const labelFor = (key?: string | null) =>
     (key && (stageLabels[key] || humanize(key))) || "sem etapa";
+
 
   const submit = async () => {
     const text = draft.trim();
