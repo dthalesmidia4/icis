@@ -163,19 +163,37 @@ describe("status informa a data quando ela existe", () => {
     expect(resolveRowStatus(row, ctx()).label).toBe("Pago");
   });
 
+  /** Liquidação derivada da fatura — é o que o cockpit/tela realmente passa. */
+  const settled = (row: MonthRow) => ({
+    paidComponentKeys: new Set([row.key]),
+    statementByComponentKey: new Map(),
+  });
+
   it("componente de fatura paga => Pago pela fatura em 20 ago", () => {
-    const status = resolveRowStatus(component(), ctx({ safeStatementStatuses: safeMap() }));
+    const row = component();
+    const status = resolveRowStatus(
+      row,
+      ctx({ safeStatementStatuses: safeMap(), settlement: settled(row) }),
+    );
     expect(status.kind).toBe("card_statement_paid");
     expect(status.label).toBe("Pago pela fatura em 20 ago");
   });
 
   it("fatura paga sem paid_at => Pago pela fatura, sem data", () => {
-    const status = resolveRowStatus(component(), ctx({ safeStatementStatuses: safeMap(null) }));
+    const row = component();
+    const status = resolveRowStatus(
+      row,
+      ctx({ safeStatementStatuses: safeMap(null), settlement: settled(row) }),
+    );
     expect(status.label).toBe("Pago pela fatura");
   });
 
   it("charge_date NUNCA é usada como data de pagamento", () => {
-    const status = resolveRowStatus(component(), ctx({ safeStatementStatuses: safeMap(null) }));
+    const row = component();
+    const status = resolveRowStatus(
+      row,
+      ctx({ safeStatementStatuses: safeMap(null), settlement: settled(row) }),
+    );
     // a data de cobrança (05/08) não pode virar "pago em 05 ago".
     expect(status.label).not.toMatch(/05 ago/);
   });
