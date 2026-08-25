@@ -20,6 +20,12 @@ import {
   detectPackageOverlaps,
 } from "@/lib/financeModel";
 import { SafeCard } from "@/lib/financeSubscriptionMonth";
+import {
+  fetchSecureItemValues,
+  fetchSecureOccurrenceValues,
+  mergeItemValues,
+  mergeOccurrenceValues,
+} from "@/lib/financeSecureData";
 
 export function useFinanceTools(competence: Competence) {
   const { agencyId } = useAgency();
@@ -35,7 +41,8 @@ export function useFinanceTools(competence: Competence) {
     if (!agencyId) return;
     setLoading(true);
 
-    const [itemsRes, occRes, cardsRes] = await Promise.all([
+    const monthISO = competenceToISO(normalized);
+    const [itemsRes, occRes, cardsRes, itemValues, occValues] = await Promise.all([
       supabase
         .from("finance_items")
         .select("*")
@@ -46,15 +53,19 @@ export function useFinanceTools(competence: Competence) {
         .from("finance_occurrences")
         .select("*")
         .eq("tenant_id", agencyId)
-        .eq("competence_month", competenceToISO(normalized)),
+        .eq("competence_month", monthISO),
       supabase.rpc("list_finance_safe_cards", { _tenant_id: agencyId }),
+      fetchSecureItemValues(agencyId),
+      fetchSecureOccurrenceValues(agencyId, monthISO, monthISO),
     ]);
 
     if (itemsRes.error) toast.error("Erro ao carregar assinaturas e ferramentas");
     if (occRes.error) toast.error("Erro ao carregar movimentação do mês");
 
-    setItems(((itemsRes.data as any[]) ?? []) as FinanceItem[]);
-    setOccurrences(((occRes.data as any[]) ?? []) as FinanceOccurrence[]);
+    setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
+    setOccurrences(
+      mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
+    );
     setCards(((cardsRes.data as any[]) ?? []) as SafeCard[]);
     setLoading(false);
   }, [agencyId, normalized.year, normalized.month]);
