@@ -39,6 +39,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item?: FinanceItem | null;
+  /** Recarrega a lista depois de excluir/inativar o cadastro. */
+  onAfterDelete?: () => void;
   /** Quando vem de um domínio (Cartões, Assinaturas...), pula o passo de intenção. */
   initialKind?: FinanceKind | null;
   cards: FinanceItem[];
@@ -798,7 +800,10 @@ export default function FinanceItemFormModal({
           open={deleteOpen}
           onOpenChange={setDeleteOpen}
           item={item}
-          onDone={() => onOpenChange(false)}
+          onDone={() => {
+            onOpenChange(false);
+            onAfterDelete?.();
+          }}
         />
       )}
     </Dialog>
