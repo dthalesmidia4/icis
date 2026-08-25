@@ -999,6 +999,7 @@ export default function TaskCard({
    */
   const handleReorderExecutionItems = async (sourceIndex: number, destinationIndex: number) => {
     if (readOnly || reorderingExecution || completingAllExecution) return;
+    if (busyExecutionItemId || addingExecutionItem) return;
     if (isDraft) {
       setDraftExecutionItems((prev) => reorderDraftExecutionItems(prev, sourceIndex, destinationIndex));
       return;
