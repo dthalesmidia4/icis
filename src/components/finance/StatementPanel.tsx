@@ -29,6 +29,7 @@ import {
 } from "@/lib/financeModel";
 import { Competence } from "@/lib/financeCardCycle";
 import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
+import { paymentTimestampToDate } from "@/lib/financePaymentDate";
 
 interface Props {
   groups: StatementGroup[];
@@ -90,6 +91,8 @@ export default function StatementPanel({
         const limit = card.card_limit_brl ?? null;
         const usageBase = group.actualTotal ?? (group.projectedTotal > 0 ? group.projectedTotal : null);
         const valueLabel = statementValueLabel(group);
+        // `Pago em` é FATO; `Vence em` é histórico. Os dois coexistem.
+        const paidOn = paymentTimestampToDate(group.statementRow?.occurrence?.paid_at);
         const usagePercent =
           limit != null && limit > 0 && usageBase != null
             ? Math.min(100, Math.round((usageBase / limit) * 100))
@@ -164,10 +167,13 @@ export default function StatementPanel({
                   hint={valueLabel.hint ?? undefined}
                 />
                 <Fact
-                  label="Vence em"
+                  label={group.paid && group.dueDate && group.dueDate < today ? "Venceu em" : "Vence em"}
                   value={group.dueDate ? formatDayMonth(group.dueDate) : "Não informado"}
                   tone={group.dueDate ? undefined : "muted"}
                 />
+                {group.paid && (
+                  <Fact label="Pago em" value={paidOn ? formatDayMonth(paidOn) : "Data não registrada"} tone={paidOn ? undefined : "muted"} />
+                )}
               </div>
 
               {limit != null && usageBase != null && (

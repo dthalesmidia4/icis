@@ -117,6 +117,34 @@ export interface RowStatusContext {
 }
 
 /**
+ * Fatura vinculada a um componente de cartão.
+ *
+ * Só usa EVIDÊNCIA JÁ PERSISTIDA, nunca inferência por competência:
+ *  a) `statement_occurrence_id` (vínculo explícito); ou
+ *  b) `statement_competence_snapshot` + cartão conhecido (histórico migrado).
+ * Sem uma dessas provas nenhuma fatura é atribuída — o ciclo de cobrança pode
+ * cair na fatura seguinte, então "mesmo mês" NÃO é prova de vínculo.
+ */
+export function linkedStatementRow(row: MonthRow, statementRows: MonthRow[]): MonthRow | null {
+  const occ = row.occurrence;
+  const statementId = occ?.statement_occurrence_id ?? null;
+  if (statementId) {
+    return statementRows.find((r) => r.occurrence?.id === statementId) ?? null;
+  }
+  const snapshot = occ?.statement_competence_snapshot ?? null;
+  const cardId = occ?.card_item_id_snapshot ?? row.cardItemId ?? null;
+  if (!snapshot || !cardId) return null;
+  return (
+    statementRows.find(
+      (r) =>
+        r.item.id === cardId &&
+        !!r.occurrence &&
+        r.occurrence.competence_month.slice(0, 10) === snapshot.slice(0, 10),
+    ) ?? null
+  );
+}
+
+/**
  * Resolve o status de apresentação de uma linha do mês.
  * Único lugar autorizado a decidir "Atrasada" na UI.
  */
@@ -137,24 +165,26 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
   /* -------------------------- CARTÃO (componente) --------------------- */
   if (isCardCharge(row)) {
+    // Fato real de pagamento prevalece sobre qualquer lacuna de configuração.
     if (row.paid) {
       return { kind: "paid", label: "Pago", tone: "positive", direct: false, canPayDirectly: false };
     }
 
-    const statementId = row.occurrence?.statement_occurrence_id ?? null;
-    if (statementId) {
-      const statement = statementRows.find((r) => r.occurrence?.id === statementId) ?? null;
-      if (statement?.paid) {
+    const statement = linkedStatementRow(row, statementRows);
+    if (statement) {
+      if (statement.paid) {
         return { kind: "card_statement_paid", label: "Fatura paga", tone: "positive", direct: false, canPayDirectly: false };
       }
-      if (statement?.dueDate && statement.dueDate < today) {
+      if (statement.dueDate && statement.dueDate < today) {
         return { kind: "card_statement_overdue", label: "Fatura atrasada", tone: "danger", direct: false, canPayDirectly: false };
       }
-      const label = statement?.dueDate
+      const label = statement.dueDate
         ? `Na fatura de ${monthFullLabel(competenceFromISO(statement.dueDate))}`
         : "Fatura a pagar";
       return { kind: "card_in_statement", label, tone: "neutral", direct: false, canPayDirectly: false };
     }
+
+
 
     const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
     if (cardConfigIncomplete(card)) {

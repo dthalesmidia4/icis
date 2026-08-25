@@ -67,6 +67,8 @@ import {
   isStatementRow,
 } from "@/lib/financeModel";
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
+import { financeBackTarget } from "@/lib/financeBackTarget";
+import PayStatementModal from "@/components/finance/PayStatementModal";
 import {
   COMPOSITION_HINTS,
   COMPOSITION_KINDS,
@@ -199,6 +201,7 @@ function FinancialCockpit() {
   const [occurrenceRow, setOccurrenceRow] = useState<MonthRow | null>(null);
   const [budgetInput, setBudgetInput] = useState("");
   const [rateInput, setRateInput] = useState("");
+  const [payingGroup, setPayingGroup] = useState<StatementGroup | null>(null);
   const [focusCardId, setFocusCardId] = useState<string | null>(null);
   const [highlightIncomplete, setHighlightIncomplete] = useState(false);
 
@@ -210,9 +213,18 @@ function FinancialCockpit() {
   const cardsById = useMemo(() => new Map(cards.map((c) => [c.id, c])), [cards]);
   /** Assinaturas só precisam de rótulo/ciclo do cartão — nunca limite ou fatura. */
   const safeCards = useMemo(() => cards.map(toSafeCard), [cards]);
+  /**
+   * As linhas de fatura entram explicitamente no contexto: sem elas um
+   * componente de cartão não encontra a fatura real e cairia em
+   * "aguardando fatura" mesmo com a fatura já paga.
+   */
+  const statementRows = useMemo(
+    () => statements.map((g) => g.statementRow).filter((r): r is MonthRow => !!r),
+    [statements],
+  );
   const statusContext = useMemo<RowStatusContext>(
-    () => ({ rows, today, cardsById }),
-    [rows, today, cardsById],
+    () => ({ rows, today, cardsById, statementRows }),
+    [rows, today, cardsById, statementRows],
   );
 
   const operationalRows = useMemo(() => rows.filter((row) => !isStatementRow(row)), [rows]);
@@ -348,10 +360,25 @@ function FinancialCockpit() {
       ? Math.min(100, Math.round((totals.expected / settings.monthlyBudgetBrl) * 100))
       : null;
 
-  const handlePayStatement = async (group: StatementGroup) => {
+  /** Pagamento da fatura pede a DATA REAL — nunca assume `now()`. */
+  const handlePayStatement = (group: StatementGroup) => {
+    if (!group.statementRow?.occurrence) return;
+    setPayingGroup(group);
+  };
+
+  const confirmPayStatement = async ({
+    group,
+    paidDateISO,
+    paidAmountBrl,
+  }: {
+    group: StatementGroup;
+    paidDateISO: string;
+    paidAmountBrl: number | null;
+  }) => {
     const occ = group.statementRow?.occurrence;
     if (!occ) return;
-    await payStatement(occ.id, group.actualTotal ?? group.projectedTotal);
+    // `due_date` não é enviado: o vencimento é histórico e não muda ao pagar.
+    await payStatement(occ.id, paidAmountBrl ?? group.actualTotal ?? group.projectedTotal, paidDateISO);
   };
 
   const handleOpenStatement = (group: StatementGroup) => {
@@ -484,6 +511,11 @@ function FinancialCockpit() {
     if (entry.row) setOccurrenceRow(entry.row);
   };
 
+  const backTarget = financeBackTarget(view);
+  const headerBackTo = backTarget.kind === "route" ? backTarget.to : undefined;
+  const headerOnBack =
+    backTarget.kind === "internal" ? () => goTo(backTarget.view) : undefined;
+
   if (loadError) {
     return (
       <div className="pb-16">
@@ -491,7 +523,8 @@ function FinancialCockpit() {
           containerClassName={FINANCE_SHELL_WIDTH}
           title={VIEW_TITLES[view].title}
           subtitle={VIEW_TITLES[view].subtitle}
-          backTo="/"
+          backTo={headerBackTo}
+          onBack={headerOnBack}
         />
         <div className={`${FINANCE_SHELL_WIDTH} mt-6`}>
           <FinanceLoadErrorState message={loadError} onRetry={refresh} />
@@ -506,8 +539,8 @@ function FinancialCockpit() {
         containerClassName={FINANCE_SHELL_WIDTH}
         title={VIEW_TITLES[view].title}
         subtitle={VIEW_TITLES[view].subtitle}
-        backTo={view === "overview" ? "/" : undefined}
-        onBack={view === "overview" ? undefined : () => goTo("overview")}
+        backTo={headerBackTo}
+        onBack={headerOnBack}
         actions={
           view === "overview"
             ? [
@@ -1103,6 +1136,14 @@ function FinancialCockpit() {
           setOccurrenceRow(null);
           openItemModal(item);
         }}
+      />
+
+      <PayStatementModal
+        open={!!payingGroup}
+        onOpenChange={(open) => { if (!open) setPayingGroup(null); }}
+        group={payingGroup}
+        today={today}
+        onConfirm={confirmPayStatement}
       />
 
     </div>
