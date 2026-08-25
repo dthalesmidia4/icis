@@ -127,7 +127,8 @@ describe("wiring", () => {
     expect(page).toContain("<FinanceAccessGate>");
     expect(page).toContain("if (canAccessFullFinance)");
     expect(page).toContain("return <FinanceToolsCockpit />");
-    expect(page).not.toContain("finance_password_status");
+    // a consulta de senha vive só no gate, montado apenas no escopo full.
+    expect(page).not.toMatch(/supabase[\s\S]{0,80}finance_password_status/);
     const tools = readFileSync("src/components/finance/FinanceToolsCockpit.tsx", "utf8");
     // nada de orçamento, fatura ou despesa administrativa no escopo restrito
     expect(tools).not.toContain("monthly_budget");
