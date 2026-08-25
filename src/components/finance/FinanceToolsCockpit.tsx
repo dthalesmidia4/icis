@@ -23,11 +23,13 @@ const MONTH_LABELS = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
+import { FinanceLoadErrorState } from "@/components/finance/FinanceLoadErrorState";
+
 export default function FinanceToolsCockpit() {
   const [competence, setCompetence] = useState(currentCompetence());
   const today = todayISO();
   const {
-    items, rows, cards, packages, overlaps,
+    items, rows, cards, packages, overlaps, loadError, refresh,
     saveOccurrence, togglePaid, saveItem, setItemActive,
   } = useFinanceTools(competence);
 
@@ -75,6 +77,14 @@ export default function FinanceToolsCockpit() {
   const currentComp = currentCompetence();
   const isCurrentMonth =
     competence.year === currentComp.year && competence.month === currentComp.month;
+
+  if (loadError) {
+    return (
+      <div className="pb-16 pt-4">
+        <FinanceLoadErrorState message={loadError} onRetry={refresh} />
+      </div>
+    );
+  }
 
   return (
     <div className="pb-16">

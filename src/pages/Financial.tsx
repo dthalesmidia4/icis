@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { FinanceLoadErrorState } from "@/components/finance/FinanceLoadErrorState";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
@@ -177,8 +178,8 @@ function FinancialCockpit() {
 
   const finance = useFinance(competence);
   const {
-    loading, rows, statements, totals, overlaps, items, cards, packages, settings,
-    saveOccurrence, togglePaid, payStatement, saveSettings, saveItem, setItemActive,
+    loading, loadError, rows, statements, totals, overlaps, items, cards, packages, settings,
+    saveOccurrence, togglePaid, payStatement, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
   const [mainView, setMainView] = useState<MainView>("to_pay");
@@ -482,6 +483,22 @@ function FinancialCockpit() {
     setCostCenter("all");
     if (entry.row) setOccurrenceRow(entry.row);
   };
+
+  if (loadError) {
+    return (
+      <div className="pb-16">
+        <PageHeader
+          containerClassName={FINANCE_SHELL_WIDTH}
+          title={VIEW_TITLES[view].title}
+          subtitle={VIEW_TITLES[view].subtitle}
+          backTo="/"
+        />
+        <div className={`${FINANCE_SHELL_WIDTH} mt-6`}>
+          <FinanceLoadErrorState message={loadError} onRetry={refresh} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-16">
