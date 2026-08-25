@@ -69,13 +69,16 @@ export function compositionBaseRows(rows: MonthRow[]): MonthRow[] {
 export function buildMonthComposition(params: {
   rows: MonthRow[];
   status: CompositionStatus;
+  /** Liquidação por fatura — mesma fonte canônica de `computeTotals`. */
+  settlement?: FinanceSettlementContext | null;
 }): CompositionEntry[] {
   const { rows, status } = params;
+  const settlement = params.settlement ?? null;
   const base = compositionBaseRows(rows);
   const entries: CompositionEntry[] = [];
 
   for (const row of base) {
-    const paid = effectivePaid(row, rows);
+    const paid = effectivePaid(row, rows, settlement);
     if (status === "paid" && !paid) continue;
     if (status === "open" && paid) continue;
     const amount = row.amountBrl ?? 0;
@@ -101,10 +104,12 @@ export function compositionStatusLabel(
 ): RowStatus {
   const status = resolveRowStatus(row, ctx);
   if (entry.paid && isCardCharge(row) && !row.paid) {
-    return { ...status, label: "Pago pela fatura", tone: "positive" };
+    const label = settledByStatement(row, ctx.settlement) ? "Pago pela fatura" : status.label;
+    return { ...status, kind: "paid", label: label || "Pago pela fatura", tone: "positive" };
   }
   return status;
 }
+
 
 /** Rótulo contextual da data conforme a natureza da despesa. */
 export function compositionDateLabel(row: MonthRow): { label: string; date: string | null } {
