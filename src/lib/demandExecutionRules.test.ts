@@ -20,6 +20,7 @@ import {
   executionPositionUpdates,
   reorderDraftExecutionItems,
   applyDraftExecutionToggleOrder,
+  isExecutionDragEnabled,
   runMatchesContext,
   shouldShowExecutionTab,
   type ExecutionItem,
