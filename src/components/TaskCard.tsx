@@ -4626,6 +4626,9 @@ export default function TaskCard({
                                 onToggleItem={handleToggleExecutionItem}
                                 onDeleteItem={handleDeleteExecutionItem}
                                 onCompleteAll={handleCompleteAllExecution}
+                                onReorderItems={handleReorderExecutionItems}
+                                reordering={reorderingExecution}
+
                                 busyItemId={busyExecutionItemId}
                                 adding={addingExecutionItem}
                                 completingAll={completingAllExecution}
