@@ -324,6 +324,7 @@ export function executionPositionUpdates(
   return items.map((i, index) => ({ id: i.id, position: index }));
 }
 
+/* ============================== DRAFTS ============================== */
 
 
 /** Normaliza itens digitados: remove vazios, deduplica e reindexa posições. */
