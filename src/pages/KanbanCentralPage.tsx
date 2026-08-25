@@ -515,6 +515,19 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators, refresh: refreshCollaborators } = useCollaborators(tenantId);
 
+  // Decisão inicial de foco: espera role + usuário + cards carregados.
+  useEffect(() => {
+    if (didFocusDecisionRef.current) return;
+    if (roleLoading) return;
+    if (!authUser?.id) return;
+    if (loading) return;
+
+    didFocusDecisionRef.current = true;
+    setFocusedColumnId(resolveInitialOverviewFocus({ canManageQueue, userId: authUser.id, cards }));
+    setFocusDecisionReady(true);
+  }, [roleLoading, canManageQueue, authUser?.id, loading, cards]);
+
+
   // Se a coluna focada não existe mais no quadro, descarta o foco silenciosamente.
   useEffect(() => {
     if (!focusedColumnId || !focusDecisionReady) return;
