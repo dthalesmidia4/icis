@@ -13,6 +13,8 @@
 
 import {
   Competence,
+  chargeDateCompetence,
+  chargeDayFrom,
   competenceFromISO,
   resolveStatementForCharge,
   sameCompetence,
