@@ -166,60 +166,95 @@ export default function ExecutionPanel({
           </p>
         )}
 
-        {active && active.items.length > 0 && (
-          <div className="space-y-1.5">
-            {[...active.items]
-              .sort((a, b) => a.position - b.position)
-              .map((item) => (
+        {active && orderedItems.length > 0 && (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="execution-items" isDropDisabled={!dragEnabled}>
+              {(dropProvided) => (
                 <div
-                  key={item.id}
-                  className="group flex items-start gap-2 rounded-md px-1.5 py-1 hover:bg-muted/60"
+                  className="space-y-1.5"
+                  ref={dropProvided.innerRef}
+                  {...dropProvided.droppableProps}
                 >
-                  <Checkbox
-                    checked={item.is_completed}
-                    disabled={readOnly || busyItemId === item.id || completingAll}
-                    onCheckedChange={(v) => onToggleItem(item.id, v === true)}
-                    className="mt-0.5"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className={
-                        item.is_completed
-                          ? "block text-sm text-muted-foreground line-through"
-                          : "block text-sm"
-                      }
+                  {orderedItems.map((item, index) => (
+                    <Draggable
+                      key={item.id}
+                      draggableId={item.id}
+                      index={index}
+                      isDragDisabled={!dragEnabled}
                     >
-                      {item.text}
-                    </span>
-                    {item.is_completed && (
-                      <span className="block text-[11px] text-muted-foreground">
-                        {item.completed_by && userNames[item.completed_by]
-                          ? `${userNames[item.completed_by]} · `
-                          : ""}
-                        {fmt(item.completed_at)}
-                      </span>
-                    )}
-                  </span>
-                  {busyItemId === item.id ? (
-                    <Loader2 className="mt-0.5 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  ) : (
-                    !readOnly && (
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        aria-label="Remover tarefa"
-                        className="h-6 w-6 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                        onClick={() => void onDeleteItem(item.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )
-                  )}
+                      {(dragProvided, dragSnapshot) => (
+                        <div
+                          ref={dragProvided.innerRef}
+                          {...dragProvided.draggableProps}
+                          className={`group flex items-start gap-2 rounded-md px-1.5 py-1 ${
+                            dragSnapshot.isDragging
+                              ? "bg-background ring-1 ring-primary/50 shadow-md"
+                              : "hover:bg-muted/60"
+                          }`}
+                        >
+                          {dragEnabled ? (
+                            <span
+                              {...dragProvided.dragHandleProps}
+                              aria-label={`Reordenar tarefa: ${item.text}`}
+                              className="mt-0.5 cursor-grab text-muted-foreground/60 opacity-40 transition-opacity hover:text-foreground group-hover:opacity-100 active:cursor-grabbing"
+                            >
+                              <GripVertical className="h-3.5 w-3.5" />
+                            </span>
+                          ) : (
+                            <span className="mt-0.5 h-3.5 w-3.5" aria-hidden="true" />
+                          )}
+                          <Checkbox
+                            checked={item.is_completed}
+                            disabled={readOnly || busyItemId === item.id || completingAll}
+                            onCheckedChange={(v) => onToggleItem(item.id, v === true)}
+                            className="mt-0.5"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span
+                              className={
+                                item.is_completed
+                                  ? "block text-sm text-muted-foreground line-through"
+                                  : "block text-sm"
+                              }
+                            >
+                              {item.text}
+                            </span>
+                            {item.is_completed && (
+                              <span className="block text-[11px] text-muted-foreground">
+                                {item.completed_by && userNames[item.completed_by]
+                                  ? `${userNames[item.completed_by]} · `
+                                  : ""}
+                                {fmt(item.completed_at)}
+                              </span>
+                            )}
+                          </span>
+                          {busyItemId === item.id ? (
+                            <Loader2 className="mt-0.5 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                          ) : (
+                            !readOnly && (
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                aria-label="Remover tarefa"
+                                className="h-6 w-6 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                                onClick={() => void onDeleteItem(item.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {dropProvided.placeholder}
                 </div>
-              ))}
-          </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
+
 
         {!readOnly && (
           <div className="flex items-center gap-2">
