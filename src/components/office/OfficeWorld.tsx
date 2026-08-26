@@ -79,48 +79,49 @@ export default function OfficeWorld({
             <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-foreground/20" />
             <span className="absolute -bottom-[4px] inset-x-[-3px] h-[4px] rounded-sm bg-foreground/25" />
           </div>
-          {/* planta em vaso encostada abaixo/ao lado da janela */}
-          <div className="absolute -right-6 top-[86px] flex flex-col items-center">
-            <span className="relative block h-8 w-8">
-              <span className="absolute bottom-0 left-1/2 h-8 w-[3px] -translate-x-1/2 rounded bg-foreground/35" />
-              <span className="absolute left-0 top-0 h-4 w-4 -rotate-[35deg] rounded-full bg-primary/45" />
-              <span className="absolute right-0 top-1 h-3.5 w-3.5 rotate-[35deg] rounded-full bg-primary/32" />
-              <span className="absolute left-1.5 top-4 h-3 w-3 -rotate-[20deg] rounded-full bg-primary/38" />
-            </span>
-            <span className="h-5 w-6 rounded-b-md bg-foreground/38" />
-            <span className="mt-[1px] h-1.5 w-8 rounded-[50%] bg-foreground/15 blur-[1px] dark:bg-background/60" />
+          {/* PLANTA em vaso, abaixo/ao lado da janela: vaso neutro + 5 folhas
+              verdes bem definidas em SVG (leitura orgânica imediata, sem
+              imagem externa e sem parecer um pino). */}
+          <div className="absolute -right-8 top-[74px] flex flex-col items-center">
+            <svg width="46" height="52" viewBox="0 0 46 52" className="block">
+              {/* folhas */}
+              <g fill="none" strokeLinecap="round">
+                <path d="M23 34 C23 24 23 16 23 9" stroke="hsl(150 42% 34%)" strokeWidth="2" />
+                <path d="M23 30 C15 27 9 21 7 13" stroke="hsl(150 38% 38%)" strokeWidth="1.6" />
+                <path d="M23 28 C31 25 37 19 39 12" stroke="hsl(150 38% 38%)" strokeWidth="1.6" />
+              </g>
+              <g>
+                <ellipse cx="23" cy="8" rx="5.5" ry="9" fill="hsl(150 46% 36%)" transform="rotate(-4 23 8)" />
+                <ellipse cx="8" cy="13" rx="8.5" ry="5" fill="hsl(152 42% 40%)" transform="rotate(-32 8 13)" />
+                <ellipse cx="38" cy="12" rx="8.5" ry="5" fill="hsl(150 40% 32%)" transform="rotate(32 38 12)" />
+                <ellipse cx="12" cy="24" rx="7.5" ry="4.5" fill="hsl(158 38% 44%)" transform="rotate(-16 12 24)" />
+                <ellipse cx="34" cy="23" rx="7.5" ry="4.5" fill="hsl(150 44% 38%)" transform="rotate(16 34 23)" />
+              </g>
+              {/* vaso cinza/neutro */}
+              <path d="M14 34 H32 L29.5 50 H16.5 Z" fill="hsl(var(--muted-foreground) / 0.55)" />
+              <rect x="12.5" y="32" width="21" height="4" rx="1.5" fill="hsl(var(--muted-foreground) / 0.7)" />
+            </svg>
+            <span className="mt-[1px] h-1.5 w-9 rounded-[50%] bg-foreground/15 dark:bg-background/60" />
           </div>
         </div>
 
 
-        {/* gráfico emoldurado na parede (lado direito, longe da lousa central) */}
-        <div className="absolute right-[26%] top-[24%] hidden md:block">
-          <div className="relative h-14 w-20 rounded-sm border-[3px] border-foreground/25 bg-background/80">
-            <span className="absolute bottom-1 left-1.5 h-4 w-2 rounded-sm bg-primary/50" />
-            <span className="absolute bottom-1 left-[22px] h-7 w-2 rounded-sm bg-primary/70" />
-            <span className="absolute bottom-1 left-[34px] h-5 w-2 rounded-sm bg-primary/40" />
-            <span className="absolute bottom-1 left-[46px] h-9 w-2 rounded-sm bg-primary/60" />
-            <span className="absolute inset-x-1 bottom-1 h-[2px] bg-foreground/25" />
+        {/* QUADRO/GRÁFICO DECORATIVO DE PAREDE (único elemento com esta função,
+            à direita do Painel da Agência): moldura clara + 4 barras verticais.
+            A antiga prateleira de pastas foi removida porque disputava a mesma
+            leitura de "gráfico" e criava ambiguidade. */}
+        <div className="absolute right-[18%] top-[24%] hidden md:block">
+          <div className="relative h-16 w-24 rounded-[3px] border-[3px] border-foreground/30 bg-background/90 shadow-[0_6px_10px_-10px_hsl(var(--foreground)/0.9)]">
+            <div className="absolute inset-x-2 bottom-2 flex h-[70%] items-end justify-between">
+              <span className="h-[42%] w-3 rounded-t-[2px] bg-primary/45" />
+              <span className="h-[74%] w-3 rounded-t-[2px] bg-primary/70" />
+              <span className="h-[56%] w-3 rounded-t-[2px] bg-primary/50" />
+              <span className="h-[92%] w-3 rounded-t-[2px] bg-primary/85" />
+            </div>
+            <span className="absolute inset-x-2 bottom-2 h-[2px] bg-foreground/30" />
           </div>
         </div>
 
-        {/* prateleira com pastas — MONTADA NA PAREDE (mãos francesas + sombra
-            projetada na parede), acima da zona do Café que fica no piso. */}
-        <div className="absolute right-[12%] top-[30%] w-32">
-          <div className="flex items-end gap-1 pl-1">
-            <span className="h-8 w-2 rounded-sm bg-primary/60" />
-            <span className="h-6 w-2 rounded-sm bg-foreground/40" />
-            <span className="h-9 w-2.5 rounded-sm bg-primary/45" />
-            <span className="h-5 w-2 rounded-sm bg-foreground/30" />
-            <span className="h-7 w-2 rounded-sm bg-primary/35" />
-          </div>
-          <div className="h-[4px] w-full rounded-sm bg-foreground/30" />
-          <div className="flex justify-between px-4">
-            <span className="h-3 w-[3px] -skew-x-12 bg-foreground/22" />
-            <span className="h-3 w-[3px] skew-x-12 bg-foreground/22" />
-          </div>
-          <span className="mx-auto block h-[3px] w-[86%] rounded-full bg-foreground/10" />
-        </div>
 
 
         {/* luminária pendente */}
