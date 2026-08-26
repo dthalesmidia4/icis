@@ -547,11 +547,17 @@ export function useFinance(competence: Competence) {
        * PRÓPRIO acerto da fatura (cifrado), nunca como despesa cadastrada.
        */
       iofBrl?: number | null,
+      /**
+       * Total do FECHAMENTO informado na tela. Vai na MESMA transação do
+       * pagamento: total, IOF e `paid_at` nunca ficam incoerentes entre si.
+       */
+      statementAmountBrl?: number | null,
     ) => {
       const { error } = await supabase.rpc("pay_finance_statement_reconciled", {
         _occurrence_id: occurrenceId,
         _usd_components: usdComponents ?? [],
         _iof_brl: iofBrl != null && iofBrl > 0 ? iofBrl : 0,
+        ...(statementAmountBrl != null ? { _statement_amount_brl: statementAmountBrl } : {}),
         ...(paidDateISO ? { _paid_at: paymentDateToTimestamp(paidDateISO) } : {}),
         ...(paidAmountBrl != null ? { _paid_amount_brl: paidAmountBrl } : {}),
       } as any);
@@ -566,26 +572,27 @@ export function useFinance(competence: Competence) {
     [fetchAll],
   );
 
-  /** Ajusta apenas a classificação de IOF de uma fatura já paga. */
-  const setPaidStatementIof = useCallback(
-    async (occurrenceId: string, iofBrl: number) => {
-      const { error } = await supabase.rpc("set_paid_finance_statement_iof", {
+  /**
+   * FECHAMENTO da fatura: total e IOF gravados na MESMA intenção, sem tocar em
+   * `paid_at`/`paid_amount_brl`. Total `null` preserva o total já conhecido.
+   */
+  const updateStatementClosure = useCallback(
+    async (occurrenceId: string, amountBrl: number | null, iofBrl: number) => {
+      const { error } = await supabase.rpc("finance_update_statement_closure", {
         _occurrence_id: occurrenceId,
+        _amount_brl: amountBrl,
         _iof_brl: iofBrl,
       } as any);
       if (error) {
-        toast.error(error.message || "Não foi possível ajustar o IOF da fatura");
+        toast.error(error.message || "Não foi possível salvar o fechamento da fatura");
         return false;
       }
-      toast.success(iofBrl > 0 ? "IOF da fatura atualizado" : "Classificação de IOF removida");
+      toast.success("Fechamento da fatura atualizado");
       await fetchAll();
       return true;
     },
     [fetchAll],
   );
-
-
-
 
   const saveSettings = useCallback(
     async (next: FinanceSettings) => {
@@ -919,7 +926,7 @@ export function useFinance(competence: Competence) {
     togglePaid,
 
     payStatement,
-    setPaidStatementIof,
+    updateStatementClosure,
     savePaymentRule,
     createPaymentBatch,
     payPaymentBatch,
