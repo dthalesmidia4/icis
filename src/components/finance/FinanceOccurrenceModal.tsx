@@ -490,32 +490,11 @@ export default function FinanceOccurrenceModal({
             `charge_date` ele nunca entra numa fatura — e a data NÃO é inventada.
           */}
           {legacyDirectOnCard && (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-3 min-w-0">
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-500">
-                Pagamento direto registrado antes do vínculo ao cartão
-              </p>
-              <p className="text-xs text-muted-foreground break-words">
-                {LEGACY_DIRECT_ON_CARD_NOTE}
-              </p>
-              <div className="min-w-0">
-                <Label htmlFor="occurrence-convert-date">Data real da cobrança no cartão</Label>
-                <FinanceDateInput
-                  id="occurrence-convert-date"
-                  className="mt-1"
-                  value={convertDate}
-                  onChange={setConvertDate}
-                />
-              </div>
-              <Button
-                variant="secondary"
-                className="w-full sm:w-auto"
-                onClick={handleConvertToCardCharge}
-                disabled={converting || saving}
-              >
-                {converting ? "Convertendo..." : LEGACY_CONVERT_LABEL}
-              </Button>
-            </div>
+            <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-muted-foreground break-words min-w-0">
+              {LEGACY_DIRECT_ON_CARD_NOTE}
+            </p>
           )}
+
 
           <Block title="Dados deste mês">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
