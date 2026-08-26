@@ -607,10 +607,11 @@ export default function FinanceOccurrenceModal({
                 <p className="text-xs text-muted-foreground mt-1">
                   {statementRow
                     ? "Fatura fechada: valores, datas e pagamento ficam somente para consulta."
-                    : correcting
-                      ? CLOSED_CORRECTION_NOTE
+                    : inCorrection
+                      ? FACT_CORRECTION_NOTE
                       : "Compras no cartão são liquidadas pelo pagamento da fatura."}
                 </p>
+
 
               </div>
             ) : (
