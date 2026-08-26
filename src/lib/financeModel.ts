@@ -800,6 +800,7 @@ export function buildStatementGroups(params: {
 
     if (configIncomplete) {
       for (const row of currentRows) {
+        if (!isOperationalRow(row)) continue;
         if (row.cardItemId === card.id) components.push(row);
       }
     } else {
@@ -814,6 +815,8 @@ export function buildStatementGroups(params: {
           ? currentRows
           : buildMonthRows({ items: cardItems, occurrences, competence: chargeCompetence, fallbackRate });
         for (const row of monthRows) {
+          // Cadastro inativo sem fato real não compõe fatura nenhuma.
+          if (!isOperationalRow(row)) continue;
           if (row.cardItemId !== card.id) continue;
           const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
           // Competência REAL da cobrança (charge_date), não a do loop.
