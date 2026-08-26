@@ -656,6 +656,180 @@ export function useFinance(competence: Competence) {
     },
     [fetchAll],
   );
+  /* ----------------------- AGENDA DE PAGAMENTO ---------------------------- */
+
+  /**
+   * Grava a agenda de PAGAMENTO válida a partir de uma data. Não toca na agenda
+   * da despesa: o gasto continua acontecendo quando acontece.
+   */
+  const savePaymentRule = useCallback(
+    async (input: {
+      itemId: string;
+      effectiveFrom: string;
+      mode: FinancePaymentRule["mode"];
+      interval: number;
+      weekday?: number | null;
+      dayOfMonth?: number | null;
+    }) => {
+      if (!agencyId) return false;
+      const { error } = await (supabase as any)
+        .from("finance_payment_rules")
+        .upsert(
+          {
+            tenant_id: agencyId,
+            item_id: input.itemId,
+            effective_from: input.effectiveFrom,
+            mode: input.mode,
+            interval_count: input.interval > 0 ? Math.trunc(input.interval) : 1,
+            weekday: input.weekday ?? null,
+            day_of_month: input.dayOfMonth ?? null,
+            created_by: user?.id ?? null,
+          },
+          { onConflict: "item_id,effective_from" },
+        );
+      if (error) {
+        console.error("[finance] falha ao salvar agenda de pagamento", error);
+        toast.error("Não foi possível salvar a forma de pagamento");
+        return false;
+      }
+      await fetchAll();
+      return true;
+    },
+    [agencyId, user?.id, fetchAll],
+  );
+
+  /**
+   * Cria o LOTE (saída de caixa) com as identidades escolhidas e, opcionalmente,
+   * já registra o pagamento. Não duplica despesa: o lote não tem valor próprio —
+   * o valor continua nas ocorrências que ele quita.
+   */
+  const createPaymentBatch = useCallback(
+    async (input: {
+      itemId: string | null;
+      scheduledDate: string | null;
+      entries: { itemId: string; scheduledDate: string }[];
+      note?: string | null;
+      payNow?: boolean;
+      paidDateISO?: string | null;
+    }) => {
+      if (!agencyId) return false;
+      if (input.entries.length === 0) {
+        toast.error("Selecione ao menos um lançamento para o pagamento");
+        return false;
+      }
+      const { data, error } = await (supabase as any)
+        .from("finance_payment_batches")
+        .insert({
+          tenant_id: agencyId,
+          item_id: input.itemId,
+          competence_month: competenceToISO(normalized),
+          scheduled_date: input.scheduledDate,
+          note: input.note ?? null,
+          created_by: user?.id ?? null,
+        })
+        .select("id")
+        .maybeSingle();
+      if (error || !data?.id) {
+        console.error("[finance] falha ao criar lote de pagamento", error);
+        toast.error("Não foi possível criar o pagamento agrupado");
+        return false;
+      }
+      const batchId = data.id as string;
+      const { error: entriesError } = await (supabase as any)
+        .from("finance_payment_batch_entries")
+        .insert(
+          input.entries.map((entry) => ({
+            tenant_id: agencyId,
+            batch_id: batchId,
+            item_id: entry.itemId,
+            scheduled_date: entry.scheduledDate,
+          })),
+        );
+      if (entriesError) {
+        // Lote vazio é inútil e a RPC recusa pagá-lo: desfazemos para não sujar.
+        await (supabase as any).from("finance_payment_batches").delete().eq("id", batchId);
+        console.error("[finance] falha ao vincular lançamentos ao lote", entriesError);
+        toast.error(
+          entriesError.code === "23505"
+            ? "Algum lançamento já pertence a outro pagamento agrupado"
+            : "Não foi possível vincular os lançamentos ao pagamento",
+        );
+        return false;
+      }
+      if (input.payNow) {
+        const { error: payError } = await (supabase as any).rpc("finance_pay_payment_batch", {
+          _batch_id: batchId,
+          ...(input.paidDateISO ? { _paid_at: paymentDateToTimestamp(input.paidDateISO) } : {}),
+        });
+        if (payError) {
+          toast.error(payError.message || "Não foi possível registrar o pagamento do lote");
+          await fetchAll();
+          return false;
+        }
+      }
+      toast.success(
+        input.payNow
+          ? "Pagamento agrupado registrado — os lançamentos dele contam como pagos"
+          : "Pagamento agrupado criado",
+      );
+      await fetchAll();
+      return true;
+    },
+    [agencyId, normalized, user?.id, fetchAll],
+  );
+
+  /** Registra o pagamento de um lote existente. */
+  const payPaymentBatch = useCallback(
+    async (batchId: string, paidDateISO?: string | null) => {
+      const { error } = await (supabase as any).rpc("finance_pay_payment_batch", {
+        _batch_id: batchId,
+        ...(paidDateISO ? { _paid_at: paymentDateToTimestamp(paidDateISO) } : {}),
+      });
+      if (error) {
+        toast.error(error.message || "Não foi possível registrar o pagamento do lote");
+        return false;
+      }
+      toast.success("Pagamento agrupado registrado");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
+  /** Desfaz o pagamento do lote (os lançamentos voltam a constar em aberto). */
+  const unpayPaymentBatch = useCallback(
+    async (batchId: string) => {
+      const { error } = await (supabase as any).rpc("finance_unpay_payment_batch", {
+        _batch_id: batchId,
+      });
+      if (error) {
+        toast.error(error.message || "Não foi possível desfazer o pagamento do lote");
+        return false;
+      }
+      toast.success("Pagamento do lote desfeito");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
+  /** Exclui um lote AINDA NÃO PAGO (a RLS recusa excluir lote pago). */
+  const deletePaymentBatch = useCallback(
+    async (batchId: string) => {
+      const { error } = await (supabase as any)
+        .from("finance_payment_batches")
+        .delete()
+        .eq("id", batchId);
+      if (error) {
+        toast.error("Não foi possível excluir o pagamento agrupado");
+        return false;
+      }
+      toast.success("Pagamento agrupado removido");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
 
   return {
     loading,
@@ -664,6 +838,9 @@ export function useFinance(competence: Competence) {
     items,
     occurrences,
     rules,
+    paymentRules,
+    batches,
+    batchEntries,
     rows,
     statements,
     settlement,
@@ -683,6 +860,11 @@ export function useFinance(competence: Competence) {
 
     payStatement,
     setPaidStatementIof,
+    savePaymentRule,
+    createPaymentBatch,
+    payPaymentBatch,
+    unpayPaymentBatch,
+    deletePaymentBatch,
     saveSettings,
     saveItem,
     setItemActive,
