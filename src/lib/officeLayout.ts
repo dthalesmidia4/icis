@@ -169,6 +169,19 @@ export function agencyPanelWidthPx(stageWidth: number): number {
 const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
 
 
+/** Faixas laterais e centros do modo rico no DESKTOP NORMAL (1366–1599). */
+const DESKTOP_RICH = {
+  leftZonePx: 208,
+  rightZonePx: 214,
+  richCentersBack: [32, 68] as [number, number],
+  richCentersFront: [32, 68] as [number, number],
+};
+/** Faixas/centros do ULTRAWIDE: mais respiro, painel maior, monitor menor. */
+const ULTRAWIDE_RICH = {
+  richCentersBack: [34, 66] as [number, number],
+  richCentersFront: [33, 67] as [number, number],
+};
+
 export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProfile {
   const width = size.width || DEFAULT_SIZE.width;
   const height = size.height || DEFAULT_SIZE.height;
@@ -190,6 +203,12 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
           jitterPct: 0,
           scaleBack: 0.96,
           scaleFront: 1.08,
+          panelWidthPx: 492,
+          panelTopPct: 13,
+          monitorPct: 68,
+          leftZonePx: 300,
+          rightZonePx: 312,
+          ...ULTRAWIDE_RICH,
         }
       : {
           id: "ultrawide",
@@ -201,6 +220,12 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
           jitterPct: 0,
           scaleBack: 0.98,
           scaleFront: 1.12,
+          panelWidthPx: 508,
+          panelTopPct: 13,
+          monitorPct: 68,
+          leftZonePx: 312,
+          rightZonePx: 330,
+          ...ULTRAWIDE_RICH,
         };
   }
 
@@ -211,24 +236,38 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
       bottomAnchorPct: 88,
       centersBack: [28, 72],
       centersFront: [25.5, 74.5],
-      baseWidth: 396,
+      baseWidth: 416,
       jitterPct: 0.5,
       scaleBack: 0.95,
       scaleFront: 1.06,
+      panelWidthPx: 436,
+      panelTopPct: 12,
+      monitorPct: 73,
+      leftZonePx: 238,
+      rightZonePx: 244,
+      richCentersBack: [33, 67],
+      richCentersFront: [33, 67],
     };
   }
 
   if (width >= 1200) {
+    // DESKTOP NORMAL: painel mais estreito e alto na parede, mesas maiores.
+    // `desktopShort` (ex.: 1366x768) só muda âncoras/verticalidade.
+    const short = height < 800;
     return {
-      id: "desktop",
-      topAnchorPct: 52,
-      bottomAnchorPct: 88,
+      id: short ? "desktopShort" : "desktop",
+      topAnchorPct: short ? 53 : 52,
+      bottomAnchorPct: short ? 89 : 88,
       centersBack: [28, 72],
       centersFront: [26, 74],
-      baseWidth: 372,
+      baseWidth: short ? 392 : 404,
       jitterPct: 0.8,
       scaleBack: 0.94,
       scaleFront: 1.05,
+      panelWidthPx: short ? 380 : 400,
+      panelTopPct: short ? 10.5 : 11.5,
+      monitorPct: 74,
+      ...DESKTOP_RICH,
     };
   }
 
@@ -242,8 +281,16 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
     jitterPct: 0.8,
     scaleBack: 0.93,
     scaleFront: 1.04,
+    panelWidthPx: 340,
+    panelTopPct: 13,
+    monitorPct: 72,
+    leftZonePx: 206,
+    rightZonePx: 212,
+    richCentersBack: [33, 67],
+    richCentersFront: [33, 67],
   };
 }
+
 
 const jitter = (index: number, amplitude: number) => {
   if (amplitude <= 0) return 0;
