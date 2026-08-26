@@ -151,6 +151,9 @@ export function iofRowForStatementRow(statementRow: MonthRow): MonthRow | null {
     estimated: false,
     installmentNumber: null,
     installmentCount: null,
+    // Linha sintética: não é um agendamento de recorrência.
+    scheduledDate: null,
+
   };
 }
 

@@ -92,16 +92,26 @@ export const FINANCE_ITEM_METADATA_COLUMNS = [
   "installment_count",
   "recurrence_interval_months",
   "recurrence_start_date",
+  "recurrence_interval",
+  "recurrence_weekday",
+  "recurrence_anchor_date",
   "amount_mode",
 ].join(",");
+
 
 export const FINANCE_OCCURRENCE_METADATA_COLUMNS = [
   "id",
   "tenant_id",
   "item_id",
   "competence_month",
+  "scheduled_date",
+  "skipped_at",
+  "skip_reason",
+  "skipped_by",
+  "restored_at",
   "charge_date",
   "due_date",
+
   "currency",
   "is_estimated",
   "statement_occurrence_id",
