@@ -4636,6 +4636,8 @@ export default function TaskCard({
                                 onChange={(next) => onCardChange({ ...card, ad_plan: next } as any)}
                                 onBlur={handleAdPlanSave}
                                 readOnly={readOnly}
+                                workArea={(card as any).work_area || "midia"}
+                                campaignOptions={adPlanCampaigns}
                               />
                             )}
 
