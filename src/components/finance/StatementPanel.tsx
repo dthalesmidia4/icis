@@ -99,10 +99,13 @@ export default function StatementPanel({
   onEditCard,
   linkedItems,
   onEditItem,
+  labels,
 }: Props) {
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [linkedOpen, setLinkedOpen] = useState<Record<string, boolean>>({});
+  /** Expansão das cobranças múltiplas de um MESMO cadastro dentro da fatura. */
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (focusCardId) setExpanded((prev) => ({ ...prev, [focusCardId]: true }));
