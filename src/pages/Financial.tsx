@@ -44,6 +44,8 @@ import StatementPanel from "@/components/finance/StatementPanel";
 import { LinkedCardItem, buildLinkedCardItems } from "@/lib/financeCardLinkedItems";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
+import SkippedEntriesPanel from "@/components/finance/SkippedEntriesPanel";
+
 import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
 import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
