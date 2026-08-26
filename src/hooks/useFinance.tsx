@@ -93,6 +93,14 @@ export function useFinance(competence: Competence) {
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
   /** Versões da regra de recorrência (histórico por cadastro). */
   const [rules, setRules] = useState<FinanceRecurrenceRule[]>([]);
+  /**
+   * AGENDA DE PAGAMENTO (independente da agenda da despesa) + LOTES: um
+   * pagamento pode quitar várias ocorrências sem duplicar despesa.
+   */
+  const [paymentRules, setPaymentRules] = useState<FinancePaymentRule[]>([]);
+  const [batches, setBatches] = useState<FinancePaymentBatch[]>([]);
+  const [batchEntries, setBatchEntries] = useState<FinancePaymentBatchEntry[]>([]);
+
 
   const [settings, setSettings] = useState<FinanceSettings>({
     monthlyBudgetBrl: null,
