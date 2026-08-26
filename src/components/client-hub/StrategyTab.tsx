@@ -1,5 +1,6 @@
 import type { CurrentPeriodInfo } from "@/lib/periodCounts";
-import type { WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
+import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
+import { summarizePaidMedia } from "@/lib/acquisitionView";
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{children}</h2>
@@ -8,6 +9,7 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 interface StrategyTabProps {
   period: CurrentPeriodInfo | null;
   planItems: WorkspacePlanItem[];
+  demands: WorkspaceDemand[];
   strategyText: string | null;
   onOpenStrategy: () => void;
   onOpenPeriodHistory: () => void;
@@ -16,6 +18,7 @@ interface StrategyTabProps {
 export default function StrategyTab({
   period,
   planItems,
+  demands,
   strategyText,
   onOpenStrategy,
   onOpenPeriodHistory,
@@ -36,7 +39,13 @@ export default function StrategyTab({
   const paidBudget = (period?.paid_traffic_budget || "").trim();
   const generalBudget = (period?.budget || "").trim();
   const periodObjective = (period?.objective || "").trim();
-  const hasPaidMedia = !!(paidBudget || generalBudget);
+  // Mídia paga é real quando há verba OU conteúdos marcados como anúncio.
+  const paidMedia = summarizePaidMedia({
+    demands,
+    paidTrafficBudget: period?.paid_traffic_budget ?? null,
+    budget: period?.budget ?? null,
+  });
+  const hasPaidMedia = paidMedia.hasPaidMedia;
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1.7fr_1fr] lg:gap-14">
@@ -82,6 +91,22 @@ export default function StrategyTab({
                   <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
                     <dt className="opacity-80">Orçamento do período</dt>
                     <dd className="font-bold">{generalBudget}</dd>
+                  </div>
+                )}
+                <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                  <dt className="opacity-80">Conteúdos marcados para mídia paga</dt>
+                  <dd className="font-bold tabular-nums">{paidMedia.adMarkedCount}</dd>
+                </div>
+                {paidMedia.adPlanEnabledCount > 0 && (
+                  <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                    <dt className="opacity-80">Com plano de anúncio configurado</dt>
+                    <dd className="font-bold tabular-nums">{paidMedia.adPlanEnabledCount}</dd>
+                  </div>
+                )}
+                {!paidBudget && !generalBudget && (
+                  <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                    <dt className="opacity-80">Verba de tráfego pago</dt>
+                    <dd className="font-bold">Nenhuma verba cadastrada</dd>
                   </div>
                 )}
               </dl>

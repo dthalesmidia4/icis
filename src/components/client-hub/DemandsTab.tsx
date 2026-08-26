@@ -3,6 +3,7 @@ import { ArrowRight, Activity } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { cn } from "@/lib/utils";
+import { dedupeSnapshotAgainstLive } from "@/lib/demandCode";
 
 const MONTHS = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
@@ -42,7 +43,12 @@ export default function DemandsTab({
   const [filter, setFilter] = useState<FilterId>("all");
 
   const rows = useMemo(() => {
-    const demandTitles = new Set(demands.map((d) => (d.title || "").trim()));
+    // Dedupe por código estável (DF-XXX) + título normalizado: o snapshot chega
+    // completo do hook e nunca deve duplicar a demand viva do mesmo conteúdo.
+    const pendingPlanItems = dedupeSnapshotAgainstLive(
+      planItems,
+      demands.map((d) => d.title)
+    );
     const list = demands.map((d, idx) => {
       const status = d.status_id ? statusNames[d.status_id] : undefined;
       const done = !!status?.isFinal || !!d.archived_at;
@@ -60,8 +66,7 @@ export default function DemandsTab({
       };
     });
 
-    planItems.forEach((i, idx) => {
-      if (demandTitles.has(i.titulo)) return;
+    pendingPlanItems.forEach((i, idx) => {
       list.push({
         key: `plan-${i.titulo}-${idx}`,
         code: `PL-${String(idx + 1).padStart(3, "0")}`,

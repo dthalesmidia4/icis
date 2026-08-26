@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import JSZip from "jszip";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw, X, Activity, Megaphone } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw, X, Activity } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 
 import { useAgencyRole } from "@/hooks/useAgencyRole";
@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 
 import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
+import AcquisitionTab from "@/components/client-hub/AcquisitionTab";
 
 const buildFallbackDemandaQuestions = (solicitacaoCliente: string, estrategiaGeral?: string | null) => {
   const normalizedRequest = solicitacaoCliente.toLowerCase();
@@ -1837,8 +1838,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const tab = new URLSearchParams(window.location.search).get('tab');
-    return ['estrategia', 'calendario', 'demandas', 'cuidados', 'feed'].includes(tab || '')
-      ? (tab as string)
+    const alias: Record<string, string> = { acquisition: 'aquisicao', aquisicao: 'aquisicao' };
+    const normalized = alias[tab || ''] || tab || '';
+    return ['estrategia', 'aquisicao', 'calendario', 'demandas', 'cuidados', 'feed'].includes(normalized)
+      ? normalized
       : 'estrategia';
   });
 
@@ -1874,7 +1877,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_anamnese', title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia', title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
     { id: 'client_identidade_visual', title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
-    { id: 'client_campanhas', title: "Campanhas", icon: Megaphone, action: () => navigate("/campanhas") },
     { id: 'client_planejar_periodo', title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true), disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
     { id: 'client_aprovar_producao', title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (approvedCardsCount + rejectedCardsCount) > 0 ? (approvedCardsCount + rejectedCardsCount) : undefined },
     { id: 'client_cronograma_atual', title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },
@@ -1923,6 +1925,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">
             {[
               { value: "estrategia", label: "Estratégia" },
+              { value: "aquisicao", label: "Aquisição" },
               { value: "calendario", label: "Calendário" },
               { value: "demandas", label: "Demandas" },
               { value: "feed", label: "Feed Simulado" },
@@ -1944,9 +1947,18 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               <StrategyTab
                 period={workspace.period}
                 planItems={workspace.planItems}
+                demands={workspace.demands}
                 strategyText={workspace.strategyText}
                 onOpenStrategy={() => navigate('/strategies')}
                 onOpenPeriodHistory={() => navigate('/plan-period?tab=history')}
+              />
+            </TabsContent>
+            <TabsContent value="aquisicao" className="m-0">
+              <AcquisitionTab
+                tenantId={tenantId}
+                period={workspace.period}
+                demands={workspace.demands}
+                onOpenCommercial={() => navigate('/comercial-sistemas')}
               />
             </TabsContent>
             <TabsContent value="calendario" className="m-0">

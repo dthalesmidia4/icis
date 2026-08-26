@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentPeriodForClient, type CurrentPeriodInfo } from "@/lib/periodCounts";
-import { dedupeSnapshotAgainstLive } from "@/lib/demandCode";
 
 
 export interface WorkspacePlanItem {
@@ -160,9 +159,12 @@ export function useClientPeriodWorkspace(params: {
 
         const list = ((demandRows as any[]) || []) as WorkspaceDemand[];
         setDemands(list);
-        // Precedência por código estável (DF-XXX): snapshot histórico nunca
-        // concorre com a demand viva do mesmo conteúdo.
-        setPlanItems(dedupeSnapshotAgainstLive(snapshotItems, list.map((d) => d.title)));
+        // O snapshot do período é devolvido COMPLETO: ele é a memória do ciclo
+        // (canais, objetivos, arquitetura) e não pode ser esvaziado quando as
+        // peças viram demands. O dedupe snapshot × demand pertence a cada
+        // componente que combina as duas fontes para renderizar linhas
+        // (CalendarTab, DemandsTab, InstagramFeedTab).
+        setPlanItems(snapshotItems);
 
         setStatusNames(
           Object.fromEntries(
