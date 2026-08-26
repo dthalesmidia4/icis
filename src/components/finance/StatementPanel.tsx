@@ -41,6 +41,12 @@ import {
 import { Competence } from "@/lib/financeCardCycle";
 import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
 import { paymentTimestampToDate } from "@/lib/financePaymentDate";
+import {
+  type OccurrenceLabel,
+  groupStatementComponents,
+  occurrenceDisplayName,
+  occurrenceDisplaySuffix,
+} from "@/lib/financeOccurrenceLabels";
 
 interface Props {
   groups: StatementGroup[];
@@ -50,6 +56,8 @@ interface Props {
   focusCardId?: string | null;
   highlightIncomplete?: boolean;
   onOpenRow: (row: MonthRow) => void;
+  /** Rótulos dinâmicos das linhas do mês (renovação, recargas, 1/4...). */
+  labels?: Map<string, OccurrenceLabel>;
   onOpenStatement: (group: StatementGroup) => void;
   onPayStatement: (group: StatementGroup) => void;
   onAdjustIof: (group: StatementGroup) => void;
@@ -91,10 +99,13 @@ export default function StatementPanel({
   onEditCard,
   linkedItems,
   onEditItem,
+  labels,
 }: Props) {
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [linkedOpen, setLinkedOpen] = useState<Record<string, boolean>>({});
+  /** Expansão das cobranças múltiplas de um MESMO cadastro dentro da fatura. */
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (focusCardId) setExpanded((prev) => ({ ...prev, [focusCardId]: true }));
@@ -312,36 +323,104 @@ export default function StatementPanel({
                     Nenhuma cobrança vinculada a este cartão nesta fatura.
                   </p>
                 ) : (
-                  group.components.map((row) => (
-                    <button
-                      key={row.key}
-                      onClick={() => onOpenRow(row)}
-                      className="w-full flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
-                    >
-                      <span className="truncate text-foreground">
-                        {row.item.name}
-                        {row.projected && <span className="text-muted-foreground"> · prevista</span>}
-                      </span>
-                      <span className="flex items-center gap-3 flex-shrink-0">
-                        <span
-                          className={
-                            row.chargeDate ? "text-muted-foreground" : "text-destructive"
-                          }
+                  groupStatementComponents(group.components).map((itemGroup) => {
+                    /**
+                     * ITEM LÓGICO: um mesmo cadastro pode ter várias cobranças
+                     * na MESMA fatura (renovação + recargas). Aqui elas viram
+                     * uma linha expansível — o total da fatura não muda.
+                     */
+                    if (!itemGroup.multiple) {
+                      const row = itemGroup.rows[0];
+                      return (
+                        <button
+                          key={row.key}
+                          onClick={() => onOpenRow(row)}
+                          className="w-full flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
                         >
-                          {cardChargeDateLabel({
-                            chargeDate: row.chargeDate,
-                            projected: row.projected,
-                          })}
-                        </span>
-                        {row.currency === "USD" && (
-                          <span className="text-muted-foreground">
-                            {formatCurrencyValue(row.amountOriginal, "USD")}
+                          <span className="truncate text-foreground">
+                            {occurrenceDisplayName(row, labels)}
+                            {row.projected && <span className="text-muted-foreground"> · prevista</span>}
                           </span>
+                          <span className="flex items-center gap-3 flex-shrink-0">
+                            <span className={row.chargeDate ? "text-muted-foreground" : "text-destructive"}>
+                              {cardChargeDateLabel({ chargeDate: row.chargeDate, projected: row.projected })}
+                            </span>
+                            {row.currency === "USD" && (
+                              <span className="text-muted-foreground">
+                                {formatCurrencyValue(row.amountOriginal, "USD")}
+                              </span>
+                            )}
+                            <span className="font-semibold">{formatBRL(row.amountBrl)}</span>
+                          </span>
+                        </button>
+                      );
+                    }
+                    const expanded = expandedItems[itemGroup.itemId] ?? false;
+                    return (
+                      <div key={itemGroup.itemId}>
+                        <button
+                          onClick={() =>
+                            setExpandedItems((prev) => ({
+                              ...prev,
+                              [itemGroup.itemId]: !expanded,
+                            }))
+                          }
+                          className="w-full flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
+                        >
+                          <span className="flex items-center gap-2 min-w-0 text-foreground">
+                            {expanded ? (
+                              <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                            )}
+                            <span className="truncate">{itemGroup.itemName}</span>
+                            <span className="text-muted-foreground flex-shrink-0">
+                              · {itemGroup.rows.length} cobranças
+                            </span>
+                          </span>
+                          <span className="font-semibold flex-shrink-0">
+                            {formatBRL(itemGroup.totalBrl)}
+                          </span>
+                        </button>
+                        {expanded && (
+                          <div className="divide-y bg-muted/30">
+                            {itemGroup.rows.map((row) => (
+                              <button
+                                key={row.key}
+                                onClick={() => onOpenRow(row)}
+                                className="w-full flex flex-wrap items-center justify-between gap-3 pl-10 pr-4 py-2.5 text-sm hover:bg-muted/50 text-left"
+                              >
+                                <span className="truncate text-foreground">
+                                  {occurrenceDisplaySuffix(row, labels)}
+                                  {row.projected && (
+                                    <span className="text-muted-foreground"> · prevista</span>
+                                  )}
+                                </span>
+                                <span className="flex items-center gap-3 flex-shrink-0">
+                                  <span
+                                    className={
+                                      row.chargeDate ? "text-muted-foreground" : "text-destructive"
+                                    }
+                                  >
+                                    {cardChargeDateLabel({
+                                      chargeDate: row.chargeDate,
+                                      projected: row.projected,
+                                    })}
+                                  </span>
+                                  {row.currency === "USD" && (
+                                    <span className="text-muted-foreground">
+                                      {formatCurrencyValue(row.amountOriginal, "USD")}
+                                    </span>
+                                  )}
+                                  <span className="font-semibold">{formatBRL(row.amountBrl)}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         )}
-                        <span className="font-semibold">{formatBRL(row.amountBrl)}</span>
-                      </span>
-                    </button>
-                  ))
+                      </div>
+                    );
+                  })
                 )}
               </div>
             )}

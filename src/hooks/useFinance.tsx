@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/hooks/useAuth";
+import type { SupplementalRpcArgs } from "@/lib/financeSupplementalEntry";
 import { toast } from "sonner";
 import {
   Competence,
@@ -403,6 +404,27 @@ export function useFinance(competence: Competence) {
       return data as any as FinanceOccurrence;
     },
     [agencyId, normalized, user?.id, fetchAll],
+  );
+
+  /**
+   * REGISTRA um lançamento SUPLEMENTAR (recarga/extra) do mesmo cadastro.
+   * Vai pela RPC segura: ela valida acesso, tenant, natureza do cadastro e
+   * decide a data do fato (cobrança no cartão x vencimento direto).
+   */
+  const createSupplementalOccurrence = useCallback(
+    async (args: SupplementalRpcArgs) => {
+      const { data, error } = await (supabase as any).rpc(
+        "finance_create_supplemental_occurrence",
+        args,
+      );
+      if (error) {
+        toast.error(error.message || "Não foi possível registrar o lançamento");
+        return null;
+      }
+      await fetchAll();
+      return (data as string | null) ?? null;
+    },
+    [fetchAll],
   );
 
   /**
@@ -890,6 +912,7 @@ export function useFinance(competence: Competence) {
     settings,
     refresh: fetchAll,
     saveOccurrence,
+    createSupplementalOccurrence,
     skipOccurrence,
     restoreOccurrence,
     setRecurrenceFuture,

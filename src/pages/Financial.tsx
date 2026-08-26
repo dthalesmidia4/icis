@@ -37,7 +37,9 @@ import { FinanceLoadErrorState } from "@/components/finance/FinanceLoadErrorStat
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
+import { buildOccurrenceLabels } from "@/lib/financeOccurrenceLabels";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
+import FinanceSupplementalEntryModal from "@/components/finance/FinanceSupplementalEntryModal";
 import FinanceAccessGate from "@/components/finance/FinanceAccessGate";
 import FinancePasswordSettingsCard from "@/components/finance/FinancePasswordSettingsCard";
 import StatementPanel from "@/components/finance/StatementPanel";
@@ -259,6 +261,8 @@ function FinancialCockpit() {
   const [rateInput, setRateInput] = useState("");
   const [payingGroup, setPayingGroup] = useState<StatementGroup | null>(null);
   const [adjustingIofGroup, setAdjustingIofGroup] = useState<StatementGroup | null>(null);
+  /** Cadastro que vai receber um lançamento SUPLEMENTAR (recarga/extra). */
+  const [supplementalItem, setSupplementalItem] = useState<FinanceItem | null>(null);
   const [focusCardId, setFocusCardId] = useState<string | null>(null);
   const [highlightIncomplete, setHighlightIncomplete] = useState(false);
 
@@ -266,6 +270,18 @@ function FinancialCockpit() {
     setBudgetInput(settings.monthlyBudgetBrl != null ? String(settings.monthlyBudgetBrl) : "");
     setRateInput(settings.defaultUsdRate != null ? String(settings.defaultUsdRate) : "");
   }, [settings.monthlyBudgetBrl, settings.defaultUsdRate]);
+
+  /**
+   * Rótulos dinâmicos de TODAS as linhas do mês (inclui as cobranças dentro das
+   * faturas), calculados num ponto só para tela, composição e fatura nunca
+   * divergirem.
+   */
+  const occurrenceLabels = useMemo(() => {
+    const all = new Map<string, MonthRow>();
+    for (const row of rows) all.set(row.key, row);
+    for (const group of statements) for (const row of group.components) all.set(row.key, row);
+    return buildOccurrenceLabels([...all.values()]);
+  }, [rows, statements]);
 
   const cardsById = useMemo(() => new Map(cards.map((c) => [c.id, c])), [cards]);
   /** Assinaturas só precisam de rótulo/ciclo do cartão — nunca limite ou fatura. */
@@ -1145,6 +1161,7 @@ function FinancialCockpit() {
               loading={loading}
               emptyMessage="Nenhuma despesa neste recorte com esses filtros."
               onOpenRow={setOccurrenceRow}
+              labels={occurrenceLabels}
               groupBy={compositionGroupBy}
               expanded={compositionExpanded}
               onToggleGroup={toggleCompositionGroup}
@@ -1280,6 +1297,7 @@ function FinancialCockpit() {
                   : "Nenhuma conta para este filtro neste mês."
               }
               onOpenRow={setOccurrenceRow}
+              labels={occurrenceLabels}
               onTogglePaid={togglePaid}
               onEditItem={(item) => openItemModal(item)}
             />
@@ -1318,6 +1336,7 @@ function FinancialCockpit() {
                 focusCardId={focusCardId}
                 highlightIncomplete={highlightIncomplete}
                 onOpenRow={setOccurrenceRow}
+                labels={occurrenceLabels}
                 onOpenStatement={handleOpenStatement}
                 onPayStatement={handlePayStatement}
                 onAdjustIof={setAdjustingIofGroup}
@@ -1444,14 +1463,29 @@ function FinancialCockpit() {
         cards={cards}
         defaultUsdRate={settings.defaultUsdRate}
         statusContext={statusContext}
+        labels={occurrenceLabels}
         onSave={saveOccurrence}
         onSkip={(row) => skipOccurrence(row)}
         onRefresh={refresh}
 
+        onAddSupplemental={(item) => {
+          setOccurrenceRow(null);
+          setSupplementalItem(item);
+        }}
         onEditItem={(item) => {
           setOccurrenceRow(null);
           openItemModal(item);
         }}
+      />
+
+      <FinanceSupplementalEntryModal
+        open={!!supplementalItem}
+        onOpenChange={(open) => { if (!open) setSupplementalItem(null); }}
+        item={supplementalItem}
+        cards={cards}
+        today={today}
+        defaultUsdRate={settings.defaultUsdRate}
+        onCreate={finance.createSupplementalOccurrence}
       />
 
       <PayStatementModal

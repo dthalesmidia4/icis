@@ -102,13 +102,52 @@ export interface FinanceItem {
   link?: string | null;
   parent_item_id?: string | null;
   notes?: string | null;
+  /**
+   * O cadastro aceita LANÇAMENTOS SUPLEMENTARES no mesmo mês (recargas/extras)
+   * sem virar um novo cadastro. Cartão e recurso incluído nunca aceitam.
+   */
+  supports_supplemental_entries?: boolean | null;
+  /** Natureza do suplementar deste cadastro (`recharge` | `extra`). */
+  supplemental_entry_kind?: FinanceEntryRole | null;
 }
+
+/**
+ * PAPEL DO LANÇAMENTO dentro do mês:
+ *  - `regular`: o lançamento do cronograma (mensal, diário, semanal, avulso...).
+ *    Continua único por competência (ou por `scheduled_date`);
+ *  - `recharge` / `extra`: fatos SUPLEMENTARES do MESMO cadastro no mesmo mês.
+ *    Nunca projetam futuro e nunca suprimem o regular.
+ */
+export type FinanceEntryRole = "regular" | "extra" | "recharge";
+
+/** Papel efetivo de uma ocorrência (legado sem coluna = `regular`). */
+export function occurrenceEntryRole(
+  occ: FinanceOccurrence | null | undefined,
+): FinanceEntryRole {
+  const role = occ?.entry_role;
+  return role === "extra" || role === "recharge" ? role : "regular";
+}
+
+/** O cadastro aceita recarga/extra dentro do mês? Cartão/pacote incluído nunca. */
+export function itemSupportsSupplemental(item: FinanceItem): boolean {
+  if (item.kind === "card" || item.kind === "included_resource") return false;
+  return item.supports_supplemental_entries === true;
+}
+
+/** Natureza do suplementar do cadastro (default `extra`). */
+export function supplementalRoleFor(item: FinanceItem): Exclude<FinanceEntryRole, "regular"> {
+  return item.supplemental_entry_kind === "recharge" ? "recharge" : "extra";
+}
+
 
 export interface FinanceOccurrence {
   id: string;
   tenant_id?: string;
   item_id: string;
   competence_month: string;
+  /** Papel do lançamento no mês (default `regular` no banco e no legado). */
+  entry_role?: FinanceEntryRole | null;
+
   /**
    * IDENTIDADE do lançamento recorrente: a data ORIGINALMENTE agendada pelo
    * cronograma. Mover a data efetiva (`due_date`/`charge_date`) não muda a
@@ -180,7 +219,12 @@ export interface MonthRow {
    * `null` em linhas mensais/anuais/parceladas, faturas e legado.
    */
   scheduledDate: string | null;
+  /** Papel do lançamento (`regular` para projeções e legado). */
+  entryRole: FinanceEntryRole;
+  /** Atalho: `true` em recarga/extra (fato suplementar do mesmo cadastro). */
+  supplemental: boolean;
 }
+
 
 
 
@@ -538,6 +582,8 @@ function rowFromOccurrence(
     ),
     installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
     scheduledDate: occ.scheduled_date ?? null,
+    entryRole: occurrenceEntryRole(occ),
+    supplemental: occurrenceEntryRole(occ) !== "regular",
   };
 }
 
@@ -591,6 +637,8 @@ function rowFromProjection(
     installmentNumber: installmentNumberForCompetence(item, competence),
     installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
     scheduledDate: scheduledDate ?? null,
+    entryRole: "regular",
+    supplemental: false,
   };
 }
 
@@ -624,14 +672,26 @@ export function buildMonthRows(params: {
   const byScheduled = new Map<string, FinanceOccurrence>();
   /** Ocorrências sem data agendada: faturas, avulsos, legado e mensais. */
   const byItem = new Map<string, FinanceOccurrence>();
+  /**
+   * Fatos SUPLEMENTARES (recarga/extra) do mês, por cadastro. Eles não disputam
+   * o slot do lançamento regular: entram SEMPRE como linha própria.
+   */
+  const supplementalByItem = new Map<string, FinanceOccurrence[]>();
   for (const occ of occurrences) {
     if (occ.competence_month !== competenceISO) continue;
+    if (occurrenceEntryRole(occ) !== "regular") {
+      const list = supplementalByItem.get(occ.item_id) ?? [];
+      list.push(occ);
+      supplementalByItem.set(occ.item_id, list);
+      continue;
+    }
     if (occ.scheduled_date) {
       byScheduled.set(scheduleIdentity(occ.item_id, occ.scheduled_date), occ);
     } else {
       byItem.set(occ.item_id, occ);
     }
   }
+
 
   const rows: MonthRow[] = [];
   const consumed = new Set<string>();
@@ -677,7 +737,30 @@ export function buildMonthRows(params: {
       rows.push(rowFromProjection(item, competence, fallbackRate));
     }
   }
+
+  /**
+   * LANÇAMENTOS SUPLEMENTARES: fatos reais adicionais do MESMO cadastro no mês
+   * (ex.: recargas de crédito). Nunca substituem nem suprimem o lançamento
+   * regular/projeção acima — apenas somam fatos ao mês.
+   */
+  for (const item of items) {
+    if (!isCostBearing(item)) continue;
+    const extras = supplementalByItem.get(item.id);
+    if (!extras?.length) continue;
+    const ordered = [...extras].sort((a, b) => {
+      const da = a.due_date ?? a.charge_date ?? "9999-99-99";
+      const db = b.due_date ?? b.charge_date ?? "9999-99-99";
+      if (da !== db) return da.localeCompare(db);
+      return a.id.localeCompare(b.id);
+    });
+    for (const occ of ordered) {
+      if (isSkippedOccurrence(occ)) continue;
+      rows.push(rowFromOccurrence(item, occ, fallbackRate));
+    }
+  }
+
   return rows.sort((a, b) => {
+
     const da = a.dueDate ?? a.chargeDate ?? "9999-99-99";
     const db = b.dueDate ?? b.chargeDate ?? "9999-99-99";
     if (da !== db) return da.localeCompare(db);
@@ -1017,7 +1100,14 @@ export function buildStatementGroups(params: {
           });
           if (resolved.incomplete || !resolved.statementCompetence) continue;
           if (!sameCompetence(resolved.statementCompetence, competence)) continue;
-          const identity = `${card.id}|${row.item.id}|${row.chargeDate ?? competenceToISO(actualChargeCompetence)}`;
+          /**
+           * Fato real tem identidade PRÓPRIA (a PK da ocorrência): dois fatos
+           * do mesmo item no mesmo dia (renovação + recarga) são cobranças
+           * distintas e não podem se anular no dedupe.
+           */
+          const identity = row.occurrence && !row.projected
+            ? `${card.id}|occ:${row.occurrence.id}`
+            : `${card.id}|${row.item.id}|${row.chargeDate ?? competenceToISO(actualChargeCompetence)}`;
           const existing = byChargeIdentity.get(identity);
           if (existing) {
             const existingReal = !!existing.occurrence && !existing.projected;
@@ -1033,9 +1123,11 @@ export function buildStatementGroups(params: {
        * projeção (dias diferentes), a fatura fica só com o fato — senão o item
        * apareceria duas vezes e o total da fatura dobraria.
        */
+      // Só o fato REGULAR substitui a projeção: uma recarga é fato ADICIONAL e
+      // nunca apaga a renovação prevista do mesmo cadastro.
       const realItemIds = new Set(
         [...byChargeIdentity.values()]
-          .filter((row) => !!row.occurrence && !row.projected)
+          .filter((row) => !!row.occurrence && !row.projected && !row.supplemental)
           .map((row) => row.item.id),
       );
       for (const row of byChargeIdentity.values()) {

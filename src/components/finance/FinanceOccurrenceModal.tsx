@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CalendarOff, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { CalendarOff, Paperclip, Pencil, PlusCircle, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,7 @@ import {
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
 import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
+import { supplementalAction } from "@/lib/financeSupplementalEntry";
 import FinanceDateInput from "./FinanceDateInput";
 import {
   canSubmitOccurrence,
@@ -105,6 +106,8 @@ const FOLLOW_ITEM = "__follow__";
 /** Sentinela: pagamento direto sem forma definida neste mês. */
 const NO_METHOD = "__none__";
 
+import { type OccurrenceLabel, occurrenceDisplayName } from "@/lib/financeOccurrenceLabels";
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -124,6 +127,13 @@ interface Props {
    * a recorrência continua valendo para as próximas datas.
    */
   onSkip?: (row: MonthRow) => Promise<boolean>;
+  /**
+   * Abre o registro de um lançamento SUPLEMENTAR (recarga/extra) do MESMO
+   * cadastro: fato adicional do mês, sem substituir a linha prevista.
+   */
+  onAddSupplemental?: (item: FinanceItem) => void;
+  /** Rótulos dinâmicos das linhas do mês (renovação/recarga). */
+  labels?: Map<string, OccurrenceLabel> | null;
 }
 
 
@@ -148,6 +158,8 @@ export default function FinanceOccurrenceModal({
   onEditItem,
   onRefresh,
   onSkip,
+  onAddSupplemental,
+  labels,
 }: Props) {
 
   const [skipping, setSkipping] = useState(false);
@@ -460,7 +472,7 @@ export default function FinanceOccurrenceModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="min-w-0">
-          <DialogTitle className="break-words pr-8">{row.item.name}</DialogTitle>
+          <DialogTitle className="break-words pr-8">{occurrenceDisplayName(row, labels)}</DialogTitle>
           <DialogDescription className="break-words">
             {occurrenceContextLine(row, statusContext?.competenceMonth)}
             <br />
@@ -745,6 +757,20 @@ export default function FinanceOccurrenceModal({
               >
                 <CalendarOff className="w-4 h-4 mr-2 flex-shrink-0" />
                 {skipping ? "Ignorando..." : "Ignorar este lançamento"}
+              </Button>
+            ) : null}
+            {/* Fato ADICIONAL do mesmo cadastro (recarga/extra) neste mês. */}
+            {onAddSupplemental && supplementalAction(row.item) ? (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  onOpenChange(false);
+                  onAddSupplemental(row.item);
+                }}
+                disabled={saving || removing}
+              >
+                <PlusCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                {supplementalAction(row.item)!.label}
               </Button>
             ) : null}
             {deleteAction === "delete_statement" ||
