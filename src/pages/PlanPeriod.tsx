@@ -172,7 +172,11 @@ const PlanPeriod = () => {
       if (!tenantId || !selectedClient?.id) { setCampaigns([]); return; }
       try {
         const rows = await loadCampaigns(tenantId, selectedClient.id);
-        if (!cancelled) setCampaigns(rows.filter((c) => !isCampaignClosed(c.status)));
+        // Encerradas ficam fora, exceto a que veio explicitamente pela URL.
+        const current = searchParams.get('campaign') || campaignId;
+        if (!cancelled) {
+          setCampaigns(rows.filter((c) => !isCampaignClosed(c.status) || c.id === current));
+        }
       } catch (err) {
         console.error('[PlanPeriod] falha ao carregar campanhas', err);
       }

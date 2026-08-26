@@ -1090,12 +1090,8 @@ export default function SystemsCommercial() {
                   lifecycle: "prospect",
                   commercialStage: "mapeado",
                   commercialOwnerId: user?.id || null,
-                  // Nova oportunidade nasce atribuída à campanha vigente da empresa.
-                  acquisitionCampaignId:
-                    (activeCampaign && activeCampaign.company_id === newCompany
-                      ? activeCampaign.id
-                      : null),
-
+                  // Vínculo de campanha é sempre escolha explícita: nunca automático.
+                  acquisitionCampaignId: newCampaignId || null,
                 });
                 setNewSaving(false);
                 if (!res.success) {
