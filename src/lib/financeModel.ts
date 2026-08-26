@@ -737,7 +737,30 @@ export function buildMonthRows(params: {
       rows.push(rowFromProjection(item, competence, fallbackRate));
     }
   }
+
+  /**
+   * LANÇAMENTOS SUPLEMENTARES: fatos reais adicionais do MESMO cadastro no mês
+   * (ex.: recargas de crédito). Nunca substituem nem suprimem o lançamento
+   * regular/projeção acima — apenas somam fatos ao mês.
+   */
+  for (const item of items) {
+    if (!isCostBearing(item)) continue;
+    const extras = supplementalByItem.get(item.id);
+    if (!extras?.length) continue;
+    const ordered = [...extras].sort((a, b) => {
+      const da = a.due_date ?? a.charge_date ?? "9999-99-99";
+      const db = b.due_date ?? b.charge_date ?? "9999-99-99";
+      if (da !== db) return da.localeCompare(db);
+      return a.id.localeCompare(b.id);
+    });
+    for (const occ of ordered) {
+      if (isSkippedOccurrence(occ)) continue;
+      rows.push(rowFromOccurrence(item, occ, fallbackRate));
+    }
+  }
+
   return rows.sort((a, b) => {
+
     const da = a.dueDate ?? a.chargeDate ?? "9999-99-99";
     const db = b.dueDate ?? b.chargeDate ?? "9999-99-99";
     if (da !== db) return da.localeCompare(db);
