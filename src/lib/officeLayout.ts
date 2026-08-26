@@ -586,11 +586,12 @@ export function computeDeskSlots(
     } else if (inRow === 2) {
       const centers = rich
         ? isFront
-          ? RICH_CENTERS_FRONT
-          : RICH_CENTERS_BACK
+          ? profile.richCentersFront
+          : profile.richCentersBack
         : isFront
           ? profile.centersFront
           : profile.centersBack;
+
       leftPct = centers[posInRow] + (rich ? 0 : jitter(i + row, profile.jitterPct));
     } else {
       // Fileiras do fundo recuam levemente para dentro (perspectiva).
