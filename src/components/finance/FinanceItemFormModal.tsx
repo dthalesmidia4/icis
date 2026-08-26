@@ -138,6 +138,12 @@ export default function FinanceItemFormModal({
   const [currency, setCurrency] = useState<FinanceCurrency>("BRL");
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
+  /**
+   * Valor cobrado em reais: EDITÁVEL. Junto com dólar e câmbio forma a
+   * identidade `BRL = USD × câmbio` — editar um recalcula o outro
+   * (`financeUsdConversion`), sem loop e sem divisão por zero.
+   */
+  const [brlCharged, setBrlCharged] = useState("");
   const [chargeDay, setChargeDay] = useState("");
   const [dueDay, setDueDay] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>(NONE);
@@ -193,7 +199,13 @@ export default function FinanceItemFormModal({
           ? String(item.default_amount_brl)
           : "",
     );
+    const seeded = seedUsdConversion({
+      original: item?.default_amount_original ?? null,
+      rate: item?.default_exchange_rate ?? defaultUsdRate ?? null,
+      brl: item?.default_amount_brl ?? null,
+    });
     setRate(item?.default_exchange_rate != null ? String(item.default_exchange_rate) : "");
+    setBrlCharged(item?.currency === "USD" ? seeded.brl : "");
     setChargeDay(item?.charge_day != null ? String(item.charge_day) : "");
     setDueDay(item?.due_day != null ? String(item.due_day) : "");
     setPaymentMethod(item?.payment_method ?? NONE);
@@ -210,13 +222,32 @@ export default function FinanceItemFormModal({
     setOneOffDate(competence ? competenceToISO(competence) : "");
     setLink(item?.link ?? "");
     setNotes(item?.notes ?? "");
-  }, [open, item, initialKind]);
+  }, [open, item, initialKind, defaultUsdRate]);
 
 
   const isCard = kind === "card";
   const isIncluded = kind === "included_resource";
   const onCard = paymentMethod === CARD_PAYMENT_METHOD;
-  const effectiveRate = parseLocalizedNumber(rate) ?? defaultUsdRate;
+  const usdState: UsdConversionState = { original: amount, rate, brl: brlCharged };
+  /** Aplica a edição e propaga só os campos DERIVADOS. */
+  const editUsd = (field: UsdConversionField, value: string) => {
+    if (currency !== "USD") {
+      if (field === "original") setAmount(value);
+      else if (field === "rate") setRate(value);
+      else setBrlCharged(value);
+      return;
+    }
+    const next = applyUsdEdit(usdState, field, value);
+    setAmount(next.original);
+    setRate(next.rate);
+    setBrlCharged(next.brl);
+  };
+
+  const usdNumbers = resolveUsdNumbers(usdState);
+  const effectiveRate =
+    currency === "USD"
+      ? usdNumbers.exchangeRate ?? parseLocalizedNumber(rate) ?? defaultUsdRate
+      : null;
   const amountNumber = parseLocalizedNumber(amount);
   const isInstallments = !isCard && !isIncluded && chargeMode === "installments";
   const isRecurring = !isCard && !isIncluded && chargeMode === "recurring";
@@ -278,10 +309,9 @@ export default function FinanceItemFormModal({
 
 
   const brlPreview = useMemo(() => {
-    if (amountNumber == null) return null;
-    if (currency === "USD") return effectiveRate != null ? amountNumber * effectiveRate : null;
+    if (currency === "USD") return usdNumbers.amountBrl;
     return amountNumber;
-  }, [amountNumber, currency, effectiveRate]);
+  }, [amountNumber, currency, usdNumbers.amountBrl]);
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
@@ -581,25 +611,39 @@ export default function FinanceItemFormModal({
                   <Label>
                     {chargeMode === "consumption" ? "Valor estimado" : "Valor de referência"}
                   </Label>
-                  <Input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal" />
+                  <Input
+                    value={amount}
+                    onChange={(e) => editUsd("original", e.target.value)}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                  />
                 </div>
               </div>
 
 
               {currency === "USD" && (
-                <div className="grid grid-cols-2 gap-4 items-end">
-                  <div>
-                    <Label>Câmbio (R$ por US$)</Label>
-                    <Input
-                      value={rate}
-                      onChange={(e) => setRate(e.target.value)}
-                      placeholder={defaultUsdRate != null ? String(defaultUsdRate) : "5,13"}
-                      inputMode="decimal"
-                    />
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="min-w-0">
+                      <Label>Câmbio (R$ por US$)</Label>
+                      <Input
+                        value={rate}
+                        onChange={(e) => editUsd("rate", e.target.value)}
+                        placeholder={defaultUsdRate != null ? String(defaultUsdRate) : "5,13"}
+                        inputMode="decimal"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <Label>Valor cobrado em R$</Label>
+                      <Input
+                        value={brlCharged}
+                        onChange={(e) => editUsd("brl", e.target.value)}
+                        placeholder="0,00"
+                        inputMode="decimal"
+                      />
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground pb-2">
-                    Equivalente: <span className="font-semibold text-foreground">{formatBRL(brlPreview)}</span>
-                  </p>
+                  <p className="text-xs text-muted-foreground">{USD_CONVERSION_HELP}</p>
                 </div>
               )}
 
