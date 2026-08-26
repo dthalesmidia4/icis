@@ -11,9 +11,11 @@ interface OfficeMissionPanelProps {
 }
 
 /**
- * NÍVEL COLETIVO + MISSÕES DO DIA, na parede à esquerda. Tudo derivado do
- * estado real: XP vem de entregas registradas em `demand_flow_history` e as
- * missões, do próprio quadro operacional. Sem ranking individual.
+ * QUADRO DE AVISOS DA PAREDE (placar coletivo): nível + XP + missões do dia.
+ * Tudo derivado do estado real — XP vem de entregas registradas em
+ * `demand_flow_history` e as missões, do próprio quadro operacional. Sem
+ * ranking individual. Visualmente é um quadro físico com moldura e pinos, não
+ * um card SaaS flutuante.
  */
 export const OfficeMissionPanel = memo(function OfficeMissionPanel({
   level,
@@ -23,63 +25,69 @@ export const OfficeMissionPanel = memo(function OfficeMissionPanel({
 }: OfficeMissionPanelProps) {
   const pct = Math.round((level.xpInLevel / level.nextLevelXp) * 100);
   return (
-    <div className="w-[186px] rounded-md border border-border/70 bg-background/75 px-2 py-1.5 backdrop-blur-[2px]">
-      {/* nível coletivo */}
-      <div className="flex items-center justify-between" title={XP_LEGEND}>
-        <span className="rounded-full bg-primary/15 px-1.5 text-[9px] font-bold uppercase leading-4 tracking-wide text-primary">
-          Nível {level.level}
-        </span>
-        <span className="text-[8px] tabular-nums text-muted-foreground">
-          {level.xpInLevel}/{level.nextLevelXp} XP
-        </span>
-      </div>
-      <div className="mt-1 h-[4px] w-full overflow-hidden rounded-full bg-foreground/10">
-        <span
-          className="block h-full rounded-full bg-primary/70 transition-[width] duration-700"
-          style={{ width: `${Math.max(2, pct)}%` }}
-        />
-      </div>
-      <p className="mt-[3px] text-[8px] leading-tight text-muted-foreground">{XP_LEGEND}</p>
+    <div className="relative w-[clamp(212px,17vw,268px)] rounded-[4px] border-[3px] border-foreground/25 bg-muted/70 p-1 shadow-[0_10px_18px_-12px_hsl(var(--foreground)/0.9)]">
+      {/* pinos do quadro */}
+      <span aria-hidden="true" className="absolute left-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary/70" />
+      <span aria-hidden="true" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-foreground/35" />
 
-      {/* missões coletivas */}
-      <div className="mt-1.5 flex items-baseline justify-between">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-          Missões do dia
-        </span>
-        <span className="text-[9px] font-semibold tabular-nums text-foreground">
-          {doneCount}/{total}
-        </span>
-      </div>
-      <ul className="mt-1 space-y-[3px]">
-        {missions.map((m) => (
-          <li key={m.id} className="flex items-start gap-1">
-            <span
-              aria-hidden="true"
-              className={cn(
-                "mt-[2px] flex h-3 w-3 shrink-0 items-center justify-center rounded-[3px] border",
-                m.done ? "border-primary bg-primary text-primary-foreground" : "border-border",
-              )}
-            >
-              {m.done && <Check className="h-2 w-2" />}
-            </span>
-            <span className="min-w-0">
+      <div className="rounded-[2px] bg-background/85 px-2 py-1.5">
+        {/* nível coletivo */}
+        <div className="flex items-center justify-between" title={XP_LEGEND}>
+          <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-bold uppercase leading-[16px] tracking-wide text-primary">
+            Nível {level.level}
+          </span>
+          <span className="text-[9px] font-medium tabular-nums text-muted-foreground">
+            {level.xpInLevel}/{level.nextLevelXp} XP
+          </span>
+        </div>
+        <div className="mt-1 h-[6px] w-full overflow-hidden rounded-full bg-foreground/12 ring-1 ring-inset ring-foreground/10">
+          <span
+            className="block h-full rounded-full bg-primary/80 transition-[width] duration-700"
+            style={{ width: `${Math.max(2, pct)}%` }}
+          />
+        </div>
+        <p className="mt-[3px] text-[8px] leading-tight text-muted-foreground">{XP_LEGEND}</p>
+
+        {/* missões coletivas */}
+        <div className="mt-2 flex items-baseline justify-between border-t border-border/60 pt-1.5">
+          <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            Missões do dia
+          </span>
+          <span className="text-[10px] font-semibold tabular-nums text-foreground">
+            {doneCount}/{total}
+          </span>
+        </div>
+        <ul className="mt-1 space-y-[4px]">
+          {missions.map((m) => (
+            <li key={m.id} className="flex items-start gap-1.5">
               <span
+                aria-hidden="true"
                 className={cn(
-                  "block text-[9px] leading-tight",
-                  m.done ? "text-muted-foreground line-through" : "font-medium text-foreground",
+                  "mt-[1px] flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border",
+                  m.done ? "border-primary bg-primary text-primary-foreground" : "border-foreground/30",
                 )}
               >
-                {m.label}
+                {m.done && <Check className="h-2.5 w-2.5" />}
               </span>
-              {m.detail && (
-                <span className="block text-[8px] leading-tight text-muted-foreground">
-                  {m.detail}
+              <span className="min-w-0">
+                <span
+                  className={cn(
+                    "block text-[10px] leading-tight",
+                    m.done ? "text-muted-foreground line-through" : "font-medium text-foreground",
+                  )}
+                >
+                  {m.label}
                 </span>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
+                {m.detail && (
+                  <span className="block text-[9px] leading-tight text-muted-foreground">
+                    {m.detail}
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 });

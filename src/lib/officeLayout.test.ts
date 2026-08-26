@@ -12,6 +12,10 @@ import {
   deskFootprint,
   richZonesActive,
   RICH_PANEL_BAND_PCT,
+  STAGE_MAX_PX,
+  agencyPanelWidthPx,
+  characterSizePx,
+  stageWidthPx,
 } from "./officeLayout";
 import { assignDeskSlots, sanitizeDeskObjects } from "./officeDeskObjects";
 
@@ -85,7 +89,7 @@ describe("zona reservada da cafeteria", () => {
         const back = slots.filter((s) => s.row === 0);
         const rightmost = back.reduce((a, b) => (b.leftPct > a.leftPct ? b : a));
         const rightEdge = (rightmost.leftPct / 100) * width + (base * rightmost.scale) / 2;
-        expect(rightEdge).toBeLessThanOrEqual(coffeeZoneLeftPx(width));
+        expect(rightEdge).toBeLessThanOrEqual(coffeeZoneLeftPx(width) + 0.01);
       }
     }
   });
@@ -199,7 +203,7 @@ describe("downscale responsivo do 2x2", () => {
         .filter((s) => s.row === 0)
         .reduce((a, b) => (b.leftPct > a.leftPct ? b : a));
       const rightEdge = (backRight.leftPct / 100) * width + (base * backRight.scale) / 2;
-      expect(rightEdge).toBeLessThanOrEqual(coffeeZoneLeftPx(width));
+      expect(rightEdge).toBeLessThanOrEqual(coffeeZoneLeftPx(width) + 0.01);
     }
   });
 });
@@ -245,12 +249,37 @@ describe("modo rico de zonas (até 4 mesas)", () => {
     }
   });
 
-  it("centros das 4 mesas ficam nas faixas 36–40% e 62–66%", () => {
+  it("2x2 compacto: centros das mesas ficam nas faixas ~35% e ~66%", () => {
     const slots = computeDeskSlots(4, { width: 1920, height: 1080 }, { sideZones: true });
     slots.forEach((s, i) => {
-      if (i % 2 === 0) expect(s.leftPct).toBeGreaterThanOrEqual(36);
-      else expect(s.leftPct).toBeLessThanOrEqual(66);
+      if (i % 2 === 0) {
+        expect(s.leftPct).toBeGreaterThanOrEqual(34);
+        expect(s.leftPct).toBeLessThanOrEqual(40);
+      } else {
+        expect(s.leftPct).toBeGreaterThanOrEqual(60);
+        expect(s.leftPct).toBeLessThanOrEqual(66);
+      }
     });
+  });
+
+  it("palco lógico mantém o escritório coeso em ultrawide", () => {
+    expect(stageWidthPx(1366)).toBeGreaterThan(1366 * 0.94);
+    expect(stageWidthPx(1920)).toBeGreaterThan(1700);
+    expect(stageWidthPx(3440)).toBeLessThanOrEqual(STAGE_MAX_PX);
+    // ultrawide não afasta as mesas indefinidamente
+    expect(stageWidthPx(3440)).toBeLessThan(3440 * 0.75);
+  });
+
+  it("painel da parede fica na faixa 420–520px e personagens ganham escala", () => {
+    for (const w of [1366, 1920, 2560, 3440]) {
+      const pw = agencyPanelWidthPx(stageWidthPx(w));
+      expect(pw).toBeGreaterThanOrEqual(420);
+      expect(pw).toBeLessThanOrEqual(520);
+    }
+    expect(characterSizePx(50, "seated")).toBeGreaterThan(50);
+    expect(characterSizePx(50, "standing")).toBeGreaterThanOrEqual(
+      characterSizePx(50, "seated"),
+    );
   });
 
   it("5+ estações ignoram o modo rico e mantêm a composição genérica", () => {

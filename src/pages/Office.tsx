@@ -4,7 +4,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
-import { computeDeskSlots, deskBaseWidth, deskMonitorWidthPct, richZonesActive } from "@/lib/officeLayout";
+import {
+  agencyPanelWidthPx,
+  computeDeskSlots,
+  deskBaseWidth,
+  deskMonitorWidthPct,
+  richLeftZonePx,
+  richRightZonePx,
+  richZonesActive,
+  stageSize,
+} from "@/lib/officeLayout";
 import OfficeWorld from "@/components/office/OfficeWorld";
 import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
@@ -178,7 +187,10 @@ export default function Office() {
   });
 
   // ---------- animação de transferência (apenas representação visual) ----------
-  const worldRef = useRef<HTMLElement>(null);
+  // `roomRef` = sala inteira (medida); `worldRef` = PALCO LÓGICO (sistema de
+  // coordenadas de personagens e animação — coeso também em ultrawide).
+  const roomRef = useRef<HTMLElement>(null);
+  const worldRef = useRef<HTMLDivElement>(null);
   const stackAnchors = useRef<Map<string, HTMLElement>>(new Map());
   const snapshotRef = useRef<AssignmentSnapshot | null>(null);
   const recentRef = useRef<Record<string, number>>({});
@@ -283,16 +295,16 @@ export default function Office() {
 
   // Tamanho REAL do mundo (medido só no resize, nunca por frame): define o
   // perfil responsivo das mesas (desktop / large / ultrawide).
-  const [worldSize, setWorldSize] = useState({ width: 1440, height: 860 });
+  const [roomSize, setRoomSize] = useState({ width: 1440, height: 860 });
   useEffect(() => {
-    const el = worldRef.current;
+    const el = roomRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const rect = entries[0]?.contentRect;
       if (!rect) return;
       const width = Math.round(rect.width);
       const height = Math.round(rect.height);
-      setWorldSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+      setRoomSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -300,6 +312,12 @@ export default function Office() {
 
   // Zonas laterais (planejamento/revisão à esquerda, café/reunião/espera à
   // direita) só entram no desktop: em telas menores a operação vem primeiro.
+  /**
+   * PALCO LÓGICO: toda a matemática de composição (mesas, faixas laterais,
+   * painel) usa esta largura — nunca a largura bruta da viewport.
+   */
+  const worldSize = useMemo(() => stageSize(roomSize), [roomSize]);
+
   const layoutOptions = useMemo(
     () => ({ coffeeCorner: !isMobile, sideZones: !isMobile }),
     [isMobile],
@@ -326,7 +344,9 @@ export default function Office() {
     <div>
       {/* ---------- Cenário ---------- */}
       <OfficeWorld
-        containerRef={worldRef}
+        containerRef={roomRef}
+        stageRef={worldRef}
+        stageWidth={worldSize.width}
         hud={
           <>
             {/* Apenas o filtro de área permanece no cenário (HUD de métricas
@@ -360,12 +380,16 @@ export default function Office() {
                 atRisk={pulse.atRisk}
                 awaitingClient={pulse.awaitingClient}
                 progressPct={pulse.progressPct}
+                width={agencyPanelWidthPx(worldSize.width)}
               />
             </div>
 
             {/* FAIXA ESQUERDA: missões + planejamento + revisão */}
             {richZones && (
-              <div className="pointer-events-none absolute bottom-4 left-2 z-30 hidden w-[196px] flex-col gap-3 sm:flex">
+              <div
+                className="pointer-events-none absolute bottom-4 left-2 z-30 hidden flex-col gap-3 sm:flex"
+                style={{ width: richLeftZonePx(worldSize.width) - 16 }}
+              >
                 <OfficeMissionPanel
                   level={pulse.level}
                   missions={pulse.missions}
@@ -378,7 +402,10 @@ export default function Office() {
             )}
 
             {/* FAIXA DIREITA: café + reunião + sala de espera */}
-            <div className="pointer-events-none absolute right-2 top-[22%] z-30 hidden flex-col items-end gap-3 sm:flex sm:right-3">
+            <div
+              className="pointer-events-none absolute right-2 top-[21%] z-30 hidden flex-col items-end gap-3 sm:flex sm:right-3"
+              style={{ width: richRightZonePx(worldSize.width) - 16 }}
+            >
               <CoffeeCorner
                 occupied={loading ? 0 : coffeeCount}
                 overflow={loading ? 0 : Math.max(0, coffeeOverflow)}

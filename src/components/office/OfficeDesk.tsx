@@ -14,6 +14,7 @@ import {
   type DeskSlotName,
 } from "@/lib/officeDeskObjects";
 import { isCoffeeEligible } from "@/lib/officePresence";
+import { MONITOR_MIN_HEIGHT_PX } from "@/lib/officeLayout";
 
 const timeLabel = (date?: string | null, time?: string | null) => {
   if (!date) return null;
@@ -68,7 +69,7 @@ export const OfficeDesk = memo(function OfficeDesk({
   deskObjects = [],
   viewerUserId = null,
   onSaveDeskObjects,
-  monitorPct = 57,
+  monitorPct = 52,
 
   registerStackAnchor,
   registerAnchor,
@@ -153,7 +154,7 @@ export const OfficeDesk = memo(function OfficeDesk({
         <div className="flex shrink-0 items-end gap-[3px]">
           <div
             className="relative flex shrink-0 flex-col items-center justify-end pb-[2px]"
-            style={{ width: 50, height: 50 }}
+            style={{ width: 58, height: 56 }}
           >
             <span
               aria-hidden="true"
@@ -163,7 +164,7 @@ export const OfficeDesk = memo(function OfficeDesk({
                   ? "bg-foreground/20 dark:bg-foreground/25"
                   : "bg-foreground/12 dark:bg-foreground/18",
               )}
-              style={{ width: away ? 36 : 40, height: 26 }}
+              style={{ width: away ? 40 : 46, height: 30 }}
             />
             {away && (
               <span
@@ -173,7 +174,7 @@ export const OfficeDesk = memo(function OfficeDesk({
             )}
             <OfficeZoneAnchor
               anchorKey={`desk:${collaborator.userId}`}
-              width={50}
+              width={58}
               register={registerAnchor}
             />
           </div>
@@ -214,7 +215,8 @@ export const OfficeDesk = memo(function OfficeDesk({
                 ? "hover:border-primary/70 hover:shadow-[0_0_0_2px_hsl(var(--primary)/0.2)]"
                 : "cursor-default",
             )}
-            style={{ minHeight: 54 }}
+            style={{ minHeight: MONITOR_MIN_HEIGHT_PX }}
+
           >
             {working && (
               <span
@@ -254,7 +256,7 @@ export const OfficeDesk = memo(function OfficeDesk({
                 )}
               </div>
             ) : (
-              <div className="relative flex min-h-[46px] flex-col items-center justify-center gap-1 text-muted-foreground">
+              <div className="relative flex min-h-[38px] flex-col items-center justify-center gap-1 text-muted-foreground">
                 <span aria-hidden="true" className="h-[3px] w-8 rounded-full bg-muted-foreground/30" />
                 <span className="text-[9px]">Standby</span>
               </div>
@@ -267,10 +269,10 @@ export const OfficeDesk = memo(function OfficeDesk({
             )}
             <span aria-hidden="true" className="h-1.5 w-4 bg-foreground/25" />
           </div>
-          <span aria-hidden="true" className="h-[3px] w-10 rounded-sm bg-foreground/30" />
+          <span aria-hidden="true" className="h-[4px] w-14 rounded-sm bg-foreground/35" />
           <span
             aria-hidden="true"
-            className="mt-[2px] h-[5px] w-[58%] rounded-[2px] bg-foreground/15 dark:bg-foreground/25"
+            className="mt-[2px] h-[6px] w-[66%] rounded-[2px] bg-foreground/20 dark:bg-foreground/28"
           />
         </div>
 
@@ -297,10 +299,10 @@ export const OfficeDesk = memo(function OfficeDesk({
       <div className="relative z-20">
         <div
           aria-hidden="true"
-          className="h-[9px] rounded-t-[4px] bg-gradient-to-b from-foreground/30 to-foreground/18 dark:from-foreground/35 dark:to-foreground/22"
+          className="h-[12px] rounded-t-[4px] bg-gradient-to-b from-foreground/38 to-foreground/22 dark:from-foreground/42 dark:to-foreground/26"
           style={{ clipPath: "polygon(3% 0, 97% 0, 100% 100%, 0 100%)" }}
         />
-        <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/50 px-2 pb-1 pt-[3px] shadow-[0_6px_10px_-8px_hsl(var(--foreground)/0.6)]">
+        <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/55 px-2 pb-1.5 pt-[4px] shadow-[0_10px_14px_-9px_hsl(var(--foreground)/0.8)]">
           {/* plaquinha frontal com o nome + acesso à personalização (só o dono) */}
           <div className="flex items-center justify-center gap-1">
             <p className="max-w-[70%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
@@ -353,13 +355,13 @@ export const OfficeDesk = memo(function OfficeDesk({
         </div>
         {/* pernas */}
         <div aria-hidden="true" className="flex justify-between px-3">
-          <span className="h-3 w-[3px] bg-foreground/25" />
-          <span className="h-3 w-[3px] bg-foreground/25" />
+          <span className="h-4 w-[4px] bg-foreground/30" />
+          <span className="h-4 w-[4px] bg-foreground/30" />
         </div>
         {/* sombra de contato */}
         <div
           aria-hidden="true"
-          className="mx-auto h-1.5 w-[85%] rounded-[50%] bg-foreground/15 blur-[2px] dark:bg-background/60"
+          className="mx-auto h-2 w-[88%] rounded-[50%] bg-foreground/20 blur-[2px] dark:bg-background/60"
         />
       </div>
 
