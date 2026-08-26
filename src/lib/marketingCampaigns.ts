@@ -54,6 +54,12 @@ export interface MarketingCampaign {
   state: string | null;
   region_label: string | null;
   radius_km: number | null;
+  /** Ordem logística da praça na onda de expansão (01, 02, ...). */
+  sequence_order: number | null;
+  ads_start_date: string | null;
+  ads_end_date: string | null;
+  calls_start_date: string | null;
+  visits_start_date: string | null;
   channels: string[];
   paid_traffic_budget: number | null;
   acquisition_strategy: string | null;
@@ -84,6 +90,11 @@ export function campaignRegionLabel(
 
 export interface CampaignFormInput {
   name?: string | null;
+  city?: string | null;
+  state?: string | null;
+  sequenceOrder?: string | number | null;
+  adsStartDate?: string | null;
+  adsEndDate?: string | null;
   status?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -104,7 +115,78 @@ export function validateCampaignInput(input: CampaignFormInput): string | null {
   if (radius !== null && radius < 0) return "O raio de atuação não pode ser negativo.";
   const budget = parseNumber(input.paidTrafficBudget);
   if (budget !== null && budget < 0) return "A verba de tráfego pago não pode ser negativa.";
+  if (input.adsStartDate && input.adsEndDate && input.adsEndDate < input.adsStartDate) {
+    return "O fim dos anúncios deve ser posterior ao início.";
+  }
+  const seq = parseNumber(input.sequenceOrder);
+  if (seq !== null && seq < 1) return "A ordem da praça deve ser 1 ou maior.";
   return null;
+}
+
+/**
+ * Validação da PRAÇA de expansão (aba Expansão do Client Hub): cidade e estado
+ * são obrigatórios, o nome interno é derivado da cidade.
+ */
+export function validatePlaceInput(input: CampaignFormInput): string | null {
+  if (!input.city || !String(input.city).trim()) return "Informe a cidade da praça.";
+  if (!input.state || !String(input.state).trim()) return "Informe o estado da praça.";
+  return validateCampaignInput({ ...input, name: input.name || placeInternalName(input.city) });
+}
+
+/** Nome interno automático da praça — o usuário não precisa digitar. */
+export function placeInternalName(city?: string | null): string {
+  const c = (city || "").trim();
+  return c ? `${c} — Aquisição` : "Praça — Aquisição";
+}
+
+/** Ordem de exibição das praças: sequence_order ASC (nulls last), start_date, created_at. */
+export function sortCampaignsForExpansion(rows: MarketingCampaign[]): MarketingCampaign[] {
+  return [...(rows || [])].sort((a, b) => {
+    const sa = a.sequence_order ?? Number.POSITIVE_INFINITY;
+    const sb = b.sequence_order ?? Number.POSITIVE_INFINITY;
+    if (sa !== sb) return sa - sb;
+    const da = a.start_date || "";
+    const db = b.start_date || "";
+    if (da !== db) return (da || "9999").localeCompare(db || "9999");
+    return (a.created_at || "").localeCompare(b.created_at || "");
+  });
+}
+
+/** Rótulo da ordem: `01`, `02`, … usando o índice quando não há sequence_order. */
+export function placeOrderLabel(campaign: MarketingCampaign, index: number): string {
+  const n = campaign.sequence_order ?? index + 1;
+  return String(n).padStart(2, "0");
+}
+
+/** Cidade/UF humanizada da praça (nunca o nome interno). */
+export function placeLabel(
+  c: Pick<MarketingCampaign, "city" | "state" | "region_label" | "name" | "radius_km">,
+): string {
+  const place = [c.city, c.state].filter((v) => v && String(v).trim()).join("/");
+  if (place) return place;
+  if (c.region_label && c.region_label.trim()) return c.region_label.trim();
+  return (c.name || "").replace(/\s*—\s*Aquisi[çc][ãa]o\s*$/i, "").trim() || "Praça";
+}
+
+const TBD = "A definir";
+
+/** Data pontual em pt-BR, com `A definir` honesto quando ainda não há valor. */
+export function placeDate(value?: string | null): string {
+  if (!value) return TBD;
+  const [y, m, d] = value.slice(0, 10).split("-");
+  return d && m && y ? `${d}/${m}/${y}` : value;
+}
+
+/** Janela `início → fim` das duas datas, com `A definir` quando vazias. */
+export function placeWindow(start?: string | null, end?: string | null): string {
+  if (!start && !end) return TBD;
+  return `${placeDate(start)} → ${placeDate(end)}`;
+}
+
+/** Investimento em tráfego formatado; `A definir` quando null. */
+export function placeBudgetLabel(value?: number | null): string {
+  if (value === null || value === undefined) return TBD;
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 /** Converte texto brasileiro ("1.500,50") ou número em number; vazio → null. */
@@ -160,7 +242,8 @@ export async function loadCampaigns(
     .from("marketing_campaigns")
     .select("*")
     .eq("tenant_id", tenantId)
-    .order("start_date", { ascending: false, nullsFirst: false })
+    .order("sequence_order", { ascending: true, nullsFirst: false })
+    .order("start_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
   if (companyId) query = query.eq("company_id", companyId);
   const { data, error } = await query;
@@ -192,6 +275,11 @@ export interface SaveCampaignPayload {
   state?: string | null;
   regionLabel?: string | null;
   radiusKm?: string | number | null;
+  sequenceOrder?: string | number | null;
+  adsStartDate?: string | null;
+  adsEndDate?: string | null;
+  callsStartDate?: string | null;
+  visitsStartDate?: string | null;
   channels?: string[];
   paidTrafficBudget?: string | number | null;
   acquisitionStrategy?: string | null;
@@ -210,6 +298,9 @@ export async function saveCampaign(
     endDate: payload.endDate,
     radiusKm: payload.radiusKm,
     paidTrafficBudget: payload.paidTrafficBudget,
+    sequenceOrder: payload.sequenceOrder,
+    adsStartDate: payload.adsStartDate,
+    adsEndDate: payload.adsEndDate,
   });
   if (invalid) return { success: false, message: invalid };
 
@@ -226,6 +317,11 @@ export async function saveCampaign(
     state: clean(payload.state),
     region_label: clean(payload.regionLabel),
     radius_km: parseNumber(payload.radiusKm),
+    sequence_order: parseNumber(payload.sequenceOrder),
+    ads_start_date: payload.adsStartDate || null,
+    ads_end_date: payload.adsEndDate || null,
+    calls_start_date: payload.callsStartDate || null,
+    visits_start_date: payload.visitsStartDate || null,
     channels: payload.channels ?? [],
     paid_traffic_budget: parseNumber(payload.paidTrafficBudget),
     acquisition_strategy: clean(payload.acquisitionStrategy),
