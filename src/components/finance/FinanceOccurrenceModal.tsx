@@ -797,26 +797,16 @@ export default function FinanceOccurrenceModal({
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
 
-            {/* Fato fechado abre em consulta: a correção é explícita. */}
-            {correctionMode === "correctable" && !correcting && (
-              <Button variant="secondary" onClick={() => setCorrecting(true)} disabled={saving}>
-                <Pencil className="w-4 h-4 mr-2 flex-shrink-0" />
-                {FACT_CORRECTION_BUTTON}
+            {/* Fato fechado NÃO tem botão para destravar: o Save roteia sozinho. */}
+            {factEditable && (
+              <Button
+                onClick={handleSave}
+                disabled={saving || uploading || (!rowClosed && !canSubmit)}
+              >
+                {saving ? "Salvando..." : "Salvar lançamento"}
               </Button>
             )}
 
-            {(!readOnlyFact || inCorrection) && (
-              <Button
-                onClick={handleSave}
-                disabled={saving || uploading || (!inCorrection && !canSubmit)}
-              >
-                {saving
-                  ? "Salvando..."
-                  : inCorrection
-                    ? FACT_CORRECTION_SAVE_LABEL
-                    : "Salvar lançamento"}
-              </Button>
-            )}
           </div>
 
 
