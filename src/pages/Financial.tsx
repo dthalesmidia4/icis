@@ -38,6 +38,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
+import FinanceSupplementalEntryModal from "@/components/finance/FinanceSupplementalEntryModal";
 import FinanceAccessGate from "@/components/finance/FinanceAccessGate";
 import FinancePasswordSettingsCard from "@/components/finance/FinancePasswordSettingsCard";
 import StatementPanel from "@/components/finance/StatementPanel";
@@ -259,6 +260,8 @@ function FinancialCockpit() {
   const [rateInput, setRateInput] = useState("");
   const [payingGroup, setPayingGroup] = useState<StatementGroup | null>(null);
   const [adjustingIofGroup, setAdjustingIofGroup] = useState<StatementGroup | null>(null);
+  /** Cadastro que vai receber um lançamento SUPLEMENTAR (recarga/extra). */
+  const [supplementalItem, setSupplementalItem] = useState<FinanceItem | null>(null);
   const [focusCardId, setFocusCardId] = useState<string | null>(null);
   const [highlightIncomplete, setHighlightIncomplete] = useState(false);
 
@@ -1448,10 +1451,24 @@ function FinancialCockpit() {
         onSkip={(row) => skipOccurrence(row)}
         onRefresh={refresh}
 
+        onAddSupplemental={(item) => {
+          setOccurrenceRow(null);
+          setSupplementalItem(item);
+        }}
         onEditItem={(item) => {
           setOccurrenceRow(null);
           openItemModal(item);
         }}
+      />
+
+      <FinanceSupplementalEntryModal
+        open={!!supplementalItem}
+        onOpenChange={(open) => { if (!open) setSupplementalItem(null); }}
+        item={supplementalItem}
+        cards={cards}
+        today={today}
+        defaultUsdRate={settings.defaultUsdRate}
+        onCreate={finance.createSupplementalOccurrence}
       />
 
       <PayStatementModal
