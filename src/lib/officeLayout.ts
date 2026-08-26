@@ -407,21 +407,20 @@ export function deskBaseWidth(
   let richBase = Number.POSITIVE_INFINITY;
   let richSepBase = Number.POSITIVE_INFINITY;
   if (richZonesActive(count, options)) {
-    const band = centerBandPx(width);
-    const leftCenter = (Math.min(RICH_CENTERS_BACK[0], RICH_CENTERS_FRONT[0]) / 100) * width;
-    const rightCenter = (Math.max(RICH_CENTERS_BACK[1], RICH_CENTERS_FRONT[1]) / 100) * width;
+    const band = centerBandPx(size);
+    const back = profile.richCentersBack;
+    const front = profile.richCentersFront;
+    const leftCenter = (Math.min(back[0], front[0]) / 100) * width;
+    const rightCenter = (Math.max(back[1], front[1]) / 100) * width;
     const leftLimit = (2 * (leftCenter - band.left)) / profile.scaleFront;
     const rightLimit = (2 * (band.right - rightCenter)) / profile.scaleFront;
     richBase = Math.min(leftLimit, rightLimit);
     if (perRow >= 2) {
-      const sep =
-        Math.min(
-          RICH_CENTERS_BACK[1] - RICH_CENTERS_BACK[0],
-          RICH_CENTERS_FRONT[1] - RICH_CENTERS_FRONT[0],
-        ) / 100;
+      const sep = Math.min(back[1] - back[0], front[1] - front[0]) / 100;
       richSepBase = (sep * width - gap) / scaleMax;
     }
   }
+
 
   // Nunca encolher além do necessário: o piso de conforto é o downscale máximo.
   const floor = Math.max(MIN_BASE_WIDTH, desired * (1 - MAX_DOWNSCALE));
