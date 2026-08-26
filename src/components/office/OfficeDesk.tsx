@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { AlertTriangle, Clock, Settings2 } from "lucide-react";
+import { AlertTriangle, Clock, Flag, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfficeStationData } from "@/hooks/useOfficeOverview";
 import { useNowTick } from "@/hooks/useNowTick";
