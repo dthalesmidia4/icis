@@ -20,6 +20,8 @@ import {
   sameCompetence,
 } from "./financeCardCycle";
 
+import { CARD_CHARGE_DATE_MISSING, cardChargeDateLabel } from "./financeCardLabels";
+
 import type { FinanceSettlementContext } from "./financeSettlement";
 import { visibleStatementGroups } from "./financeCardVisibility";
 
@@ -439,15 +441,17 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 /** Texto da coluna "Quando", contextual por forma de pagamento. */
 export function whenLabel(row: MonthRow, today: string): string {
   if (isStatementRow(row)) {
-    if (!row.dueDate) return "Vencimento não definido";
-    if (row.dueDate === today) return "Vence hoje";
-    return `Vence em ${formatDayMonth(row.dueDate)}`;
+    if (!row.dueDate) return "Vencimento da fatura não definido";
+    if (row.dueDate === today) return "Fatura vence hoje";
+    return `Fatura vence em ${formatDayMonth(row.dueDate)}`;
   }
   if (isCardCharge(row)) {
-    if (!row.chargeDate) return "Cobrança sem data definida";
-    if (row.chargeDate === today) return "Cobrança hoje";
-    if (row.projected) return `Cobrança prevista em ${formatDayMonth(row.chargeDate)}`;
-    return `Cobrança em ${formatDayMonth(row.chargeDate)}`;
+    // Vocabulário único: fato = `Cobrado no cartão`; projeção = `prevista`.
+    if (!row.chargeDate) return CARD_CHARGE_DATE_MISSING;
+    if (row.chargeDate === today) {
+      return row.projected ? "Cobrança prevista no cartão hoje" : "Cobrado no cartão hoje";
+    }
+    return cardChargeDateLabel({ chargeDate: row.chargeDate, projected: row.projected });
   }
   const ref = row.dueDate ?? row.chargeDate ?? null;
   if (!ref) return "Sem data definida";

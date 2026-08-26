@@ -66,6 +66,10 @@ import {
 } from "@/lib/financeOccurrenceForm";
 import { effectivePaid } from "@/lib/financeModel";
 import {
+  CARD_CHARGE_DATE_HELP,
+  cardChargeDateFieldLabel,
+} from "@/lib/financeCardLabels";
+import {
   OCCURRENCE_ACTION_LABELS,
   occurrenceDeleteActionForRow,
 } from "@/lib/financeDeletePolicy";
@@ -362,10 +366,10 @@ export default function FinanceOccurrenceModal({
 
   if (!row) return null;
 
-  const dateLabel = cardRow ? "Data da cobrança no cartão" : "Vencimento";
+  const dateLabel = cardRow ? cardChargeDateFieldLabel(row.projected) : "Vencimento";
   const rateLabel = persistedRate != null ? "Câmbio efetivo" : "Câmbio de referência";
   const whenText = cardRow
-    ? `cobrança ${row.projected ? "prevista" : "real"} em ${formatDateBR(row.chargeDate)}`
+    ? `${row.projected ? "cobrança prevista no cartão" : "cobrado no cartão"} em ${formatDateBR(row.chargeDate)}`
     : `vencimento ${row.projected ? "previsto" : ""} ${formatDateBR(row.dueDate ?? row.chargeDate)}`.replace("  ", " ");
 
   const toneClass =
@@ -425,6 +429,9 @@ export default function FinanceOccurrenceModal({
                   onChange={(e) => setFactDate(e.target.value)}
                   readOnly={readOnlyFact}
                 />
+                {cardRow && (
+                  <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DATE_HELP}</p>
+                )}
               </div>
 
               {row.currency === "USD" && (

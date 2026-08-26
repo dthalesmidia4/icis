@@ -19,6 +19,7 @@ import {
   FinanceOccurrence,
   MonthRow,
   buildMonthRows,
+  operationalMonthRows,
   detectPackageOverlaps,
 } from "@/lib/financeModel";
 import { SafeCard } from "@/lib/financeSubscriptionMonth";
@@ -156,7 +157,9 @@ export function useFinanceTools(competence: Competence) {
   const rows = useMemo(
     () =>
       tracked
-        ? buildMonthRows({ items, occurrences, competence: normalized, fallbackRate: null })
+        ? operationalMonthRows(
+            buildMonthRows({ items, occurrences, competence: normalized, fallbackRate: null }),
+          )
         : [],
     [items, occurrences, normalized.year, normalized.month, tracked],
   );

@@ -24,6 +24,7 @@ import {
   FinanceOccurrence,
   MonthRow,
   buildMonthRows,
+  operationalMonthRows,
   buildStatementGroups,
   computeTotals,
   detectPackageOverlaps,
@@ -195,12 +196,14 @@ export function useFinance(competence: Competence) {
   const rows = useMemo(
     () =>
       tracked
-        ? buildMonthRows({
-            items,
-            occurrences,
-            competence: normalized,
-            fallbackRate: settings.defaultUsdRate,
-          })
+        ? operationalMonthRows(
+            buildMonthRows({
+              items,
+              occurrences,
+              competence: normalized,
+              fallbackRate: settings.defaultUsdRate,
+            }),
+          )
         : [],
     [items, occurrences, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
