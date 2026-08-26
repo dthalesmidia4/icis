@@ -710,47 +710,9 @@ export function useFinance(competence: Competence) {
     },
     [fetchAll],
   );
-  /* ----------------------- AGENDA DE PAGAMENTO ---------------------------- */
+  /* ----------------------- LOTES DE PAGAMENTO ----------------------------- */
 
-  /**
-   * Grava a agenda de PAGAMENTO válida a partir de uma data. Não toca na agenda
-   * da despesa: o gasto continua acontecendo quando acontece.
-   */
-  const savePaymentRule = useCallback(
-    async (input: {
-      itemId: string;
-      effectiveFrom: string;
-      mode: FinancePaymentRule["mode"];
-      interval: number;
-      weekday?: number | null;
-      dayOfMonth?: number | null;
-    }) => {
-      if (!agencyId) return false;
-      const { error } = await (supabase as any)
-        .from("finance_payment_rules")
-        .upsert(
-          {
-            tenant_id: agencyId,
-            item_id: input.itemId,
-            effective_from: input.effectiveFrom,
-            mode: input.mode,
-            interval_count: input.interval > 0 ? Math.trunc(input.interval) : 1,
-            weekday: input.weekday ?? null,
-            day_of_month: input.dayOfMonth ?? null,
-            created_by: user?.id ?? null,
-          },
-          { onConflict: "item_id,effective_from" },
-        );
-      if (error) {
-        console.error("[finance] falha ao salvar agenda de pagamento", error);
-        toast.error("Não foi possível salvar a forma de pagamento");
-        return false;
-      }
-      await fetchAll();
-      return true;
-    },
-    [agencyId, user?.id, fetchAll],
-  );
+
 
   /**
    * Cria o LOTE (saída de caixa) com as identidades escolhidas e, opcionalmente,
