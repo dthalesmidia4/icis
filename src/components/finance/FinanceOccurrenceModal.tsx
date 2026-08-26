@@ -73,6 +73,14 @@ import {
   deleteFinanceOccurrenceSafe,
   inactivateFinanceItemSafe,
 } from "@/lib/financeSafeDelete";
+import {
+  CLOSED_CORRECTION_NOTE,
+  CLOSED_CORRECTION_SAVE_LABEL,
+  CLOSED_CORRECTION_SUCCESS,
+  buildClosedCorrectionPatch,
+  closedFactMode,
+} from "@/lib/financeClosedCorrection";
+
 
 const BUCKET = "bill-attachments";
 
