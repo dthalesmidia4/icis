@@ -1382,6 +1382,7 @@ function FinancialCockpit() {
         defaultUsdRate={settings.defaultUsdRate}
         competence={competence}
         knownCategories={knownCategories}
+        paymentRules={finance.paymentRules}
         onSave={saveItem}
         onAfterDelete={refresh}
       />
