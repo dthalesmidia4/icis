@@ -250,6 +250,7 @@ const PlanPeriod = () => {
 
   // === Draft persistence (Salvar Rascunho do Planejamento) ===
   const buildDraftPayload = useCallback(() => ({
+    campaignId,
     periodTitle,
     periodStart: periodStart?.toISOString() ?? null,
     periodEnd: periodEnd?.toISOString() ?? null,
@@ -274,7 +275,7 @@ const PlanPeriod = () => {
     materiaisNovosDescricao,
     quantidadeConteudos,
   }), [
-    periodTitle, periodStart, periodEnd, budget, observations, excludedFormats, selectedChannels,
+    campaignId, periodTitle, periodStart, periodEnd, budget, observations, excludedFormats, selectedChannels,
     objetivosSelecionados, objetivoOutro, metaNumerica, porqueObjetivo,
     produtoFoco, temPromocao, promocaoDescricao, comoComprar,
     temDataComemorativa, dataComemorativaDescricao, temNovidade, novidadeDescricao,
@@ -299,7 +300,7 @@ const PlanPeriod = () => {
       try {
         const { data, error } = await supabase
           .from('period_plans')
-          .select('id, form_draft, updated_at')
+          .select('id, form_draft, campaign_id, updated_at')
           .eq('tenant_id', tenantId)
           .eq('company_id', selectedClient.id)
           .eq('status', 'draft')
@@ -311,6 +312,10 @@ const PlanPeriod = () => {
         if (data?.form_draft) {
           const d: any = data.form_draft;
           setDraftId(data.id);
+          // A campanha do rascunho só sobrescreve quando não veio explícita na URL.
+          const urlCampaign = searchParams.get('campaign') || "";
+          const savedCampaign = (data as any).campaign_id || d.campaignId || "";
+          if (!urlCampaign && savedCampaign) setCampaignId(savedCampaign);
           if (d.periodTitle !== undefined) setPeriodTitle(d.periodTitle || "");
           if (d.periodStart) setPeriodStart(new Date(d.periodStart));
           if (d.periodEnd) setPeriodEnd(new Date(d.periodEnd));
@@ -359,6 +364,7 @@ const PlanPeriod = () => {
           .from('period_plans')
           .update({
             form_draft: payload,
+            campaign_id: campaignId || null,
             period_title: periodTitle || null,
             period_start: periodStart ? periodStart.toISOString().slice(0, 10) : null,
             period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : null,
@@ -379,6 +385,7 @@ const PlanPeriod = () => {
             period_start: periodStart ? periodStart.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             priority_channel: selectedChannels[0] || 'Não definido',
+            campaign_id: campaignId || null,
             form_draft: payload,
           } as any)
           .select('id')
@@ -395,7 +402,7 @@ const PlanPeriod = () => {
     } finally {
       setIsSavingDraft(false);
     }
-  }, [selectedClient, tenantId, draftId, buildDraftPayload, periodTitle, periodStart, periodEnd]);
+  }, [selectedClient, tenantId, draftId, buildDraftPayload, periodTitle, periodStart, periodEnd, campaignId]);
 
   const handleSuggestConfig = async () => {
 
