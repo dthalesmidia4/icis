@@ -835,7 +835,21 @@ export function buildStatementGroups(params: {
           byChargeIdentity.set(identity, row);
         }
       }
-      components.push(...byChargeIdentity.values());
+      /**
+       * DETERMINISMO: a `charge_date` REAL da occurrence manda sobre o
+       * `charge_day` do cadastro. Se o mesmo item aparece como fato e como
+       * projeção (dias diferentes), a fatura fica só com o fato — senão o item
+       * apareceria duas vezes e o total da fatura dobraria.
+       */
+      const realItemIds = new Set(
+        [...byChargeIdentity.values()]
+          .filter((row) => !!row.occurrence && !row.projected)
+          .map((row) => row.item.id),
+      );
+      for (const row of byChargeIdentity.values()) {
+        if (row.projected && realItemIds.has(row.item.id)) continue;
+        components.push(row);
+      }
     }
 
 
