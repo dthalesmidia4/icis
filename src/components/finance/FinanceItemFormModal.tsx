@@ -908,7 +908,7 @@ export default function FinanceItemFormModal({
           {(isAnnual || !!subscriptionDate) && (
             <div>
               <Label>Data da assinatura</Label>
-              <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
+              <FinanceDateInput value={subscriptionDate} onChange={setSubscriptionDate} />
               <p className="text-xs text-muted-foreground mt-1">
                 Em cobranças anuais, o mês da assinatura define quando a despesa aparece.
               </p>
