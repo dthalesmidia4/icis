@@ -135,7 +135,9 @@ export default function FinanceOccurrenceModal({
   onSave,
   onEditItem,
   onRefresh,
+  onSkip,
 }: Props) {
+
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
   /** Valor cobrado em reais: EDITÁVEL (ver `financeUsdConversion`). */
