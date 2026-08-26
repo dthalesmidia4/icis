@@ -361,44 +361,101 @@ export default function FinanceOccurrenceModal({
     return { payment_method_snapshot: origin.slice(7), card_item_id_snapshot: null };
   }, [origin]);
 
+  /**
+   * Correção auditada de um fato fechado: vai pela RPC segura e só dá sucesso
+   * depois de o banco devolver a ocorrência com a mudança confirmada.
+   */
+  const handleCorrection = async () => {
+    if (!row?.occurrence) return;
+    setSaving(true);
+    const patch = buildFactCorrectionPatch({
+      cardRow,
+      currency: row.currency,
+      amountOriginal: amountNumber,
+      amountBrl: brl,
+      exchangeRate: rateNumber,
+      factDate,
+      observations,
+      paymentMethodSnapshot: (originPatch.payment_method_snapshot as string | null) ?? null,
+      cardItemIdSnapshot: (originPatch.card_item_id_snapshot as string | null) ?? null,
+    });
+    const result = await correctFinanceOccurrence(row.occurrence.id, patch);
+    if (!result.ok) {
+      setSaving(false);
+      toast.error(result.message ?? "Não foi possível corrigir");
+      return;
+    }
+    if (!correctionWasApplied(patch, result.occurrence)) {
+      setSaving(false);
+      toast.error(FACT_CORRECTION_INCONSISTENT);
+      return;
+    }
+    onRefresh?.();
+    setSaving(false);
+    toast.success(FACT_CORRECTION_SUCCESS);
+    onOpenChange(false);
+  };
+
+  /** CROPY: fato pago direto que hoje pertence a um cartão. */
+  const handleConvertToCardCharge = async () => {
+    if (!row?.occurrence) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(convertDate)) {
+      toast.error(LEGACY_CONVERT_NEEDS_DATE);
+      return;
+    }
+    setConverting(true);
+    const result = await convertOccurrenceToCardCharge(row.occurrence.id, convertDate);
+    if (!result.ok) {
+      setConverting(false);
+      toast.error(result.message ?? "Não foi possível converter");
+      return;
+    }
+    if (
+      !correctionWasApplied({ charge_date: convertDate }, result.occurrence) ||
+      result.occurrence?.paid_at
+    ) {
+      setConverting(false);
+      toast.error(FACT_CORRECTION_INCONSISTENT);
+      return;
+    }
+    onRefresh?.();
+    setConverting(false);
+    toast.success(LEGACY_CONVERT_SUCCESS);
+    onOpenChange(false);
+  };
+
   const handleSave = async () => {
     if (!row) return;
-    if (readOnlyFact && !correcting) return;
-    if (!correcting && !canSubmit) return;
+    if (inCorrection) {
+      await handleCorrection();
+      return;
+    }
+    if (readOnlyFact) return;
+    if (!canSubmit) return;
     setSaving(true);
-    /**
-     * Correção fechada envia patch MÍNIMO: nada de data, origem, pagamento ou
-     * comprovante entra — a prova histórica permanece exatamente como está.
-     */
-    const patch = correcting
-      ? buildClosedCorrectionPatch({
-          currency: row.currency,
-          amountOriginal: amountNumber,
-          amountBrl: brl,
-          exchangeRate: rateNumber,
-        })
-      : buildOccurrencePatch({
-          row,
-          cardRow,
-          factDate,
-          amountOriginal: amountNumber,
-          amountBrl: brl,
-          exchangeRate: rateNumber,
-          paid,
-          paymentDate: cardRow ? null : paymentDate,
-          observations,
-          attachmentUrl,
-          attachmentName,
-          originPatch,
-        });
+    const patch = buildOccurrencePatch({
+      row,
+      cardRow,
+      factDate,
+      amountOriginal: amountNumber,
+      amountBrl: brl,
+      exchangeRate: rateNumber,
+      paid,
+      paymentDate: cardRow ? null : paymentDate,
+      observations,
+      attachmentUrl,
+      attachmentName,
+      originPatch,
+    });
     const saved = await onSave(row, patch);
 
     setSaving(false);
     if (saved) {
-      toast.success(correcting ? CLOSED_CORRECTION_SUCCESS : "Lançamento salvo");
+      toast.success("Lançamento salvo");
       onOpenChange(false);
     }
   };
+
 
 
   if (!row) return null;
