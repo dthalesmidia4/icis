@@ -182,27 +182,39 @@ export function useFinance(competence: Competence) {
     };
   }, [agencyId, fetchAll]);
 
+  /**
+   * Corte operacional (`FINANCE_TRACKING_START`): março–julho/2026 são legado
+   * (`legacy_bill_id`) e não têm fato nativo. Renderizar vazio protege o
+   * histórico de virar projeção, atraso ou fatura inventada.
+   */
+  const tracked = isTrackedCompetence(normalized);
+
   const rows = useMemo(
     () =>
-      buildMonthRows({
-        items,
-        occurrences,
-        competence: normalized,
-        fallbackRate: settings.defaultUsdRate,
-      }),
-    [items, occurrences, normalized.year, normalized.month, settings.defaultUsdRate],
+      tracked
+        ? buildMonthRows({
+            items,
+            occurrences,
+            competence: normalized,
+            fallbackRate: settings.defaultUsdRate,
+          })
+        : [],
+    [items, occurrences, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
 
   const statements = useMemo(
     () =>
-      buildStatementGroups({
-        items,
-        occurrences,
-        competence: normalized,
-        fallbackRate: settings.defaultUsdRate,
-      }),
-    [items, occurrences, normalized.year, normalized.month, settings.defaultUsdRate],
+      tracked
+        ? buildStatementGroups({
+            items,
+            occurrences,
+            competence: normalized,
+            fallbackRate: settings.defaultUsdRate,
+          })
+        : [],
+    [items, occurrences, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
+
 
   /**
    * Liquidação por fatura: derivada DEPOIS dos grupos, para que KPIs, composição
