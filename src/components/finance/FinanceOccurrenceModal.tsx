@@ -79,20 +79,18 @@ import {
   inactivateFinanceItemSafe,
 } from "@/lib/financeSafeDelete";
 import {
-  FACT_CORRECTION_BUTTON,
   FACT_CORRECTION_INCONSISTENT,
   FACT_CORRECTION_NOTE,
-  FACT_CORRECTION_SAVE_LABEL,
   FACT_CORRECTION_SUCCESS,
-  LEGACY_CONVERT_LABEL,
-  LEGACY_CONVERT_NEEDS_DATE,
-  LEGACY_CONVERT_SUCCESS,
   LEGACY_DIRECT_ON_CARD_NOTE,
   buildFactCorrectionPatch,
   correctionWasApplied,
-  factCorrectionMode,
+  factFieldsEditable,
   isLegacyDirectPaymentOnCard,
+  occurrenceSaveRoute,
+  paymentProofEditable,
 } from "@/lib/financeFactCorrection";
+
 import {
   convertOccurrenceToCardCharge,
   correctFinanceOccurrence,
@@ -171,18 +169,14 @@ export default function FinanceOccurrenceModal({
   const [removing, setRemoving] = useState(false);
   /** Origem do pagamento DESTE mês (`NONE` = seguir o cadastro permanente). */
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
-  /** O usuário pediu explicitamente `Corrigir lançamento` neste fato fechado. */
-  const [correcting, setCorrecting] = useState(false);
-  /** Data real da cobrança usada na conversão do fato legado para cartão. */
-  const [convertDate, setConvertDate] = useState("");
-  const [converting, setConverting] = useState(false);
 
   /**
-   * Fato FECHADO (pago direto ou liquidado por fatura paga) abre em CONSULTA.
-   * A correção nunca é implícita: existe o botão `Corrigir lançamento`, e nele
-   * abrem apenas valor, data do fato, origem e observações
-   * (`financeFactCorrection`). O pagamento (`paid_at`) é prova separada e nunca
-   * é alterado por aqui; a fatura paga continua totalmente bloqueada.
+   * Fato FECHADO (pago direto ou liquidado por fatura paga) NÃO trava a
+   * digitação: valor, data do fato, origem e observações abrem no primeiro
+   * render (`factFieldsEditable`). O que continua protegido é a PROVA de
+   * pagamento (`paymentProofEditable`): `paid`, data do pagamento e comprovante.
+   * A persistência de um fato fechado é roteada automaticamente pelo Save para
+   * as RPCs seguras — não existe modo de correção na UI.
    */
   const rowClosed = row
     ? effectivePaid(row, statusContext?.rows ?? [row], statusContext?.settlement ?? null)
@@ -190,21 +184,17 @@ export default function FinanceOccurrenceModal({
   /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
   const cardRow = !!row && isCardCharge(row);
   const statementRow = !!row && isStatementRow(row);
-  const correctionMode = factCorrectionMode({
-    hasOccurrence: !!row?.occurrence,
-    statementRow,
-    closed: rowClosed,
-  });
-  /** Em correção: campos factuais abertos, provas de pagamento intactas. */
-  const inCorrection = correctionMode === "correctable" && correcting;
-  const readOnlyFact = rowClosed && !inCorrection;
+  /** Campos factuais: abertos sempre, exceto na própria fatura. */
+  const factEditable = !!row && factFieldsEditable({ statementRow });
+  const readOnlyFact = !factEditable;
   /** Valor / dólar / câmbio seguem a mesma regra do fato. */
   const readOnlyMoney = readOnlyFact;
   /** Pagamento e comprovante permanecem imutáveis em fato fechado. */
-  const readOnlyProof = rowClosed;
+  const readOnlyProof = !paymentProofEditable({ cardRow, statementRow, closed: rowClosed });
   /** Transição incoerente: fato pago direto que hoje pertence a um cartão. */
   const legacyDirectOnCard = isLegacyDirectPaymentOnCard(row);
   const deleteAction = row ? occurrenceDeleteActionForRow(row, rowClosed) : "nothing_to_delete";
+
 
 
 
@@ -281,10 +271,8 @@ export default function FinanceOccurrenceModal({
     if (occ?.card_item_id_snapshot) setOrigin(`card:${occ.card_item_id_snapshot}`);
     else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
     else setOrigin(FOLLOW_ITEM);
-    // Fato fechado sempre reabre em CONSULTA: correção é sempre pedida de novo.
-    setCorrecting(false);
-    // Nunca inventamos a data real da cobrança — o campo nasce vazio.
-    setConvertDate("");
+    // Nada de modo de correção: os campos factuais já abrem digitáveis.
+
   }, [open, row, defaultUsdRate, today]);
 
 
@@ -369,12 +357,21 @@ export default function FinanceOccurrenceModal({
   /**
    * Correção auditada de um fato fechado: vai pela RPC segura e só dá sucesso
    * depois de o banco devolver a ocorrência com a mudança confirmada.
+   * `convertFirst`: fato direto legado que passa a ser cobrança do cartão.
    */
-  const handleCorrection = async () => {
+  const handleCorrection = async (convertFirst: boolean) => {
     if (!row?.occurrence) return;
     setSaving(true);
+    if (convertFirst) {
+      const converted = await convertOccurrenceToCardCharge(row.occurrence.id, factDate);
+      if (!converted.ok || converted.occurrence?.paid_at) {
+        setSaving(false);
+        toast.error(converted.message ?? FACT_CORRECTION_INCONSISTENT);
+        return;
+      }
+    }
     const patch = buildFactCorrectionPatch({
-      cardRow,
+      cardRow: cardRow || convertFirst,
       currency: row.currency,
       amountOriginal: amountNumber,
       amountBrl: brl,
@@ -401,42 +398,23 @@ export default function FinanceOccurrenceModal({
     onOpenChange(false);
   };
 
-  /** CROPY: fato pago direto que hoje pertence a um cartão. */
-  const handleConvertToCardCharge = async () => {
-    if (!row?.occurrence) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(convertDate)) {
-      toast.error(LEGACY_CONVERT_NEEDS_DATE);
-      return;
-    }
-    setConverting(true);
-    const result = await convertOccurrenceToCardCharge(row.occurrence.id, convertDate);
-    if (!result.ok) {
-      setConverting(false);
-      toast.error(result.message ?? "Não foi possível converter");
-      return;
-    }
-    if (
-      !correctionWasApplied({ charge_date: convertDate }, result.occurrence) ||
-      result.occurrence?.paid_at
-    ) {
-      setConverting(false);
-      toast.error(FACT_CORRECTION_INCONSISTENT);
-      return;
-    }
-    onRefresh?.();
-    setConverting(false);
-    toast.success(LEGACY_CONVERT_SUCCESS);
-    onOpenChange(false);
-  };
-
   const handleSave = async () => {
     if (!row) return;
-    if (inCorrection) {
-      await handleCorrection();
+    /** O Save decide a rota: nenhum modo especial é exigido do usuário. */
+    const route = occurrenceSaveRoute({
+      statementRow,
+      hasOccurrence: !!row.occurrence,
+      closed: rowClosed,
+      legacyDirectOnCard,
+      factDate,
+    });
+    if (route === "blocked") return;
+    if (route === "correction" || route === "convert_then_correct") {
+      await handleCorrection(route === "convert_then_correct");
       return;
     }
-    if (readOnlyFact) return;
     if (!canSubmit) return;
+
     setSaving(true);
     const patch = buildOccurrencePatch({
       row,
@@ -510,32 +488,11 @@ export default function FinanceOccurrenceModal({
             `charge_date` ele nunca entra numa fatura — e a data NÃO é inventada.
           */}
           {legacyDirectOnCard && (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-3 min-w-0">
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-500">
-                Pagamento direto registrado antes do vínculo ao cartão
-              </p>
-              <p className="text-xs text-muted-foreground break-words">
-                {LEGACY_DIRECT_ON_CARD_NOTE}
-              </p>
-              <div className="min-w-0">
-                <Label htmlFor="occurrence-convert-date">Data real da cobrança no cartão</Label>
-                <FinanceDateInput
-                  id="occurrence-convert-date"
-                  className="mt-1"
-                  value={convertDate}
-                  onChange={setConvertDate}
-                />
-              </div>
-              <Button
-                variant="secondary"
-                className="w-full sm:w-auto"
-                onClick={handleConvertToCardCharge}
-                disabled={converting || saving}
-              >
-                {converting ? "Convertendo..." : LEGACY_CONVERT_LABEL}
-              </Button>
-            </div>
+            <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-muted-foreground break-words min-w-0">
+              {LEGACY_DIRECT_ON_CARD_NOTE}
+            </p>
           )}
+
 
           <Block title="Dados deste mês">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -645,7 +602,7 @@ export default function FinanceOccurrenceModal({
                 <p className="text-xs text-muted-foreground mt-1">
                   {statementRow
                     ? "Fatura fechada: valores, datas e pagamento ficam somente para consulta."
-                    : inCorrection
+                    : rowClosed
                       ? FACT_CORRECTION_NOTE
                       : "Compras no cartão são liquidadas pelo pagamento da fatura."}
                 </p>
@@ -805,26 +762,16 @@ export default function FinanceOccurrenceModal({
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
 
-            {/* Fato fechado abre em consulta: a correção é explícita. */}
-            {correctionMode === "correctable" && !correcting && (
-              <Button variant="secondary" onClick={() => setCorrecting(true)} disabled={saving}>
-                <Pencil className="w-4 h-4 mr-2 flex-shrink-0" />
-                {FACT_CORRECTION_BUTTON}
+            {/* Fato fechado NÃO tem botão para destravar: o Save roteia sozinho. */}
+            {factEditable && (
+              <Button
+                onClick={handleSave}
+                disabled={saving || uploading || (!rowClosed && !canSubmit)}
+              >
+                {saving ? "Salvando..." : "Salvar lançamento"}
               </Button>
             )}
 
-            {(!readOnlyFact || inCorrection) && (
-              <Button
-                onClick={handleSave}
-                disabled={saving || uploading || (!inCorrection && !canSubmit)}
-              >
-                {saving
-                  ? "Salvando..."
-                  : inCorrection
-                    ? FACT_CORRECTION_SAVE_LABEL
-                    : "Salvar lançamento"}
-              </Button>
-            )}
           </div>
 
 

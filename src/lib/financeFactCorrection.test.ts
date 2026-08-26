@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   buildFactCorrectionPatch,
   correctionWasApplied,
-  factCorrectionMode,
+  factFieldsEditable,
   isLegacyDirectPaymentOnCard,
+  occurrenceSaveRoute,
+  paymentProofEditable,
 } from "./financeFactCorrection";
 import type { FinanceItem, FinanceOccurrence, MonthRow } from "./financeModel";
 
@@ -40,29 +42,56 @@ const row = (over: Partial<MonthRow> = {}): MonthRow =>
     ...over,
   }) as MonthRow;
 
-describe("factCorrectionMode", () => {
-  it("fato aberto continua editável", () => {
-    expect(factCorrectionMode({ hasOccurrence: true, statementRow: false, closed: false })).toBe(
-      "editable",
-    );
+describe("permissões independentes (fato x prova de pagamento)", () => {
+  it("pagamento direto pago: fatos abertos no primeiro render, prova travada", () => {
+    expect(factFieldsEditable({ statementRow: false })).toBe(true);
+    expect(paymentProofEditable({ cardRow: false, statementRow: false, closed: true })).toBe(false);
   });
 
-  it("fato pago com ocorrência real é corrigível", () => {
-    expect(factCorrectionMode({ hasOccurrence: true, statementRow: false, closed: true })).toBe(
-      "correctable",
-    );
+  it("componente de cartão pago: fatos abertos, prova nunca é daqui", () => {
+    expect(factFieldsEditable({ statementRow: false })).toBe(true);
+    expect(paymentProofEditable({ cardRow: true, statementRow: false, closed: false })).toBe(false);
   });
 
   it("fatura paga continua travada", () => {
-    expect(factCorrectionMode({ hasOccurrence: true, statementRow: true, closed: true })).toBe(
-      "locked",
+    expect(factFieldsEditable({ statementRow: true })).toBe(false);
+    expect(paymentProofEditable({ cardRow: false, statementRow: true, closed: true })).toBe(false);
+  });
+
+  it("fato aberto e direto pode registrar pagamento", () => {
+    expect(paymentProofEditable({ cardRow: false, statementRow: false, closed: false })).toBe(true);
+  });
+});
+
+describe("occurrenceSaveRoute", () => {
+  const base = { statementRow: false, hasOccurrence: true, closed: false, legacyDirectOnCard: false, factDate: "2026-08-05" };
+
+  it("fato aberto salva pelo caminho normal", () => {
+    expect(occurrenceSaveRoute(base)).toBe("normal");
+  });
+
+  it("fato fechado vai automaticamente para a correção segura", () => {
+    expect(occurrenceSaveRoute({ ...base, closed: true })).toBe("correction");
+  });
+
+  it("híbrido com data digitada converte antes de corrigir", () => {
+    expect(occurrenceSaveRoute({ ...base, closed: true, legacyDirectOnCard: true })).toBe(
+      "convert_then_correct",
     );
   });
 
-  it("linha fechada sem ocorrência real não tem fato para corrigir", () => {
-    expect(factCorrectionMode({ hasOccurrence: false, statementRow: false, closed: true })).toBe(
-      "locked",
-    );
+  it("híbrido sem data real não inventa conversão", () => {
+    expect(
+      occurrenceSaveRoute({ ...base, closed: true, legacyDirectOnCard: true, factDate: "" }),
+    ).toBe("correction");
+  });
+
+  it("fatura não salva por aqui", () => {
+    expect(occurrenceSaveRoute({ ...base, statementRow: true, closed: true })).toBe("blocked");
+  });
+
+  it("linha fechada sem ocorrência real materializa normalmente", () => {
+    expect(occurrenceSaveRoute({ ...base, closed: true, hasOccurrence: false })).toBe("normal");
   });
 });
 
@@ -170,5 +199,74 @@ describe("correctionWasApplied", () => {
 
   it("sem ocorrência recarregada nunca é sucesso", () => {
     expect(correctionWasApplied({ due_date: "2026-08-17" }, null)).toBe(false);
+  });
+});
+
+describe("caso ADOBE: híbrido com snapshots de cartão já preenchidos", () => {
+  const adobe = row({
+    item: item({ name: "Adobe", payment_method: "Cartão de Crédito", card_item_id: "card-itau" }),
+    occurrence: occ({
+      due_date: "2026-07-14",
+      paid_at: "2026-08-01T12:00:00Z",
+      charge_date: null,
+      payment_method_snapshot: "Cartão de Crédito",
+      card_item_id_snapshot: "card-itau",
+    }),
+  });
+
+  it("detecta o híbrido mesmo com snapshot de cartão preenchido", () => {
+    expect(isLegacyDirectPaymentOnCard(adobe)).toBe(true);
+  });
+
+  it("com a data digitada o Save converte sozinho, sem botão intermediário", () => {
+    expect(
+      occurrenceSaveRoute({
+        statementRow: false,
+        hasOccurrence: true,
+        closed: true,
+        legacyDirectOnCard: isLegacyDirectPaymentOnCard(adobe),
+        factDate: "2026-08-05",
+      }),
+    ).toBe("convert_then_correct");
+  });
+
+  it("patch da conversão fixa charge_date e não toca em prova de pagamento", () => {
+    const patch = buildFactCorrectionPatch({
+      cardRow: true,
+      currency: "BRL",
+      amountOriginal: 300,
+      amountBrl: 300,
+      exchangeRate: null,
+      factDate: "2026-08-05",
+      observations: "",
+      paymentMethodSnapshot: "Cartão de Crédito",
+      cardItemIdSnapshot: "card-itau",
+    });
+    expect(patch.charge_date).toBe("2026-08-05");
+    expect(patch).not.toHaveProperty("due_date");
+    expect(patch).not.toHaveProperty("paid_at");
+  });
+});
+
+describe("caso LASER JET: corrigir valor sem desfazer pagamento", () => {
+  it("175 → 17,50 mantém a prova de pagamento fora do patch", () => {
+    const patch = buildFactCorrectionPatch({
+      cardRow: false,
+      currency: "BRL",
+      amountOriginal: 17.5,
+      amountBrl: 17.5,
+      exchangeRate: null,
+      factDate: "2026-08-17",
+      observations: "",
+      paymentMethodSnapshot: "Pix",
+      cardItemIdSnapshot: null,
+    });
+    expect(patch.amount_brl).toBe(17.5);
+    expect(patch.amount_original).toBe(17.5);
+    expect(patch).not.toHaveProperty("paid_at");
+    expect(patch).not.toHaveProperty("paid_amount_brl");
+    expect(patch).not.toHaveProperty("statement_id");
+    expect(patch).not.toHaveProperty("skipped_at");
+    expect(correctionWasApplied(patch, occ({ due_date: "2026-08-17", observations: null }))).toBe(true);
   });
 });
