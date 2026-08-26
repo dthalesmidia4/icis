@@ -138,6 +138,8 @@ export default function FinanceOccurrenceModal({
   onSkip,
 }: Props) {
 
+  const [skipping, setSkipping] = useState(false);
+
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
   /** Valor cobrado em reais: EDITÁVEL (ver `financeUsdConversion`). */
