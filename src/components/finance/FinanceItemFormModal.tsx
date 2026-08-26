@@ -699,11 +699,7 @@ export default function FinanceItemFormModal({
                         ) : (
                           <div>
                             <Label>Começa em</Label>
-                            <Input
-                              type="date"
-                              value={recurrenceStart}
-                              onChange={(e) => setRecurrenceStart(e.target.value)}
-                            />
+                            <FinanceDateInput value={recurrenceStart} onChange={setRecurrenceStart} />
                           </div>
                         )}
                       </>
