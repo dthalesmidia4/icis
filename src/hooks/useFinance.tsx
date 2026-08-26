@@ -666,9 +666,13 @@ export function useFinance(competence: Competence) {
 
 
       const query = id
-        ? supabase.from("finance_items").update(body).eq("id", id)
-        : supabase.from("finance_items").insert({ ...body, created_by: user?.id ?? null });
-      const { error } = await query;
+        ? supabase.from("finance_items").update(body).eq("id", id).select("id").maybeSingle()
+        : supabase
+            .from("finance_items")
+            .insert({ ...body, created_by: user?.id ?? null })
+            .select("id")
+            .maybeSingle();
+      const { data: saved, error } = await query;
       if (error) {
         // Mensagem segura para o usuário, causa técnica no console (sem valor
         // financeiro). Constraint de coluna NOT NULL/violação de check some
@@ -689,11 +693,28 @@ export function useFinance(competence: Competence) {
         );
         return false;
       }
+      /**
+       * Agenda de PAGAMENTO do cadastro. Falhar aqui não invalida o cadastro
+       * (a despesa existe mesmo sem agenda de pagamento configurada), então o
+       * erro é avisado sem desfazer o que já foi salvo.
+       */
+      const savedId = id ?? ((saved as any)?.id as string | undefined);
+      if (paymentSchedule && savedId) {
+        await savePaymentRule({
+          itemId: savedId,
+          effectiveFrom:
+            paymentSchedule.effectiveFrom ?? competenceToISO(normalized),
+          mode: paymentSchedule.mode,
+          interval: paymentSchedule.interval,
+          weekday: paymentSchedule.weekday ?? null,
+          dayOfMonth: paymentSchedule.dayOfMonth ?? null,
+        });
+      }
       toast.success(id ? "Cadastro atualizado" : "Cadastro criado");
       await fetchAll();
       return true;
     },
-    [agencyId, user?.id, fetchAll],
+    [agencyId, user?.id, fetchAll, savePaymentRule, normalized],
   );
 
 
