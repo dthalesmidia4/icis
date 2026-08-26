@@ -1937,6 +1937,9 @@ export type Database = {
       marketing_campaigns: {
         Row: {
           acquisition_strategy: string | null
+          ads_end_date: string | null
+          ads_start_date: string | null
+          calls_start_date: string | null
           channels: Json
           city: string | null
           company_id: string
@@ -1950,15 +1953,20 @@ export type Database = {
           paid_traffic_budget: number | null
           radius_km: number | null
           region_label: string | null
+          sequence_order: number | null
           start_date: string | null
           state: string | null
           status: string
           strategy_id: string | null
           tenant_id: string
           updated_at: string
+          visits_start_date: string | null
         }
         Insert: {
           acquisition_strategy?: string | null
+          ads_end_date?: string | null
+          ads_start_date?: string | null
+          calls_start_date?: string | null
           channels?: Json
           city?: string | null
           company_id: string
@@ -1972,15 +1980,20 @@ export type Database = {
           paid_traffic_budget?: number | null
           radius_km?: number | null
           region_label?: string | null
+          sequence_order?: number | null
           start_date?: string | null
           state?: string | null
           status?: string
           strategy_id?: string | null
           tenant_id: string
           updated_at?: string
+          visits_start_date?: string | null
         }
         Update: {
           acquisition_strategy?: string | null
+          ads_end_date?: string | null
+          ads_start_date?: string | null
+          calls_start_date?: string | null
           channels?: Json
           city?: string | null
           company_id?: string
@@ -1994,12 +2007,14 @@ export type Database = {
           paid_traffic_budget?: number | null
           radius_km?: number | null
           region_label?: string | null
+          sequence_order?: number | null
           start_date?: string | null
           state?: string | null
           status?: string
           strategy_id?: string | null
           tenant_id?: string
           updated_at?: string
+          visits_start_date?: string | null
         }
         Relationships: [
           {
@@ -2050,6 +2065,95 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      paid_media_activations: {
+        Row: {
+          audience: string | null
+          budget: number | null
+          campaign_id: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          cta: string | null
+          demand_id: string
+          end_date: string | null
+          id: string
+          notes: string | null
+          objective: string | null
+          platform: string
+          start_date: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string | null
+          budget?: number | null
+          campaign_id: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          cta?: string | null
+          demand_id: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          objective?: string | null
+          platform?: string
+          start_date?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string | null
+          budget?: number | null
+          campaign_id?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          cta?: string | null
+          demand_id?: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          objective?: string | null
+          platform?: string
+          start_date?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_media_activations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paid_media_activations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paid_media_activations_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paid_media_activations_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
           },
         ]
       }
