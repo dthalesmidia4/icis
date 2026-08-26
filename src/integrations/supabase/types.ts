@@ -3876,6 +3876,14 @@ export type Database = {
         Args: { _batch_id: string }
         Returns: undefined
       }
+      finance_update_statement_closure: {
+        Args: {
+          _amount_brl?: number
+          _iof_brl?: number
+          _occurrence_id: string
+        }
+        Returns: Json
+      }
       generate_demand_fingerprint: {
         Args: { p_channel: string; p_demand_type: string; p_title: string }
         Returns: string
@@ -3979,6 +3987,7 @@ export type Database = {
           _occurrence_id: string
           _paid_amount_brl?: number
           _paid_at?: string
+          _statement_amount_brl?: number
           _usd_components?: Json
         }
         Returns: Json
