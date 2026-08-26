@@ -26,7 +26,13 @@ export interface WorldSize {
   height: number;
 }
 
-export type OfficeProfileId = "compact" | "desktop" | "large" | "ultrawide" | "ultrawideShort";
+export type OfficeProfileId =
+  | "compact"
+  | "desktopShort"
+  | "desktop"
+  | "large"
+  | "ultrawide"
+  | "ultrawideShort";
 
 interface OfficeProfile {
   id: OfficeProfileId;
@@ -44,7 +50,26 @@ interface OfficeProfile {
   /** Escala da fileira do fundo / da frente. */
   scaleBack: number;
   scaleFront: number;
+  /**
+   * RESPONSIVIDADE VISUAL POR PERFIL (desktop normal ≠ ultrawide).
+   * Painel da parede: teto de largura (px) e altura na parede (%).
+   */
+  panelWidthPx: number;
+  panelTopPct: number;
+  /** Largura relativa do monitor dentro da estação (%). */
+  monitorPct: number;
+  /** Footprint (px) reservado às faixas laterais no modo rico. */
+  leftZonePx: number;
+  rightZonePx: number;
+  /**
+   * Centros das mesas no modo rico. IMPORTANTE: iguais em `desktop` e
+   * `desktopShort` (a altura muda âncoras verticais, nunca a matemática
+   * horizontal), para o anti-colisão continuar determinístico.
+   */
+  richCentersBack: [number, number];
+  richCentersFront: [number, number];
 }
+
 
 /** Margem lateral de segurança (px) entre footprints de duas estações. */
 const SAFE_GUTTER_PX = 28;
