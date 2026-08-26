@@ -135,7 +135,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
     subtitle: "Veja exatamente quais despesas formam os valores do resumo.",
   },
   accounts: {
-    title: "Pagamentos diretos",
+    title: "Contas e despesas",
     subtitle: "Pix, boletos, transferências e outras despesas pagas fora do cartão.",
   },
   cards: {
@@ -152,7 +152,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   },
 };
 
-/** Visão simples de "Pagamentos diretos". */
+/** Visão simples de "Contas e despesas". */
 type MainView = "to_pay" | "paid" | "all";
 
 const MAIN_VIEWS: { value: MainView; label: string }[] = [
@@ -478,20 +478,24 @@ function FinancialCockpit() {
     paidDateISO,
     paidAmountBrl,
     usdComponents,
+    iofBrl,
   }: {
     group: StatementGroup;
     paidDateISO: string;
     paidAmountBrl: number | null;
     usdComponents?: unknown[];
+    iofBrl?: number;
   }): Promise<boolean> => {
     const occ = group.statementRow?.occurrence;
     if (!occ) return false;
     // `due_date` não é enviado: o vencimento é histórico e não muda ao pagar.
+    const iof = iofBrl ?? 0;
     return await payStatement(
       occ.id,
-      paidAmountBrl ?? group.actualTotal ?? group.projectedTotal,
+      paidAmountBrl ?? Number(((group.actualTotal ?? group.projectedTotal) + iof).toFixed(2)),
       paidDateISO,
       usdComponents ?? [],
+      iof,
     );
   };
 
@@ -547,7 +551,7 @@ function FinancialCockpit() {
     {
       view: "accounts" as View,
       icon: Receipt,
-      title: "Pagamentos diretos",
+      title: "Contas e despesas",
       meta:
         accountsSummary.pending === 1
           ? "1 pendente"

@@ -81,7 +81,7 @@ describe("financeSecureData — merge dos valores da camada segura", () => {
       { id: "o1", item_id: "a", competence_month: "2026-08-01", currency: "BRL" } as FinanceOccurrence,
     ];
     const values = new Map<string, SecureOccurrenceValues>([
-      ["o1", { amount_original: null, exchange_rate: null, amount_brl: 1728.02, paid_amount_brl: 1728.02 }],
+      ["o1", { amount_original: null, exchange_rate: null, amount_brl: 1728.02, paid_amount_brl: 1728.02, iof_amount_brl: null }],
     ]);
     const merged = mergeOccurrenceValues(occ, values);
     expect(merged[0].amount_brl).toBe(1728.02);

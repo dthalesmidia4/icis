@@ -93,6 +93,11 @@ export interface FinanceOccurrence {
   statement_occurrence_id?: string | null;
   paid_at?: string | null;
   paid_amount_brl?: number | null;
+  /**
+   * Repasse de IOF cobrado pelo banco junto com a FATURA (só faz sentido na
+   * ocorrência da fatura). Cifrado no banco como os demais valores.
+   */
+  iof_amount_brl?: number | null;
   attachment_url?: string | null;
   attachment_name?: string | null;
   observations?: string | null;
