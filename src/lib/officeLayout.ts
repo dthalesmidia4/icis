@@ -90,18 +90,20 @@ export function stageSize(world: WorldSize): WorldSize {
  * Largura relativa do monitor dentro da estação. O monitor deixou de usar
  * `flex-1` (absorvia todo o tampo): agora tem teto explícito, sobrando faixa
  * estável para personagem/objetos à esquerda e fila/objetos à direita.
- * Presença reduzida (~15%) para a mesa/cadeira/pilha voltarem a pesar mais
- * que o card — o escritório não é um Kanban ilustrado.
+ * A rodada anterior estreitou demais (aspecto "totem"): a largura útil volta
+ * ~20% para o card ficar HORIZONTAL, sem retomar o monitor gigante original —
+ * mesa/cadeira/pilha continuam com faixas laterais reservadas.
  */
-export const MONITOR_MAX_PCT = 62;
+export const MONITOR_MAX_PCT = 66;
 export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
   const profile = resolveOfficeProfile(size);
   // Ultrawide pode crescer discretamente, sem voltar ao aspecto horizontal.
-  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 55 : 52;
+  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 65 : 62;
 }
 
 /** Altura mínima (px) do "vidro" do monitor: mais horizontal, menos pôster. */
 export const MONITOR_MIN_HEIGHT_PX = 46;
+
 
 /**
  * ESCALA DO PERSONAGEM sobre a largura MEDIDA do anchor. Pessoas ganham
