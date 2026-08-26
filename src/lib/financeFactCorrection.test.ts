@@ -42,7 +42,6 @@ const row = (over: Partial<MonthRow> = {}): MonthRow =>
     ...over,
   }) as MonthRow;
 
-describe("factCorrectionMode", () => {
 describe("permissões independentes (fato x prova de pagamento)", () => {
   it("pagamento direto pago: fatos abertos no primeiro render, prova travada", () => {
     expect(factFieldsEditable({ statementRow: false })).toBe(true);
