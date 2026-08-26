@@ -60,8 +60,11 @@ import {
   type SystemsCompany,
 } from "@/lib/systemsClients";
 import {
-  campaignRegionLabel,
   campaignStatusLabel,
+  isCampaignClosed,
+  placeLabel,
+  placeOrderLabel,
+  sortCampaignsForExpansion,
   loadCampaigns,
   pickActiveCampaign,
   type MarketingCampaign,
@@ -267,27 +270,31 @@ export default function SystemsCommercial() {
 
   const counters = useMemo(() => countQuickFilters(scoped), [scoped]);
 
-  /** Campanha vigente do recorte atual (empresa selecionada, ou qualquer uma). */
-  const activeCampaign = useMemo(() => {
+  /** Praças do recorte atual, na ordem logística da expansão. */
+  const scopedPlaces = useMemo(() => {
     const pool =
       companyFilter === "all" ? campaigns : campaigns.filter((c) => c.company_id === companyFilter);
-    return pickActiveCampaign(pool);
+    return sortCampaignsForExpansion(pool);
   }, [campaigns, companyFilter]);
 
-  /** Oportunidades já atribuídas à campanha vigente, por etapa comercial real. */
-  const campaignStats = useMemo(() => {
-    if (!activeCampaign) return { linked: 0, won: 0, lost: 0, open: 0, negotiating: 0 };
-    const linked = rows.filter((r) => r.client.acquisition_campaign_id === activeCampaign.id);
-    const byStage = (stage: string) =>
-      linked.filter((r) => r.client.commercial_stage === stage).length;
-    return {
-      linked: linked.length,
-      won: byStage("ganho"),
-      lost: byStage("perdido"),
-      negotiating: byStage("negociacao") + byStage("avaliacao"),
-      open: linked.filter((r) => !isFinalStage(r.client.commercial_stage)).length,
-    };
-  }, [rows, activeCampaign]);
+  const activeCampaign = useMemo(() => pickActiveCampaign(scopedPlaces), [scopedPlaces]);
+
+  /**
+   * Contexto de expansão: várias praças abertas convivem. Nunca há planejamento
+   * aqui — o Client Hub continua sendo a central de Mídia.
+   */
+  const openPlaces = useMemo(
+    () =>
+      scopedPlaces
+        .filter((p) => !isCampaignClosed(p.status))
+        .map((place, index) => ({
+          place,
+          order: placeOrderLabel(place, index),
+          opportunities: rows.filter((r) => r.client.acquisition_campaign_id === place.id).length,
+          isActive: place.id === activeCampaign?.id,
+        })),
+    [scopedPlaces, rows, activeCampaign],
+  );
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -492,41 +499,27 @@ export default function SystemsCommercial() {
       </div>
 
       <div className="space-y-4 pb-8">
-        {activeCampaign && (
+        {openPlaces.length > 0 && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-start gap-2 min-w-0">
-                <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold">
-                    {activeCampaign.name}
-                    <span className="ml-2 text-[10px] font-black uppercase tracking-wide text-primary">
-                      {campaignStatusLabel(activeCampaign.status)}
+            <div className="flex items-start gap-2">
+              <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                  Expansão
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {openPlaces.map(({ place, order, opportunities, isActive }) => (
+                    <span
+                      key={place.id}
+                      className={
+                        isActive
+                          ? "rounded-sm bg-primary px-2 py-1 text-[10px] font-black uppercase tracking-wide text-primary-foreground"
+                          : "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground"
+                      }
+                    >
+                      {`${order} ${placeLabel(place)} · ${campaignStatusLabel(place.status)} · ${opportunities} oport.`}
                     </span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {campaignRegionLabel(activeCampaign)}
-                    {activeCampaign.channels.length
-                      ? ` · ${activeCampaign.channels.join(", ")}`
-                      : ""}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    <Badge variant="secondary" className="text-[10px] font-black uppercase">
-                      {campaignStats.linked} da campanha
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px] font-black uppercase">
-                      {campaignStats.open} em aberto
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px] font-black uppercase">
-                      {campaignStats.negotiating} avaliação/negociação
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px] font-black uppercase">
-                      {campaignStats.won} ganhos
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px] font-black uppercase">
-                      {campaignStats.lost} perdidos
-                    </Badge>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -869,7 +862,7 @@ export default function SystemsCommercial() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Campanha de aquisição
+                    Praça de origem
                   </label>
                   <Select
                     value={form.acquisitionCampaignId || "none"}
@@ -878,18 +871,18 @@ export default function SystemsCommercial() {
                     }
                   >
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Sem campanha" />
+                      <SelectValue placeholder="Sem praça" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sem campanha</SelectItem>
+                      <SelectItem value="none">Sem praça</SelectItem>
                       {campaigns
                         .filter(
                           (c) =>
                             !selected || c.company_id === selected.parent_company_id,
                         )
-                        .map((c) => (
+                        .map((c, i) => (
                           <SelectItem key={c.id} value={c.id}>
-                            {c.name}
+                            {`${placeOrderLabel(c, i)} ${placeLabel(c)} — ${campaignStatusLabel(c.status)}`}
                           </SelectItem>
                         ))}
                     </SelectContent>
@@ -1088,28 +1081,28 @@ export default function SystemsCommercial() {
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase text-muted-foreground">
-                Campanha de origem (opcional)
+                Praça de origem (opcional)
               </label>
               <Select
                 value={newCampaignId || "none"}
                 onValueChange={(v) => setNewCampaignId(v === "none" ? "" : v)}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Sem campanha" />
+                  <SelectValue placeholder="Sem praça" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem campanha</SelectItem>
+                  <SelectItem value="none">Sem praça</SelectItem>
                   {campaigns
                     .filter((c) => !newCompany || c.company_id === newCompany)
-                    .map((c) => (
+                    .map((c, i) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.name}
+                        {`${placeOrderLabel(c, i)} ${placeLabel(c)} — ${campaignStatusLabel(c.status)}`}
                       </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                O vínculo de campanha nunca é automático — atribua apenas quando a origem for real.
+                A praça de origem nunca é automática — atribua apenas quando a origem for real.
               </p>
             </div>
           </div>
