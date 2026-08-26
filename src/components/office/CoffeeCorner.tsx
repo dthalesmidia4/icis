@@ -51,7 +51,7 @@ export const CoffeeCorner = memo(function CoffeeCorner({
 
 
         {/* ---------- BALCÃO à direita, com objetos SOBRE o tampo ---------- */}
-        <div aria-hidden="true" className="relative z-10 w-[104px] shrink-0">
+        <div aria-hidden="true" className="relative z-10 w-[92px] shrink-0">
           {/* objetos apoiados no tampo: cafeteira + jarra + canecas */}
           <div className="relative z-10 mb-[-2px] flex items-end justify-center gap-1.5">
             <span className="relative block h-11 w-7 rounded-[4px] bg-foreground/65 shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
