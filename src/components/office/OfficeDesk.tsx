@@ -153,8 +153,8 @@ export const OfficeDesk = memo(function OfficeDesk({
           [objeto direito + fila]. O monitor tem largura com teto (nunca flex-1),
           garantindo faixa lateral útil para a pilha e os acessórios. */}
       <div
-        className="relative z-30 -mb-[8px] grid items-end gap-1 px-2"
-        style={{ gridTemplateColumns: `auto minmax(0, ${monitorPct}%) minmax(58px, auto)` }}
+        className="relative z-30 -mb-[8px] grid items-end gap-[3px] px-1.5"
+        style={{ gridTemplateColumns: `auto minmax(0, ${monitorPct}%) minmax(46px, auto)` }}
       >
         {/* LUGAR do personagem: a cadeira e o anchor vivem aqui, mas o corpo é
             renderizado pela `OfficePeopleLayer` (uma única instância na cena). */}

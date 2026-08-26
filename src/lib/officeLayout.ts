@@ -94,11 +94,11 @@ export function stageSize(world: WorldSize): WorldSize {
  * ~20% para o card ficar HORIZONTAL, sem retomar o monitor gigante original —
  * mesa/cadeira/pilha continuam com faixas laterais reservadas.
  */
-export const MONITOR_MAX_PCT = 66;
+export const MONITOR_MAX_PCT = 72;
 export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
   const profile = resolveOfficeProfile(size);
   // Ultrawide pode crescer discretamente, sem voltar ao aspecto horizontal.
-  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 65 : 62;
+  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 68 : 70;
 }
 
 /** Altura mínima (px) do "vidro" do monitor: mais horizontal, menos pôster. */
@@ -128,7 +128,7 @@ export function characterSizePx(anchorWidth: number, posture: keyof typeof CHARA
  * janela/luminária sem precisar invadir a primeira fileira de mesas.
  */
 export const WALL_DECOR_BAND_PCT = 16;
-export const WALL_PANEL_BAND_TOP_PCT = 16.5;
+export const WALL_PANEL_BAND_TOP_PCT = 13;
 export const WALL_HEIGHT_PCT = 27;
 
 /**
@@ -186,7 +186,7 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
       bottomAnchorPct: 88,
       centersBack: [28, 72],
       centersFront: [25.5, 74.5],
-      baseWidth: 374,
+      baseWidth: 396,
       jitterPct: 0.5,
       scaleBack: 0.95,
       scaleFront: 1.06,
@@ -200,7 +200,7 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
       bottomAnchorPct: 88,
       centersBack: [28, 72],
       centersFront: [26, 74],
-      baseWidth: 344,
+      baseWidth: 372,
       jitterPct: 0.8,
       scaleBack: 0.94,
       scaleFront: 1.05,
@@ -243,7 +243,7 @@ const COMFORT_GAP_MIN_PX = 56;
 const COMFORT_GAP_MAX_PX = 120;
 export function comfortGapPx(size: WorldSize = DEFAULT_SIZE): number {
   const width = size.width || DEFAULT_SIZE.width;
-  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.05)));
+  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.044)));
 }
 
 /**
@@ -254,7 +254,7 @@ export function comfortGapPx(size: WorldSize = DEFAULT_SIZE): number {
 const TIGHT_WIDTH_PX = 1300;
 const ROOMY_WIDTH_PX = 1700;
 /** Redução máxima admitida por aperto (mantém legibilidade do card atual). */
-export const MAX_DOWNSCALE = 0.14;
+export const MAX_DOWNSCALE = 0.08;
 
 function tightnessFactor(size: WorldSize): number {
   const width = size.width || DEFAULT_SIZE.width;
@@ -364,8 +364,8 @@ const GENERIC_MIN_ROW_GAP_PCT = 22;
  * Café/Reunião/Espera à direita) e por isso são reservadas em px: as mesas
  * ficam concentradas na faixa central, nunca invadindo as zonas.
  */
-export const RICH_LEFT_ZONE_PX = 252;
-export const RICH_RIGHT_ZONE_PX = 276;
+export const RICH_LEFT_ZONE_PX = 238;
+export const RICH_RIGHT_ZONE_PX = 244;
 /** Tetos das faixas: em palco largo elas crescem, mas não indefinidamente. */
 export const RICH_LEFT_ZONE_MAX_PX = 312;
 export const RICH_RIGHT_ZONE_MAX_PX = 336;
@@ -385,8 +385,8 @@ export function richRightZonePx(stageWidth: number): number {
 /** Faixa superior do Painel da agência (parede): a fileira do fundo fica abaixo. */
 export const RICH_PANEL_BAND_PCT = WALL_HEIGHT_PCT;
 /** Centros horizontais (%) das mesas no modo rico — faixas 36–40% e 62–66%. */
-export const RICH_CENTERS_BACK: [number, number] = [36, 65];
-export const RICH_CENTERS_FRONT: [number, number] = [35, 66];
+export const RICH_CENTERS_BACK: [number, number] = [34, 66];
+export const RICH_CENTERS_FRONT: [number, number] = [33, 67];
 /** Altura visual acima do tampo (monitor + personagem + pilha), como fração da base. */
 export const DESK_ABOVE_TABLE_RATIO = 0.52;
 

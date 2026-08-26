@@ -3,9 +3,9 @@ import OfficeZoneAnchor from "./OfficeZoneAnchor";
 import { ZONE_SEATS } from "@/lib/officeZone";
 
 interface CoffeeCornerProps {
-  /** Quantas pessoas a `OfficePeopleLayer` vai posicionar nas banquetas. */
+  /** Quantas pessoas a `OfficePeopleLayer` vai posicionar na zona. */
   occupied: number;
-  /** Excedente além dos assentos físicos. */
+  /** Excedente além dos lugares físicos. */
   overflow?: number;
   register?: (key: string, el: HTMLElement | null) => void;
 }
@@ -13,85 +13,82 @@ interface CoffeeCornerProps {
 const SEATS = ZONE_SEATS.coffee;
 
 /**
- * Cafeteria da sala: balcão com profundidade (armário inferior + tampo),
- * máquina de café, canecas e, À FRENTE dele, banquetas. O MÓVEL vive aqui; o
- * personagem vem da `OfficePeopleLayer` via anchor, para que exista uma única
- * instância da pessoa na cena inteira.
+ * CAFETERIA como AMBIENTE DE PISO, na composição da referência:
+ * `[ tapete oval ]` cobrindo a zona, PESSOAS na metade ESQUERDA (anchors
+ * medidos) e BALCÃO à DIREITA, com a cafeteira e as canecas claramente
+ * APOIADAS SOBRE o tampo. Objetos de parede (prateleira/gráfico) NÃO vivem
+ * aqui — eles pertencem à faixa decorativa da parede em `OfficeWorld`.
+ * O MÓVEL vive neste componente; o personagem vem da `OfficePeopleLayer`, para
+ * existir uma única instância da pessoa na cena inteira.
  */
 export const CoffeeCorner = memo(function CoffeeCorner({
   occupied,
   overflow = 0,
   register,
 }: CoffeeCornerProps) {
-
-
   return (
-    <div className="relative flex w-[212px] flex-col items-center sm:w-[240px]">
-      {/* ---------- balcão ---------- */}
-      <div aria-hidden="true" className="relative z-10 w-full">
-        {/* prateleira de parede com canecas */}
-        <div className="mx-auto mb-1 flex w-[74%] items-end justify-center gap-1.5">
-          <span className="h-3 w-3 rounded-b-[3px] bg-primary/70" />
-          <span className="h-3 w-3 rounded-b-[3px] bg-muted-foreground/70" />
-          <span className="h-3 w-3 rounded-b-[3px] bg-primary/50" />
-          <span className="h-3 w-3 rounded-b-[3px] bg-foreground/35" />
-        </div>
-        <span className="mx-auto mb-1.5 block h-[3px] w-[78%] rounded bg-foreground/30" />
-
-        {/* máquina de café + jarra sobre o tampo */}
-        <div className="relative -mb-[2px] flex items-end justify-center gap-2">
-          <span className="relative block h-12 w-8 rounded-[4px] bg-foreground/65 shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
-            <span className="absolute left-1/2 top-1.5 h-3 w-5 -translate-x-1/2 rounded-[2px] bg-primary/75" />
-            <span className="absolute left-1/2 top-[22px] h-1.5 w-2 -translate-x-1/2 rounded-b bg-background/75" />
-            <span className="absolute bottom-1.5 left-1/2 h-3.5 w-5 -translate-x-1/2 rounded-b-[3px] bg-background/80" />
-          </span>
-          <span className="relative block h-7 w-6 rounded-b-[6px] rounded-t-[3px] bg-primary/25 ring-1 ring-foreground/25">
-            <span className="absolute inset-x-[3px] bottom-[3px] h-3 rounded-[2px] bg-primary/55" />
-          </span>
-          <span className="h-3.5 w-3.5 rounded-b-[3px] bg-background/90 ring-1 ring-foreground/25" />
-        </div>
-
-        {/* tampo + corpo do balcão (profundidade) */}
-        <span className="block h-[10px] rounded-t-[3px] bg-gradient-to-b from-foreground/38 to-foreground/22" />
-        <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/50 px-2 py-1.5 text-center shadow-[0_8px_12px_-8px_hsl(var(--foreground)/0.75)]">
-          {/* portas do armário */}
-          <span className="absolute inset-y-1 left-3 w-[36%] rounded-[2px] border border-foreground/12" />
-          <span className="absolute inset-y-1 right-3 w-[36%] rounded-[2px] border border-foreground/12" />
-          <span className="relative text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-            Café
-          </span>
-        </div>
-      </div>
-
-      {/* ---------- banquetas à frente do balcão ---------- */}
-      <div className="relative z-20 -mt-[3px] flex w-full items-end justify-center gap-2">
-        {Array.from({ length: SEATS }).map((_, i) => (
-          <div key={i} className="flex w-[54px] flex-col items-center">
-            {/* ponto físico onde o personagem encosta na banqueta */}
-            <OfficeZoneAnchor anchorKey={`coffee:${i}`} width={42} register={register} />
-            <span
-              aria-hidden="true"
-              className={`flex flex-col items-center ${i < occupied ? "opacity-100" : "opacity-85"}`}
-            >
-              <span
-                className={`h-[5px] w-8 rounded-[3px] ${i < occupied ? "bg-foreground/45" : "bg-foreground/32"}`}
-              />
-              <span className="h-5 w-[4px] bg-foreground/28" />
-              <span className="h-[3px] w-6 rounded bg-foreground/28" />
-            </span>
-          </div>
-        ))}
-        {overflow > 0 && (
-          <span className="mb-4 rounded-full border border-border bg-background/90 px-1 text-[8px] font-bold">
-            +{overflow}
-          </span>
-        )}
-      </div>
-
+    <div className="relative flex w-[224px] flex-col items-stretch sm:w-[238px]">
+      {/* ---------- tapete oval: uma única zona para pessoas + balcão ---------- */}
       <span
         aria-hidden="true"
-        className="mx-auto block h-2 w-[82%] rounded-[50%] bg-foreground/18 blur-[2px] dark:bg-background/60"
+        className="absolute bottom-0 left-1/2 h-[52px] w-[96%] -translate-x-1/2 rounded-[46%] border border-foreground/10 bg-foreground/[0.07] dark:bg-background/40"
       />
+
+      <div className="relative flex items-end justify-between gap-1">
+        {/* ---------- PESSOAS (metade esquerda) ---------- */}
+        <div className="relative z-20 flex items-end gap-0.5 pb-3">
+          {Array.from({ length: SEATS }).map((_, i) => (
+            <span key={i} className="relative flex h-0 w-[40px] justify-center">
+              <OfficeZoneAnchor anchorKey={`coffee:${i}`} width={38} register={register} />
+            </span>
+          ))}
+          {overflow > 0 && (
+            <span className="mb-1 rounded-full border border-border bg-background/90 px-1 text-[8px] font-bold">
+              +{overflow}
+            </span>
+          )}
+        </div>
+
+        {/* ---------- BALCÃO à direita, com objetos SOBRE o tampo ---------- */}
+        <div aria-hidden="true" className="relative z-10 w-[104px] shrink-0">
+          {/* objetos apoiados no tampo: cafeteira + jarra + canecas */}
+          <div className="relative z-10 mb-[-2px] flex items-end justify-center gap-1.5">
+            <span className="relative block h-11 w-7 rounded-[4px] bg-foreground/65 shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
+              <span className="absolute left-1/2 top-1.5 h-3 w-4 -translate-x-1/2 rounded-[2px] bg-primary/75" />
+              <span className="absolute left-1/2 top-[21px] h-1.5 w-2 -translate-x-1/2 rounded-b bg-background/75" />
+              <span className="absolute bottom-1.5 left-1/2 h-3 w-4 -translate-x-1/2 rounded-b-[3px] bg-background/80" />
+            </span>
+            <span className="relative block h-6 w-5 rounded-b-[6px] rounded-t-[3px] bg-primary/25 ring-1 ring-foreground/25">
+              <span className="absolute inset-x-[3px] bottom-[3px] h-2.5 rounded-[2px] bg-primary/55" />
+            </span>
+            <span className="flex items-end gap-[3px]">
+              <span className="h-3 w-3 rounded-b-[3px] bg-background/90 ring-1 ring-foreground/25" />
+              <span className="h-2.5 w-2.5 rounded-b-[3px] bg-primary/45" />
+            </span>
+          </div>
+
+          {/* tampo + corpo do balcão (profundidade) */}
+          <span className="relative z-20 block h-[10px] rounded-t-[3px] bg-gradient-to-b from-foreground/40 to-foreground/24" />
+          <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/50 px-2 py-1.5 text-center shadow-[0_8px_12px_-8px_hsl(var(--foreground)/0.75)]">
+            <span className="absolute inset-y-1 left-2 w-[38%] rounded-[2px] border border-foreground/12" />
+            <span className="absolute inset-y-1 right-2 w-[38%] rounded-[2px] border border-foreground/12" />
+            <span className="relative text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Café
+            </span>
+          </div>
+
+          {/* banqueta discreta à frente do balcão, fora da faixa das pessoas */}
+          <div className="relative -mt-[2px] flex justify-center">
+            <span
+              className={`flex flex-col items-center ${occupied > 0 ? "opacity-100" : "opacity-80"}`}
+            >
+              <span className="h-[5px] w-7 rounded-[3px] bg-foreground/42" />
+              <span className="h-4 w-[4px] bg-foreground/28" />
+              <span className="h-[3px] w-5 rounded bg-foreground/28" />
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 });
