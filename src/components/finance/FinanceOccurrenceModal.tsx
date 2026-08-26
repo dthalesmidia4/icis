@@ -107,7 +107,13 @@ interface Props {
   onEditItem?: (item: FinanceItem) => void;
   /** Recarrega a tela após exclusão/inativação (o dado deixou de existir). */
   onRefresh?: () => void;
+  /**
+   * IGNORA este lançamento do cronograma (exceção do mês). Não mexe no padrão:
+   * a recorrência continua valendo para as próximas datas.
+   */
+  onSkip?: (row: MonthRow) => Promise<boolean>;
 }
+
 
 /** Seção do modal: título discreto + conteúdo, sem accordion obrigatório. */
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
