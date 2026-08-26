@@ -92,6 +92,18 @@ export const OfficeDesk = memo(function OfficeDesk({
         ? "Fora do expediente"
         : "Próximo";
   const monitorCard = current || next;
+  // INÍCIO (due) + TÉRMINO (delivery) do mesmo card, sem query nova.
+  const span = useMemo(
+    () =>
+      officeCardSpan({
+        dueDate: monitorCard?.dueDate,
+        dueTime: monitorCard?.dueTime,
+        deliveryDate: monitorCard?.deliveryDate,
+        deliveryTime: monitorCard?.deliveryTime,
+      }),
+    [monitorCard?.dueDate, monitorCard?.dueTime, monitorCard?.deliveryDate, monitorCard?.deliveryTime],
+  );
+
   // Cada slot tem posição FÍSICA distinta no tampo (esquerda / pé do monitor /
   // faixa direita) — nunca todos empilhados ao lado da pilha.
   const objectBySlot = useMemo(() => {
