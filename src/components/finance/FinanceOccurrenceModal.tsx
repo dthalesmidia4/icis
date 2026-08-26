@@ -359,12 +359,21 @@ export default function FinanceOccurrenceModal({
   /**
    * Correção auditada de um fato fechado: vai pela RPC segura e só dá sucesso
    * depois de o banco devolver a ocorrência com a mudança confirmada.
+   * `convertFirst`: fato direto legado que passa a ser cobrança do cartão.
    */
-  const handleCorrection = async () => {
+  const handleCorrection = async (convertFirst: boolean) => {
     if (!row?.occurrence) return;
     setSaving(true);
+    if (convertFirst) {
+      const converted = await convertOccurrenceToCardCharge(row.occurrence.id, factDate);
+      if (!converted.ok || converted.occurrence?.paid_at) {
+        setSaving(false);
+        toast.error(converted.message ?? FACT_CORRECTION_INCONSISTENT);
+        return;
+      }
+    }
     const patch = buildFactCorrectionPatch({
-      cardRow,
+      cardRow: cardRow || convertFirst,
       currency: row.currency,
       amountOriginal: amountNumber,
       amountBrl: brl,
@@ -391,42 +400,23 @@ export default function FinanceOccurrenceModal({
     onOpenChange(false);
   };
 
-  /** CROPY: fato pago direto que hoje pertence a um cartão. */
-  const handleConvertToCardCharge = async () => {
-    if (!row?.occurrence) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(convertDate)) {
-      toast.error(LEGACY_CONVERT_NEEDS_DATE);
-      return;
-    }
-    setConverting(true);
-    const result = await convertOccurrenceToCardCharge(row.occurrence.id, convertDate);
-    if (!result.ok) {
-      setConverting(false);
-      toast.error(result.message ?? "Não foi possível converter");
-      return;
-    }
-    if (
-      !correctionWasApplied({ charge_date: convertDate }, result.occurrence) ||
-      result.occurrence?.paid_at
-    ) {
-      setConverting(false);
-      toast.error(FACT_CORRECTION_INCONSISTENT);
-      return;
-    }
-    onRefresh?.();
-    setConverting(false);
-    toast.success(LEGACY_CONVERT_SUCCESS);
-    onOpenChange(false);
-  };
-
   const handleSave = async () => {
     if (!row) return;
-    if (inCorrection) {
-      await handleCorrection();
+    /** O Save decide a rota: nenhum modo especial é exigido do usuário. */
+    const route = occurrenceSaveRoute({
+      statementRow,
+      hasOccurrence: !!row.occurrence,
+      closed: rowClosed,
+      legacyDirectOnCard,
+      factDate,
+    });
+    if (route === "blocked") return;
+    if (route === "correction" || route === "convert_then_correct") {
+      await handleCorrection(route === "convert_then_correct");
       return;
     }
-    if (readOnlyFact) return;
     if (!canSubmit) return;
+
     setSaving(true);
     const patch = buildOccurrencePatch({
       row,
