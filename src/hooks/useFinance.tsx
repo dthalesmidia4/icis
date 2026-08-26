@@ -124,7 +124,17 @@ export function useFinance(competence: Competence) {
     const next = normalizeCompetence({ year: normalized.year, month: normalized.month + 1 });
 
     try {
-      const [itemsRes, occRes, rulesRes, itemValues, occValues, tenantValues] = await Promise.all([
+      const [
+        itemsRes,
+        occRes,
+        rulesRes,
+        payRulesRes,
+        batchesRes,
+        batchEntriesRes,
+        itemValues,
+        occValues,
+        tenantValues,
+      ] = await Promise.all([
         supabase
           .from("finance_items")
           .select(FINANCE_ITEM_METADATA_COLUMNS)
@@ -145,6 +155,25 @@ export function useFinance(competence: Competence) {
           .select("id,tenant_id,item_id,effective_from,frequency,interval_count,weekday,day_of_month,anchor_date,note")
           .eq("tenant_id", agencyId)
           .order("effective_from", { ascending: true }),
+        // Agenda de PAGAMENTO (não guarda valor: só cronograma).
+        (supabase as any)
+          .from("finance_payment_rules")
+          .select("id,tenant_id,item_id,effective_from,mode,interval_count,weekday,day_of_month,note")
+          .eq("tenant_id", agencyId)
+          .order("effective_from", { ascending: true }),
+        (supabase as any)
+          .from("finance_payment_batches")
+          .select("id,tenant_id,item_id,competence_month,scheduled_date,paid_at,note")
+          .eq("tenant_id", agencyId)
+          .in("competence_month", [
+            competenceToISO(prev),
+            competenceToISO(normalized),
+            competenceToISO(next),
+          ]),
+        (supabase as any)
+          .from("finance_payment_batch_entries")
+          .select("id,tenant_id,batch_id,item_id,scheduled_date")
+          .eq("tenant_id", agencyId),
         fetchSecureItemValues(agencyId),
         fetchSecureOccurrenceValues(agencyId, competenceToISO(prev), competenceToISO(next)),
         fetchSecureTenantValues(agencyId),
@@ -158,6 +187,9 @@ export function useFinance(competence: Competence) {
         setItems([]);
         setOccurrences([]);
         setRules([]);
+        setPaymentRules([]);
+        setBatches([]);
+        setBatchEntries([]);
         setLoadError(message);
         return;
       }
@@ -167,6 +199,9 @@ export function useFinance(competence: Competence) {
         mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
       );
       setRules(((rulesRes?.data as any[]) ?? []) as FinanceRecurrenceRule[]);
+      setPaymentRules(((payRulesRes?.data as any[]) ?? []) as FinancePaymentRule[]);
+      setBatches(((batchesRes?.data as any[]) ?? []) as FinancePaymentBatch[]);
+      setBatchEntries(((batchEntriesRes?.data as any[]) ?? []) as FinancePaymentBatchEntry[]);
       setSettings({
         monthlyBudgetBrl: tenantValues.monthlyBudgetBrl,
         defaultUsdRate: tenantValues.defaultUsdRate,
@@ -183,6 +218,9 @@ export function useFinance(competence: Competence) {
       setItems([]);
       setOccurrences([]);
       setRules([]);
+      setPaymentRules([]);
+      setBatches([]);
+      setBatchEntries([]);
       setSettings({ monthlyBudgetBrl: null, defaultUsdRate: null });
       setLoadError(message);
     } finally {
