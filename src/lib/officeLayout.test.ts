@@ -249,15 +249,15 @@ describe("modo rico de zonas (até 4 mesas)", () => {
     }
   });
 
-  it("2x2 compacto: centros das mesas ficam nas faixas ~35% e ~66%", () => {
+  it("2x2 compacto: centros das mesas ficam nas faixas ~33% e ~67%", () => {
     const slots = computeDeskSlots(4, { width: 1920, height: 1080 }, { sideZones: true });
     slots.forEach((s, i) => {
       if (i % 2 === 0) {
-        expect(s.leftPct).toBeGreaterThanOrEqual(34);
-        expect(s.leftPct).toBeLessThanOrEqual(40);
+        expect(s.leftPct).toBeGreaterThanOrEqual(32);
+        expect(s.leftPct).toBeLessThanOrEqual(38);
       } else {
-        expect(s.leftPct).toBeGreaterThanOrEqual(60);
-        expect(s.leftPct).toBeLessThanOrEqual(66);
+        expect(s.leftPct).toBeGreaterThanOrEqual(62);
+        expect(s.leftPct).toBeLessThanOrEqual(68);
       }
     });
   });
