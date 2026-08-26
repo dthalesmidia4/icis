@@ -43,28 +43,56 @@ const row = (over: Partial<MonthRow> = {}): MonthRow =>
   }) as MonthRow;
 
 describe("factCorrectionMode", () => {
-  it("fato aberto continua editável", () => {
-    expect(factCorrectionMode({ hasOccurrence: true, statementRow: false, closed: false })).toBe(
-      "editable",
-    );
+describe("permissões independentes (fato x prova de pagamento)", () => {
+  it("pagamento direto pago: fatos abertos no primeiro render, prova travada", () => {
+    expect(factFieldsEditable({ statementRow: false })).toBe(true);
+    expect(paymentProofEditable({ cardRow: false, statementRow: false, closed: true })).toBe(false);
   });
 
-  it("fato pago com ocorrência real é corrigível", () => {
-    expect(factCorrectionMode({ hasOccurrence: true, statementRow: false, closed: true })).toBe(
-      "correctable",
-    );
+  it("componente de cartão pago: fatos abertos, prova nunca é daqui", () => {
+    expect(factFieldsEditable({ statementRow: false })).toBe(true);
+    expect(paymentProofEditable({ cardRow: true, statementRow: false, closed: false })).toBe(false);
   });
 
   it("fatura paga continua travada", () => {
-    expect(factCorrectionMode({ hasOccurrence: true, statementRow: true, closed: true })).toBe(
-      "locked",
+    expect(factFieldsEditable({ statementRow: true })).toBe(false);
+    expect(paymentProofEditable({ cardRow: false, statementRow: true, closed: true })).toBe(false);
+  });
+
+  it("fato aberto e direto pode registrar pagamento", () => {
+    expect(paymentProofEditable({ cardRow: false, statementRow: false, closed: false })).toBe(true);
+  });
+});
+
+describe("occurrenceSaveRoute", () => {
+  const base = { statementRow: false, hasOccurrence: true, closed: false, legacyDirectOnCard: false, factDate: "2026-08-05" };
+
+  it("fato aberto salva pelo caminho normal", () => {
+    expect(occurrenceSaveRoute(base)).toBe("normal");
+  });
+
+  it("fato fechado vai automaticamente para a correção segura", () => {
+    expect(occurrenceSaveRoute({ ...base, closed: true })).toBe("correction");
+  });
+
+  it("híbrido com data digitada converte antes de corrigir", () => {
+    expect(occurrenceSaveRoute({ ...base, closed: true, legacyDirectOnCard: true })).toBe(
+      "convert_then_correct",
     );
   });
 
-  it("linha fechada sem ocorrência real não tem fato para corrigir", () => {
-    expect(factCorrectionMode({ hasOccurrence: false, statementRow: false, closed: true })).toBe(
-      "locked",
-    );
+  it("híbrido sem data real não inventa conversão", () => {
+    expect(
+      occurrenceSaveRoute({ ...base, closed: true, legacyDirectOnCard: true, factDate: "" }),
+    ).toBe("correction");
+  });
+
+  it("fatura não salva por aqui", () => {
+    expect(occurrenceSaveRoute({ ...base, statementRow: true, closed: true })).toBe("blocked");
+  });
+
+  it("linha fechada sem ocorrência real materializa normalmente", () => {
+    expect(occurrenceSaveRoute({ ...base, closed: true, hasOccurrence: false })).toBe("normal");
   });
 });
 
