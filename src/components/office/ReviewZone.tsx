@@ -13,7 +13,7 @@ interface ReviewZoneProps {
  */
 export const ReviewZone = memo(function ReviewZone({ register }: ReviewZoneProps) {
   return (
-    <div className="flex w-[clamp(206px,16.5vw,262px)] flex-col items-start">
+    <div className="flex w-full max-w-[262px] flex-col items-start">
       <div aria-hidden="true" className="relative w-full">
         {/* painel de parede da bancada */}
         <span className="absolute inset-x-3 top-0 h-[3px] rounded-full bg-foreground/20" />
