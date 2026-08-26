@@ -1571,6 +1571,64 @@ export type Database = {
           },
         ]
       }
+      finance_occurrence_corrections: {
+        Row: {
+          corrected_at: string
+          corrected_by: string | null
+          fields: string[]
+          id: string
+          item_id: string
+          kind: string
+          note: string | null
+          occurrence_id: string
+          tenant_id: string
+        }
+        Insert: {
+          corrected_at?: string
+          corrected_by?: string | null
+          fields?: string[]
+          id?: string
+          item_id: string
+          kind: string
+          note?: string | null
+          occurrence_id: string
+          tenant_id: string
+        }
+        Update: {
+          corrected_at?: string
+          corrected_by?: string | null
+          fields?: string[]
+          id?: string
+          item_id?: string
+          kind?: string
+          note?: string | null
+          occurrence_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_occurrence_corrections_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_occurrence_corrections_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "finance_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_occurrence_corrections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_occurrences: {
         Row: {
           amount_brl: number | null
@@ -3720,6 +3778,14 @@ export type Database = {
         Returns: Json
       }
       finance_access_scope: { Args: { _tenant_id: string }; Returns: string }
+      finance_convert_occurrence_to_card_charge: {
+        Args: { _charge_date: string; _occurrence_id: string }
+        Returns: string
+      }
+      finance_correct_occurrence: {
+        Args: { _occurrence_id: string; _patch: Json }
+        Returns: string
+      }
       finance_encryption_health: { Args: never; Returns: Json }
       finance_item_delete_decision: {
         Args: { _item_id: string }
