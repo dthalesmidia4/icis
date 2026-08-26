@@ -929,7 +929,7 @@ export default function FinanceItemFormModal({
                 {!isAnnual && !subscriptionDate && (
                   <div>
                     <Label>Data da assinatura</Label>
-                    <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
+                    <FinanceDateInput value={subscriptionDate} onChange={setSubscriptionDate} />
                   </div>
                 )}
                 <div>
