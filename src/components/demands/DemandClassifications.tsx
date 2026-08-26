@@ -92,21 +92,13 @@ export function ClassificationSelector({ value, onChange, disabled }: SelectorPr
   );
 }
 
-export interface AdPlan {
-  objective?: string;
-  budget?: string;
-  period?: string;
-  territory?: string;
-  audience?: string;
-  notes?: string;
-  [key: string]: unknown;
-}
+export type AdPlan = AdPlanShape;
 
-const AD_FIELDS: { key: keyof AdPlan & string; label: string; long?: boolean }[] = [
+const AD_FIELDS: { key: AdPlanTextKey; label: string; long?: boolean; placeholder?: string }[] = [
   { key: "objective", label: "Objetivo" },
   { key: "budget", label: "Verba" },
   { key: "period", label: "Período/janela" },
-  { key: "territory", label: "Território" },
+  { key: "territory", label: "Território", placeholder: "Ex.: Ribeirão Preto + 30 km" },
   { key: "audience", label: "Público", long: true },
   { key: "notes", label: "Observações/validação", long: true },
 ];
@@ -116,38 +108,118 @@ interface AdPlanSectionProps {
   onChange: (next: AdPlan) => void;
   onBlur?: () => void;
   readOnly?: boolean;
+  /** ad_plan é operacional apenas em demandas de Mídia. */
+  workArea?: string | null;
+  /** Campanhas da empresa para vínculo opcional. */
+  campaignOptions?: { id: string; name: string }[];
 }
 
 /** Seção "Informações do anúncio" — preserva chaves não reconhecidas do JSON. */
-export function AdPlanSection({ value, onChange, onBlur, readOnly }: AdPlanSectionProps) {
-  const plan: AdPlan = value && typeof value === "object" ? value : {};
+export function AdPlanSection({
+  value,
+  onChange,
+  onBlur,
+  readOnly,
+  workArea,
+  campaignOptions,
+}: AdPlanSectionProps) {
+  const plan = normalizeAdPlan(value);
+  const editable = !readOnly && canEditAdPlan(workArea);
+  const boosted = !!plan.boost;
 
   const set = (key: string, v: string) => onChange({ ...plan, [key]: v });
 
   return (
     <div className="space-y-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-        Informações do anúncio
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+          Informações do anúncio
+        </p>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="ad-plan-boost"
+            checked={boosted}
+            disabled={!editable}
+            onCheckedChange={(checked) => {
+              onChange(setAdPlanBoost(plan, checked));
+              onBlur?.();
+            }}
+          />
+          <Label htmlFor="ad-plan-boost" className="text-xs font-bold uppercase tracking-wide">
+            Impulsionar
+          </Label>
+          {boosted && (
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-bold uppercase">
+              Mídia paga
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {!canEditAdPlan(workArea) && (
+        <p className="text-xs text-muted-foreground">
+          Plano de anúncio é operacional apenas em demandas de Mídia.
+        </p>
+      )}
+
+      {!!campaignOptions?.length && (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Campanha
+          </Label>
+          {editable ? (
+            <Select
+              value={plan.campaign_id || "none"}
+              onValueChange={(v) => {
+                onChange(setAdPlanCampaign(plan, v === "none" ? null : v));
+                onBlur?.();
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem campanha" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem campanha</SelectItem>
+                {campaignOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {campaignOptions.find((c) => c.id === plan.campaign_id)?.name || "—"}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
-        {AD_FIELDS.map(({ key, label, long }) => {
+        {AD_FIELDS.map(({ key, label, long, placeholder }) => {
           const current = typeof plan[key] === "string" ? (plan[key] as string) : "";
           return (
             <div key={key} className={cn("space-y-1.5", long && "md:col-span-2")}>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 {label}
               </Label>
-              {readOnly ? (
+              {!editable ? (
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">{current || "—"}</p>
               ) : long ? (
                 <Textarea
                   value={current}
                   onChange={(e) => set(key, e.target.value)}
                   onBlur={onBlur}
+                  placeholder={placeholder}
                   className="min-h-[80px] resize-y"
                 />
               ) : (
-                <Input value={current} onChange={(e) => set(key, e.target.value)} onBlur={onBlur} />
+                <Input
+                  value={current}
+                  onChange={(e) => set(key, e.target.value)}
+                  onBlur={onBlur}
+                  placeholder={placeholder}
+                />
               )}
             </div>
           );
@@ -156,3 +228,4 @@ export function AdPlanSection({ value, onChange, onBlur, readOnly }: AdPlanSecti
     </div>
   );
 }
+
