@@ -12,6 +12,8 @@ import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Competence, competenceToISO, normalizeCompetence } from "@/lib/financeCardCycle";
+import { isTrackedCompetence } from "@/lib/financeTrackingPeriod";
+
 import {
   FinanceItem,
   FinanceOccurrence,
