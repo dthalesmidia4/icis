@@ -13,7 +13,10 @@ import {
   richRightZonePx,
   richZonesActive,
   stageSize,
+  WALL_HEIGHT_PCT,
+  WALL_PANEL_BAND_TOP_PCT,
 } from "@/lib/officeLayout";
+
 import OfficeWorld from "@/components/office/OfficeWorld";
 import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
