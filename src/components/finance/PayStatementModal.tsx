@@ -1,13 +1,17 @@
 /**
  * Pagamento da FATURA do cartão, com RECONCILIAÇÃO CAMBIAL.
  *
- * A data informada aqui é o FATO do pagamento (`paid_at`). O vencimento
- * (`due_date`) é histórico e NUNCA é alterado por este fluxo.
+ * O FECHAMENTO da fatura (total + IOF incluído nele) é capturado aqui, junto,
+ * como um único dado — nunca em duas telas separadas. A data informada é o FATO
+ * do pagamento (`paid_at`); o vencimento (`due_date`) é histórico e NUNCA é
+ * alterado por este fluxo. O `Valor pago` não é digitado de novo: ele É o total
+ * do fechamento (a fatura é paga por inteiro).
  *
  * Antes de liquidar, cada compra em dólar da fatura precisa do valor EXATO
  * cobrado em reais: o câmbio efetivo é individual, calculado por compra. O
  * banco recalcula e persiste esse câmbio — a tela só mostra a prévia.
  */
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
@@ -34,10 +38,19 @@ import {
   parseIofInput,
 } from "@/lib/financeIof";
 import {
+  CLOSURE_IOF_LABEL,
+  CLOSURE_SECTION_LABEL,
+  CLOSURE_TOTAL_LABEL,
+  resolveStatementClosure,
+  seedStatementClosure,
+  statementClosureMessage,
+} from "@/lib/financeStatementClosure";
+import {
   buildReconciliation,
   reconciliationPayload,
   usdComponentsOf,
 } from "@/lib/financeReconciliation";
+
 
 interface Props {
   open: boolean;
@@ -53,19 +66,22 @@ interface Props {
     usdComponents?: unknown[];
     /** Repasse de IOF cobrado junto com a fatura (0 quando não houver). */
     iofBrl: number;
+    /** Total do FECHAMENTO informado aqui (null = mantém o total conhecido). */
+    statementAmountBrl: number | null;
   }) => Promise<boolean>;
 }
 
 export default function PayStatementModal({ open, onOpenChange, group, today, onConfirm }: Props) {
   const [date, setDate] = useState(today);
-  const [amount, setAmount] = useState("");
+  /** Total do fechamento (o mesmo valor que será pago). */
+  const [total, setTotal] = useState("");
   const [saving, setSaving] = useState(false);
   /** IOF é SEMPRE perguntado, com padrão 0 — exista ou não compra em dólar. */
   const [iof, setIof] = useState("0");
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
   const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
 
-  const suggested = group ? group.actualTotal ?? group.projectedTotal : null;
+  const knownTotal = group?.actualTotal ?? null;
   /** Fatura com valor real informado: o total é fato, não pode pagar parcial. */
   const exactRequired = group?.actualTotal != null;
 
@@ -74,22 +90,34 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   useEffect(() => {
     if (!open) return;
     setDate(today);
-    setIof("0");
-    // Vazio herda o total da fatura. IOF é classificação dentro desse total.
-    setAmount("");
-    const seed: Record<string, string> = {};
+    const seed = seedStatementClosure(group);
+    // Fechamento já conhecido abre predefinido: total real + IOF classificado.
+    setTotal(seed.total);
+    setIof(seed.iof);
+    const usdSeed: Record<string, string> = {};
     for (const comp of usdComponents) {
       // Estimativa entra como ponto de partida; o usuário confirma o valor real.
-      seed[comp.row.key] = comp.estimatedBrl != null ? String(comp.estimatedBrl) : "";
+      usdSeed[comp.row.key] = comp.estimatedBrl != null ? String(comp.estimatedBrl) : "";
     }
-    setUsdInputs(seed);
-  }, [open, today, suggested, usdComponents]);
+    setUsdInputs(usdSeed);
+  }, [open, today, group, usdComponents]);
 
   if (!group) return null;
 
+  const closure = resolveStatementClosure({ total, iof, knownTotalBrl: knownTotal });
+  const closureMessage = statementClosureMessage(closure);
   const iofResult = parseIofInput(iof);
   const iofMessage = iofInputMessage(iofResult);
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
+  /** Total confirmado no fechamento; sem digitação, cai no total conhecido. */
+  const closureTotalBrl = closure.state === "ok" ? closure.totalBrl : null;
+  const suggested = closureTotalBrl ?? knownTotal ?? group.projectedTotal;
+  /**
+   * O `Valor pago` NÃO é um campo próprio: a fatura é paga por inteiro, então
+   * ele é sempre o total do fechamento acima.
+   */
+  const amount = total.trim();
+
   /** Total da fatura: o IOF já está contido nele, não é somado por cima. */
   const expected = suggested != null ? Number(suggested.toFixed(2)) : null;
 
@@ -118,6 +146,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   });
   const canSubmit =
     dateValid &&
+    closure.state === "ok" &&
     iofResult.state === "ok" &&
     amountResult.state === "ok" &&
     reconciliation.state === "ok";
@@ -132,7 +161,9 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
         paidAmountBrl: amountResult.amountBrl,
         usdComponents: reconciliationPayload(reconciliation.entries),
         iofBrl,
+        statementAmountBrl: closureTotalBrl,
       });
+
       if (ok) onOpenChange(false);
     } finally {
       setSaving(false);
@@ -231,42 +262,61 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pay-statement-amount">Valor pago (R$)</Label>
-            <Input
-              id="pay-statement-amount"
-              inputMode="decimal"
-              className="w-full min-w-0 max-w-full"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder={suggested != null ? formatBRL(suggested) : "0,00"}
-            />
-            {amountMessage && <p className="text-xs text-destructive">{amountMessage}</p>}
-            {exactRequired && !amountMessage && (
+          {/* FECHAMENTO: total e IOF são o mesmo dado, sempre juntos. */}
+          <div className="space-y-3 rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">{CLOSURE_SECTION_LABEL}</p>
               <p className="text-xs text-muted-foreground">
-                A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}.
+                O IOF já está dentro do total: ele é classificação, não acréscimo.
               </p>
-            )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pay-statement-amount">{CLOSURE_TOTAL_LABEL}</Label>
+              <Input
+                id="pay-statement-amount"
+                inputMode="decimal"
+                className="w-full min-w-0 max-w-full"
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder={suggested != null ? formatBRL(suggested) : "0,00"}
+              />
+              {closureMessage && <p className="text-xs text-destructive">{closureMessage}</p>}
+              {amountMessage && !closureMessage && (
+                <p className="text-xs text-destructive">{amountMessage}</p>
+              )}
+              {exactRequired && !closureMessage && !amountMessage && (
+                <p className="text-xs text-muted-foreground">
+                  A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pay-statement-iof">{CLOSURE_IOF_LABEL}</Label>
+              <Input
+                id="pay-statement-iof"
+                inputMode="decimal"
+                className="w-full min-w-0 max-w-full"
+                value={iof}
+                onChange={(e) => setIof(e.target.value)}
+                placeholder="0,00"
+              />
+              {iofMessage ? (
+                <p className="text-xs text-destructive">{iofMessage}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  IOF cobrado pelo banco junto com esta fatura. Use 0 quando não houver.
+                </p>
+              )}
+            </div>
+
+            <p className="flex justify-between gap-3 border-t pt-2 text-sm">
+              <span className="text-muted-foreground">Valor que será pago</span>
+              <span className="font-semibold">{formatBRL(expected)}</span>
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pay-statement-iof">Repasse de IOF (R$)</Label>
-            <Input
-              id="pay-statement-iof"
-              inputMode="decimal"
-              className="w-full min-w-0 max-w-full"
-              value={iof}
-              onChange={(e) => setIof(e.target.value)}
-              placeholder="0,00"
-            />
-            {iofMessage ? (
-              <p className="text-xs text-destructive">{iofMessage}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                IOF cobrado pelo banco junto com esta fatura. Use 0 quando não houver.
-              </p>
-            )}
-          </div>
 
           {reconciliation.state === "ok" && (
             <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
