@@ -50,6 +50,12 @@ import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
 import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
+import GroupedPaymentsPanel from "@/components/finance/GroupedPaymentsPanel";
+import {
+  GroupedPayment,
+  buildGroupedPayments,
+  rowFactDate,
+} from "@/lib/financePaymentSchedule";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseLocalizedNumber } from "@/lib/financeNumber";
 import { useFinance, currentCompetence, todayISO } from "@/hooks/useFinance";
@@ -904,6 +910,12 @@ function FinancialCockpit() {
 
             {/* D. Próximos pagamentos — centro operacional */}
             <PaymentQueue entries={paymentQueue} today={today} onSelect={handleQueueSelect} />
+
+            <GroupedPaymentsPanel
+              groups={groupedPayments}
+              onPay={handleGroupedPay}
+              onUndo={handleGroupedUndo}
+            />
 
             {/* E. Exceções */}
             <AttentionPanel insights={insights} onAction={handleInsightAction} />
