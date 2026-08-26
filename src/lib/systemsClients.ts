@@ -45,6 +45,8 @@ export interface SystemsClient {
   last_contact_result: string | null;
   loss_reason: string | null;
   lead_source: string | null;
+  /** Campanha de marketing que originou a oportunidade (opcional). */
+  acquisition_campaign_id: string | null;
 }
 
 export interface SystemsCompany {
@@ -214,6 +216,7 @@ export interface SaveSystemsClientPayload {
   lastContactResult?: string | null;
   lossReason?: string | null;
   leadSource?: string | null;
+  acquisitionCampaignId?: string | null;
 }
 
 const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
@@ -246,6 +249,7 @@ export async function saveSystemsClient(
     last_contact_result: clean(payload.lastContactResult),
     loss_reason: clean(payload.lossReason),
     lead_source: clean(payload.leadSource),
+    acquisition_campaign_id: payload.acquisitionCampaignId || null,
   };
 
   if (payload.id) {
