@@ -411,7 +411,8 @@ export default function FinanceOccurrenceModal({
                   onChange={(e) => editUsd("original", e.target.value)}
                   inputMode="decimal"
                   placeholder="0,00"
-                  readOnly={readOnlyFact}
+                  readOnly={readOnlyMoney}
+
                 />
               </div>
 
@@ -435,7 +436,8 @@ export default function FinanceOccurrenceModal({
                       value={rate}
                       onChange={(e) => editUsd("rate", e.target.value)}
                       inputMode="decimal"
-                      readOnly={readOnlyFact}
+                      readOnly={readOnlyMoney}
+
                     />
                   </div>
                   <div className="min-w-0">
@@ -446,7 +448,8 @@ export default function FinanceOccurrenceModal({
                       onChange={(e) => editUsd("brl", e.target.value)}
                       inputMode="decimal"
                       placeholder="0,00"
-                      readOnly={readOnlyFact}
+                      readOnly={readOnlyMoney}
+
                     />
                   </div>
                 </>
