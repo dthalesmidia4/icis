@@ -1100,7 +1100,14 @@ export function buildStatementGroups(params: {
           });
           if (resolved.incomplete || !resolved.statementCompetence) continue;
           if (!sameCompetence(resolved.statementCompetence, competence)) continue;
-          const identity = `${card.id}|${row.item.id}|${row.chargeDate ?? competenceToISO(actualChargeCompetence)}`;
+          /**
+           * Fato real tem identidade PRÓPRIA (a PK da ocorrência): dois fatos
+           * do mesmo item no mesmo dia (renovação + recarga) são cobranças
+           * distintas e não podem se anular no dedupe.
+           */
+          const identity = row.occurrence && !row.projected
+            ? `${card.id}|occ:${row.occurrence.id}`
+            : `${card.id}|${row.item.id}|${row.chargeDate ?? competenceToISO(actualChargeCompetence)}`;
           const existing = byChargeIdentity.get(identity);
           if (existing) {
             const existingReal = !!existing.occurrence && !existing.projected;
@@ -1116,9 +1123,11 @@ export function buildStatementGroups(params: {
        * projeção (dias diferentes), a fatura fica só com o fato — senão o item
        * apareceria duas vezes e o total da fatura dobraria.
        */
+      // Só o fato REGULAR substitui a projeção: uma recarga é fato ADICIONAL e
+      // nunca apaga a renovação prevista do mesmo cadastro.
       const realItemIds = new Set(
         [...byChargeIdentity.values()]
-          .filter((row) => !!row.occurrence && !row.projected)
+          .filter((row) => !!row.occurrence && !row.projected && !row.supplemental)
           .map((row) => row.item.id),
       );
       for (const row of byChargeIdentity.values()) {
