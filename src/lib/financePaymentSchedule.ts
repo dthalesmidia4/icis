@@ -317,3 +317,85 @@ export function buildBatchSettlementIndex(params: {
 export function batchedIdentities(entries: FinancePaymentBatchEntry[]): Set<string> {
   return new Set(entries.map((e) => batchEntryIdentity(e.item_id, e.scheduled_date)));
 }
+
+/* -------------------------------------------------------------------------- */
+/*                    PAGAMENTOS AGRUPADOS DA COMPETÊNCIA                     */
+/* -------------------------------------------------------------------------- */
+
+export interface GroupedPayment {
+  /** Chave estável na tela (cadastro + data de pagamento). */
+  key: string;
+  itemId: string;
+  itemName: string;
+  paymentDate: string | null;
+  rows: MonthRow[];
+  totalBrl: number | null;
+  /** Regra vigente que produziu este grupo (para o rótulo). */
+  rule: FinancePaymentRule;
+  /** Lote já criado para esta saída de caixa, quando existir. */
+  batch: FinancePaymentBatch | null;
+  /** Já saiu do caixa? (lote pago) */
+  paid: boolean;
+}
+
+/**
+ * Saídas de caixa AGRUPADAS da competência: um grupo por cadastro + data de
+ * pagamento, considerando só cadastros cuja agenda de pagamento agrupa de fato
+ * (`per_occurrence` continua sendo pagamento linha a linha, fora daqui).
+ *
+ * Cobranças no cartão nunca entram: quem paga essas é a FATURA.
+ */
+export function buildGroupedPayments(params: {
+  rows: MonthRow[];
+  rules: FinancePaymentRule[];
+  batches: FinancePaymentBatch[];
+  entries: FinancePaymentBatchEntry[];
+  competence: Competence;
+}): GroupedPayment[] {
+  const byItem = new Map<string, MonthRow[]>();
+  for (const row of params.rows) {
+    if (row.cardItemId) continue; // fatura paga essas
+    const list = byItem.get(row.item.id);
+    if (list) list.push(row);
+    else byItem.set(row.item.id, [row]);
+  }
+
+  const monthISO = competenceToISO(normalizeCompetence(params.competence));
+  const out: GroupedPayment[] = [];
+
+  for (const [itemId, rows] of byItem) {
+    const item = rows[0].item;
+    const rule = effectivePaymentRuleFor(item, params.rules, monthISO);
+    if (rule.mode === "per_occurrence") continue;
+
+    for (const group of groupRowsForPayment({ rows, rule, competence: params.competence })) {
+      const identities = new Set(
+        group.rows.map((r) => rowFactDate(r)).filter((d): d is string => !!d),
+      );
+      const batch =
+        params.batches.find(
+          (b) =>
+            b.item_id === itemId &&
+            (b.payment_date ?? null) === (group.paymentDate ?? null) &&
+            params.entries.some(
+              (e) => e.batch_id === b.id && identities.has(e.scheduled_date.slice(0, 10)),
+            ),
+        ) ?? null;
+      out.push({
+        key: `${itemId}|${group.paymentDate ?? "manual"}`,
+        itemId,
+        itemName: item.name,
+        paymentDate: group.paymentDate,
+        rows: group.rows,
+        totalBrl: group.totalBrl,
+        rule,
+        batch,
+        paid: !!batch?.paid_at,
+      });
+    }
+  }
+
+  return out.sort((a, b) =>
+    (a.paymentDate ?? "9999-99-99").localeCompare(b.paymentDate ?? "9999-99-99"),
+  );
+}
