@@ -1,49 +1,36 @@
-# Plano — Status seguro de fatura em Assinaturas e ferramentas
+# Financeiro — destravar a digitação no modal do lançamento
 
-## Objetivo
-Corrigir o badge de itens pagos no cartão dentro do escopo **Assinaturas e ferramentas**, sem liberar dados do Financeiro completo para usuários `tools-only`.
+## O que está acontecendo (verificado no banco e no código)
 
-## Backend
-- Criar uma RPC segura `public.list_finance_safe_card_statement_status(_tenant_id uuid, _competence_month date)`.
-- A RPC será `SECURITY DEFINER`, com `search_path = public`, e validará acesso com `public.has_finance_tools_access(_tenant_id)`.
-- Retorno permitido apenas:
-  - `card_id`
-  - `competence_month`
-  - `due_date`
-  - `paid`
-  - `paid_at`
-- A fonte será somente ocorrência real de fatura: `finance_occurrences` ligada a `finance_items.kind = 'card'` na competência solicitada.
-- Não retornar valores monetários, limite, orçamento, câmbio, anexos, observações ou dados administrativos.
-- Revogar execução de `PUBLIC`/`anon` e conceder execução apenas a `authenticated` e `service_role`.
+O lançamento que você abriu é o **Adobe Creative Cloud (competência ago/2026)**. No banco ele está num estado híbrido:
 
-## Frontend
-- Adicionar o tipo seguro `SafeCardStatementStatus` e helpers para mapear status por `cardId|competence`.
-- Atualizar `useFinanceTools` para chamar a nova RPC em paralelo com as leituras já existentes.
-- Retornar `statementStatuses` no hook, sem consultar diretamente faturas/cartões completos.
-- Estender `RowStatusContext` com `safeStatementStatuses`.
-- Atualizar `resolveRowStatus` para, em cobranças no cartão:
-  1. manter `row.paid` como prioridade máxima;
-  2. manter vínculo explícito/snapshot com `statementRows` como prioridade;
-  3. usar o status seguro da fatura real da competência quando não houver vínculo contábil;
-  4. só exibir `Aguardando dados da fatura` se não existir fatura real segura e o ciclo estiver incompleto.
-- Atualizar `SubscriptionsPanel` para não exibir warning de ciclo incompleto quando o grupo tem fatura real segura na competência; nesse caso mostrar um estado discreto da fatura real.
-- No Financeiro completo, derivar o mesmo mapa seguro a partir de `statementRows` reais e passar ao `SubscriptionsPanel`, mantendo a mesma semântica entre `full` e `tools`.
+- item é **Cartão de Crédito** (Itaú ••••7587);
+- a ocorrência tem `paid_at` próprio (24/08), **sem `charge_date`** e com `due_date` antigo (14/07);
+- os snapshots do mês estão preenchidos (`Cartão de Crédito` + id do cartão).
 
-## Sem alterações de dados
-- Não alterar `statement_closing_day`/`statement_due_day` do cartão 7587.
-- Não alterar faturas, pagamentos, vencimentos ou links históricos.
-- Não preencher `statement_occurrence_id` por inferência.
-- Não alterar escopos ou permissões além do `EXECUTE` da nova RPC.
+Consequências no modal atual:
 
-## Testes e validação
-- Testes unitários para:
-  - fatura segura paga no cartão 7587/Ago-2026 não exibir `Aguardando` e exibir `Fatura paga`;
-  - fatura real aberta vencendo hoje não exibir `Aguardando`;
-  - fatura real atrasada exibir `Fatura atrasada`;
-  - ausência de fatura real + ciclo incompleto continuar como `Aguardando dados da fatura`;
-  - fallback seguro não persistir/criar `statement_occurrence_id`;
-  - warning do grupo não contradizer fatura real paga;
-  - `full` e `tools` usarem a mesma semântica de status.
-- Testes de hardening SQL para confirmar que a nova RPC não expõe valores monetários e bloqueia `anon`/`PUBLIC`.
-- Conferir que o hardening do modal de pagamento já está no HEAD; se não estiver, incorporar sem duplicar.
-- Rodar testes relevantes, suíte completa, typecheck e build.
+1. Como o fato está "fechado" (`paid_at`), o modal abre em **consulta** e todos os campos ficam somente leitura — sem nenhuma explicação na tela do porquê.
+2. A única saída é o botão `Corrigir lançamento`, que está escondido no **rodapé**, depois de rolar o modal. Nada no topo diz que é preciso clicar nele para poder digitar.
+3. O aviso de "pagamento direto registrado antes do vínculo ao cartão" (que ofereceria converter em cobrança do cartão) **não aparece** porque o detector exige snapshots nulos — e nesta linha eles existem. Ou seja: o caso real ficou sem a ação que foi feita justamente para ele.
+
+## O que vou implementar
+
+1. **Explicar o bloqueio no topo, junto dos campos.** Um aviso no início de "Dados deste mês" dizendo que o lançamento está fechado e trazendo o botão `Corrigir lançamento` ali mesmo (o do rodapé continua). Ao clicar, os campos factuais abrem e o foco vai para o valor.
+2. **Campos em consulta passam a se identificar.** Estilo e `aria-readonly` consistentes, para não parecer que o campo está quebrado.
+3. **Corrigir o detector de transição incoerente.** Passar a reconhecer também o caso com snapshots de cartão preenchidos: item em cartão + ocorrência com `paid_at` próprio + `charge_date` ausente. Assim o Adobe passa a exibir o bloco "Converter em cobrança do cartão" (você informa a data real da cobrança; nada é inventado).
+4. **Ligar a correção monetária de componente de fatura fechada.** A regra pura `financeClosedCorrection` existe mas hoje não é usada por nenhuma tela: vou conectá-la para que um item que compõe uma fatura já paga permita corrigir valor/câmbio sem tocar em datas, pagamento ou vínculo da fatura.
+
+## O que NÃO muda (regras financeiras preservadas)
+
+- Correção continua explícita e passando pelas RPCs seguras com trilha em `finance_occurrence_corrections`.
+- `paid_at` / `paid_amount_brl` seguem intocáveis pela correção; fatura (`kind=card`) paga continua bloqueada.
+- Nenhum dado será corrigido por mim no banco — Adobe e Laser Jet ficam para você ajustar pela tela.
+- Compra no cartão continua sem vencimento próprio; a data do fato do cartão continua sendo `charge_date`.
+
+## Detalhes técnicos
+
+- `src/components/finance/FinanceOccurrenceModal.tsx`: banner de estado fechado + botão de correção no topo, autofoco ao entrar em correção, estilo de campo em consulta, uso de `closedFactMode`.
+- `src/lib/financeFactCorrection.ts`: ampliar `isLegacyDirectPaymentOnCard` para o caso com snapshot de cartão (mantendo a exigência de `paid_at` próprio + `charge_date` nulo).
+- `src/lib/financeFactCorrection.test.ts` e `financeClosedCorrection.test.ts`: novos casos cobrindo o estado real do Adobe e a permissividade seletiva; suíte completa rodada ao final.
+- Sem migration nova: as RPCs `finance_correct_occurrence` e `finance_convert_occurrence_to_card_charge` já existem.
