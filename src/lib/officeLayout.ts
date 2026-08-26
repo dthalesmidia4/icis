@@ -119,12 +119,13 @@ export function stageSize(world: WorldSize): WorldSize {
  * ~20% para o card ficar HORIZONTAL, sem retomar o monitor gigante original —
  * mesa/cadeira/pilha continuam com faixas laterais reservadas.
  */
-export const MONITOR_MAX_PCT = 72;
+export const MONITOR_MAX_PCT = 76;
 export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
-  const profile = resolveOfficeProfile(size);
-  // Ultrawide pode crescer discretamente, sem voltar ao aspecto horizontal.
-  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 68 : 70;
+  // Por PERFIL: desktop normal precisa de card claramente HORIZONTAL;
+  // ultrawide já tem estação larga e cresce menos em proporção.
+  return Math.min(MONITOR_MAX_PCT, resolveOfficeProfile(size).monitorPct);
 }
+
 
 /** Altura mínima (px) do "vidro" do monitor: mais horizontal, menos pôster. */
 export const MONITOR_MIN_HEIGHT_PX = 46;
