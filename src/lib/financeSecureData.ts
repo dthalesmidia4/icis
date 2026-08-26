@@ -98,6 +98,9 @@ export const FINANCE_ITEM_METADATA_COLUMNS = [
   // Dia do FATO mensal (agenda da despesa) — independe da agenda de pagamento.
   "recurrence_day_of_month",
   "amount_mode",
+  // Aceita recarga/extra no mês (lançamento suplementar do mesmo cadastro).
+  "supports_supplemental_entries",
+  "supplemental_entry_kind",
 ].join(",");
 
 
@@ -106,6 +109,8 @@ export const FINANCE_OCCURRENCE_METADATA_COLUMNS = [
   "tenant_id",
   "item_id",
   "competence_month",
+  // Papel do lançamento: regular (cronograma) x recarga/extra do mesmo mês.
+  "entry_role",
   "scheduled_date",
   "skipped_at",
   "skip_reason",
