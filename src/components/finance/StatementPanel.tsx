@@ -37,7 +37,6 @@ import {
 import {
   LINKED_CARD_FIX_LABELS,
   LinkedCardItem,
-  needsChargeDateCorrection,
 } from "@/lib/financeCardLinkedItems";
 import { Competence } from "@/lib/financeCardCycle";
 import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
