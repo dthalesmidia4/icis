@@ -431,12 +431,12 @@ export default function FinanceOccurrenceModal({
               </div>
 
               <div className="min-w-0">
-                <Label>{dateLabel}</Label>
-                <Input
-                  type="date"
-                  className="w-full min-w-0 max-w-full"
+                <Label htmlFor="occurrence-fact-date">{dateLabel}</Label>
+                {/* Digitável E com calendário: `type=date` não garantia digitação. */}
+                <FinanceDateInput
+                  id="occurrence-fact-date"
                   value={factDate}
-                  onChange={(e) => setFactDate(e.target.value)}
+                  onChange={setFactDate}
                   readOnly={readOnlyFact}
                 />
                 {cardRow && (
