@@ -605,6 +605,19 @@ export function linkedStatementRowFor(
   );
 }
 
+/**
+ * IOF de uma fatura PAGA (R$ > 0) — despesa real do mês cobrada pelo banco.
+ *
+ * Primitivo canônico: `financeIof.ts` (linha sintética) e `computeTotals`
+ * consultam ESTA função, para que a composição e os KPIs nunca divirjam.
+ */
+export function paidStatementIofBrl(row: MonthRow): number {
+  if (!isStatementRow(row) || !row.paid) return 0;
+  const value = row.occurrence?.iof_amount_brl ?? null;
+  if (value == null || !Number.isFinite(value) || value <= 0) return 0;
+  return Number(value.toFixed(2));
+}
+
 export function computeTotals(
   rows: MonthRow[],
   settlement?: SettlementIndexLike | null,
@@ -619,7 +632,18 @@ export function computeTotals(
     const value = row.amountBrl ?? 0;
     if (isStatementRow(row)) {
       statements += value;
-      continue; // fatura nunca entra nas despesas
+      /**
+       * A fatura em si nunca é despesa (duplicaria os componentes), MAS o
+       * repasse de IOF é uma despesa adicional do mês, já liquidada no
+       * pagamento. Entra uma única vez em `expected` e `paid` — nunca em
+       * `open`, já que só existe depois do pagamento.
+       */
+      const iof = paidStatementIofBrl(row);
+      if (iof > 0) {
+        expected += iof;
+        paid += iof;
+      }
+      continue;
     }
     expected += value;
     if (row.item.kind === "tool" || row.item.kind === "package") toolsAndAi += value;
@@ -637,6 +661,7 @@ export function computeTotals(
     statements: round(statements),
   };
 }
+
 
 /**
  * AUTORIDADE ÚNICA de "pago" no Financeiro.

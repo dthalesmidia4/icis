@@ -18,6 +18,7 @@ import {
   MonthRow,
   StatementGroup,
   cardDisplayLabel,
+  paidStatementIofBrl,
 } from "./financeModel";
 import { parseLocalizedNumber } from "./financeNumber";
 
@@ -86,7 +87,7 @@ export function buildStatementConference(input: {
 
 /* ------------------------- Linha de IOF em Contas ------------------------- */
 
-/** IOF já pago de uma fatura, quando existir. */
+/** IOF de uma fatura, quando existir (independe de estar paga). */
 export function statementIofBrl(group: StatementGroup): number {
   const value = group.statementRow?.occurrence?.iof_amount_brl ?? null;
   if (value == null || !Number.isFinite(value) || value <= 0) return 0;
@@ -97,17 +98,21 @@ export function statementIofBrl(group: StatementGroup): number {
  * Linha sintética (NUNCA persistida) do repasse de IOF de uma fatura paga.
  * Não tem cartão nem forma de cartão: é uma cobrança do banco já liquidada,
  * então nunca é confundida com componente de fatura.
+ *
+ * Fonte do valor: `paidStatementIofBrl` — o MESMO primitivo somado em
+ * `computeTotals`, garantindo reconciliação entre KPIs e composição.
  */
-export function iofRowForStatement(group: StatementGroup): MonthRow | null {
-  const iof = statementIofBrl(group);
-  if (iof <= 0 || !group.paid) return null;
-  const occurrence = group.statementRow?.occurrence ?? null;
+export function iofRowForStatementRow(statementRow: MonthRow): MonthRow | null {
+  const iof = paidStatementIofBrl(statementRow);
+  if (iof <= 0) return null;
+  const card = statementRow.item;
+  const occurrence = statementRow.occurrence ?? null;
 
   const item: FinanceItem = {
-    ...group.card,
-    id: `${IOF_ROW_PREFIX}${group.card.id}`,
+    ...card,
+    id: `${IOF_ROW_PREFIX}${card.id}`,
     kind: "expense",
-    name: `Repasse de IOF — ${cardDisplayLabel(group.card)}`,
+    name: `Repasse de IOF — ${cardDisplayLabel(card)}`,
     purpose: "Imposto cobrado pelo banco junto com a fatura do cartão",
     category: IOF_CATEGORY,
     currency: "BRL",
@@ -118,7 +123,7 @@ export function iofRowForStatement(group: StatementGroup): MonthRow | null {
   } as FinanceItem;
 
   return {
-    key: `${IOF_ROW_PREFIX}${group.card.id}:${occurrence?.id ?? "projected"}`,
+    key: `${IOF_ROW_PREFIX}${card.id}:${occurrence?.id ?? "projected"}`,
     item,
     occurrence: occurrence
       ? ({
@@ -137,7 +142,7 @@ export function iofRowForStatement(group: StatementGroup): MonthRow | null {
     currency: "BRL",
     exchangeRate: null,
     chargeDate: null,
-    dueDate: group.dueDate,
+    dueDate: statementRow.dueDate ?? null,
     paid: true,
     paidAmountBrl: iof,
     cardItemId: null,
@@ -147,6 +152,13 @@ export function iofRowForStatement(group: StatementGroup): MonthRow | null {
     installmentNumber: null,
     installmentCount: null,
   };
+}
+
+export function iofRowForStatement(group: StatementGroup): MonthRow | null {
+  if (!group.paid || !group.statementRow) return null;
+  const row = iofRowForStatementRow(group.statementRow);
+  if (!row) return null;
+  return { ...row, dueDate: group.dueDate ?? row.dueDate };
 }
 
 /** Todas as linhas de IOF do mês, na ordem dos cartões. */
@@ -159,6 +171,19 @@ export function iofRowsForStatements(groups: StatementGroup[]): MonthRow[] {
   return rows;
 }
 
+/**
+ * Linhas de IOF derivadas diretamente das linhas do mês (sem depender dos
+ * grupos de fatura). Usada pela `Composição do mês`, que trabalha só com rows.
+ */
+export function iofRowsFromMonthRows(rows: MonthRow[]): MonthRow[] {
+  const result: MonthRow[] = [];
+  for (const row of rows) {
+    const iofRow = iofRowForStatementRow(row);
+    if (iofRow) result.push(iofRow);
+  }
+  return result;
+}
+
 /** `true` quando a linha é um repasse de IOF sintético (não editável). */
 export function isIofRow(row: MonthRow): boolean {
   return row.item.id.startsWith(IOF_ROW_PREFIX);
@@ -167,3 +192,4 @@ export function isIofRow(row: MonthRow): boolean {
 export function sumRowsBrl(rows: MonthRow[]): number {
   return Number(rows.reduce((sum, r) => sum + (r.paidAmountBrl ?? r.amountBrl ?? 0), 0).toFixed(2));
 }
+

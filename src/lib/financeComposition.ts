@@ -24,6 +24,8 @@ import {
   resolvePaidAtForRow,
   resolveRowStatus,
 } from "./financeRowStatus";
+import { iofRowsFromMonthRows } from "./financeIof";
+
 
 
 export type CompositionStatus = "all" | "paid" | "open";
@@ -93,8 +95,20 @@ export function buildMonthComposition(params: {
     entries.push({ row, paid, value });
   }
 
+  /**
+   * Repasse de IOF das faturas pagas: despesa real do mês somada por
+   * `computeTotals` em `expected`/`paid`. Aparece em `Todos`/`Pagos` (nunca em
+   * `Em aberto`) para que a auditoria reconcilie com os KPIs.
+   */
+  if (status !== "open") {
+    for (const iofRow of iofRowsFromMonthRows(rows)) {
+      entries.push({ row: iofRow, paid: true, value: iofRow.amountBrl ?? 0 });
+    }
+  }
+
   return entries;
 }
+
 
 export function compositionTotal(entries: CompositionEntry[]): number {
   return Number(entries.reduce((sum, e) => sum + e.value, 0).toFixed(2));
