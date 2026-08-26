@@ -1957,6 +1957,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
             <TabsContent value="estrategia" className="m-0">
               <StrategyTab
+                tenantId={tenantId}
+                companyId={selectedClient.id}
                 period={workspace.period}
                 planItems={workspace.planItems}
                 demands={workspace.demands}
