@@ -1456,6 +1456,8 @@ export type Database = {
           statement_closing_day: number | null
           statement_due_day: number | null
           subscription_date: string | null
+          supplemental_entry_kind: string | null
+          supports_supplemental_entries: boolean
           tenant_id: string
           updated_at: string
         }
@@ -1500,6 +1502,8 @@ export type Database = {
           statement_closing_day?: number | null
           statement_due_day?: number | null
           subscription_date?: string | null
+          supplemental_entry_kind?: string | null
+          supports_supplemental_entries?: boolean
           tenant_id: string
           updated_at?: string
         }
@@ -1544,6 +1548,8 @@ export type Database = {
           statement_closing_day?: number | null
           statement_due_day?: number | null
           subscription_date?: string | null
+          supplemental_entry_kind?: string | null
+          supports_supplemental_entries?: boolean
           tenant_id?: string
           updated_at?: string
         }
@@ -1644,6 +1650,7 @@ export type Database = {
           created_by: string | null
           currency: string
           due_date: string | null
+          entry_role: string
           exchange_rate: number | null
           exchange_rate_enc: string | null
           id: string
@@ -1682,6 +1689,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           due_date?: string | null
+          entry_role?: string
           exchange_rate?: number | null
           exchange_rate_enc?: string | null
           id?: string
@@ -1720,6 +1728,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           due_date?: string | null
+          entry_role?: string
           exchange_rate?: number | null
           exchange_rate_enc?: string | null
           id?: string
@@ -3784,6 +3793,21 @@ export type Database = {
       }
       finance_correct_occurrence: {
         Args: { _occurrence_id: string; _patch: Json }
+        Returns: string
+      }
+      finance_create_supplemental_occurrence: {
+        Args: {
+          _amount_brl?: number
+          _amount_original?: number
+          _card_item_id_snapshot?: string
+          _currency?: string
+          _entry_role: string
+          _exchange_rate?: number
+          _fact_date: string
+          _item_id: string
+          _observations?: string
+          _payment_method_snapshot?: string
+        }
         Returns: string
       }
       finance_encryption_health: { Args: never; Returns: Json }
