@@ -260,6 +260,25 @@ export default function FinanceItemFormModal({
         : "1",
     );
     setWeekday(item?.recurrence_weekday != null ? String(item.recurrence_weekday) : "1");
+    setFactDayOfMonth(
+      item?.recurrence_day_of_month != null ? String(item.recurrence_day_of_month) : "",
+    );
+    // Agenda de PAGAMENTO vigente do cadastro (padrão: a cada ocorrência).
+    const activeRule = item
+      ? effectivePaymentRuleFor(
+          item,
+          paymentRules,
+          competence ? competenceToISO(competence) : "9999-12-31",
+        )
+      : null;
+    setPaymentMode(activeRule?.mode ?? "per_occurrence");
+    setPaymentInterval(
+      activeRule?.interval_count != null && activeRule.interval_count > 0
+        ? String(activeRule.interval_count)
+        : "1",
+    );
+    setPaymentWeekday(activeRule?.weekday != null ? String(activeRule.weekday) : "5");
+    setPaymentDayOfMonth(activeRule?.day_of_month != null ? String(activeRule.day_of_month) : "");
 
     setRecurrenceStart(item?.recurrence_start_date ?? "");
     setCurrency((item?.currency as FinanceCurrency) ?? "BRL");
