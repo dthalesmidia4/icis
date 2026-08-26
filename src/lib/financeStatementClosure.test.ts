@@ -169,7 +169,10 @@ describe("RPCs do fechamento no banco", () => {
       const sql = readFileSync(resolve(dir, file), "utf8");
       const at = sql.indexOf(signature);
       if (at === -1) continue;
-      last = sql.slice(at);
+      const rest = sql.slice(at);
+      // Corta no fim da própria função: o arquivo pode conter outras RPCs.
+      const end = rest.indexOf("$function$;");
+      last = end === -1 ? rest : rest.slice(0, end + "$function$;".length);
     }
     return last;
   }
@@ -186,7 +189,11 @@ describe("RPCs do fechamento no banco", () => {
     expect(closureFn).toContain("SECURITY DEFINER");
     expect(closureFn).toMatch(/SET search_path TO ''/);
     expect(closureFn).toContain("Repasse de IOF não pode ser maior que o total da fatura");
-    expect(closureFn).toMatch(
+    const grants = readFileSync(
+      resolve(dir, files.filter((f) => readFileSync(resolve(dir, f), "utf8").includes("public.finance_update_statement_closure")).pop()!),
+      "utf8",
+    );
+    expect(grants).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.finance_update_statement_closure[^;]*TO authenticated/,
     );
   });
