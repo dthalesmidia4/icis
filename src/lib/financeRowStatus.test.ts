@@ -88,7 +88,7 @@ describe("classificação de cobrança no cartão", () => {
       expect(status.canPayDirectly).toBe(false);
       expect(isCardCharge(r)).toBe(true);
       expect(isDirectObligation(r)).toBe(false);
-      expect(whenLabel(r, TODAY)).toBe("Cobrança prevista em 01 ago");
+      expect(whenLabel(r, TODAY)).toBe("Cobrança prevista no cartão em 01 ago");
     }
   });
 
