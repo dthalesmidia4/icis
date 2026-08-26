@@ -146,6 +146,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   });
   const canSubmit =
     dateValid &&
+    closure.state === "ok" &&
     iofResult.state === "ok" &&
     amountResult.state === "ok" &&
     reconciliation.state === "ok";
@@ -160,7 +161,9 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
         paidAmountBrl: amountResult.amountBrl,
         usdComponents: reconciliationPayload(reconciliation.entries),
         iofBrl,
+        statementAmountBrl: closureTotalBrl,
       });
+
       if (ok) onOpenChange(false);
     } finally {
       setSaving(false);
