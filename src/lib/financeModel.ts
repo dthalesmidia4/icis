@@ -200,7 +200,12 @@ export interface MonthRow {
    * `null` em linhas mensais/anuais/parceladas, faturas e legado.
    */
   scheduledDate: string | null;
+  /** Papel do lançamento (`regular` para projeções e legado). */
+  entryRole: FinanceEntryRole;
+  /** Atalho: `true` em recarga/extra (fato suplementar do mesmo cadastro). */
+  supplemental: boolean;
 }
+
 
 
 
