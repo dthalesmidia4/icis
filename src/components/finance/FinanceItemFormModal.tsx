@@ -27,6 +27,14 @@ import {
   normalizeToolName,
 } from "@/lib/financeModel";
 import { parseDayOfMonth, parseLocalizedNumber, parsePositiveInt } from "@/lib/financeNumber";
+import {
+  USD_CONVERSION_HELP,
+  UsdConversionField,
+  UsdConversionState,
+  applyUsdEdit,
+  resolveUsdNumbers,
+  seedUsdConversion,
+} from "@/lib/financeUsdConversion";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 import { Competence, competenceToISO } from "@/lib/financeCardCycle";
