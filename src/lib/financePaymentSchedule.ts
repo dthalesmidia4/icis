@@ -382,7 +382,7 @@ export function buildGroupedPayments(params: {
         params.batches.find(
           (b) =>
             b.item_id === itemId &&
-            (b.payment_date ?? null) === (group.paymentDate ?? null) &&
+            (b.scheduled_date ?? null) === (group.paymentDate ?? null) &&
             params.entries.some(
               (e) => e.batch_id === b.id && identities.has(e.scheduled_date.slice(0, 10)),
             ),
