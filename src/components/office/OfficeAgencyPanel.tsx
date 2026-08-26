@@ -52,22 +52,23 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
 }: OfficeAgencyPanelProps) {
   return (
     <div className="relative" style={{ width }}>
-      {/* pernas/suportes da lousa: atrás do quadro (z menor), nunca capturam
-          ponteiro, e com contraste suficiente para lerem como estrutura. */}
+      {/* pernas/suportes da lousa: CURTAS e discretas (~45% da altura anterior),
+          atrás do quadro (z menor), sem capturar ponteiro e sem blur nos pés. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-full z-0 flex h-[clamp(72px,9vh,116px)] justify-between px-[15%]"
+        className="pointer-events-none absolute inset-x-0 top-full z-0 flex h-[clamp(32px,4vh,52px)] justify-between px-[16%]"
       >
         {[0, 1].map((i) => (
           <span key={i} className="flex h-full flex-col items-center">
-            {/* haste */}
-            <span className="w-[7px] flex-1 rounded-b-[2px] bg-gradient-to-b from-foreground/55 to-foreground/38 shadow-[1px_0_0_hsl(var(--background)/0.35)]" />
+            {/* haste curta */}
+            <span className="w-[6px] flex-1 rounded-b-[2px] bg-gradient-to-b from-foreground/55 to-foreground/38 shadow-[1px_0_0_hsl(var(--background)/0.35)]" />
             {/* pé de apoio encostando no piso */}
-            <span className="h-[6px] w-[34px] rounded-[2px] bg-foreground/50" />
-            <span className="h-[3px] w-[40px] rounded-[50%] bg-foreground/22 dark:bg-background/70" />
+            <span className="h-[5px] w-[30px] rounded-[2px] bg-foreground/50" />
+            <span className="h-[2px] w-[34px] rounded-[50%] bg-foreground/20 dark:bg-background/70" />
           </span>
         ))}
       </div>
+
 
       <div className="relative z-10 w-full rounded-[6px] border-[3px] border-foreground/25 bg-background/95 px-4 pb-2.5 pt-2 shadow-[0_10px_18px_-16px_hsl(var(--foreground)/0.9)]">
         {/* parafusos da moldura */}
