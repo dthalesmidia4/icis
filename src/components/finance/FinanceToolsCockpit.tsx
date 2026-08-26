@@ -15,6 +15,7 @@ import FinanceItemFormModal from "@/components/finance/FinanceItemFormModal";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
 import { useFinanceTools } from "@/hooks/useFinanceTools";
 import { currentCompetence, todayISO } from "@/hooks/useFinance";
+import { clampToTrackingStart } from "@/lib/financeTrackingPeriod";
 import { FinanceItem, MonthRow } from "@/lib/financeModel";
 import { buildSafeSettlementIndex } from "@/lib/financeSettlement";
 import { RowStatusContext } from "@/lib/financeRowStatus";
@@ -24,7 +25,7 @@ import { competenceMonthISO, findSafeStatementStatus } from "@/lib/financeSafeSt
 import { FinanceLoadErrorState } from "@/components/finance/FinanceLoadErrorState";
 
 export default function FinanceToolsCockpit() {
-  const [competence, setCompetence] = useState(currentCompetence());
+  const [competence, setCompetence] = useState(clampToTrackingStart(currentCompetence()));
   const today = todayISO();
   const {
     items, rows, cards, packages, overlaps, loadError, refresh, statementStatuses,

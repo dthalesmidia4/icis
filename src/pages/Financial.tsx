@@ -50,6 +50,7 @@ import PaymentQueue from "@/components/finance/PaymentQueue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseLocalizedNumber } from "@/lib/financeNumber";
 import { useFinance, currentCompetence, todayISO } from "@/hooks/useFinance";
+import { clampToTrackingStart } from "@/lib/financeTrackingPeriod";
 import { useFinanceAccessScope } from "@/hooks/useFinanceAccessScope";
 import FinanceToolsCockpit from "@/components/finance/FinanceToolsCockpit";
 import {
@@ -196,7 +197,7 @@ function FinancialCockpit() {
     setParams(copy);
   };
 
-  const [competence, setCompetence] = useState(currentCompetence());
+  const [competence, setCompetence] = useState(clampToTrackingStart(currentCompetence()));
   const today = todayISO();
 
   const finance = useFinance(competence);
