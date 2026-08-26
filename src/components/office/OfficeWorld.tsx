@@ -104,7 +104,8 @@ export default function OfficeWorld({
           </div>
         </div>
 
-        {/* prateleira com pastas */}
+        {/* prateleira com pastas — MONTADA NA PAREDE (mãos francesas + sombra
+            projetada na parede), acima da zona do Café que fica no piso. */}
         <div className="absolute right-[12%] top-[30%] w-32">
           <div className="flex items-end gap-1 pl-1">
             <span className="h-8 w-2 rounded-sm bg-primary/60" />
@@ -114,7 +115,13 @@ export default function OfficeWorld({
             <span className="h-7 w-2 rounded-sm bg-primary/35" />
           </div>
           <div className="h-[4px] w-full rounded-sm bg-foreground/30" />
+          <div className="flex justify-between px-4">
+            <span className="h-3 w-[3px] -skew-x-12 bg-foreground/22" />
+            <span className="h-3 w-[3px] skew-x-12 bg-foreground/22" />
+          </div>
+          <span className="mx-auto block h-[3px] w-[86%] rounded-full bg-foreground/10" />
         </div>
+
 
         {/* luminária pendente */}
         <div className="absolute left-[44%] top-0 flex flex-col items-center">
