@@ -851,7 +851,7 @@ export default function FinanceItemFormModal({
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button
               onClick={handleSubmit}
-              disabled={saving || !name.trim() || !installmentsValid || !oneOffDateValid}
+              disabled={saving || destroyed || !name.trim() || !installmentsValid || !oneOffDateValid}
             >
 
               {saving ? "Salvando..." : "Salvar"}
@@ -864,12 +864,20 @@ export default function FinanceItemFormModal({
           open={deleteOpen}
           onOpenChange={setDeleteOpen}
           item={item}
+          /**
+           * Fechamento DETERMINÍSTICO: consulta fechada, formulário fechado e
+           * tela recarregada — nunca sobra um formulário vivo capaz de
+           * reativar o cadastro que acabou de ser inativado.
+           */
           onDone={() => {
+            setDestroyed(true);
+            setDeleteOpen(false);
             onOpenChange(false);
             onAfterDelete?.();
           }}
         />
       )}
+
     </Dialog>
   );
 }
