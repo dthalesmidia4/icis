@@ -35,6 +35,8 @@ import { RowStatus, RowStatusContext, StatusTone, resolveRowStatus, whenLabel } 
 import { buildAccountGroups } from "@/lib/financeAccountGrouping";
 import { isIofRow } from "@/lib/financeIof";
 
+import { type OccurrenceLabel, occurrenceDisplayName } from "@/lib/financeOccurrenceLabels";
+
 interface Props {
   rows: MonthRow[];
   statusContext: RowStatusContext;
@@ -44,6 +46,8 @@ interface Props {
   loading?: boolean;
   emptyMessage?: string;
   onOpenRow: (row: MonthRow) => void;
+  /** Rótulos dinâmicos do mês (renovação/recargas/1-4). */
+  labels?: Map<string, OccurrenceLabel> | null;
   onTogglePaid: (row: MonthRow, paid: boolean) => void;
   onEditItem: (item: FinanceItem) => void;
   /** `false` mantém a lista corrida, sem hierarquia. */
@@ -84,6 +88,7 @@ export default function MonthAccountsList({
   loading,
   emptyMessage,
   onOpenRow,
+  labels,
   onTogglePaid,
   onEditItem,
   grouped = true,
@@ -131,7 +136,7 @@ export default function MonthAccountsList({
       >
         <TableCell className="py-3">
           <div className="flex items-center gap-2">
-            <span className="text-[15px] font-semibold text-foreground">{row.item.name}</span>
+            <span className="text-[15px] font-semibold text-foreground">{occurrenceDisplayName(row, labels)}</span>
             {overlaps.has(row.item.id) && (
               <Badge variant="outline" className="text-destructive border-destructive/40">
                 Duplicidade
@@ -219,7 +224,7 @@ export default function MonthAccountsList({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
+            <p className="text-[15px] font-semibold text-foreground">{occurrenceDisplayName(row, labels)}</p>
             <p className="text-sm text-muted-foreground">{locked ? row.item.purpose : metaFor(row)}</p>
             {!row.item.active && !locked && (
               <p className="text-xs text-muted-foreground">Cadastro inativo</p>

@@ -41,12 +41,16 @@ import {
 } from "@/lib/financeComposition";
 import { CompositionGroupBy, buildCompositionGroups } from "@/lib/financeGrouping";
 
+import { type OccurrenceLabel, occurrenceDisplayName } from "@/lib/financeOccurrenceLabels";
+
 interface Props {
   entries: CompositionEntry[];
   statusContext: RowStatusContext;
   loading?: boolean;
   emptyMessage?: string;
   onOpenRow: (row: MonthRow) => void;
+  /** Rótulos dinâmicos do mês (renovação/recargas/1-4). */
+  labels?: Map<string, OccurrenceLabel> | null;
   /** Dimensão de agrupamento: natureza (categoria) x área (centro de custo). */
   groupBy: CompositionGroupBy;
   /**
@@ -101,6 +105,7 @@ export default function MonthCompositionList({
   loading,
   emptyMessage,
   onOpenRow,
+  labels,
   groupBy,
   expanded,
   onToggleGroup,
@@ -193,7 +198,7 @@ export default function MonthCompositionList({
                           }}
                         >
                           <TableCell className="py-3 pl-10">
-                            <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
+                            <p className="text-[15px] font-semibold text-foreground">{occurrenceDisplayName(row, labels)}</p>
                             <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
                           </TableCell>
                           <TableCell className="whitespace-nowrap text-sm">{dateText(row)}</TableCell>
@@ -275,7 +280,7 @@ export default function MonthCompositionList({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
+                          <p className="text-[15px] font-semibold text-foreground">{occurrenceDisplayName(row, labels)}</p>
                           <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
                         </div>
                         <span className="text-[15px] font-semibold whitespace-nowrap">
