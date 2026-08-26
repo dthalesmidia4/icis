@@ -281,7 +281,12 @@ export default function FinanceOccurrenceModal({
     if (occ?.card_item_id_snapshot) setOrigin(`card:${occ.card_item_id_snapshot}`);
     else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
     else setOrigin(FOLLOW_ITEM);
+    // Fato fechado sempre reabre em CONSULTA: correção é sempre pedida de novo.
+    setCorrecting(false);
+    // Nunca inventamos a data real da cobrança — o campo nasce vazio.
+    setConvertDate("");
   }, [open, row, defaultUsdRate, today]);
+
 
   const isUsd = row?.currency === "USD";
   const usdState: UsdConversionState = { original: amount, rate, brl: brlCharged };
