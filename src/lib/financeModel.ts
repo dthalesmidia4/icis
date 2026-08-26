@@ -456,7 +456,17 @@ function projectedDates(item: FinanceItem, competence: Competence) {
     return { chargeDate: null, dueDate: date };
   }
   const chargeDate = item.charge_day != null ? dateInMonth(competence, item.charge_day) : null;
-  const dueDate = item.due_day != null ? dateInMonth(competence, item.due_day) : null;
+  /**
+   * Data do fato mensal. `due_day` continua a fonte histórica; quando ele não
+   * existe, o dia do FATO (`recurrence_day_of_month`) dá data à linha — é o caso
+   * da despesa que acontece num dia e é paga em outro (agenda de pagamento).
+   */
+  const dueDate =
+    item.due_day != null
+      ? dateInMonth(competence, item.due_day)
+      : item.recurrence_day_of_month != null
+        ? dateInMonth(competence, item.recurrence_day_of_month)
+        : null;
   return { chargeDate, dueDate };
 }
 
