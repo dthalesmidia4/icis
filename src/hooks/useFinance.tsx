@@ -17,6 +17,8 @@ import {
 
   normalizeCompetence,
 } from "@/lib/financeCardCycle";
+import { isTrackedCompetence } from "@/lib/financeTrackingPeriod";
+
 import {
   FinanceItem,
   FinanceOccurrence,
