@@ -532,7 +532,23 @@ export function useFinance(competence: Competence) {
         : supabase.from("finance_items").insert({ ...body, created_by: user?.id ?? null });
       const { error } = await query;
       if (error) {
-        toast.error(id ? "Erro ao atualizar cadastro" : "Erro ao criar cadastro");
+        // Mensagem segura para o usuário, causa técnica no console (sem valor
+        // financeiro). Constraint de coluna NOT NULL/violação de check some
+        // silenciosamente se só mostrarmos "Erro ao atualizar cadastro".
+        console.error("[finance] falha ao salvar cadastro", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+        const isConstraint = error.code === "23502" || error.code === "23514" || error.code === "23505";
+        toast.error(
+          isConstraint
+            ? "Cadastro inválido: revise dias de cobrança/vencimento e a recorrência"
+            : id
+              ? "Erro ao atualizar cadastro"
+              : "Erro ao criar cadastro",
+        );
         return false;
       }
       toast.success(id ? "Cadastro atualizado" : "Cadastro criado");
