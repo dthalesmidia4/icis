@@ -1,57 +1,86 @@
 /**
- * CORREÇÃO EXPLÍCITA DO FATO (lógica pura).
+ * FATO DO MÊS: DIGITÁVEL SEMPRE, PROVA DE PAGAMENTO SEMPRE PROTEGIDA.
  *
  * O primeiro modal (`FinanceOccurrenceModal`) é o lugar do FATO daquele mês:
  * valor real, data real e origem real. "Editar cadastro" só fala do padrão.
  *
- * Um fato FECHADO (pago direto ou liquidado por fatura paga) abre em consulta.
- * A correção nunca é implícita: existe o botão `Corrigir lançamento`, e nesse
- * modo só os campos que podem legitimamente estar errados abrem:
+ * Duas permissões INDEPENDENTES, sem modo de correção nem botão para destravar:
  *
- *   - valor real (BRL / USD / câmbio);
- *   - data do fato — `charge_date` no cartão, `due_date` no pagamento direto;
- *   - origem do pagamento DESTE mês (snapshot);
- *   - observações.
+ *   - `factFieldsEditable` — valor, data do fato, origem do mês e observações.
+ *     Abertos desde o primeiro render em QUALQUER linha que não seja a própria
+ *     fatura (`kind=card`), inclusive quando o lançamento já está pago ou
+ *     liquidado pela fatura. Um fato errado precisa ser corrigível na hora.
  *
- * Fora do escopo, por regra de negócio:
- *   - `paid_at` / `paid_amount_brl`: o pagamento é prova separada e tem fluxo
+ *   - `paymentProofEditable` — `paid`/`paid_at`/`paid_amount_brl` e comprovante.
+ *     Só enquanto o fato está aberto: pagamento é prova separada e tem fluxo
  *     próprio (fatura, desfazer pagamento). Corrigir valor não desfaz pagamento.
- *   - `scheduled_date`, `competence_month`, `item_id`, vínculos de fatura e
- *     metadados de skip: imutáveis.
- *   - fatura (`kind=card`) paga continua bloqueada: ela não é corrigida aqui.
  *
- * A persistência dessas correções vai pela RPC `finance_correct_occurrence`
- * (whitelist repetida no banco + trilha em `finance_occurrence_corrections`).
+ * Imutáveis por regra de negócio (nem UI nem RPC tocam): `scheduled_date`,
+ * `competence_month`, `item_id`, vínculos de fatura e metadados de skip.
+ *
+ * A persistência de um fato FECHADO vai automaticamente pela RPC
+ * `finance_correct_occurrence` (whitelist repetida no banco + trilha em
+ * `finance_occurrence_corrections`); a transição direta→cartão vai pela
+ * `finance_convert_occurrence_to_card_charge`. O Save decide a rota — o usuário
+ * nunca precisa entrar num modo especial.
  */
 import { CARD_PAYMENT_METHOD, type FinanceOccurrence, type MonthRow } from "./financeModel";
 
-export type FactCorrectionMode =
-  /** Fato aberto: fluxo normal de edição. */
-  | "editable"
-  /** Fato fechado: consulta, com correção explícita disponível. */
-  | "correctable"
-  /** Fatura paga (ou fato sem ocorrência real): nada a corrigir aqui. */
-  | "locked";
-
-export function factCorrectionMode(input: {
-  /** A linha tem ocorrência REAL persistida? Sem fato não há o que corrigir. */
-  hasOccurrence: boolean;
-  /** `isStatementRow(row)` — a própria fatura. */
-  statementRow: boolean;
-  /** `effectivePaid(row, ...)` — fato fechado/pago. */
-  closed: boolean;
-}): FactCorrectionMode {
-  if (!input.closed) return "editable";
-  if (input.statementRow) return "locked";
-  if (!input.hasOccurrence) return "locked";
-  return "correctable";
+/**
+ * Campos factuais do mês abrem imediatamente. Só a PRÓPRIA fatura fica em
+ * consulta: os valores dela são derivados dos componentes, não digitados.
+ */
+export function factFieldsEditable(input: { statementRow: boolean }): boolean {
+  return !input.statementRow;
 }
 
-export const FACT_CORRECTION_BUTTON = "Corrigir lançamento";
-export const FACT_CORRECTION_SAVE_LABEL = "Salvar correção";
+/**
+ * Prova de pagamento: bloqueada em fato fechado e inexistente em compra de
+ * cartão (a liquidação é derivada do pagamento da fatura).
+ */
+export function paymentProofEditable(input: {
+  cardRow: boolean;
+  statementRow: boolean;
+  closed: boolean;
+}): boolean {
+  if (input.statementRow) return false;
+  if (input.cardRow) return false;
+  return !input.closed;
+}
+
+/** Rota de persistência escolhida pelo Save (sem gate de UI). */
+export type OccurrenceSaveRoute =
+  /** Nada a salvar aqui (fatura). */
+  | "blocked"
+  /** Fato aberto: upsert normal da ocorrência. */
+  | "normal"
+  /** Fato fechado: correção auditada via RPC segura. */
+  | "correction"
+  /** Fato direto legado que passa a ser cobrança do cartão, depois corrigido. */
+  | "convert_then_correct";
+
+export function occurrenceSaveRoute(input: {
+  statementRow: boolean;
+  /** A linha tem ocorrência REAL persistida? */
+  hasOccurrence: boolean;
+  /** `effectivePaid(row, ...)` — fato fechado/pago. */
+  closed: boolean;
+  /** `isLegacyDirectPaymentOnCard(row)`. */
+  legacyDirectOnCard: boolean;
+  /** Data do fato digitada (`YYYY-MM-DD`), quando válida. */
+  factDate: string;
+}): OccurrenceSaveRoute {
+  if (input.statementRow) return "blocked";
+  if (!input.closed || !input.hasOccurrence) return "normal";
+  if (input.legacyDirectOnCard && /^\d{4}-\d{2}-\d{2}$/.test(input.factDate)) {
+    return "convert_then_correct";
+  }
+  return "correction";
+}
+
 export const FACT_CORRECTION_SUCCESS = "Lançamento corrigido";
 export const FACT_CORRECTION_NOTE =
-  "Correção do fato deste mês: valor, data, origem e observações. O pagamento registrado não é alterado por aqui.";
+  "Você pode corrigir valor, data, origem e observações deste mês. O pagamento registrado não é alterado por aqui.";
 export const FACT_CORRECTION_INCONSISTENT =
   "A alteração não foi confirmada. Tente novamente.";
 
@@ -93,33 +122,36 @@ export function buildFactCorrectionPatch(input: FactCorrectionInput): FactCorrec
 /* ---------------------- transição incoerente (CROPY) ---------------------- */
 
 /**
- * Fato avulso pago DIRETO que passou a pertencer a um cartão.
+ * Fato avulso pago DIRETO que hoje pertence a um cartão.
  *
- * O cadastro foi corretamente alterado para cartão, mas o fato existente ficou
- * numa mistura impossível: `due_date` de pagamento direto + `paid_at` próprio +
- * `charge_date` ausente. Sem `charge_date` ele nunca entra numa fatura, e o
- * `paid_at` legado o mantém "pago" fora de qualquer fatura.
+ * O destino do pagamento é cartão (por snapshot do mês OU pelo cadastro), mas o
+ * fato ficou numa mistura impossível: `paid_at` próprio, sem `charge_date`, com
+ * `due_date` de pagamento direto. Sem `charge_date` ele nunca entra numa fatura,
+ * e o `paid_at` legado o mantém "pago" fora de qualquer fatura.
  *
- * Detecção conservadora: só quando NÃO existe snapshot explícito no fato (isto
- * é, o fato segue o cadastro) e o cadastro aponta para um cartão.
+ * Detectar NÃO depende de snapshot nulo: o caso real (Adobe) já tem snapshot de
+ * cartão preenchido. A data nunca é inventada — a conversão só acontece quando o
+ * usuário digita a data real da cobrança.
  */
 export function isLegacyDirectPaymentOnCard(row: MonthRow | null | undefined): boolean {
   const occ = row?.occurrence;
   if (!row || !occ) return false;
-  if (occ.payment_method_snapshot || occ.card_item_id_snapshot) return false;
+  if (row.item.kind === "card") return false;
   if (!occ.paid_at) return false;
   if (occ.charge_date) return false;
-  const item = row.item;
-  if (item.payment_method !== CARD_PAYMENT_METHOD) return false;
-  return !!item.card_item_id;
+  return destinationIsCard(row);
+}
+
+/** O pagamento deste mês vai para um cartão? Snapshot manda; senão o cadastro. */
+function destinationIsCard(row: MonthRow): boolean {
+  const occ = row.occurrence;
+  if (occ?.card_item_id_snapshot) return true;
+  if (occ?.payment_method_snapshot) return occ.payment_method_snapshot === CARD_PAYMENT_METHOD;
+  return row.item.payment_method === CARD_PAYMENT_METHOD && !!row.item.card_item_id;
 }
 
 export const LEGACY_DIRECT_ON_CARD_NOTE =
-  "Pagamento direto registrado antes do vínculo ao cartão. Informe a data real da cobrança para converter este lançamento em cobrança do cartão — a partir daí ele é liquidado pela fatura.";
-export const LEGACY_CONVERT_LABEL = "Converter em cobrança do cartão";
-export const LEGACY_CONVERT_SUCCESS = "Lançamento convertido em cobrança do cartão";
-export const LEGACY_CONVERT_NEEDS_DATE =
-  "Informe a data real da cobrança no cartão para converter.";
+  "Pagamento direto registrado antes do vínculo ao cartão. Informe a data real da cobrança: ao salvar, este lançamento passa a ser cobrança do cartão e é liquidado pela fatura.";
 
 /* ------------------------ verificação de consistência --------------------- */
 
