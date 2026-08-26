@@ -49,10 +49,22 @@ describe("corte operacional — navegação", () => {
   });
 });
 
-describe("correção em fatura fechada — modal", () => {
-  it("valor/câmbio usam a trava monetária e o rótulo de correção", () => {
+describe("correção do fato fechado — modal", () => {
+  it("valor/câmbio usam a trava monetária e a correção é explícita e auditada", () => {
     expect(occurrenceModal).toContain("readOnly={readOnlyMoney}");
-    expect(occurrenceModal).toContain("CLOSED_CORRECTION_SAVE_LABEL");
-    expect(occurrenceModal).toContain("buildClosedCorrectionPatch");
+    expect(occurrenceModal).toContain("FACT_CORRECTION_SAVE_LABEL");
+    expect(occurrenceModal).toContain("buildFactCorrectionPatch");
+    expect(occurrenceModal).toContain("correctFinanceOccurrence");
+  });
+
+  it("provas de pagamento e comprovante seguem imutáveis em fato fechado", () => {
+    expect(occurrenceModal).toContain("readOnlyProof");
+    expect(occurrenceModal).not.toContain("paid_at:");
+  });
+
+  it("conversão do fato legado para cobrança do cartão exige data real", () => {
+    expect(occurrenceModal).toContain("convertOccurrenceToCardCharge");
+    expect(occurrenceModal).toContain("LEGACY_CONVERT_NEEDS_DATE");
   });
 });
+
