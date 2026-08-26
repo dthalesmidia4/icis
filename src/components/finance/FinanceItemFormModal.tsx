@@ -442,6 +442,12 @@ export default function FinanceItemFormModal({
     return amountNumber;
   }, [amountNumber, currency, usdNumbers.amountBrl]);
 
+  /**
+   * A agenda de PAGAMENTO só existe onde há o que agendar: recorrência fora do
+   * cartão. No cartão a saída de caixa é a FATURA; avulso/parcelado já têm data.
+   */
+  const showPaymentSchedule = isRecurring && !isCard && !onCard && !isIncluded;
+
   const handleSubmit = async () => {
     // Cadastro já inativado/excluído: salvar aqui ressuscitaria o registro.
     if (destroyed) return;
