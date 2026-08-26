@@ -109,6 +109,11 @@ export default {
           "0%, 45%": { opacity: "1" },
           "55%, 100%": { opacity: "0.15" },
         },
+        // Copo na mão de quem está no café: pisca devagar (nada estroboscópico).
+        "office-cup": {
+          "0%, 100%": { opacity: "1", transform: "scale(1)" },
+          "50%": { opacity: "0.35", transform: "scale(0.94)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -118,6 +123,8 @@ export default {
         "office-typing": "office-typing 0.85s ease-in-out infinite",
         "office-screen-glow": "office-screen-glow 3.2s ease-in-out infinite",
         "office-caret": "office-caret 1.1s steps(1, end) infinite",
+        "office-cup": "office-cup 2.4s ease-in-out infinite",
+
       },
     },
   },

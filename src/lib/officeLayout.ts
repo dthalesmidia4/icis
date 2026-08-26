@@ -90,18 +90,20 @@ export function stageSize(world: WorldSize): WorldSize {
  * Largura relativa do monitor dentro da estação. O monitor deixou de usar
  * `flex-1` (absorvia todo o tampo): agora tem teto explícito, sobrando faixa
  * estável para personagem/objetos à esquerda e fila/objetos à direita.
- * Presença reduzida (~15%) para a mesa/cadeira/pilha voltarem a pesar mais
- * que o card — o escritório não é um Kanban ilustrado.
+ * A rodada anterior estreitou demais (aspecto "totem"): a largura útil volta
+ * ~20% para o card ficar HORIZONTAL, sem retomar o monitor gigante original —
+ * mesa/cadeira/pilha continuam com faixas laterais reservadas.
  */
-export const MONITOR_MAX_PCT = 62;
+export const MONITOR_MAX_PCT = 66;
 export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
   const profile = resolveOfficeProfile(size);
   // Ultrawide pode crescer discretamente, sem voltar ao aspecto horizontal.
-  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 55 : 52;
+  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 65 : 62;
 }
 
 /** Altura mínima (px) do "vidro" do monitor: mais horizontal, menos pôster. */
 export const MONITOR_MIN_HEIGHT_PX = 46;
+
 
 /**
  * ESCALA DO PERSONAGEM sobre a largura MEDIDA do anchor. Pessoas ganham
@@ -117,12 +119,26 @@ export function characterSizePx(anchorWidth: number, posture: keyof typeof CHARA
 }
 
 /**
+ * PAREDE EM DUAS FAIXAS.
+ * - faixa DECORATIVA (0 → `WALL_DECOR_BAND_PCT`): janelas, quadro, prateleira,
+ *   luminária pendente;
+ * - faixa FUNCIONAL (`WALL_PANEL_BAND_TOP_PCT` → `WALL_HEIGHT_PCT`): só o
+ *   Painel da Agência, centralizado no PALCO LÓGICO.
+ * A parede ficou mais alta de propósito: o painel deixou de sobrepor
+ * janela/luminária sem precisar invadir a primeira fileira de mesas.
+ */
+export const WALL_DECOR_BAND_PCT = 16;
+export const WALL_PANEL_BAND_TOP_PCT = 16.5;
+export const WALL_HEIGHT_PCT = 27;
+
+/**
  * PAINEL DA AGÊNCIA: elemento principal da parede. Cresce com o palco lógico
  * (não com a largura bruta), na faixa pedida de ~420–520px.
  */
 export function agencyPanelWidthPx(stageWidth: number): number {
   return Math.round(Math.min(520, Math.max(420, (stageWidth || DEFAULT_SIZE.width) * 0.3)));
 }
+
 
 
 const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
@@ -367,7 +383,7 @@ export function richRightZonePx(stageWidth: number): number {
   return Math.round(Math.min(RICH_RIGHT_ZONE_MAX_PX, Math.max(RICH_RIGHT_ZONE_PX, w * 0.19)));
 }
 /** Faixa superior do Painel da agência (parede): a fileira do fundo fica abaixo. */
-export const RICH_PANEL_BAND_PCT = 28;
+export const RICH_PANEL_BAND_PCT = WALL_HEIGHT_PCT;
 /** Centros horizontais (%) das mesas no modo rico — faixas 36–40% e 62–66%. */
 export const RICH_CENTERS_BACK: [number, number] = [36, 65];
 export const RICH_CENTERS_FRONT: [number, number] = [35, 66];

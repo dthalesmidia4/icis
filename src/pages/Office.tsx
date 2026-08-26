@@ -13,7 +13,10 @@ import {
   richRightZonePx,
   richZonesActive,
   stageSize,
+  WALL_HEIGHT_PCT,
+  WALL_PANEL_BAND_TOP_PCT,
 } from "@/lib/officeLayout";
+
 import OfficeWorld from "@/components/office/OfficeWorld";
 import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
@@ -372,8 +375,13 @@ export default function Office() {
         }
         upperZone={
           <>
-            {/* PAINEL DA AGÊNCIA na parede (sempre agency-wide). */}
-            <div className="pointer-events-none absolute left-1/2 top-2 z-30 hidden -translate-x-1/2 sm:block">
+            {/* PAINEL DA AGÊNCIA na FAIXA FUNCIONAL da parede (sempre
+                agency-wide): abaixo de janelas/luminária e acima da 1ª fileira,
+                centralizado no PALCO LÓGICO (não na viewport bruta). */}
+            <div
+              className="pointer-events-none absolute left-1/2 z-30 hidden -translate-x-1/2 sm:block"
+              style={{ top: `${WALL_PANEL_BAND_TOP_PCT}%` }}
+            >
               <OfficeAgencyPanel
                 deliveredToday={pulse.deliveredToday}
                 inProgress={pulse.inProgress}
@@ -384,10 +392,11 @@ export default function Office() {
               />
             </div>
 
-            {/* FAIXA ESQUERDA: missões + planejamento + revisão */}
+            {/* FAIXA ESQUERDA: quadro de missões (mais leve, encostado na
+                parede) + Planejamento + Revisão, com respiro entre ambientes. */}
             {richZones && (
               <div
-                className="pointer-events-none absolute bottom-4 left-2 z-30 hidden flex-col gap-3 sm:flex"
+                className="pointer-events-none absolute bottom-4 left-2 z-30 hidden flex-col gap-7 sm:flex"
                 style={{ width: richLeftZonePx(worldSize.width) - 16 }}
               >
                 <OfficeMissionPanel
@@ -403,8 +412,11 @@ export default function Office() {
 
             {/* FAIXA DIREITA: café + reunião + sala de espera */}
             <div
-              className="pointer-events-none absolute right-2 top-[21%] z-30 hidden flex-col items-end gap-3 sm:flex sm:right-3"
-              style={{ width: richRightZonePx(worldSize.width) - 16 }}
+              className="pointer-events-none absolute right-2 z-30 hidden flex-col items-end gap-4 sm:flex sm:right-3"
+              style={{
+                width: richRightZonePx(worldSize.width) - 16,
+                top: `calc(${WALL_HEIGHT_PCT}% + 10px)`,
+              }}
             >
               <CoffeeCorner
                 occupied={loading ? 0 : coffeeCount}
@@ -416,6 +428,7 @@ export default function Office() {
             </div>
           </>
         }
+
         overlay={
           <OfficeTransferLayer
             containerRef={worldRef}

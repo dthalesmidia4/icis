@@ -105,8 +105,11 @@ export const OfficePeopleLayer = memo(function OfficePeopleLayer({
               avatarUrl={person.avatarUrl}
               working={person.working}
               posture={posture}
+              // Copo apenas para quem está de fato na zona do café.
+              holdingCup={person.anchorKey.startsWith("coffee:")}
               size={characterSizePx(spot.size, posture)}
             />
+
             {/* NOME integrado ao ambiente: plaquinha discreta sob os pés, nunca
                 um label solto flutuando no piso. */}
             {person.posture !== "seated" && (

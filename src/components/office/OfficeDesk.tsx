@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { AlertTriangle, Clock, Settings2 } from "lucide-react";
+import { AlertTriangle, Clock, Flag, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfficeStationData } from "@/hooks/useOfficeOverview";
 import { useNowTick } from "@/hooks/useNowTick";
@@ -15,12 +15,8 @@ import {
 } from "@/lib/officeDeskObjects";
 import { isCoffeeEligible } from "@/lib/officePresence";
 import { MONITOR_MIN_HEIGHT_PX } from "@/lib/officeLayout";
+import { hasOfficeCardSpan, officeCardSpan } from "@/lib/officeCardTime";
 
-const timeLabel = (date?: string | null, time?: string | null) => {
-  if (!date) return null;
-  const [, m, d] = date.split("-");
-  return `${d}/${m}${time ? ` ${time.slice(0, 5)}` : ""}`;
-};
 
 /** Progresso temporal do card atual (0..1) — nunca reflete volume de fila. */
 const cardProgress = (start: number | null, end: number | null, now: number): number | null => {
@@ -96,6 +92,18 @@ export const OfficeDesk = memo(function OfficeDesk({
         ? "Fora do expediente"
         : "Próximo";
   const monitorCard = current || next;
+  // INÍCIO (due) + TÉRMINO (delivery) do mesmo card, sem query nova.
+  const span = useMemo(
+    () =>
+      officeCardSpan({
+        dueDate: monitorCard?.dueDate,
+        dueTime: monitorCard?.dueTime,
+        deliveryDate: monitorCard?.deliveryDate,
+        deliveryTime: monitorCard?.deliveryTime,
+      }),
+    [monitorCard?.dueDate, monitorCard?.dueTime, monitorCard?.deliveryDate, monitorCard?.deliveryTime],
+  );
+
   // Cada slot tem posição FÍSICA distinta no tampo (esquerda / pé do monitor /
   // faixa direita) — nunca todos empilhados ao lado da pilha.
   const objectBySlot = useMemo(() => {
@@ -248,12 +256,23 @@ export const OfficeDesk = memo(function OfficeDesk({
                   </span>
                 </p>
 
-                {timeLabel(monitorCard.dueDate, monitorCard.dueTime) && (
-                  <p className="flex items-center gap-0.5 text-[8px] leading-tight text-muted-foreground">
-                    <Clock className="h-2 w-2" />
-                    {timeLabel(monitorCard.dueDate, monitorCard.dueTime)}
+                {hasOfficeCardSpan(span) && (
+                  <p className="flex flex-wrap items-center gap-x-1.5 gap-y-[1px] text-[8px] leading-tight text-muted-foreground">
+                    {span.start && (
+                      <span className="inline-flex items-center gap-0.5">
+                        <Clock className="h-2 w-2 shrink-0" />
+                        <span className="tabular-nums">Início {span.start}</span>
+                      </span>
+                    )}
+                    {span.end && (
+                      <span className="inline-flex items-center gap-0.5">
+                        <Flag className="h-2 w-2 shrink-0" />
+                        <span className="tabular-nums">Fim {span.end}</span>
+                      </span>
+                    )}
                   </p>
                 )}
+
               </div>
             ) : (
               <div className="relative flex min-h-[38px] flex-col items-center justify-center gap-1 text-muted-foreground">

@@ -1,4 +1,6 @@
 import type { ReactNode, RefObject } from "react";
+import { WALL_DECOR_BAND_PCT, WALL_HEIGHT_PCT } from "@/lib/officeLayout";
+
 
 interface OfficeWorldProps {
   children: ReactNode;
@@ -43,22 +45,34 @@ export default function OfficeWorld({
       aria-label="Planta do escritório"
       className="relative flex min-h-[calc(100vh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/70 via-muted/30 to-muted/55"
     >
-      {/* ---------- Parede ---------- */}
+      {/* ---------- Parede (faixa decorativa acima + faixa funcional abaixo) ---------- */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[20%] bg-gradient-to-b from-background/95 via-background/70 to-background/15"
+        className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-background/95 via-background/70 to-background/15"
+        style={{ height: `${WALL_HEIGHT_PCT}%` }}
       />
       {/* moldura/junção parede-piso: rodapé + sombra de contato */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[20%] h-[6px] bg-foreground/20" />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-[calc(20%+6px)] h-6 bg-gradient-to-b from-foreground/12 to-transparent"
+        className="pointer-events-none absolute inset-x-0 h-[6px] bg-foreground/20"
+        style={{ top: `${WALL_HEIGHT_PCT}%` }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 h-6 bg-gradient-to-b from-foreground/12 to-transparent"
+        style={{ top: `calc(${WALL_HEIGHT_PCT}% + 6px)` }}
       />
 
-      {/* decoração da parede: presente, mas secundária aos móveis */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[20%] hidden sm:block">
+      {/* decoração da parede: confinada à FAIXA SUPERIOR — janelas, quadro,
+          prateleira e luminária nunca disputam espaço com o Painel da Agência */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 hidden sm:block"
+        style={{ height: `${WALL_DECOR_BAND_PCT}%` }}
+      >
         {/* janelas */}
         <div className="absolute left-[5%] top-[20%] flex gap-3">
+
           {[0, 1].map((i) => (
             <div
               key={i}
@@ -103,7 +117,7 @@ export default function OfficeWorld({
       </div>
 
       {/* armário e planta encostados na parede */}
-      <div aria-hidden="true" className="pointer-events-none absolute left-[2.5%] top-[17%] hidden sm:block">
+      <div aria-hidden="true" className="pointer-events-none absolute left-[2.5%] top-[19%] hidden sm:block">
         <div className="h-20 w-14 rounded-sm bg-gradient-to-b from-muted-foreground/40 to-muted-foreground/20 shadow-[0_8px_12px_-10px_hsl(var(--foreground)/0.9)]">
           <div className="mx-auto mt-3 h-[3px] w-9 bg-foreground/25" />
           <div className="mx-auto mt-5 h-[3px] w-9 bg-foreground/25" />
@@ -111,7 +125,7 @@ export default function OfficeWorld({
         </div>
         <span className="mx-auto block h-1.5 w-12 rounded-[50%] bg-foreground/15 blur-[2px]" />
       </div>
-      <div aria-hidden="true" className="pointer-events-none absolute right-[2.5%] top-[15%] hidden flex-col items-center sm:flex">
+      <div aria-hidden="true" className="pointer-events-none absolute right-[2.5%] top-[18%] hidden flex-col items-center sm:flex">
         <span className="h-9 w-1.5 rounded bg-foreground/35" />
         <span className="-mt-10 h-8 w-8 -rotate-45 rounded-full bg-primary/40" />
         <span className="-mt-4 ml-6 h-6 w-6 rotate-45 rounded-full bg-primary/32" />
@@ -122,7 +136,8 @@ export default function OfficeWorld({
       {/* ---------- Piso ---------- */}
       <svg
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 top-[20%] h-auto w-full text-foreground/[0.13]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-auto w-full text-foreground/[0.13]"
+        style={{ top: `${WALL_HEIGHT_PCT}%` }}
       >
         <defs>
           <pattern
