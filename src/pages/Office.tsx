@@ -4,13 +4,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
-import { computeDeskSlots, deskBaseWidth, deskMonitorWidthPct } from "@/lib/officeLayout";
+import { computeDeskSlots, deskBaseWidth, deskMonitorWidthPct, richZonesActive } from "@/lib/officeLayout";
 import OfficeWorld from "@/components/office/OfficeWorld";
 import OfficeDesk from "@/components/office/OfficeDesk";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
 import OfficeCardOverlay from "@/components/office/OfficeCardOverlay";
 import CoffeeCorner from "@/components/office/CoffeeCorner";
-import { isCoffeeEligible } from "@/lib/officePresence";
+import PlanningZone from "@/components/office/PlanningZone";
+import ReviewZone from "@/components/office/ReviewZone";
+import MeetingZone from "@/components/office/MeetingZone";
+import WaitingZone from "@/components/office/WaitingZone";
+import OfficeAgencyPanel from "@/components/office/OfficeAgencyPanel";
+import OfficeMissionPanel from "@/components/office/OfficeMissionPanel";
+import OfficePeopleLayer, { type OfficePerson } from "@/components/office/OfficePeopleLayer";
+import { anchorKeyFor, resolveOfficeZone, zoneIsVisible, zonePosture } from "@/lib/officeZone";
+import { useOfficeAgencyPulse } from "@/hooks/useOfficeAgencyPulse";
+import { nextStartLabel } from "@/lib/officePresence";
 import OfficeTransferLayer, { type QueuedTransfer } from "@/components/office/OfficeTransferLayer";
 import {
   buildAssignmentSnapshot,
@@ -68,7 +77,7 @@ export default function Office() {
     [],
   );
 
-  const { stations, cards, loading, refetch } = useOfficeOverview(tenantId, area, {
+  const { stations, cards, agencyCards, loading, refetch } = useOfficeOverview(tenantId, area, {
     onDemandEvent: handleDemandEvent,
   });
   const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
@@ -180,6 +189,14 @@ export default function Office() {
     else stackAnchors.current.delete(userId);
   }, []);
 
+  // Anchors dos LUGARES das pessoas (mesas + zonas coletivas). A camada de
+  // personagens mede estes elementos: nada de offset mágico por zona.
+  const personAnchors = useRef<Map<string, HTMLElement>>(new Map());
+  const registerPersonAnchor = useCallback((key: string, el: HTMLElement | null) => {
+    if (el) personAnchors.current.set(key, el);
+    else personAnchors.current.delete(key);
+  }, []);
+
   /** Enfileira eventos já detectados (dedupe compartilhado entre os 2 caminhos). */
   const enqueue = useCallback((detected: TransferEvent[]) => {
     if (detected.length === 0) return;
@@ -215,12 +232,48 @@ export default function Office() {
   }, [area]);
 
 
-  // Cafeteria: quem está no contexto do expediente e NÃO está trabalhando
-  // (`available`, `micro_break`, `official_break`). A mesa continua na sala,
-  // mas sem personagem — nunca duplicamos o colaborador.
-  const atCoffee = useMemo(
-    () => stations.filter((s) => isCoffeeEligible(s.presence.state)),
-    [stations],
+  // ---------- ZONAS ESPACIAIS: uma zona por colaborador ----------
+  // O resolver decide ONDE a pessoa está (mesa, quadro de planejamento, mesa de
+  // revisão, café). A camada de pessoas renderiza UMA instância no anchor daquela
+  // zona — a mesa fica com a cadeira vazia, nunca com um clone.
+  const zoneByUser = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof resolveOfficeZone>>();
+    stations.forEach((s) =>
+      map.set(s.collaborator.userId, resolveOfficeZone({ state: s.presence.state, current: s.current })),
+    );
+    return map;
+  }, [stations]);
+
+  const people = useMemo<OfficePerson[]>(() => {
+    const seatIndex: Record<string, number> = {};
+    const out: OfficePerson[] = [];
+    stations.forEach((station) => {
+      const zone = zoneByUser.get(station.collaborator.userId) || "desk";
+      if (!zoneIsVisible(zone)) return;
+      const index = zone === "desk" ? 0 : (seatIndex[zone] = (seatIndex[zone] ?? -1) + 1);
+      const anchorKey = anchorKeyFor(zone, station.collaborator.userId, index);
+      if (!anchorKey) return;
+      out.push({
+        userId: station.collaborator.userId,
+        name: station.collaborator.fullName,
+        avatarUrl: station.collaborator.avatarUrl,
+        working: station.presence.state === "working_now" && !!station.current,
+        anchorKey,
+        posture: zonePosture(zone),
+        caption: zone === "coffee" ? nextStartLabel(station.presence) : null,
+      });
+    });
+    return out;
+  }, [stations, zoneByUser]);
+
+  const coffeeCount = useMemo(
+    () => people.filter((p) => p.anchorKey.startsWith("coffee:")).length,
+    [people],
+  );
+  const coffeeOverflow = useMemo(
+    () =>
+      stations.filter((s) => zoneByUser.get(s.collaborator.userId) === "coffee").length - coffeeCount,
+    [stations, zoneByUser, coffeeCount],
   );
 
   const activeStation = useMemo(
@@ -245,17 +298,28 @@ export default function Office() {
     return () => ro.disconnect();
   }, []);
 
-  // A cafeteria só existe em >= sm (desktop): nessa faixa ela reserva o canto
-  // superior direito e o layout precisa desviar a estação do fundo à direita.
+  // Zonas laterais (planejamento/revisão à esquerda, café/reunião/espera à
+  // direita) só entram no desktop: em telas menores a operação vem primeiro.
+  const layoutOptions = useMemo(
+    () => ({ coffeeCorner: !isMobile, sideZones: !isMobile }),
+    [isMobile],
+  );
   const slots = useMemo(
-    () => computeDeskSlots(stations.length, worldSize, { coffeeCorner: !isMobile }),
-    [stations.length, worldSize, isMobile],
+    () => computeDeskSlots(stations.length, worldSize, layoutOptions),
+    [stations.length, worldSize, layoutOptions],
   );
   const monitorPct = useMemo(() => deskMonitorWidthPct(worldSize), [worldSize]);
   const baseWidth = useMemo(
-    () => deskBaseWidth(stations.length, worldSize, { coffeeCorner: !isMobile }),
-    [stations.length, worldSize, isMobile],
+    () => deskBaseWidth(stations.length, worldSize, layoutOptions),
+    [stations.length, worldSize, layoutOptions],
   );
+  /** Zonas ricas ativas: define se as faixas laterais são exibidas. */
+  const richZones = !isMobile && richZonesActive(stations.length, layoutOptions);
+
+  // Painel da agência: SEMPRE agency-wide (não muda com o filtro de área).
+  const queueCounts = useMemo(() => stations.map((s) => s.queueCount), [stations]);
+  const pulse = useOfficeAgencyPulse(tenantId, { cards: agencyCards, queueCounts });
+
 
 
   return (
@@ -287,9 +351,43 @@ export default function Office() {
           </>
         }
         upperZone={
-          <div className="pointer-events-auto absolute right-3 top-[24%] z-30 hidden sm:block sm:right-8">
-            <CoffeeCorner people={loading ? [] : atCoffee} />
-          </div>
+          <>
+            {/* PAINEL DA AGÊNCIA na parede (sempre agency-wide). */}
+            <div className="pointer-events-none absolute left-1/2 top-2 z-30 hidden -translate-x-1/2 sm:block">
+              <OfficeAgencyPanel
+                deliveredToday={pulse.deliveredToday}
+                inProgress={pulse.inProgress}
+                atRisk={pulse.atRisk}
+                awaitingClient={pulse.awaitingClient}
+                progressPct={pulse.progressPct}
+              />
+            </div>
+
+            {/* FAIXA ESQUERDA: missões + planejamento + revisão */}
+            {richZones && (
+              <div className="pointer-events-none absolute bottom-4 left-2 z-30 hidden w-[196px] flex-col gap-3 sm:flex">
+                <OfficeMissionPanel
+                  level={pulse.level}
+                  missions={pulse.missions}
+                  doneCount={pulse.missionsDone}
+                  total={pulse.missionsTotal}
+                />
+                <PlanningZone register={registerPersonAnchor} />
+                <ReviewZone register={registerPersonAnchor} />
+              </div>
+            )}
+
+            {/* FAIXA DIREITA: café + reunião + sala de espera */}
+            <div className="pointer-events-none absolute right-2 top-[22%] z-30 hidden flex-col items-end gap-3 sm:flex sm:right-3">
+              <CoffeeCorner
+                occupied={loading ? 0 : coffeeCount}
+                overflow={loading ? 0 : Math.max(0, coffeeOverflow)}
+                register={registerPersonAnchor}
+              />
+              {richZones && <MeetingZone />}
+              {richZones && <WaitingZone count={pulse.awaitingClient} />}
+            </div>
+          </>
         }
         overlay={
           <OfficeTransferLayer
@@ -299,6 +397,7 @@ export default function Office() {
           />
         }
       >
+
 
         {loading ? (
           <div className="grid h-full grid-cols-2 items-end gap-8 p-8 sm:grid-cols-3">
@@ -324,6 +423,8 @@ export default function Office() {
                   monitorPct={monitorPct}
                   onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
+                  registerAnchor={registerPersonAnchor}
+                  personAway={zoneByUser.get(station.collaborator.userId) !== "desk"}
                   draggingCardId={drag?.cardId ?? null}
                   isDropTarget={drag?.targetUserId === station.collaborator.userId}
                   onPressCard={startPress}
@@ -331,6 +432,12 @@ export default function Office() {
                 />
               </div>
             ))}
+            <OfficePeopleLayer
+              people={people}
+              containerRef={worldRef}
+              anchors={personAnchors}
+              layoutToken={`m:${stations.length}`}
+            />
           </div>
         ) : (
           <div className="absolute inset-0">
@@ -359,6 +466,8 @@ export default function Office() {
                   monitorPct={monitorPct}
                     onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
                   registerStackAnchor={registerStackAnchor}
+                  registerAnchor={registerPersonAnchor}
+                  personAway={zoneByUser.get(station.collaborator.userId) !== "desk"}
                   draggingCardId={drag?.cardId ?? null}
                   isDropTarget={drag?.targetUserId === station.collaborator.userId}
                   onPressCard={startPress}
@@ -367,6 +476,14 @@ export default function Office() {
                 </div>
               );
             })}
+
+            {/* CAMADA ÚNICA DE PERSONAGENS (posicionada pelos anchors medidos) */}
+            <OfficePeopleLayer
+              people={people}
+              containerRef={worldRef}
+              anchors={personAnchors}
+              layoutToken={`${worldSize.width}x${worldSize.height}:${stations.length}:${richZones}`}
+            />
           </div>
         )}
       </OfficeWorld>

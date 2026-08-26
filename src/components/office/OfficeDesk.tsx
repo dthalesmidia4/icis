@@ -3,7 +3,7 @@ import { AlertTriangle, Clock, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OfficeStationData } from "@/hooks/useOfficeOverview";
 import { useNowTick } from "@/hooks/useNowTick";
-import OfficeCharacter from "./OfficeCharacter";
+import OfficeZoneAnchor from "./OfficeZoneAnchor";
 import PaperStack from "./PaperStack";
 import DeskObject from "./DeskObject";
 import DeskCustomizeDialog from "./DeskCustomizeDialog";
@@ -41,6 +41,10 @@ interface OfficeDeskProps {
   monitorPct?: number;
   /** Registra a pilha desta mesa como origem/destino da animação. */
   registerStackAnchor?: (userId: string, el: HTMLElement | null) => void;
+  /** Registra o lugar do personagem (`desk:<userId>`) para a camada de pessoas. */
+  registerAnchor?: (key: string, el: HTMLElement | null) => void;
+  /** A pessoa está em outra zona (café/planejamento/revisão) ou fora do turno. */
+  personAway?: boolean;
   /** Card sendo arrastado no escritório (destaca destinos válidos). */
   draggingCardId?: string | null;
   /** Esta mesa é o alvo sob o cursor no arraste atual. */
@@ -67,6 +71,8 @@ export const OfficeDesk = memo(function OfficeDesk({
   monitorPct = 57,
 
   registerStackAnchor,
+  registerAnchor,
+  personAway = false,
   draggingCardId = null,
   isDropTarget = false,
   onPressCard,
@@ -78,9 +84,9 @@ export const OfficeDesk = memo(function OfficeDesk({
   const working = presence.state === "working_now" && !!current;
   const onBreak = presence.state === "official_break";
   const offShift = presence.state === "off_shift";
-  // Cadeira vazia: quem está na cafeteria (available/micro-pausa/intervalo) e
-  // quem está fora do expediente. Evita duplicar o personagem (mesa + café).
-  const away = isCoffeeEligible(presence.state) || onBreak || offShift;
+  // Cadeira vazia: a pessoa está em outra zona (resolver espacial) ou fora do
+  // expediente. Garante UM personagem por colaborador na cena.
+  const away = personAway || isCoffeeEligible(presence.state) || onBreak || offShift;
   const statusLabel = working
     ? "Em andamento"
     : onBreak
@@ -141,32 +147,36 @@ export const OfficeDesk = memo(function OfficeDesk({
         className="relative z-30 -mb-[8px] grid items-end gap-1 px-2"
         style={{ gridTemplateColumns: `auto minmax(0, ${monitorPct}%) minmax(58px, auto)` }}
       >
-        {/* personagem ao lado do monitor (com cadeira discreta atrás) */}
+        {/* LUGAR do personagem: a cadeira e o anchor vivem aqui, mas o corpo é
+            renderizado pela `OfficePeopleLayer` (uma única instância na cena). */}
 
         <div className="flex shrink-0 items-end gap-[3px]">
-        <div className="relative flex shrink-0 flex-col items-center pb-[2px]">
-
-          {away ? (
-            <span aria-hidden="true" className="flex flex-col items-center opacity-70">
-              <span className="h-8 w-9 rounded-t-md bg-foreground/20 dark:bg-foreground/25" />
-              <span className="h-1 w-10 rounded-sm bg-foreground/25" />
-            </span>
-          ) : (
-            <>
+          <div
+            className="relative flex shrink-0 flex-col items-center justify-end pb-[2px]"
+            style={{ width: 50, height: 50 }}
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                "absolute bottom-0 left-1/2 -translate-x-1/2 rounded-t-md",
+                away
+                  ? "bg-foreground/20 dark:bg-foreground/25"
+                  : "bg-foreground/12 dark:bg-foreground/18",
+              )}
+              style={{ width: away ? 36 : 40, height: 26 }}
+            />
+            {away && (
               <span
                 aria-hidden="true"
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-t-md bg-foreground/12 dark:bg-foreground/18"
-                style={{ width: 40, height: 26 }}
+                className="absolute bottom-0 left-1/2 h-1 w-10 -translate-x-1/2 rounded-sm bg-foreground/25"
               />
-              <OfficeCharacter
-                name={collaborator.fullName}
-                avatarUrl={collaborator.avatarUrl}
-                working={working}
-                size={50}
-              />
-            </>
-          )}
-        </div>
+            )}
+            <OfficeZoneAnchor
+              anchorKey={`desk:${collaborator.userId}`}
+              width={50}
+              register={registerAnchor}
+            />
+          </div>
           {/* slot ESQUERDO: sobre o tampo, entre personagem e monitor */}
           {objectBySlot.left && (
             <div className="pb-[2px]">
@@ -174,6 +184,7 @@ export const OfficeDesk = memo(function OfficeDesk({
             </div>
           )}
         </div>
+
 
 
         {/* monitor */}
