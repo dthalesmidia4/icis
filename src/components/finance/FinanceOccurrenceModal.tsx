@@ -38,6 +38,14 @@ import {
   installmentRowLabel,
   effectiveUsdRate,
 } from "@/lib/financeModel";
+import {
+  USD_CONVERSION_HELP,
+  UsdConversionField,
+  UsdConversionState,
+  applyUsdEdit,
+  resolveUsdNumbers,
+  seedUsdConversion,
+} from "@/lib/financeUsdConversion";
 import { parseLocalizedNumber } from "@/lib/financeNumber";
 import {
   installmentHeaderLine,
@@ -111,6 +119,8 @@ export default function FinanceOccurrenceModal({
 }: Props) {
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
+  /** Valor cobrado em reais: EDITÁVEL (ver `financeUsdConversion`). */
+  const [brlCharged, setBrlCharged] = useState("");
   /** Data do fato: cobrança (cartão) ou vencimento (obrigação direta). */
   const [factDate, setFactDate] = useState("");
   const [paid, setPaid] = useState(false);
@@ -185,6 +195,15 @@ export default function FinanceOccurrenceModal({
             ? String(defaultUsdRate)
             : "",
     );
+    setBrlCharged(
+      row.currency === "USD"
+        ? seedUsdConversion({
+            original: row.amountOriginal ?? null,
+            rate: effective ?? row.exchangeRate ?? defaultUsdRate ?? null,
+            brl: row.amountBrl ?? null,
+          }).brl
+        : "",
+    );
     setFactDate(
       isCardCharge(row)
         ? row.chargeDate ?? ""
@@ -201,14 +220,32 @@ export default function FinanceOccurrenceModal({
     else setOrigin(FOLLOW_ITEM);
   }, [open, row, defaultUsdRate, today]);
 
+  const isUsd = row?.currency === "USD";
+  const usdState: UsdConversionState = { original: amount, rate, brl: brlCharged };
+  /** Edição bidirecional: câmbio ↔ valor cobrado em reais. */
+  const editUsd = (field: UsdConversionField, value: string) => {
+    if (!isUsd) {
+      if (field === "original") setAmount(value);
+      else if (field === "rate") setRate(value);
+      else setBrlCharged(value);
+      return;
+    }
+    const next = applyUsdEdit(usdState, field, value);
+    setAmount(next.original);
+    setRate(next.rate);
+    setBrlCharged(next.brl);
+  };
+
+  const usdNumbers = resolveUsdNumbers(usdState);
   const amountNumber = parseLocalizedNumber(amount);
-  const rateNumber = parseLocalizedNumber(rate) ?? defaultUsdRate;
+  const rateNumber = isUsd
+    ? usdNumbers.exchangeRate ?? parseLocalizedNumber(rate) ?? defaultUsdRate
+    : null;
 
   const brl = useMemo(() => {
-    if (amountNumber == null) return null;
-    if (row?.currency === "USD") return rateNumber != null ? Number((amountNumber * rateNumber).toFixed(2)) : null;
+    if (isUsd) return usdNumbers.amountBrl;
     return amountNumber;
-  }, [amountNumber, rateNumber, row?.currency]);
+  }, [isUsd, usdNumbers.amountBrl, amountNumber]);
 
   /** Situação canônica read-only de uma compra no cartão. */
   const cardStatus = useMemo(() => {
@@ -335,7 +372,7 @@ export default function FinanceOccurrenceModal({
                 <Input
                   className="w-full min-w-0 max-w-full"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => editUsd("original", e.target.value)}
                   inputMode="decimal"
                   placeholder="0,00"
                 />
@@ -358,14 +395,19 @@ export default function FinanceOccurrenceModal({
                     <Input
                       className="w-full min-w-0 max-w-full"
                       value={rate}
-                      onChange={(e) => setRate(e.target.value)}
+                      onChange={(e) => editUsd("rate", e.target.value)}
                       inputMode="decimal"
                     />
                   </div>
-                  <div className="min-w-0 flex items-end">
-                    <p className="text-sm text-muted-foreground pb-2 break-words">
-                      Em reais: <span className="font-semibold text-foreground">{formatBRL(brl)}</span>
-                    </p>
+                  <div className="min-w-0">
+                    <Label>Valor cobrado em R$</Label>
+                    <Input
+                      className="w-full min-w-0 max-w-full"
+                      value={brlCharged}
+                      onChange={(e) => editUsd("brl", e.target.value)}
+                      inputMode="decimal"
+                      placeholder="0,00"
+                    />
                   </div>
                 </>
               )}
@@ -373,6 +415,7 @@ export default function FinanceOccurrenceModal({
 
             {row.currency === "USD" && (
               <p className="text-xs text-muted-foreground">
+                {USD_CONVERSION_HELP}{" "}
                 {persistedRate != null
                   ? "Câmbio efetivo desta compra, calculado pelo valor exato cobrado em reais."
                   : "Usado apenas para estimativa até o valor real ser confirmado."}
