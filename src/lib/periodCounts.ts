@@ -12,6 +12,12 @@ export interface CurrentPeriodInfo {
   budget?: string | null;
   paid_traffic_budget?: string | null;
   objective?: string | null;
+  /** Campanha interna de atribuição Mídia ↔ Comercial (contexto, não fluxo). */
+  campaign_id?: string | null;
+  client_acquisition?: string | null;
+  priority_channel?: string | null;
+  observations?: string | null;
+  production_line?: any;
 }
 
 
@@ -30,7 +36,7 @@ export async function getCurrentPeriodForClient(params: {
   const { data, error } = await supabase
     .from("period_plans")
     .select(
-      "id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan, operational_status, budget, paid_traffic_budget, objective"
+      "id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan, operational_status, budget, paid_traffic_budget, objective, campaign_id, client_acquisition, priority_channel, observations, production_line"
     )
     .eq("company_id", clientId)
     .eq("tenant_id", tenantId)
@@ -53,6 +59,11 @@ export async function getCurrentPeriodForClient(params: {
     budget: (data as any).budget ?? null,
     paid_traffic_budget: (data as any).paid_traffic_budget ?? null,
     objective: (data as any).objective ?? null,
+    campaign_id: (data as any).campaign_id ?? null,
+    client_acquisition: (data as any).client_acquisition ?? null,
+    priority_channel: (data as any).priority_channel ?? null,
+    observations: (data as any).observations ?? null,
+    production_line: (data as any).production_line ?? null,
   };
 }
 
