@@ -81,6 +81,12 @@ export interface FinanceItem {
   recurrence_weekday?: number | null;
   /** Âncora genérica do cronograma (a partir de quando o intervalo é contado). */
   recurrence_anchor_date?: string | null;
+  /**
+   * Dia do MÊS em que o FATO da despesa acontece (agenda da DESPESA).
+   * Não confundir com a agenda de PAGAMENTO (`finance_payment_rules`): uma
+   * despesa mensal pode acontecer no dia 1 e ser paga no dia 20.
+   */
+  recurrence_day_of_month?: number | null;
   /** Âncora da recorrência: define a partir de quando o intervalo é contado. */
   recurrence_start_date?: string | null;
   /** `fixed` = valor previsível; `variable` = consumo (valor só se confirma no mês). */
