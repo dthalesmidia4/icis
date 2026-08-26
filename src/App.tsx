@@ -64,6 +64,8 @@ const ClientEvolution = lazy(() => import("./pages/ClientEvolution"));
 const CustomerSuccessSistemas = lazy(() => import("./pages/CustomerSuccessSistemas"));
 const SystemsClients = lazy(() => import("./pages/SystemsClients"));
 const SystemsCommercial = lazy(() => import("./pages/SystemsCommercial"));
+const Campaigns = lazy(() => import("./pages/Campaigns"));
+const CampaignDetail = lazy(() => import("./pages/CampaignDetail"));
 const OverviewPage = lazy(() => import("./pages/OverviewPage"));
 
 const queryClient = new QueryClient({
@@ -399,6 +401,26 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <SystemsClients />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/campanhas" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Campaigns />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/campanhas/:id" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CampaignDetail />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

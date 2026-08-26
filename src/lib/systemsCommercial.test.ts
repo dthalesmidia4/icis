@@ -49,6 +49,7 @@ function client(partial: Partial<SystemsClient> & { name: string }): SystemsClie
     last_contact_result: null,
     loss_reason: null,
     lead_source: null,
+    acquisition_campaign_id: null,
     ...partial,
   };
 }

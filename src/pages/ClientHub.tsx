@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import JSZip from "jszip";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw, X, Activity } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw, X, Activity, Megaphone } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 
 import { useAgencyRole } from "@/hooks/useAgencyRole";
@@ -1874,6 +1874,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_anamnese', title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia', title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
     { id: 'client_identidade_visual', title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
+    { id: 'client_campanhas', title: "Campanhas", icon: Megaphone, action: () => navigate("/campanhas") },
     { id: 'client_planejar_periodo', title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true), disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
     { id: 'client_aprovar_producao', title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (approvedCardsCount + rejectedCardsCount) > 0 ? (approvedCardsCount + rejectedCardsCount) : undefined },
     { id: 'client_cronograma_atual', title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },

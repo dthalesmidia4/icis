@@ -132,6 +132,7 @@ import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
 import { StartEndDatePopover, SingleDateTimePopover } from "@/components/kanban/StartEndDatePopover";
 import SubclientSelect from "@/components/SubclientSelect";
+import { loadCampaigns } from "@/lib/marketingCampaigns";
 import {
   AdPlanSection,
   ClassificationSelector,
@@ -2271,6 +2272,23 @@ export default function TaskCard({
       setGeneratingCaption(false);
     }
   };
+
+  // Campanhas da empresa: vínculo opcional dentro do plano de anúncio.
+  const [adPlanCampaigns, setAdPlanCampaigns] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const tid = (card as any)?.tenant_id;
+      if (!open || !tid || !card?.clientId) { setAdPlanCampaigns([]); return; }
+      try {
+        const rows = await loadCampaigns(tid, card.clientId);
+        if (!cancelled) setAdPlanCampaigns(rows.map((c) => ({ id: c.id, name: c.name })));
+      } catch (err) {
+        console.error("[TaskCard] falha ao carregar campanhas", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, card?.clientId, (card as any)?.tenant_id]);
 
   // Fetch period plans (used for both linking selector and future unlink flow)
   useEffect(() => {
@@ -4636,6 +4654,8 @@ export default function TaskCard({
                                 onChange={(next) => onCardChange({ ...card, ad_plan: next } as any)}
                                 onBlur={handleAdPlanSave}
                                 readOnly={readOnly}
+                                workArea={(card as any).work_area || "midia"}
+                                campaignOptions={adPlanCampaigns}
                               />
                             )}
 
