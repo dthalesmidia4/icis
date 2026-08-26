@@ -323,7 +323,24 @@ export function useFinance(competence: Competence) {
    * Liquidação por fatura: derivada DEPOIS dos grupos, para que KPIs, composição
    * e badges usem exatamente a mesma noção de pago.
    */
-  const settlement = useMemo(() => buildStatementSettlementIndex(statements), [statements]);
+  const statementSettlement = useMemo(
+    () => buildStatementSettlementIndex(statements),
+    [statements],
+  );
+
+  /**
+   * Liquidação por LOTE de pagamento: mesma arquitetura derivada da fatura — o
+   * lote é a saída de caixa e nada é gravado ocorrência por ocorrência.
+   */
+  const batchSettlement = useMemo(
+    () => buildBatchSettlementIndex({ rows, batches, entries: batchEntries }),
+    [rows, batches, batchEntries],
+  );
+
+  const settlement = useMemo(
+    () => mergeSettlementIndexes(statementSettlement, batchSettlement),
+    [statementSettlement, batchSettlement],
+  );
 
   const totals = useMemo(() => computeTotals(rows, settlement), [rows, settlement]);
   const overlaps = useMemo(() => detectPackageOverlaps(items), [items]);
