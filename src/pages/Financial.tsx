@@ -106,7 +106,7 @@ import {
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
 import { financeBackTarget } from "@/lib/financeBackTarget";
 import PayStatementModal from "@/components/finance/PayStatementModal";
-import AdjustStatementIofModal from "@/components/finance/AdjustStatementIofModal";
+import StatementClosureModal from "@/components/finance/StatementClosureModal";
 import {
   COMPOSITION_HINTS,
   COMPOSITION_KINDS,
@@ -215,7 +215,7 @@ function FinancialCockpit() {
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     skipped, skipOccurrence, restoreOccurrence,
-    saveOccurrence, togglePaid, payStatement, setPaidStatementIof, saveSettings, saveItem, setItemActive, refresh,
+    saveOccurrence, togglePaid, payStatement, updateStatementClosure, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
 
@@ -260,7 +260,8 @@ function FinancialCockpit() {
   const [budgetInput, setBudgetInput] = useState("");
   const [rateInput, setRateInput] = useState("");
   const [payingGroup, setPayingGroup] = useState<StatementGroup | null>(null);
-  const [adjustingIofGroup, setAdjustingIofGroup] = useState<StatementGroup | null>(null);
+  /** Fechamento da fatura (total + IOF juntos) em consulta/ajuste. */
+  const [closureGroup, setClosureGroup] = useState<StatementGroup | null>(null);
   /** Cadastro que vai receber um lançamento SUPLEMENTAR (recarga/extra). */
   const [supplementalItem, setSupplementalItem] = useState<FinanceItem | null>(null);
   const [focusCardId, setFocusCardId] = useState<string | null>(null);
@@ -578,12 +579,14 @@ function FinancialCockpit() {
     paidAmountBrl,
     usdComponents,
     iofBrl,
+    statementAmountBrl,
   }: {
     group: StatementGroup;
     paidDateISO: string;
     paidAmountBrl: number | null;
     usdComponents?: unknown[];
     iofBrl?: number;
+    statementAmountBrl?: number | null;
   }): Promise<boolean> => {
     const occ = group.statementRow?.occurrence;
     if (!occ) return false;
@@ -595,18 +598,21 @@ function FinancialCockpit() {
       paidDateISO,
       usdComponents ?? [],
       iof,
+      statementAmountBrl ?? null,
     );
   };
 
-  const confirmAdjustStatementIof = async (group: StatementGroup, iofBrl: number): Promise<boolean> => {
-    const occ = group.statementRow?.occurrence;
-    if (!occ) return false;
-    return await setPaidStatementIof(occ.id, iofBrl);
-  };
+  const confirmStatementClosure = async (payload: {
+    occurrenceId: string;
+    amountBrl: number | null;
+    iofBrl: number;
+  }): Promise<boolean> =>
+    await updateStatementClosure(payload.occurrenceId, payload.amountBrl, payload.iofBrl);
 
 
+  /** Fatura só tem UM lugar de dados do fechamento: total e IOF juntos. */
   const handleOpenStatement = (group: StatementGroup) => {
-    if (group.statementRow) setOccurrenceRow(group.statementRow);
+    if (group.statementRow?.occurrence) setClosureGroup(group);
   };
 
   const handleInsightAction = (insight: AttentionInsight) => {
@@ -1339,7 +1345,6 @@ function FinancialCockpit() {
                 labels={occurrenceLabels}
                 onOpenStatement={handleOpenStatement}
                 onPayStatement={handlePayStatement}
-                onAdjustIof={setAdjustingIofGroup}
                 onEditCard={(card) => openItemModal(card)}
                 linkedItems={linkedByCard}
                 onEditItem={(item) => openItemModal(item)}
@@ -1496,11 +1501,11 @@ function FinancialCockpit() {
         onConfirm={confirmPayStatement}
       />
 
-      <AdjustStatementIofModal
-        open={!!adjustingIofGroup}
-        onOpenChange={(open) => { if (!open) setAdjustingIofGroup(null); }}
-        group={adjustingIofGroup}
-        onConfirm={confirmAdjustStatementIof}
+      <StatementClosureModal
+        open={!!closureGroup}
+        onOpenChange={(open) => { if (!open) setClosureGroup(null); }}
+        group={closureGroup}
+        onConfirm={confirmStatementClosure}
       />
 
     </div>
