@@ -8,6 +8,10 @@ import {
   deskBaseWidth,
   deskMonitorWidthPct,
   resolveOfficeProfile,
+  centerBandPx,
+  deskFootprint,
+  richZonesActive,
+  RICH_PANEL_BAND_PCT,
 } from "./officeLayout";
 import { assignDeskSlots, sanitizeDeskObjects } from "./officeDeskObjects";
 
@@ -197,5 +201,62 @@ describe("downscale responsivo do 2x2", () => {
       const rightEdge = (backRight.leftPct / 100) * width + (base * backRight.scale) / 2;
       expect(rightEdge).toBeLessThanOrEqual(coffeeZoneLeftPx(width));
     }
+  });
+});
+
+describe("modo rico de zonas (até 4 mesas)", () => {
+  const RICH: Array<[number, number]> = [
+    [1366, 768],
+    [1920, 1080],
+    [2560, 1080],
+    [3440, 1440],
+  ];
+
+  it("mesas ficam na faixa central, sem colidir e sem invadir as zonas laterais", () => {
+    for (const [width, height] of RICH) {
+      const size = { width, height };
+      const opts = { coffeeCorner: true, sideZones: true };
+      const slots = computeDeskSlots(4, size, opts);
+      const base = deskBaseWidth(4, size, opts);
+      const band = centerBandPx(width);
+      const foot = slots.map((s) => deskFootprint(s, base, size));
+
+      foot.forEach((f) => {
+        expect(f.left).toBeGreaterThanOrEqual(band.left);
+        expect(f.right).toBeLessThanOrEqual(band.right);
+      });
+
+      // sem interseção horizontal na mesma fileira
+      [0, 1].forEach((row) => {
+        const inRow = slots
+          .map((s, i) => ({ s, f: foot[i] }))
+          .filter((x) => x.s.row === row)
+          .sort((a, b) => a.f.left - b.f.left);
+        for (let i = 1; i < inRow.length; i += 1) {
+          expect(inRow[i].f.left).toBeGreaterThanOrEqual(inRow[i - 1].f.right);
+        }
+      });
+
+      // fileira do fundo abaixo da faixa do painel; fileira da frente dentro do mundo
+      const backTop = Math.min(...foot.filter((_, i) => slots[i].row === 0).map((f) => f.top));
+      expect(backTop).toBeGreaterThanOrEqual((RICH_PANEL_BAND_PCT / 100) * height);
+      const frontBottom = Math.max(...foot.map((f) => f.bottom));
+      expect(frontBottom).toBeLessThanOrEqual(height);
+    }
+  });
+
+  it("centros das 4 mesas ficam nas faixas 36–40% e 62–66%", () => {
+    const slots = computeDeskSlots(4, { width: 1920, height: 1080 }, { sideZones: true });
+    slots.forEach((s, i) => {
+      if (i % 2 === 0) expect(s.leftPct).toBeGreaterThanOrEqual(36);
+      else expect(s.leftPct).toBeLessThanOrEqual(66);
+    });
+  });
+
+  it("5+ estações ignoram o modo rico e mantêm a composição genérica", () => {
+    expect(richZonesActive(5, { sideZones: true })).toBe(false);
+    const rich = computeDeskSlots(6, { width: 1920, height: 1080 }, { sideZones: true });
+    const plain = computeDeskSlots(6, { width: 1920, height: 1080 });
+    expect(rich).toEqual(plain);
   });
 });

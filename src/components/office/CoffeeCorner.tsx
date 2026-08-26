@@ -1,23 +1,28 @@
 import { memo } from "react";
-import OfficeCharacter from "./OfficeCharacter";
-import type { OfficeStationData } from "@/hooks/useOfficeOverview";
-import { nextStartLabel } from "@/lib/officePresence";
+import OfficeZoneAnchor from "./OfficeZoneAnchor";
+import { ZONE_SEATS } from "@/lib/officeZone";
 
 interface CoffeeCornerProps {
-  /** Colaboradores no expediente sem estar trabalhando (available, micro-pausa, intervalo). */
-  people: OfficeStationData[];
+  /** Quantas pessoas a `OfficePeopleLayer` vai posicionar nas banquetas. */
+  occupied: number;
+  /** Excedente além dos assentos físicos. */
+  overflow?: number;
+  register?: (key: string, el: HTMLElement | null) => void;
 }
 
-const SEATS = 3;
+const SEATS = ZONE_SEATS.coffee;
 
 /**
  * Cafeteria da sala: balcão com máquina de café e, À FRENTE dele, banquetas.
- * Quem está no café (disponível, micro-pausa ou intervalo) aparece SENTADO em uma banqueta (contato visual com
- * o assento), com caneca ao lado — nunca flutuando sobre o balcão.
+ * O MÓVEL vive aqui; o personagem vem da `OfficePeopleLayer` via anchor, para
+ * que exista uma única instância da pessoa na cena inteira.
  */
-export const CoffeeCorner = memo(function CoffeeCorner({ people }: CoffeeCornerProps) {
-  const seated = people.slice(0, SEATS);
-  const overflow = people.length - seated.length;
+export const CoffeeCorner = memo(function CoffeeCorner({
+  occupied,
+  overflow = 0,
+  register,
+}: CoffeeCornerProps) {
+
 
   return (
     <div className="relative flex w-[196px] flex-col items-center sm:w-[214px]">
@@ -41,55 +46,22 @@ export const CoffeeCorner = memo(function CoffeeCorner({ people }: CoffeeCornerP
 
       {/* ---------- banquetas à frente do balcão ---------- */}
       <div className="relative z-20 -mt-[3px] flex w-full items-end justify-center gap-2">
-        {Array.from({ length: SEATS }).map((_, i) => {
-          const person = seated[i];
-          const label = person ? nextStartLabel(person.presence) : null;
-          return (
-            <div key={i} className="flex w-[52px] flex-col items-center">
-              {person ? (
-                <div
-                  className="flex animate-in flex-col items-center fade-in duration-500"
-                  title={`${person.collaborator.fullName}${label ? ` · ${label}` : ""}`}
-                >
-                  <div className="relative flex flex-col items-center">
-                    <OfficeCharacter
-                      name={person.collaborator.fullName}
-                      avatarUrl={person.collaborator.avatarUrl}
-                      working={false}
-                      standing
-                      size={38}
-                    />
-                    {/* caneca na mão (detalhe leve, sem animação de digitação) */}
-                    <span
-                      aria-hidden="true"
-                      className="absolute -right-[2px] bottom-[6px] h-[7px] w-[6px] animate-office-caret rounded-b-[2px] bg-primary/70 motion-reduce:animate-none"
-                    />
-                  </div>
-                  {/* assento da banqueta encostando no personagem */}
-                  <span aria-hidden="true" className="-mt-[3px] flex flex-col items-center">
-                    <span className="h-[4px] w-7 rounded-[3px] bg-foreground/40" />
-                    <span className="h-4 w-[3px] bg-foreground/25" />
-                    <span className="h-[2px] w-5 rounded bg-foreground/25" />
-                  </span>
-                  <span className="max-w-[52px] truncate text-[8px] font-semibold leading-tight">
-                    {person.collaborator.fullName.split(" ")[0]}
-                  </span>
-                  {label && (
-                    <span className="max-w-[52px] truncate text-[7px] leading-tight text-muted-foreground">
-                      {label}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <span aria-hidden="true" className="flex flex-col items-center opacity-80">
-                  <span className="h-[4px] w-7 rounded-[3px] bg-foreground/30" />
-                  <span className="h-4 w-[3px] bg-foreground/20" />
-                  <span className="h-[2px] w-5 rounded bg-foreground/20" />
-                </span>
-              )}
-            </div>
-          );
-        })}
+        {Array.from({ length: SEATS }).map((_, i) => (
+          <div key={i} className="flex w-[52px] flex-col items-center">
+            {/* ponto físico onde o personagem encosta na banqueta */}
+            <OfficeZoneAnchor anchorKey={`coffee:${i}`} width={40} register={register} />
+            <span
+              aria-hidden="true"
+              className={`flex flex-col items-center ${i < occupied ? "opacity-100" : "opacity-80"}`}
+            >
+              <span
+                className={`h-[4px] w-7 rounded-[3px] ${i < occupied ? "bg-foreground/40" : "bg-foreground/30"}`}
+              />
+              <span className="h-4 w-[3px] bg-foreground/25" />
+              <span className="h-[2px] w-5 rounded bg-foreground/25" />
+            </span>
+          </div>
+        ))}
         {overflow > 0 && (
           <span className="mb-4 rounded-full border border-border bg-background/90 px-1 text-[8px] font-bold">
             +{overflow}

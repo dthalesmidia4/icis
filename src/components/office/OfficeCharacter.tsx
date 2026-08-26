@@ -9,6 +9,8 @@ export const initialsOf = (name: string) =>
     .map((p) => p[0]?.toUpperCase())
     .join("") || "?";
 
+export type CharacterPosture = "seated" | "standing" | "walking";
+
 interface OfficeCharacterProps {
   name: string;
   avatarUrl?: string | null;
@@ -16,25 +18,34 @@ interface OfficeCharacterProps {
   working: boolean;
   /** Largura total do personagem em px (escala com a mesa). */
   size?: number;
-  /** Personagem em pé (cafeteria) — sem cadeira, braço segurando caneca. */
+  /** Postura física. `seated` encaixa na cadeira da mesa. */
+  posture?: CharacterPosture;
+  /** Retrocompatibilidade: `standing` equivale a `posture="standing"`. */
   standing?: boolean;
 }
 
 /**
- * Personagem 2D. Sentado, o conjunto cadeira+torso fica logo atrás do tampo,
- * de modo que o torso é parcialmente encoberto pela mesa e só a cabeça (com a
- * foto do perfil) aparece acima do monitor. Em pé, é usado na cafeteria.
+ * Personagem 2D — somente CSS (nenhum asset externo, nenhuma animação por
+ * frame). Sentado, o conjunto cadeira+torso fica logo atrás do tampo e só a
+ * cabeça (foto do perfil) aparece acima do monitor. Em pé/andando ganha pernas
+ * simples, usadas nas zonas coletivas (café, planejamento, revisão).
  */
 export const OfficeCharacter = memo(function OfficeCharacter({
   name,
   avatarUrl,
   working,
   size = 52,
+  posture,
   standing = false,
 }: OfficeCharacterProps) {
+  const pose: CharacterPosture = posture ?? (standing ? "standing" : "seated");
+  const seated = pose === "seated";
+  const walking = pose === "walking";
   const head = Math.round(size * 0.6);
   const torsoW = Math.round(size * 0.72);
-  const torsoH = Math.round(size * (standing ? 0.62 : 0.5));
+  const torsoH = Math.round(size * (seated ? 0.5 : 0.62));
+  const legH = Math.round(size * 0.3);
+  const armsAnimate = (working && seated) || walking;
 
   return (
     <div
@@ -67,7 +78,6 @@ export const OfficeCharacter = memo(function OfficeCharacter({
         )}
       </span>
 
-
       {/* torso + braços chegando à altura do tampo/teclado */}
       <span
         className={cn(
@@ -81,14 +91,14 @@ export const OfficeCharacter = memo(function OfficeCharacter({
           className={cn(
             "absolute rounded-full",
             working ? "bg-primary/70" : "bg-muted-foreground/45",
-            working && !standing && "animate-office-typing motion-reduce:animate-none",
+            armsAnimate && "animate-office-typing motion-reduce:animate-none",
           )}
           style={{
             left: -Math.round(size * 0.2),
             top: Math.round(torsoH * 0.32),
             width: Math.round(size * 0.38),
             height: Math.max(4, Math.round(size * 0.1)),
-            transform: `rotate(${standing ? -34 : 18}deg)`,
+            transform: `rotate(${seated ? 18 : -34}deg)`,
             transformOrigin: "right center",
           }}
         />
@@ -96,7 +106,7 @@ export const OfficeCharacter = memo(function OfficeCharacter({
           className={cn(
             "absolute rounded-full",
             working ? "bg-primary/70" : "bg-muted-foreground/45",
-            working && !standing && "animate-office-typing motion-reduce:animate-none",
+            armsAnimate && "animate-office-typing motion-reduce:animate-none",
           )}
           style={{
             right: -Math.round(size * 0.2),
@@ -105,12 +115,33 @@ export const OfficeCharacter = memo(function OfficeCharacter({
             height: Math.max(4, Math.round(size * 0.1)),
             transform: "rotate(-18deg)",
             transformOrigin: "left center",
-            animationDelay: working ? "220ms" : undefined,
+            animationDelay: armsAnimate ? "220ms" : undefined,
           }}
         />
       </span>
 
-      {!standing && (
+      {/* pernas simples: só em pé / andando */}
+      {!seated && (
+        <span className="relative z-10 flex" style={{ gap: Math.round(size * 0.1) }}>
+          {[0, 1].map((i) => (
+            <span
+              key={i}
+              className={cn(
+                "block rounded-b-sm bg-muted-foreground/55",
+                walking && "animate-office-typing motion-reduce:animate-none",
+              )}
+              style={{
+                width: Math.max(4, Math.round(size * 0.13)),
+                height: legH,
+                transformOrigin: "top center",
+                animationDelay: walking && i === 1 ? "300ms" : undefined,
+              }}
+            />
+          ))}
+        </span>
+      )}
+
+      {seated && (
         /* encosto da cadeira aparece atrás dos ombros */
         <span
           className="absolute z-10 rounded-t-md bg-foreground/25 dark:bg-foreground/30"

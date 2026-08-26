@@ -252,26 +252,99 @@ export function deskBaseWidth(
   // (4) Cafeteria: entre o centro da mesa esquerda do fundo e o início da zona
   // do café precisam caber 1,5 footprints + respiro.
   let coffeeBase = Number.POSITIVE_INFINITY;
-  if (options.coffeeCorner && perRow >= 2) {
+  if (options.coffeeCorner && perRow >= 2 && !richZonesActive(count, options)) {
     const centerLeftPx = (profile.centersBack[0] / 100) * width;
     coffeeBase = (coffeeZoneLeftPx(width) - centerLeftPx - gap) / (1.5 * profile.scaleBack);
   }
 
+  // (4b) MODO RICO: as faixas laterais são ambiente reservado. A mesa mais à
+  // esquerda não pode invadir Planejamento/Revisão e a mais à direita não pode
+  // invadir Café/Reunião/Espera; os centros são fixos, então a largura cede.
+  let richBase = Number.POSITIVE_INFINITY;
+  let richSepBase = Number.POSITIVE_INFINITY;
+  if (richZonesActive(count, options)) {
+    const band = centerBandPx(width);
+    const leftCenter = (Math.min(RICH_CENTERS_BACK[0], RICH_CENTERS_FRONT[0]) / 100) * width;
+    const rightCenter = (Math.max(RICH_CENTERS_BACK[1], RICH_CENTERS_FRONT[1]) / 100) * width;
+    const leftLimit = (2 * (leftCenter - band.left)) / profile.scaleFront;
+    const rightLimit = (2 * (band.right - rightCenter)) / profile.scaleFront;
+    richBase = Math.min(leftLimit, rightLimit);
+    if (perRow >= 2) {
+      const sep =
+        Math.min(
+          RICH_CENTERS_BACK[1] - RICH_CENTERS_BACK[0],
+          RICH_CENTERS_FRONT[1] - RICH_CENTERS_FRONT[0],
+        ) / 100;
+      richSepBase = (sep * width - gap) / scaleMax;
+    }
+  }
+
   // Nunca encolher além do necessário: o piso de conforto é o downscale máximo.
   const floor = Math.max(MIN_BASE_WIDTH, desired * (1 - MAX_DOWNSCALE));
-  const target = Math.min(base, comfortBase, coffeeBase);
+  const target = Math.min(base, comfortBase, coffeeBase, richBase, richSepBase);
   const withFloor = Math.max(target, Math.min(floor, base));
 
-  return Math.round(Math.max(MIN_BASE_WIDTH, Math.min(withFloor, hardBase)));
+  return Math.round(
+    Math.max(
+      MIN_BASE_WIDTH,
+      Math.min(withFloor, hardBase, richBase, richSepBase === Number.POSITIVE_INFINITY ? Infinity : richSepBase),
+    ),
+  );
 }
+
 
 
 /** Faixa vertical útil para composições genéricas (5+ estações). */
 const GENERIC_MIN_ROW_GAP_PCT = 22;
 
+/**
+ * MODO RICO DE ZONAS (até 4 estações, desktop/tablet largo).
+ * As faixas laterais são AMBIENTE FÍSICO (Planejamento/Revisão à esquerda,
+ * Café/Reunião/Espera à direita) e por isso são reservadas em px: as mesas
+ * ficam concentradas na faixa central, nunca invadindo as zonas.
+ */
+export const RICH_LEFT_ZONE_PX = 196;
+export const RICH_RIGHT_ZONE_PX = 224;
+/** Faixa superior do Painel da agência (parede): a fileira do fundo fica abaixo. */
+export const RICH_PANEL_BAND_PCT = 28;
+/** Centros horizontais (%) das mesas no modo rico — faixas 36–40% e 62–66%. */
+export const RICH_CENTERS_BACK: [number, number] = [38, 64];
+export const RICH_CENTERS_FRONT: [number, number] = [37, 65];
+/** Altura visual acima do tampo (monitor + personagem + pilha), como fração da base. */
+export const DESK_ABOVE_TABLE_RATIO = 0.52;
+
 export interface DeskSlotOptions {
   /** A cafeteria está visível (desktop) e reserva o canto superior direito. */
   coffeeCorner?: boolean;
+  /** Modo rico: reservar faixas laterais para as zonas do escritório. */
+  sideZones?: boolean;
+}
+
+/** O modo rico só vale para até 4 estações: 5+ prioriza a operação. */
+export function richZonesActive(count: number, options: DeskSlotOptions = {}): boolean {
+  return !!options.sideZones && count > 0 && count <= 4;
+}
+
+/** Faixa central útil (px) entre as zonas laterais reservadas. */
+export function centerBandPx(worldWidth: number): { left: number; right: number } {
+  return { left: RICH_LEFT_ZONE_PX, right: Math.max(RICH_LEFT_ZONE_PX + 200, worldWidth - RICH_RIGHT_ZONE_PX) };
+}
+
+/** Footprint real de uma estação, em px do mundo (usado por layout e testes). */
+export function deskFootprint(
+  slot: DeskSlot,
+  base: number,
+  size: WorldSize,
+): { left: number; right: number; top: number; bottom: number } {
+  const w = base * slot.scale;
+  const centerX = (slot.leftPct / 100) * (size.width || DEFAULT_SIZE.width);
+  const bottom = (slot.topPct / 100) * (size.height || DEFAULT_SIZE.height);
+  return {
+    left: centerX - w / 2,
+    right: centerX + w / 2,
+    bottom,
+    top: bottom - w * DESK_ABOVE_TABLE_RATIO,
+  };
 }
 
 export function computeDeskSlots(
@@ -285,11 +358,13 @@ export function computeDeskSlots(
   const rows = Math.ceil(count / perRow);
   const width = size.width || DEFAULT_SIZE.width;
   const base = deskBaseWidth(count, size, options);
+  const rich = richZonesActive(count, options);
   // Centro máximo permitido na FILEIRA DO FUNDO (a única na faixa do café).
   // Assimetria proposital: a fileira da frente continua livre.
-  const backRightMaxPct = options.coffeeCorner
+  const backRightMaxPct = options.coffeeCorner && !rich
     ? ((coffeeZoneLeftPx(width) - (base * profile.scaleBack) / 2) / width) * 100
     : 100;
+
 
 
   // Âncoras verticais: 1 fileira usa a da frente; 2 fileiras usam as duas
@@ -318,14 +393,27 @@ export function computeDeskSlots(
 
     const rowT = rows > 1 ? row / (rows - 1) : 1;
     const scale = profile.scaleBack + (profile.scaleFront - profile.scaleBack) * rowT;
-    const topPct = Math.min(96, Math.max(28, anchors[row]));
+    // No modo rico a fileira do fundo precisa começar ABAIXO da faixa do painel
+    // (parede) considerando monitor + personagem + pilha acima do tampo, e a
+    // fileira da frente não pode encostar no rodapé.
+    const height = size.height || DEFAULT_SIZE.height;
+    const aboveTablePct = ((base * scale * DESK_ABOVE_TABLE_RATIO) / height) * 100;
+    const minTopPct = rich ? Math.max(28, RICH_PANEL_BAND_PCT + aboveTablePct + 1) : 28;
+    const maxTopPct = rich ? Math.min(96, 100 - (24 / height) * 100) : 96;
+    const topPct = Math.min(maxTopPct, Math.max(minTopPct, anchors[row]));
 
     let leftPct: number;
     if (inRow === 1) {
       leftPct = 50;
     } else if (inRow === 2) {
-      const centers = isFront ? profile.centersFront : profile.centersBack;
-      leftPct = centers[posInRow] + jitter(i + row, profile.jitterPct);
+      const centers = rich
+        ? isFront
+          ? RICH_CENTERS_FRONT
+          : RICH_CENTERS_BACK
+        : isFront
+          ? profile.centersFront
+          : profile.centersBack;
+      leftPct = centers[posInRow] + (rich ? 0 : jitter(i + row, profile.jitterPct));
     } else {
       // Fileiras do fundo recuam levemente para dentro (perspectiva).
       const inset = 8 + (1 - rowT) * 6;
@@ -339,6 +427,7 @@ export function computeDeskSlots(
     const isRightmost = posInRow === inRow - 1;
     const clamped =
       isBackRow && isRightmost && inRow > 1 ? Math.min(leftPct, backRightMaxPct) : leftPct;
+
 
     slots.push({
       leftPct: Math.min(94, Math.max(6, clamped)),

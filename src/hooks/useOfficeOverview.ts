@@ -78,6 +78,11 @@ export interface OfficeOverview {
   stations: OfficeStationData[];
   /** Cards do tenant já filtrados por área (usado pelo detector de transferência). */
   cards: OfficeCard[];
+  /**
+   * Cards do tenant SEM filtro de área — fonte única do Painel da agência.
+   * Deriva da mesma query/projeção de `cards` (nenhuma segunda consulta).
+   */
+  agencyCards: OfficeCard[];
   totals: {
     people: number;
     working: number;
@@ -340,7 +345,9 @@ export function useOfficeOverview(
 
 
 
-  const cards = useMemo<OfficeCard[]>(() => {
+  // Projeta TODOS os cards do tenant primeiro; o filtro de área é derivado
+  // depois. Assim o Painel da agência é agency-wide sem duplicar query.
+  const agencyCards = useMemo<OfficeCard[]>(() => {
     return demands
       .map((d) => {
         const area = normalizeWorkArea(d.work_area);
@@ -373,9 +380,16 @@ export function useOfficeOverview(
           endTs: toTs(d.delivery_date, d.delivery_time),
           isLate: !!startTs && startTs < now && !isClientWaitingFunction(key),
         } satisfies OfficeCard;
-      })
-      .filter((c) => (areaFilter === "all" ? true : c.workArea === areaFilter));
-  }, [demands, clientNames, stageLabels, statusNames, areaFilter, now]);
+      });
+  }, [demands, clientNames, stageLabels, statusNames, now]);
+
+  const cards = useMemo<OfficeCard[]>(
+    () =>
+      areaFilter === "all"
+        ? agencyCards
+        : agencyCards.filter((c) => c.workArea === areaFilter),
+    [agencyCards, areaFilter],
+  );
 
 
   const schedulesByUser = useMemo(() => groupSchedulesByUser(scheduleRows), [scheduleRows]);
@@ -510,6 +524,7 @@ export function useOfficeOverview(
   return {
     stations,
     cards,
+    agencyCards,
     totals,
     loading: loading || loadingCollaborators,
     refetch: fetchAll,
