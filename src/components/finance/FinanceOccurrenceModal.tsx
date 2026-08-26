@@ -467,7 +467,7 @@ export default function FinanceOccurrenceModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="min-w-0">
-          <DialogTitle className="break-words pr-8">{row.item.name}</DialogTitle>
+          <DialogTitle className="break-words pr-8">{occurrenceDisplayName(row, labels)}</DialogTitle>
           <DialogDescription className="break-words">
             {occurrenceContextLine(row, statusContext?.competenceMonth)}
             <br />
