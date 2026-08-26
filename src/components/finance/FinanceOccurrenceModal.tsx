@@ -321,30 +321,44 @@ export default function FinanceOccurrenceModal({
   }, [origin]);
 
   const handleSave = async () => {
-    if (!row || !canSubmit || readOnlyFact) return;
+    if (!row) return;
+    if (readOnlyFact && !correcting) return;
+    if (!correcting && !canSubmit) return;
     setSaving(true);
-    const patch = buildOccurrencePatch({
-      row,
-      cardRow,
-      factDate,
-      amountOriginal: amountNumber,
-      amountBrl: brl,
-      exchangeRate: rateNumber,
-      paid,
-      paymentDate: cardRow ? null : paymentDate,
-      observations,
-      attachmentUrl,
-      attachmentName,
-      originPatch,
-    });
+    /**
+     * Correção fechada envia patch MÍNIMO: nada de data, origem, pagamento ou
+     * comprovante entra — a prova histórica permanece exatamente como está.
+     */
+    const patch = correcting
+      ? buildClosedCorrectionPatch({
+          currency: row.currency,
+          amountOriginal: amountNumber,
+          amountBrl: brl,
+          exchangeRate: rateNumber,
+        })
+      : buildOccurrencePatch({
+          row,
+          cardRow,
+          factDate,
+          amountOriginal: amountNumber,
+          amountBrl: brl,
+          exchangeRate: rateNumber,
+          paid,
+          paymentDate: cardRow ? null : paymentDate,
+          observations,
+          attachmentUrl,
+          attachmentName,
+          originPatch,
+        });
     const saved = await onSave(row, patch);
 
     setSaving(false);
     if (saved) {
-      toast.success("Lançamento salvo");
+      toast.success(correcting ? CLOSED_CORRECTION_SUCCESS : "Lançamento salvo");
       onOpenChange(false);
     }
   };
+
 
   if (!row) return null;
 
