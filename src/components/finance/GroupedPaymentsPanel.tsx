@@ -10,7 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useFinanceVisibility } from "@/contexts/FinanceVisibilityContext";
-import { formatBRL } from "@/lib/financeModel";
 import { GroupedPayment, describePaymentRule, rowFactDate } from "@/lib/financePaymentSchedule";
 
 interface Props {
@@ -26,7 +25,7 @@ const dayLabel = (iso: string | null) =>
   iso ? iso.slice(0, 10).split("-").reverse().join("/") : "Sem data definida";
 
 export default function GroupedPaymentsPanel({ groups, onPay, onUndo, busy }: Props) {
-  const { maskMoney } = useFinanceVisibility();
+  const { money } = useFinanceVisibility();
   if (groups.length === 0) return null;
 
   return (
@@ -69,7 +68,7 @@ export default function GroupedPaymentsPanel({ groups, onPay, onUndo, busy }: Pr
 
             <span className="flex items-center gap-3 flex-shrink-0">
               <span className="text-[15px] sm:text-base font-semibold tabular-nums whitespace-nowrap">
-                {maskMoney(formatBRL(group.totalBrl))}
+                {money(group.totalBrl)}
               </span>
               {group.paid ? (
                 <Button variant="ghost" size="sm" disabled={busy} onClick={() => onUndo(group)}>
