@@ -672,14 +672,26 @@ export function buildMonthRows(params: {
   const byScheduled = new Map<string, FinanceOccurrence>();
   /** Ocorrências sem data agendada: faturas, avulsos, legado e mensais. */
   const byItem = new Map<string, FinanceOccurrence>();
+  /**
+   * Fatos SUPLEMENTARES (recarga/extra) do mês, por cadastro. Eles não disputam
+   * o slot do lançamento regular: entram SEMPRE como linha própria.
+   */
+  const supplementalByItem = new Map<string, FinanceOccurrence[]>();
   for (const occ of occurrences) {
     if (occ.competence_month !== competenceISO) continue;
+    if (occurrenceEntryRole(occ) !== "regular") {
+      const list = supplementalByItem.get(occ.item_id) ?? [];
+      list.push(occ);
+      supplementalByItem.set(occ.item_id, list);
+      continue;
+    }
     if (occ.scheduled_date) {
       byScheduled.set(scheduleIdentity(occ.item_id, occ.scheduled_date), occ);
     } else {
       byItem.set(occ.item_id, occ);
     }
   }
+
 
   const rows: MonthRow[] = [];
   const consumed = new Set<string>();
