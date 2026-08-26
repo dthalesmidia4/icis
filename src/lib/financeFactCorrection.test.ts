@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   buildFactCorrectionPatch,
   correctionWasApplied,
-  factCorrectionMode,
+  factFieldsEditable,
   isLegacyDirectPaymentOnCard,
+  occurrenceSaveRoute,
+  paymentProofEditable,
 } from "./financeFactCorrection";
 import type { FinanceItem, FinanceOccurrence, MonthRow } from "./financeModel";
 
