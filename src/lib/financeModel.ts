@@ -102,7 +102,24 @@ export interface FinanceItem {
   link?: string | null;
   parent_item_id?: string | null;
   notes?: string | null;
+  /**
+   * O cadastro aceita LANÇAMENTOS SUPLEMENTARES no mesmo mês (recargas/extras)
+   * sem virar um novo cadastro. Cartão e recurso incluído nunca aceitam.
+   */
+  supports_supplemental_entries?: boolean | null;
+  /** Natureza do suplementar deste cadastro (`recharge` | `extra`). */
+  supplemental_entry_kind?: FinanceEntryRole | null;
 }
+
+/**
+ * PAPEL DO LANÇAMENTO dentro do mês:
+ *  - `regular`: o lançamento do cronograma (mensal, diário, semanal, avulso...).
+ *    Continua único por competência (ou por `scheduled_date`);
+ *  - `recharge` / `extra`: fatos SUPLEMENTARES do MESMO cadastro no mesmo mês.
+ *    Nunca projetam futuro e nunca suprimem o regular.
+ */
+export type FinanceEntryRole = "regular" | "extra" | "recharge";
+
 
 export interface FinanceOccurrence {
   id: string;
