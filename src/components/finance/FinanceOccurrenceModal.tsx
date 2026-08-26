@@ -106,6 +106,8 @@ const FOLLOW_ITEM = "__follow__";
 /** Sentinela: pagamento direto sem forma definida neste mês. */
 const NO_METHOD = "__none__";
 
+import { type OccurrenceLabel, occurrenceDisplayName } from "@/lib/financeOccurrenceLabels";
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -130,6 +132,8 @@ interface Props {
    * cadastro: fato adicional do mês, sem substituir a linha prevista.
    */
   onAddSupplemental?: (item: FinanceItem) => void;
+  /** Rótulos dinâmicos das linhas do mês (renovação/recarga). */
+  labels?: Map<string, OccurrenceLabel> | null;
 }
 
 
@@ -155,6 +159,7 @@ export default function FinanceOccurrenceModal({
   onRefresh,
   onSkip,
   onAddSupplemental,
+  labels,
 }: Props) {
 
   const [skipping, setSkipping] = useState(false);
