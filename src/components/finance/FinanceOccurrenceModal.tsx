@@ -544,12 +544,11 @@ export default function FinanceOccurrenceModal({
                 {paid && (
                   <div className="p-3 min-w-0">
                     <Label htmlFor="occurrence-payment-date">Data do pagamento</Label>
-                    <Input
+                    <FinanceDateInput
                       id="occurrence-payment-date"
-                      type="date"
-                      className="mt-1 w-full min-w-0 max-w-full"
+                      className="mt-1"
                       value={paymentDate}
-                      onChange={(e) => setPaymentDate(e.target.value)}
+                      onChange={setPaymentDate}
                       readOnly={readOnlyFact}
                     />
                     {!canSubmit ? (
