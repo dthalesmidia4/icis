@@ -563,6 +563,8 @@ function rowFromOccurrence(
     ),
     installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
     scheduledDate: occ.scheduled_date ?? null,
+    entryRole: occurrenceEntryRole(occ),
+    supplemental: occurrenceEntryRole(occ) !== "regular",
   };
 }
 
@@ -616,6 +618,8 @@ function rowFromProjection(
     installmentNumber: installmentNumberForCompetence(item, competence),
     installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
     scheduledDate: scheduledDate ?? null,
+    entryRole: "regular",
+    supplemental: false,
   };
 }
 
