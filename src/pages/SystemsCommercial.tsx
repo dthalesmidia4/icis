@@ -39,6 +39,7 @@ import {
   AlertTriangle,
   CalendarClock,
   History,
+  Megaphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,13 @@ import {
   type SystemsClient,
   type SystemsCompany,
 } from "@/lib/systemsClients";
+import {
+  campaignRegionLabel,
+  campaignStatusLabel,
+  loadCampaigns,
+  pickActiveCampaign,
+  type MarketingCampaign,
+} from "@/lib/marketingCampaigns";
 import {
   buildOpportunityRows,
   countQuickFilters,
@@ -144,6 +152,7 @@ interface DrawerForm {
   lossReason: string;
   leadSource: string;
   lastContactResult: string;
+  acquisitionCampaignId: string;
 }
 
 const formFromClient = (c: SystemsClient): DrawerForm => ({
@@ -164,6 +173,7 @@ const formFromClient = (c: SystemsClient): DrawerForm => ({
   lossReason: c.loss_reason || "",
   leadSource: c.lead_source || "",
   lastContactResult: c.last_contact_result || "",
+  acquisitionCampaignId: c.acquisition_campaign_id || "",
 });
 
 export default function SystemsCommercial() {
@@ -187,6 +197,8 @@ export default function SystemsCommercial() {
   const [history, setHistory] = useState<TouchpointRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [wonTarget, setWonTarget] = useState<SystemsClient | null>(null);
+  // Camada de campanha: o mesmo cadastro de cliente de Mídia alimenta o Comercial.
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
 
   // Registro de contato
   const [tpType, setTpType] = useState<TouchpointType>("ligacao");
@@ -209,11 +221,13 @@ export default function SystemsCommercial() {
     if (!tenantId) return;
     setLoading(true);
     try {
-      const [comps, prospects] = await Promise.all([
+      const [comps, prospects, camps] = await Promise.all([
         loadSystemsCompanies(tenantId),
         loadSystemsProspects(tenantId),
+        loadCampaigns(tenantId).catch(() => [] as MarketingCampaign[]),
       ]);
       setCompanies(comps);
+      setCampaigns(camps);
       const touches = await loadLastTouchBySubclient(
         tenantId,
         prospects.map((p) => p.id),
@@ -251,6 +265,20 @@ export default function SystemsCommercial() {
   );
 
   const counters = useMemo(() => countQuickFilters(scoped), [scoped]);
+
+  /** Campanha vigente do recorte atual (empresa selecionada, ou qualquer uma). */
+  const activeCampaign = useMemo(() => {
+    const pool =
+      companyFilter === "all" ? campaigns : campaigns.filter((c) => c.company_id === companyFilter);
+    return pickActiveCampaign(pool);
+  }, [campaigns, companyFilter]);
+
+  /** Oportunidades já atribuídas à campanha vigente. */
+  const campaignStats = useMemo(() => {
+    if (!activeCampaign) return { linked: 0, won: 0 };
+    const linked = rows.filter((r) => r.client.acquisition_campaign_id === activeCampaign.id);
+    return { linked: linked.length, won: linked.filter((r) => r.client.commercial_stage === "ganho").length };
+  }, [rows, activeCampaign]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -335,6 +363,7 @@ export default function SystemsCommercial() {
       lastContactResult: form.lastContactResult,
       lossReason: form.lossReason,
       leadSource: form.leadSource,
+      acquisitionCampaignId: form.acquisitionCampaignId || null,
     });
     setSaving(false);
     if (!res.success) {
@@ -454,6 +483,35 @@ export default function SystemsCommercial() {
       </div>
 
       <div className="space-y-4 pb-8">
+        {activeCampaign && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-start gap-2 min-w-0">
+                <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold">
+                    {activeCampaign.name}
+                    <span className="ml-2 text-[10px] font-black uppercase tracking-wide text-primary">
+                      {campaignStatusLabel(activeCampaign.status)}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {campaignRegionLabel(activeCampaign)} · {campaignStats.linked} oportunidade(s) da
+                    campanha · {campaignStats.won} ganha(s)
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/campanhas/${activeCampaign.id}`)}
+              >
+                Ver campanha
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -787,6 +845,34 @@ export default function SystemsCommercial() {
                     onChange={(e) => setForm({ ...form, leadSource: e.target.value })}
                     className="mt-1"
                   />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Campanha de aquisição
+                  </label>
+                  <Select
+                    value={form.acquisitionCampaignId || "none"}
+                    onValueChange={(v) =>
+                      setForm({ ...form, acquisitionCampaignId: v === "none" ? "" : v })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Sem campanha" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem campanha</SelectItem>
+                      {campaigns
+                        .filter(
+                          (c) =>
+                            !selected || c.company_id === selected.parent_company_id,
+                        )
+                        .map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 {(form.stage === "perdido" || form.stage === "pausado") && (
                   <div className="sm:col-span-2">
