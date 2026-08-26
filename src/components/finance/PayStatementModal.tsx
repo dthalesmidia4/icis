@@ -38,10 +38,19 @@ import {
   parseIofInput,
 } from "@/lib/financeIof";
 import {
+  CLOSURE_IOF_LABEL,
+  CLOSURE_SECTION_LABEL,
+  CLOSURE_TOTAL_LABEL,
+  resolveStatementClosure,
+  seedStatementClosure,
+  statementClosureMessage,
+} from "@/lib/financeStatementClosure";
+import {
   buildReconciliation,
   reconciliationPayload,
   usdComponentsOf,
 } from "@/lib/financeReconciliation";
+
 
 interface Props {
   open: boolean;
