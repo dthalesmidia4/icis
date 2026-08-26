@@ -27,6 +27,7 @@ import {
   formatBRL,
   formatCurrencyValue,
 } from "@/lib/financeModel";
+import { statementIofBrl } from "@/lib/financeIof";
 import { Competence } from "@/lib/financeCardCycle";
 import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
 import { paymentTimestampToDate } from "@/lib/financePaymentDate";
@@ -41,6 +42,7 @@ interface Props {
   onOpenRow: (row: MonthRow) => void;
   onOpenStatement: (group: StatementGroup) => void;
   onPayStatement: (group: StatementGroup) => void;
+  onAdjustIof: (group: StatementGroup) => void;
   onEditCard: (card: FinanceItem) => void;
 }
 
@@ -69,6 +71,7 @@ export default function StatementPanel({
   onOpenRow,
   onOpenStatement,
   onPayStatement,
+  onAdjustIof,
   onEditCard,
 }: Props) {
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
@@ -92,6 +95,7 @@ export default function StatementPanel({
         const limit = card.card_limit_brl ?? null;
         const usageBase = group.actualTotal ?? (group.projectedTotal > 0 ? group.projectedTotal : null);
         const valueLabel = statementValueLabel(group);
+        const classifiedIof = statementIofBrl(group);
         // `Pago em` é FATO; `Vence em` é histórico. Os dois coexistem.
         const paidOn = paymentTimestampToDate(group.statementRow?.occurrence?.paid_at);
         const usagePercent =
@@ -175,6 +179,9 @@ export default function StatementPanel({
                 {group.paid && (
                   <Fact label="Pago em" value={paidOn ? formatDayMonth(paidOn) : "Data não registrada"} tone={paidOn ? undefined : "muted"} />
                 )}
+                {group.paid && classifiedIof > 0 && (
+                  <Fact label="IOF classificado" value={formatBRL(classifiedIof)} />
+                )}
               </div>
 
               {limit != null && usageBase != null && (
@@ -211,16 +218,27 @@ export default function StatementPanel({
                   Ver cobranças ({group.components.length})
                 </Button>
                 <Button variant="outline" size="sm" className="min-h-10" onClick={() => onOpenStatement(group)}>
-                  Informar valor da fatura
+                  {group.paid ? "Ver detalhes" : "Informar valor da fatura"}
                 </Button>
-                <Button
-                  size="sm"
-                  className="min-h-10"
-                  disabled={group.paid || !group.statementRow?.occurrence}
-                  onClick={() => onPayStatement(group)}
-                >
-                  {group.paid ? "Fatura paga" : "Pagar fatura"}
-                </Button>
+                {group.paid ? (
+                  <Button
+                    size="sm"
+                    className="min-h-10"
+                    disabled={!group.statementRow?.occurrence}
+                    onClick={() => onAdjustIof(group)}
+                  >
+                    {classifiedIof > 0 ? "Ajustar IOF" : "Informar IOF"}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="min-h-10"
+                    disabled={!group.statementRow?.occurrence}
+                    onClick={() => onPayStatement(group)}
+                  >
+                    Pagar fatura
+                  </Button>
+                )}
               </div>
             </div>
 

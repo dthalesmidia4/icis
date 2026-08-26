@@ -738,7 +738,7 @@ export interface StatementGroup {
   projectedTotal: number;
   /** Valor real informado na fatura, quando houver. */
   actualTotal: number | null;
-  /** actualTotal - projectedTotal (quando ambos existem). */
+  /** actualTotal - projectedTotal - IOF classificado (quando o total existe). */
   difference: number | null;
   configIncomplete: boolean;
   incompleteReason: string | null;
@@ -819,7 +819,10 @@ export function buildStatementGroups(params: {
       components.reduce((sum, row) => sum + (row.amountBrl ?? 0), 0).toFixed(2),
     );
     const actualTotal = statementRow?.occurrence?.amount_brl ?? null;
-    const difference = actualTotal != null ? Number((actualTotal - projectedTotal).toFixed(2)) : null;
+    const statementIof = statementRow ? paidStatementIofBrl(statementRow) : 0;
+    const difference = actualTotal != null
+      ? Number((actualTotal - projectedTotal - statementIof).toFixed(2))
+      : null;
 
     const projection = resolveStatementForCharge({
       chargeDay: card.statement_closing_day ?? 1,

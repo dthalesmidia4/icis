@@ -45,7 +45,7 @@ function group(over: Partial<StatementGroup> = {}): StatementGroup {
       currency: "BRL",
       paid_at: "2026-08-20T12:00:00Z",
       amount_brl: 1000,
-      paid_amount_brl: 1032.4,
+      paid_amount_brl: 1000,
       iof_amount_brl: 32.4,
     },
     projected: false,
@@ -56,7 +56,7 @@ function group(over: Partial<StatementGroup> = {}): StatementGroup {
     chargeDate: null,
     dueDate: "2026-08-17",
     paid: true,
-    paidAmountBrl: 1032.4,
+    paidAmountBrl: 1000,
     cardItemId: null,
     paymentMethod: null,
     paymentOverridden: false,
@@ -98,23 +98,23 @@ describe("conferência da fatura", () => {
   it("IOF deixa de ser diferença inexplicada", () => {
     const conf = buildStatementConference({
       statementBrl: 1000,
-      componentsBrl: 341.15,
-      iofBrl: 32.4,
-      paidBrl: 1032.4,
+      componentsBrl: 950,
+      iofBrl: 50,
+      paidBrl: 1000,
     });
-    expect(conf.expectedBrl).toBe(1032.4);
-    expect(conf.remainingBrl).toBe(0);
-    expect(conf.iofBrl).toBe(32.4);
+    expect(conf.classifiedBrl).toBe(1000);
+    expect(conf.unclassifiedBrl).toBe(0);
+    expect(conf.paidBrl).toBe(1000);
   });
 
-  it("sobra apenas o que não é IOF", () => {
+  it("sobra apenas tarifa ou compra não classificada", () => {
     const conf = buildStatementConference({
       statementBrl: 1000,
-      componentsBrl: 1000,
-      iofBrl: 32.4,
-      paidBrl: 1040,
+      componentsBrl: 900,
+      iofBrl: 50,
+      paidBrl: 1000,
     });
-    expect(conf.remainingBrl).toBe(7.6);
+    expect(conf.unclassifiedBrl).toBe(50);
   });
 });
 
@@ -177,7 +177,7 @@ describe("reconciliação do IOF com KPIs e Composição do mês", () => {
         amount_brl: 300,
         due_date: "2026-08-15",
         paid_at: "2026-08-15T12:00:00Z",
-        paid_amount_brl: 300 + (iof ?? 0),
+        paid_amount_brl: 300,
         iof_amount_brl: iof,
       },
       {
@@ -204,6 +204,20 @@ describe("reconciliação do IOF com KPIs e Composição do mês", () => {
     expect(withIof.totals.expected).toBe(withIof.totals.paid + withIof.totals.open);
     // a fatura em si continua fora das despesas
     expect(withIof.totals.statements).toBe(300);
+  });
+
+  it("ajuste retroativo altera só a classificação de IOF e não duplica a fatura", () => {
+    const withoutIof = scenario(null);
+    const withIof = scenario(32.4);
+    const removed = scenario(0);
+
+    expect(withoutIof.totals.expected).toBe(300);
+    expect(withoutIof.totals.paid).toBe(300);
+    expect(withIof.rows.find((r) => r.item.kind === "card")?.paidAmountBrl).toBe(300);
+    expect(withIof.totals.expected - withoutIof.totals.expected).toBeCloseTo(32.4, 2);
+    expect(withIof.totals.paid - withoutIof.totals.paid).toBeCloseTo(32.4, 2);
+    expect(removed.totals.expected).toBe(300);
+    expect(removed.totals.paid).toBe(300);
   });
 
   it("composição all/paid inclui o IOF e reconcilia com os KPIs; open não inclui", () => {

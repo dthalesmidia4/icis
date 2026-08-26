@@ -94,6 +94,7 @@ import {
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
 import { financeBackTarget } from "@/lib/financeBackTarget";
 import PayStatementModal from "@/components/finance/PayStatementModal";
+import AdjustStatementIofModal from "@/components/finance/AdjustStatementIofModal";
 import {
   COMPOSITION_HINTS,
   COMPOSITION_KINDS,
@@ -201,7 +202,7 @@ function FinancialCockpit() {
   const finance = useFinance(competence);
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
-    saveOccurrence, togglePaid, payStatement, saveSettings, saveItem, setItemActive, refresh,
+    saveOccurrence, togglePaid, payStatement, setPaidStatementIof, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
   /**
@@ -245,6 +246,7 @@ function FinancialCockpit() {
   const [budgetInput, setBudgetInput] = useState("");
   const [rateInput, setRateInput] = useState("");
   const [payingGroup, setPayingGroup] = useState<StatementGroup | null>(null);
+  const [adjustingIofGroup, setAdjustingIofGroup] = useState<StatementGroup | null>(null);
   const [focusCardId, setFocusCardId] = useState<string | null>(null);
   const [highlightIncomplete, setHighlightIncomplete] = useState(false);
 
@@ -510,11 +512,17 @@ function FinancialCockpit() {
     const iof = iofBrl ?? 0;
     return await payStatement(
       occ.id,
-      paidAmountBrl ?? Number(((group.actualTotal ?? group.projectedTotal) + iof).toFixed(2)),
+      paidAmountBrl ?? Number((group.actualTotal ?? group.projectedTotal).toFixed(2)),
       paidDateISO,
       usdComponents ?? [],
       iof,
     );
+  };
+
+  const confirmAdjustStatementIof = async (group: StatementGroup, iofBrl: number): Promise<boolean> => {
+    const occ = group.statementRow?.occurrence;
+    if (!occ) return false;
+    return await setPaidStatementIof(occ.id, iofBrl);
   };
 
 
@@ -1239,6 +1247,7 @@ function FinancialCockpit() {
                 onOpenRow={setOccurrenceRow}
                 onOpenStatement={handleOpenStatement}
                 onPayStatement={handlePayStatement}
+                onAdjustIof={setAdjustingIofGroup}
                 onEditCard={(card) => openItemModal(card)}
               />
             )}
@@ -1373,6 +1382,13 @@ function FinancialCockpit() {
         group={payingGroup}
         today={today}
         onConfirm={confirmPayStatement}
+      />
+
+      <AdjustStatementIofModal
+        open={!!adjustingIofGroup}
+        onOpenChange={(open) => { if (!open) setAdjustingIofGroup(null); }}
+        group={adjustingIofGroup}
+        onConfirm={confirmAdjustStatementIof}
       />
 
     </div>

@@ -211,10 +211,11 @@ describe("pagamento parcial de fatura não é suportado", () => {
     const src = readFileSync("src/components/finance/PayStatementModal.tsx", "utf8");
     expect(src).toMatch(/exactRequired = group\?\.actualTotal != null/);
     /**
-     * O total esperado é FATURA + REPASSE DE IOF: exigir o valor exato contra
-     * `suggested` puro rejeitaria o pagamento correto de uma fatura com IOF.
+     * O IOF é classificação contida no total da fatura: o valor pago valida
+     * contra o total bancário da fatura, sem acréscimos.
      */
-    expect(src).toMatch(/const expected = suggested != null \? Number\(\(suggested \+ iofBrl\)/);
+    expect(src).toMatch(/const expected = suggested != null \? Number\(suggested\.toFixed\(2\)\) : null/);
+    expect(src).not.toMatch(/suggested \+ iofBrl/);
     expect(src).toMatch(/resolveStatementPaymentAmount\(amount, expected, \{ exactRequired \}\)/);
   });
 });
