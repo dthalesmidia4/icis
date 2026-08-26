@@ -323,14 +323,22 @@ describe("pay_finance_statement_reconciled — contrato", () => {
   it("mantém o bloqueio de pagamento parcial da fatura", () => {
     expect(flat).toContain("abs(_paid_amount_brl - v_invoice_amount) > 0.011");
     expect(flat).toContain("private.finance_decrypt_numeric(v_occ.amount_brl_enc)");
+    expect(flat).not.toContain("v_invoice_amount + v_iof");
   });
 
   it("é SECURITY DEFINER com search_path vazio e grants restritos", () => {
     expect(flat).toContain("SECURITY DEFINER");
     expect(flat).toMatch(/SET search_path TO ''/);
     expect(flat).toMatch(/REVOKE ALL ON FUNCTION public\.pay_finance_statement_reconciled[^;]*FROM PUBLIC/);
-    expect(flat).toMatch(/REVOKE ALL ON FUNCTION public\.pay_finance_statement_reconciled[^;]*FROM anon/);
+    expect(flat).toMatch(/REVOKE EXECUTE ON FUNCTION public\.pay_finance_statement_reconciled[^;]*FROM anon/);
     expect(flat).toMatch(/GRANT EXECUTE ON FUNCTION public\.pay_finance_statement_reconciled[^;]*TO authenticated/);
+  });
+
+  it("IOF é classificação dentro do total e não aumenta o paid_amount", () => {
+    expect(flat).toMatch(/v_iof > v_invoice_amount/);
+    expect(flat).toMatch(/paid_amount_brl = v_statement_amount/);
+    expect(flat).toMatch(/iof_amount_brl\s*=\s*CASE WHEN v_iof > 0 THEN v_iof ELSE NULL END/);
+    expect(flat).not.toMatch(/v_expected\s*:=/);
   });
 });
 

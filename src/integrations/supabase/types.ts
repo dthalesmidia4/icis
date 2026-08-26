@@ -3473,6 +3473,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_paid_finance_statement_iof: {
+        Args: { _iof_brl: number; _occurrence_id: string }
+        Returns: Json
+      }
       set_release_queue_config: {
         Args: { _enabled: boolean; _limit: number; _tenant_id: string }
         Returns: Json

@@ -324,6 +324,24 @@ export function useFinance(competence: Competence) {
     [fetchAll],
   );
 
+  /** Ajusta apenas a classificação de IOF de uma fatura já paga. */
+  const setPaidStatementIof = useCallback(
+    async (occurrenceId: string, iofBrl: number) => {
+      const { error } = await supabase.rpc("set_paid_finance_statement_iof", {
+        _occurrence_id: occurrenceId,
+        _iof_brl: iofBrl,
+      } as any);
+      if (error) {
+        toast.error(error.message || "Não foi possível ajustar o IOF da fatura");
+        return false;
+      }
+      toast.success(iofBrl > 0 ? "IOF da fatura atualizado" : "Classificação de IOF removida");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
 
 
 
@@ -422,6 +440,7 @@ export function useFinance(competence: Competence) {
     saveOccurrence,
     togglePaid,
     payStatement,
+    setPaidStatementIof,
     saveSettings,
     saveItem,
     setItemActive,

@@ -176,6 +176,28 @@ describe("financeModel — fatura não é somada como despesa", () => {
     expect(group.dueDate).toBe("2026-08-17");
   });
 
+  it("desconta IOF classificado da diferença da fatura", () => {
+    const groups = buildStatementGroups({
+      items: [card, tool],
+      occurrences: [
+        occurrence({
+          id: "s1",
+          item_id: "card1",
+          amount_brl: 1000,
+          due_date: "2026-08-17",
+          paid_at: "2026-08-20T13:59:50Z",
+          paid_amount_brl: 1000,
+          iof_amount_brl: 50,
+        }),
+        occurrence({ id: "c1", item_id: "t1", amount_brl: 950, charge_date: "2026-08-01", statement_occurrence_id: "s1" }),
+      ],
+      competence: COMPETENCE,
+    });
+    expect(groups[0].projectedTotal).toBe(950);
+    expect(groups[0].actualTotal).toBe(1000);
+    expect(groups[0].difference).toBe(0);
+  });
+
   it("cartão sem fechamento/vencimento é marcado como configuração incompleta", () => {
     const blindCard = item({ id: "card2", name: "Cartão ••••9584", kind: "card", statement_closing_day: null, statement_due_day: null });
     const onCard = item({ id: "t3", name: "CapCut", default_amount_brl: 32.9, charge_day: 13, card_item_id: "card2" });

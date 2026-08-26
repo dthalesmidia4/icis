@@ -37,6 +37,7 @@ import {
   formatDateBR,
   installmentRowLabel,
   effectiveUsdRate,
+  isStatementRow,
 } from "@/lib/financeModel";
 import {
   USD_CONVERSION_HELP,
@@ -142,6 +143,7 @@ export default function FinanceOccurrenceModal({
   const rowClosed = row
     ? effectivePaid(row, statusContext?.rows ?? [row], statusContext?.settlement ?? null)
     : false;
+  const readOnlyFact = rowClosed;
   const deleteAction = row ? occurrenceDeleteActionForRow(row, rowClosed) : "nothing_to_delete";
 
   const handleDestructive = async () => {
@@ -167,6 +169,7 @@ export default function FinanceOccurrenceModal({
 
   /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
   const cardRow = !!row && isCardCharge(row);
+  const statementRow = !!row && isStatementRow(row);
   /** Câmbio já provado pelo par (BRL real / USD original) desta compra. */
   const persistedRate = row ? effectiveUsdRate(row) : null;
   /** Dia civil do `paid_at` já salvo — a prova do fato. */
@@ -299,7 +302,7 @@ export default function FinanceOccurrenceModal({
   }, [origin]);
 
   const handleSave = async () => {
-    if (!row || !canSubmit) return;
+    if (!row || !canSubmit || readOnlyFact) return;
     setSaving(true);
     const patch = buildOccurrencePatch({
       row,
@@ -375,6 +378,7 @@ export default function FinanceOccurrenceModal({
                   onChange={(e) => editUsd("original", e.target.value)}
                   inputMode="decimal"
                   placeholder="0,00"
+                  readOnly={readOnlyFact}
                 />
               </div>
 
@@ -385,6 +389,7 @@ export default function FinanceOccurrenceModal({
                   className="w-full min-w-0 max-w-full"
                   value={factDate}
                   onChange={(e) => setFactDate(e.target.value)}
+                  readOnly={readOnlyFact}
                 />
               </div>
 
@@ -397,6 +402,7 @@ export default function FinanceOccurrenceModal({
                       value={rate}
                       onChange={(e) => editUsd("rate", e.target.value)}
                       inputMode="decimal"
+                      readOnly={readOnlyFact}
                     />
                   </div>
                   <div className="min-w-0">
@@ -407,6 +413,7 @@ export default function FinanceOccurrenceModal({
                       onChange={(e) => editUsd("brl", e.target.value)}
                       inputMode="decimal"
                       placeholder="0,00"
+                      readOnly={readOnlyFact}
                     />
                   </div>
                 </>
@@ -430,7 +437,7 @@ export default function FinanceOccurrenceModal({
 
             <div className="min-w-0">
               <Label>Forma de pagamento deste mês</Label>
-              <Select value={origin} onValueChange={setOrigin}>
+              <Select value={origin} onValueChange={setOrigin} disabled={readOnlyFact}>
                 <SelectTrigger className="mt-1 w-full min-w-0 max-w-full">
                   <SelectValue className="truncate" />
                 </SelectTrigger>
@@ -457,11 +464,13 @@ export default function FinanceOccurrenceModal({
           </Block>
 
           <Block title="Situação do pagamento">
-            {cardRow ? (
+            {cardRow || statementRow ? (
               <div className="rounded-lg border p-3 min-w-0">
                 <p className={`text-sm font-medium ${toneClass}`}>{status.label}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Compras no cartão são liquidadas pelo pagamento da fatura.
+                  {statementRow
+                    ? "Fatura fechada: valores, datas e pagamento ficam somente para consulta."
+                    : "Compras no cartão são liquidadas pelo pagamento da fatura."}
                 </p>
               </div>
             ) : (
@@ -473,7 +482,7 @@ export default function FinanceOccurrenceModal({
                       {occurrencePaidHelp(row)}
                     </p>
                   </div>
-                  <Switch checked={paid} onCheckedChange={setPaid} className="flex-shrink-0" />
+                  <Switch checked={paid} onCheckedChange={setPaid} className="flex-shrink-0" disabled={readOnlyFact} />
                 </div>
 
                 {paid && (
@@ -485,6 +494,7 @@ export default function FinanceOccurrenceModal({
                       className="mt-1 w-full min-w-0 max-w-full"
                       value={paymentDate}
                       onChange={(e) => setPaymentDate(e.target.value)}
+                      readOnly={readOnlyFact}
                     />
                     {!canSubmit ? (
                       <p className="text-xs text-destructive mt-1">
@@ -522,6 +532,7 @@ export default function FinanceOccurrenceModal({
                       setAttachmentUrl(null);
                       setAttachmentName(null);
                     }}
+                    disabled={readOnlyFact}
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
@@ -530,7 +541,7 @@ export default function FinanceOccurrenceModal({
                 <Input
                   type="file"
                   className="mt-1 w-full min-w-0 max-w-full file:mr-2"
-                  disabled={uploading}
+                  disabled={uploading || readOnlyFact}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleUpload(file);
@@ -546,6 +557,7 @@ export default function FinanceOccurrenceModal({
                 value={observations}
                 onChange={(e) => setObservations(e.target.value)}
                 rows={2}
+              readOnly={readOnlyFact}
               />
             </div>
           </Block>
@@ -590,9 +602,11 @@ export default function FinanceOccurrenceModal({
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving || uploading || !canSubmit}>
-              {saving ? "Salvando..." : "Salvar lançamento"}
-            </Button>
+            {!readOnlyFact && (
+              <Button onClick={handleSave} disabled={saving || uploading || !canSubmit}>
+                {saving ? "Salvando..." : "Salvar lançamento"}
+              </Button>
+            )}
           </div>
         </DialogFooter>
 

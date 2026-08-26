@@ -75,7 +75,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
     if (!open) return;
     setDate(today);
     setIof("0");
-    // Vazio herda o total esperado (fatura + IOF), então o valor acompanha o IOF.
+    // Vazio herda o total da fatura. IOF é classificação dentro desse total.
     setAmount("");
     const seed: Record<string, string> = {};
     for (const comp of usdComponents) {
@@ -90,16 +90,29 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   const iofResult = parseIofInput(iof);
   const iofMessage = iofInputMessage(iofResult);
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
-  /** Total esperado da cobrança: fatura + repasse de IOF. */
-  const expected = suggested != null ? Number((suggested + iofBrl).toFixed(2)) : null;
+  /** Total da fatura: o IOF já está contido nele, não é somado por cima. */
+  const expected = suggested != null ? Number(suggested.toFixed(2)) : null;
 
   const amountResult = resolveStatementPaymentAmount(amount, expected, { exactRequired });
   const amountMessage = statementPaymentAmountMessage(amountResult);
   const dateValid = isValidPaymentDate(date);
   const reconciliation = buildReconciliation(usdComponents, usdInputs);
+  const classifiedComponentsBrl =
+    reconciliation.state === "ok"
+      ? Number(
+          group.components
+            .reduce((sum, row) => {
+              if (row.currency !== "USD") return sum + (row.amountBrl ?? 0);
+              const typed = usdInputs[row.key] ?? "";
+              const parsed = parseLocalizedNumber(typed);
+              return sum + (parsed ?? 0);
+            }, 0)
+            .toFixed(2),
+        )
+      : null;
   const conference = buildStatementConference({
     statementBrl: suggested,
-    componentsBrl: reconciliation.state === "ok" ? reconciliation.totalBrl : null,
+    componentsBrl: classifiedComponentsBrl,
     iofBrl,
     paidBrl: amountResult.state === "ok" ? amountResult.amountBrl ?? expected : null,
   });
@@ -231,8 +244,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
             {amountMessage && <p className="text-xs text-destructive">{amountMessage}</p>}
             {exactRequired && !amountMessage && (
               <p className="text-xs text-muted-foreground">
-                A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}
-                {iofBrl > 0 ? " (fatura + repasse de IOF)" : ""}.
+                A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}.
               </p>
             )}
           </div>
@@ -279,20 +291,20 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
                 <span className="font-medium">{formatBRL(conference.iofBrl)}</span>
               </p>
               <p className="flex justify-between gap-3 border-t pt-1">
-                <span className="text-muted-foreground">Total esperado (fatura + IOF)</span>
-                <span className="font-semibold">{formatBRL(conference.expectedBrl)}</span>
+                <span className="text-muted-foreground">Total classificado</span>
+                <span className="font-semibold">{formatBRL(conference.classifiedBrl)}</span>
               </p>
               <p className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Valor cobrado/pago</span>
                 <span className="font-medium">{formatBRL(conference.paidBrl)}</span>
               </p>
               <p className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Diferença remanescente</span>
-                <span className="font-medium">{formatBRL(conference.remainingBrl)}</span>
+                <span className="text-muted-foreground">Diferença ainda a classificar</span>
+                <span className="font-medium">{formatBRL(conference.unclassifiedBrl)}</span>
               </p>
               <p className="text-muted-foreground pt-1">
-                O IOF já está explicado acima: só sobra como diferença o que vier de tarifas ou
-                compras ainda não classificadas.
+                O IOF já está classificado acima: só sobra como diferença o que vier de tarifas ou
+                compras ainda não cadastradas.
               </p>
             </div>
           )}

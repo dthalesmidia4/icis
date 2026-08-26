@@ -1,10 +1,10 @@
 /**
  * REPASSE DE IOF DA FATURA DO CARTÃO (lógica pura).
  *
- * O IOF é cobrado PELO BANCO junto com a fatura — não é uma assinatura, nem uma
- * despesa cadastrada, nem um gasto órfão. Por isso ele mora no PRÓPRIO acerto da
- * fatura (`finance_occurrences.iof_amount_brl`, cifrado como os demais valores)
- * e nunca gera cadastro permanente.
+ * O IOF é cobrado PELO BANCO dentro do total da fatura — não é uma assinatura,
+ * nem uma despesa cadastrada, nem um valor extra somado ao pagamento. Por isso
+ * ele mora no PRÓPRIO acerto da fatura (`finance_occurrences.iof_amount_brl`,
+ * cifrado como os demais valores) como CLASSIFICAÇÃO do total já pago.
  *
  * Consequências que este módulo garante:
  *  - a conferência da fatura mostra IOF SEPARADO: ele deixa de ser "diferença
@@ -53,15 +53,15 @@ export function iofInputMessage(result: IofInput): string | null {
 export interface StatementConference {
   /** Soma real das compras (com os valores corrigidos em reais). */
   componentsBrl: number;
-  /** Total da fatura sem IOF (valor real informado ou projeção). */
+  /** Total da fatura informado pelo banco, já incluindo IOF/tarifas embutidos. */
   statementBrl: number;
   iofBrl: number;
-  /** O que a fatura deveria cobrar: total + IOF. */
-  expectedBrl: number;
+  /** Parcela já classificada: compras conhecidas + IOF. */
+  classifiedBrl: number;
   /** O que foi efetivamente cobrado/pago. */
   paidBrl: number | null;
-  /** Sobra depois de explicar IOF — só isso é diferença remanescente. */
-  remainingBrl: number;
+  /** Sobra do total da fatura depois de descontar compras conhecidas e IOF. */
+  unclassifiedBrl: number;
 }
 
 export function buildStatementConference(input: {
@@ -73,15 +73,15 @@ export function buildStatementConference(input: {
   const statementBrl = Number((input.statementBrl ?? 0).toFixed(2));
   const componentsBrl = Number((input.componentsBrl ?? 0).toFixed(2));
   const iofBrl = Number((input.iofBrl ?? 0).toFixed(2));
-  const expectedBrl = Number((statementBrl + iofBrl).toFixed(2));
+  const classifiedBrl = Number((componentsBrl + iofBrl).toFixed(2));
   const paidBrl = input.paidBrl != null ? Number(input.paidBrl.toFixed(2)) : null;
   return {
     componentsBrl,
     statementBrl,
     iofBrl,
-    expectedBrl,
+    classifiedBrl,
     paidBrl,
-    remainingBrl: Number(((paidBrl ?? expectedBrl) - expectedBrl).toFixed(2)),
+    unclassifiedBrl: Number((statementBrl - classifiedBrl).toFixed(2)),
   };
 }
 
