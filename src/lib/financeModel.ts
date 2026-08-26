@@ -563,6 +563,31 @@ export function isStatementRow(row: MonthRow): boolean {
   return row.item.kind === "card";
 }
 
+/* -------------------------------------------------------------------------- */
+/*                        OPERAÇÃO x HISTÓRICO (inativos)                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * REGRA CANÔNICA DE OPERAÇÃO: um cadastro `active = false` NÃO participa mais do
+ * mês operacional (composição, KPIs, contas e despesas, assinaturas, filas e
+ * alertas). O registro continua no banco para auditoria e segue acessível no
+ * catálogo de cadastros — mas o mês não pode continuar cobrando dele.
+ *
+ * ÚNICA exceção: a FATURA de um cartão inativo com fato real persistido segue
+ * visível, senão um pagamento de fatura já realizado desapareceria do histórico
+ * (ver `financeCardVisibility`).
+ */
+export function isOperationalRow(row: MonthRow): boolean {
+  if (row.item.active) return true;
+  if (isStatementRow(row)) return !!row.occurrence;
+  return false;
+}
+
+/** Recorte operacional do mês — ponto único, nunca filtro por tela. */
+export function operationalMonthRows(rows: MonthRow[]): MonthRow[] {
+  return rows.filter(isOperationalRow);
+}
+
 /**
  * Índice de liquidação por fatura (ver `financeSettlement.ts`).
  * Tipado estruturalmente aqui para manter `financeModel` sem dependências.
