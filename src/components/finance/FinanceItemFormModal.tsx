@@ -525,11 +525,11 @@ export default function FinanceItemFormModal({
                   </p>
                 </div>
                 <div>
-                  <Label>Dia de fechamento</Label>
+                  <Label>Dia de fechamento da fatura</Label>
                   <Input value={closingDay} onChange={(e) => setClosingDay(e.target.value)} placeholder="10" inputMode="numeric" />
                 </div>
                 <div>
-                  <Label>Dia de vencimento</Label>
+                  <Label>Dia de vencimento da fatura</Label>
                   <Input value={statementDueDay} onChange={(e) => setStatementDueDay(e.target.value)} placeholder="17" inputMode="numeric" />
                 </div>
               </div>
@@ -683,8 +683,13 @@ export default function FinanceItemFormModal({
                 {!isInstallments && !isOneOff && (
                   <>
                     <div>
-                      <Label>Dia da cobrança</Label>
+                      <Label>
+                        {onCard ? CARD_CHARGE_DAY_FIELD_LABEL : DIRECT_CHARGE_DAY_FIELD_LABEL}
+                      </Label>
                       <Input value={chargeDay} onChange={(e) => setChargeDay(e.target.value)} placeholder="23" inputMode="numeric" />
+                      {onCard && (
+                        <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DAY_HELP}</p>
+                      )}
                     </div>
                     <div>
                       <Label>Dia de vencimento</Label>
