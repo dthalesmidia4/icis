@@ -828,21 +828,19 @@ export default function FinanceItemFormModal({
                         <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DAY_HELP}</p>
                       )}
                     </div>
-                    <div>
-                      <Label>Dia de vencimento</Label>
-                      <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="10" inputMode="numeric" />
-                    </div>
+                    {/* Item no cartão não tem vencimento próprio: ele é da fatura. */}
+                    {!hideItemDueDay && (
+                      <div>
+                        <Label>Dia de vencimento</Label>
+                        <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="10" inputMode="numeric" />
+                      </div>
+                    )}
                   </>
                 )}
                 {isOneOff && (
                   <div>
                     <Label htmlFor="one-off-date">Data / vencimento</Label>
-                    <Input
-                      id="one-off-date"
-                      type="date"
-                      value={oneOffDate}
-                      onChange={(e) => setOneOffDate(e.target.value)}
-                    />
+                    <FinanceDateInput id="one-off-date" value={oneOffDate} onChange={setOneOffDate} />
                     <p className="text-xs text-muted-foreground mt-1">
                       {materializesOneOff
                         ? "Gasto avulso é um lançamento do mês: ele já aparece nos totais desta competência."
@@ -855,6 +853,9 @@ export default function FinanceItemFormModal({
                 )}
               </div>
 
+              {chargeDueConflict && (
+                <p className="text-xs text-destructive">{chargeDueConflict}</p>
+              )}
 
               {onCard && (
                 <div>
@@ -870,6 +871,9 @@ export default function FinanceItemFormModal({
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
                     Vinculando ao cartão, a despesa entra na composição da fatura.
+                    {selectedCard?.statement_due_day != null && (
+                      <> A fatura vence no dia {selectedCard.statement_due_day}.</>
+                    )}
                   </p>
                 </div>
               )}
