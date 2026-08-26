@@ -31,7 +31,13 @@ import {
   skippedEntriesInMonth,
 } from "@/lib/financeModel";
 import type { FinanceRecurrenceRule } from "@/lib/financeRecurrenceSchedule";
-import { buildStatementSettlementIndex } from "@/lib/financeSettlement";
+import {
+  FinancePaymentBatch,
+  FinancePaymentBatchEntry,
+  FinancePaymentRule,
+  buildBatchSettlementIndex,
+} from "@/lib/financePaymentSchedule";
+import { buildStatementSettlementIndex, mergeSettlementIndexes } from "@/lib/financeSettlement";
 import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
 import {
   OneOffFact,
