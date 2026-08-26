@@ -1,13 +1,17 @@
 /**
  * Pagamento da FATURA do cartão, com RECONCILIAÇÃO CAMBIAL.
  *
- * A data informada aqui é o FATO do pagamento (`paid_at`). O vencimento
- * (`due_date`) é histórico e NUNCA é alterado por este fluxo.
+ * O FECHAMENTO da fatura (total + IOF incluído nele) é capturado aqui, junto,
+ * como um único dado — nunca em duas telas separadas. A data informada é o FATO
+ * do pagamento (`paid_at`); o vencimento (`due_date`) é histórico e NUNCA é
+ * alterado por este fluxo. O `Valor pago` não é digitado de novo: ele É o total
+ * do fechamento (a fatura é paga por inteiro).
  *
  * Antes de liquidar, cada compra em dólar da fatura precisa do valor EXATO
  * cobrado em reais: o câmbio efetivo é individual, calculado por compra. O
  * banco recalcula e persiste esse câmbio — a tela só mostra a prévia.
  */
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
