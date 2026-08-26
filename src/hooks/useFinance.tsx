@@ -586,13 +586,67 @@ export function useFinance(competence: Competence) {
   );
 
   /**
+   * Grava a agenda de PAGAMENTO válida a partir de uma data. Não toca na agenda
+   * da despesa: o gasto continua acontecendo quando acontece.
+   */
+  const savePaymentRule = useCallback(
+    async (input: {
+      itemId: string;
+      effectiveFrom: string;
+      mode: FinancePaymentRule["mode"];
+      interval: number;
+      weekday?: number | null;
+      dayOfMonth?: number | null;
+    }) => {
+      if (!agencyId) return false;
+      const { error } = await (supabase as any)
+        .from("finance_payment_rules")
+        .upsert(
+          {
+            tenant_id: agencyId,
+            item_id: input.itemId,
+            effective_from: input.effectiveFrom,
+            mode: input.mode,
+            interval_count: input.interval > 0 ? Math.trunc(input.interval) : 1,
+            weekday: input.weekday ?? null,
+            day_of_month: input.dayOfMonth ?? null,
+            created_by: user?.id ?? null,
+          },
+          { onConflict: "item_id,effective_from" },
+        );
+      if (error) {
+        console.error("[finance] falha ao salvar agenda de pagamento", error);
+        toast.error("Não foi possível salvar a forma de pagamento");
+        return false;
+      }
+      await fetchAll();
+      return true;
+    },
+    [agencyId, user?.id, fetchAll],
+  );
+
+  /**
    * Cria/atualiza cadastro. Para um gasto AVULSO novo, cadastro + ocorrência da
    * competência nascem na MESMA transação Postgres via `create_finance_one_off`:
    * sem a ocorrência o avulso não apareceria no mês (`one_off` não é projetável).
    * Falha em qualquer parte => rollback integral no banco, sem DELETE no cliente.
+   *
+   * `paymentSchedule` é a AGENDA DE PAGAMENTO do cadastro (quando eu pago) —
+   * separada da agenda da despesa (quando o gasto acontece).
    */
   const saveItem = useCallback(
-    async (payload: Partial<FinanceItem>, id?: string, oneOff?: OneOffFact | null) => {
+    async (
+      payload: Partial<FinanceItem>,
+      id?: string,
+      oneOff?: OneOffFact | null,
+      paymentSchedule?: {
+        mode: FinancePaymentRule["mode"];
+        interval: number;
+        weekday?: number | null;
+        dayOfMonth?: number | null;
+        effectiveFrom?: string | null;
+      } | null,
+    ) => {
       if (!agencyId) return false;
       const body: any = { ...payload, tenant_id: agencyId };
 
