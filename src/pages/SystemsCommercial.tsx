@@ -274,11 +274,19 @@ export default function SystemsCommercial() {
     return pickActiveCampaign(pool);
   }, [campaigns, companyFilter]);
 
-  /** Oportunidades já atribuídas à campanha vigente. */
+  /** Oportunidades já atribuídas à campanha vigente, por etapa comercial real. */
   const campaignStats = useMemo(() => {
-    if (!activeCampaign) return { linked: 0, won: 0 };
+    if (!activeCampaign) return { linked: 0, won: 0, lost: 0, open: 0, negotiating: 0 };
     const linked = rows.filter((r) => r.client.acquisition_campaign_id === activeCampaign.id);
-    return { linked: linked.length, won: linked.filter((r) => r.client.commercial_stage === "ganho").length };
+    const byStage = (stage: string) =>
+      linked.filter((r) => r.client.commercial_stage === stage).length;
+    return {
+      linked: linked.length,
+      won: byStage("ganho"),
+      lost: byStage("perdido"),
+      negotiating: byStage("negociacao") + byStage("avaliacao"),
+      open: linked.filter((r) => !isFinalStage(r.client.commercial_stage)).length,
+    };
   }, [rows, activeCampaign]);
 
   const visible = useMemo(() => {
@@ -497,18 +505,46 @@ export default function SystemsCommercial() {
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {campaignRegionLabel(activeCampaign)} · {campaignStats.linked} oportunidade(s) da
-                    campanha · {campaignStats.won} ganha(s)
+                    {campaignRegionLabel(activeCampaign)}
+                    {activeCampaign.channels.length
+                      ? ` · ${activeCampaign.channels.join(", ")}`
+                      : ""}
                   </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="text-[10px] font-black uppercase">
+                      {campaignStats.linked} da campanha
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-black uppercase">
+                      {campaignStats.open} em aberto
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-black uppercase">
+                      {campaignStats.negotiating} avaliação/negociação
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-black uppercase">
+                      {campaignStats.won} ganhos
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-black uppercase">
+                      {campaignStats.lost} perdidos
+                    </Badge>
+                  </div>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => navigate(`/campanhas/${activeCampaign.id}`)}
-              >
-                Ver campanha
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/plan-period?campaign=${activeCampaign.id}`)}
+                >
+                  Planejar período
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/campanhas/${activeCampaign.id}`)}
+                >
+                  Ver campanha
+                </Button>
+              </div>
             </div>
           </div>
         )}
