@@ -262,42 +262,61 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pay-statement-amount">Valor pago (R$)</Label>
-            <Input
-              id="pay-statement-amount"
-              inputMode="decimal"
-              className="w-full min-w-0 max-w-full"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder={suggested != null ? formatBRL(suggested) : "0,00"}
-            />
-            {amountMessage && <p className="text-xs text-destructive">{amountMessage}</p>}
-            {exactRequired && !amountMessage && (
+          {/* FECHAMENTO: total e IOF são o mesmo dado, sempre juntos. */}
+          <div className="space-y-3 rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">{CLOSURE_SECTION_LABEL}</p>
               <p className="text-xs text-muted-foreground">
-                A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}.
+                O IOF já está dentro do total: ele é classificação, não acréscimo.
               </p>
-            )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pay-statement-amount">{CLOSURE_TOTAL_LABEL}</Label>
+              <Input
+                id="pay-statement-amount"
+                inputMode="decimal"
+                className="w-full min-w-0 max-w-full"
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder={suggested != null ? formatBRL(suggested) : "0,00"}
+              />
+              {closureMessage && <p className="text-xs text-destructive">{closureMessage}</p>}
+              {amountMessage && !closureMessage && (
+                <p className="text-xs text-destructive">{amountMessage}</p>
+              )}
+              {exactRequired && !closureMessage && !amountMessage && (
+                <p className="text-xs text-muted-foreground">
+                  A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pay-statement-iof">{CLOSURE_IOF_LABEL}</Label>
+              <Input
+                id="pay-statement-iof"
+                inputMode="decimal"
+                className="w-full min-w-0 max-w-full"
+                value={iof}
+                onChange={(e) => setIof(e.target.value)}
+                placeholder="0,00"
+              />
+              {iofMessage ? (
+                <p className="text-xs text-destructive">{iofMessage}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  IOF cobrado pelo banco junto com esta fatura. Use 0 quando não houver.
+                </p>
+              )}
+            </div>
+
+            <p className="flex justify-between gap-3 border-t pt-2 text-sm">
+              <span className="text-muted-foreground">Valor que será pago</span>
+              <span className="font-semibold">{formatBRL(expected)}</span>
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pay-statement-iof">Repasse de IOF (R$)</Label>
-            <Input
-              id="pay-statement-iof"
-              inputMode="decimal"
-              className="w-full min-w-0 max-w-full"
-              value={iof}
-              onChange={(e) => setIof(e.target.value)}
-              placeholder="0,00"
-            />
-            {iofMessage ? (
-              <p className="text-xs text-destructive">{iofMessage}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                IOF cobrado pelo banco junto com esta fatura. Use 0 quando não houver.
-              </p>
-            )}
-          </div>
 
           {reconciliation.state === "ok" && (
             <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
