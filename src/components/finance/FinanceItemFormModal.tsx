@@ -172,14 +172,23 @@ export default function FinanceItemFormModal({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  /**
+   * O cadastro deixou de existir (excluído) ou foi inativado nesta sessão do
+   * modal. Um `Salvar` stale reativaria `active=true` a partir do estado antigo
+   * do formulário — por isso o formulário morre junto com o cadastro.
+   */
+  const [destroyed, setDestroyed] = useState(false);
   /** Passo 1: intenção. Só existe para NOVOS cadastros. */
   const [step, setStep] = useState<"intent" | "form">("form");
   const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setDestroyed(false);
+    setDeleteOpen(false);
     setStep(item || initialKind ? "form" : "intent");
     setShowMore(false);
+
     setKind((item?.kind as FinanceKind) ?? initialKind ?? (scope === "tools" ? "tool" : "expense"));
     setName(item?.name ?? "");
     setPurpose(item?.purpose ?? "");
