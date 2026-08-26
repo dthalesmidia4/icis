@@ -145,10 +145,20 @@ export function useFinanceTools(competence: Competence) {
     };
   }, [agencyId, fetchAll]);
 
+  /**
+   * Corte operacional: antes de agosto/2026 não existe mês do novo mecanismo —
+   * o legado fica preservado no banco, mas nunca é projetado como fato atual.
+   */
+  const tracked = isTrackedCompetence(normalized);
+
   const rows = useMemo(
-    () => buildMonthRows({ items, occurrences, competence: normalized, fallbackRate: null }),
-    [items, occurrences, normalized.year, normalized.month],
+    () =>
+      tracked
+        ? buildMonthRows({ items, occurrences, competence: normalized, fallbackRate: null })
+        : [],
+    [items, occurrences, normalized.year, normalized.month, tracked],
   );
+
 
   const overlaps = useMemo(() => detectPackageOverlaps(items), [items]);
   const packages = useMemo(() => items.filter((i) => i.kind === "package"), [items]);
