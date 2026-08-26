@@ -39,6 +39,11 @@ import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 import { Competence, competenceToISO } from "@/lib/financeCardCycle";
 import { OneOffFact, shouldMaterializeOneOff } from "@/lib/financeOneOff";
+import {
+  CARD_CHARGE_DAY_FIELD_LABEL,
+  CARD_CHARGE_DAY_HELP,
+  DIRECT_CHARGE_DAY_FIELD_LABEL,
+} from "@/lib/financeCardLabels";
 import FinanceItemDeleteModal from "./FinanceItemDeleteModal";
 
 
