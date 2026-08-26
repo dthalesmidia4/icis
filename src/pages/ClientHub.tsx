@@ -38,7 +38,8 @@ import { cn } from "@/lib/utils";
 
 import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
-import AcquisitionTab from "@/components/client-hub/AcquisitionTab";
+import ExpansionTab from "@/components/client-hub/ExpansionTab";
+import PaidMediaTab from "@/components/client-hub/PaidMediaTab";
 
 const buildFallbackDemandaQuestions = (solicitacaoCliente: string, estrategiaGeral?: string | null) => {
   const normalizedRequest = solicitacaoCliente.toLowerCase();
@@ -1838,9 +1839,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const tab = new URLSearchParams(window.location.search).get('tab');
-    const alias: Record<string, string> = { acquisition: 'aquisicao', aquisicao: 'aquisicao' };
+    // Links antigos (`acquisition`/`aquisicao`) caem em Expansão.
+    const alias: Record<string, string> = {
+      acquisition: 'expansao',
+      aquisicao: 'expansao',
+      expansion: 'expansao',
+      'paid-media': 'midia-paga',
+      strategy: 'estrategia',
+      calendar: 'calendario',
+      demands: 'demandas',
+      safeguards: 'cuidados',
+    };
     const normalized = alias[tab || ''] || tab || '';
-    return ['estrategia', 'aquisicao', 'calendario', 'demandas', 'cuidados', 'feed'].includes(normalized)
+    return ['estrategia', 'expansao', 'midia-paga', 'calendario', 'demandas', 'cuidados', 'feed'].includes(normalized)
       ? normalized
       : 'estrategia';
   });
@@ -1925,7 +1936,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">
             {[
               { value: "estrategia", label: "Estratégia" },
-              { value: "aquisicao", label: "Aquisição" },
+              { value: "expansao", label: "Expansão" },
+              { value: "midia-paga", label: "Mídia paga" },
               { value: "calendario", label: "Calendário" },
               { value: "demandas", label: "Demandas" },
               { value: "feed", label: "Feed Simulado" },
@@ -1945,6 +1957,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
             <TabsContent value="estrategia" className="m-0">
               <StrategyTab
+                tenantId={tenantId}
+                companyId={selectedClient.id}
                 period={workspace.period}
                 planItems={workspace.planItems}
                 demands={workspace.demands}
@@ -1953,12 +1967,18 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 onOpenPeriodHistory={() => navigate('/plan-period?tab=history')}
               />
             </TabsContent>
-            <TabsContent value="aquisicao" className="m-0">
-              <AcquisitionTab
+            <TabsContent value="expansao" className="m-0">
+              <ExpansionTab
                 tenantId={tenantId}
-                period={workspace.period}
-                demands={workspace.demands}
+                companyId={selectedClient.id}
                 onOpenCommercial={() => navigate('/comercial-sistemas')}
+              />
+            </TabsContent>
+            <TabsContent value="midia-paga" className="m-0">
+              <PaidMediaTab
+                tenantId={tenantId}
+                companyId={selectedClient.id}
+                currentPeriodId={workspace.period?.id ?? null}
               />
             </TabsContent>
             <TabsContent value="calendario" className="m-0">

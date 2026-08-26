@@ -1,12 +1,21 @@
+import { useEffect, useMemo, useState } from "react";
 import type { CurrentPeriodInfo } from "@/lib/periodCounts";
 import type { WorkspaceDemand, WorkspacePlanItem } from "@/hooks/useClientPeriodWorkspace";
 import { summarizePaidMedia } from "@/lib/acquisitionView";
+import {
+  formatActivationBudget,
+  loadPaidMediaActivations,
+  summarizePaidMediaActivations,
+  type PaidMediaActivation,
+} from "@/lib/paidMediaActivations";
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{children}</h2>
 );
 
 interface StrategyTabProps {
+  tenantId?: string | null;
+  companyId?: string | null;
   period: CurrentPeriodInfo | null;
   planItems: WorkspacePlanItem[];
   demands: WorkspaceDemand[];
@@ -16,6 +25,8 @@ interface StrategyTabProps {
 }
 
 export default function StrategyTab({
+  tenantId,
+  companyId,
   period,
   planItems,
   demands,
@@ -45,7 +56,31 @@ export default function StrategyTab({
     paidTrafficBudget: period?.paid_traffic_budget ?? null,
     budget: period?.budget ?? null,
   });
-  const hasPaidMedia = paidMedia.hasPaidMedia;
+  // Fonte de verdade da execução paga: ativações territoriais das peças do ciclo.
+  const [activations, setActivations] = useState<PaidMediaActivation[]>([]);
+  const demandIds = useMemo(() => demands.map((d) => d.id), [demands]);
+  useEffect(() => {
+    if (!tenantId || !companyId || demandIds.length === 0) {
+      setActivations([]);
+      return;
+    }
+    let cancelled = false;
+    loadPaidMediaActivations(tenantId, companyId, { demandIds })
+      .then((rows) => {
+        if (!cancelled) setActivations(rows);
+      })
+      .catch((err) => console.error("[StrategyTab] ativações", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId, companyId, demandIds]);
+
+  const activationSummary = useMemo(
+    () => summarizePaidMediaActivations(activations),
+    [activations],
+  );
+  const hasActivations = activationSummary.total - activationSummary.cancelled > 0;
+  const hasPaidMedia = paidMedia.hasPaidMedia || hasActivations;
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1.7fr_1fr] lg:gap-14">
@@ -93,8 +128,29 @@ export default function StrategyTab({
                     <dd className="font-bold">{generalBudget}</dd>
                   </div>
                 )}
+                {hasActivations && (
+                  <>
+                    <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                      <dt className="opacity-80">Conteúdos com ativação</dt>
+                      <dd className="font-bold tabular-nums">{activationSummary.demandsActivated}</dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                      <dt className="opacity-80">Ativações do período</dt>
+                      <dd className="font-bold tabular-nums">
+                        {activationSummary.total - activationSummary.cancelled}
+                      </dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                      <dt className="opacity-80">Verba nas ativações</dt>
+                      <dd className="font-bold tabular-nums">
+                        {formatActivationBudget(activationSummary.budgetTotal)}
+                        {activationSummary.budgetUndefinedCount > 0 ? " · há verba a definir" : ""}
+                      </dd>
+                    </div>
+                  </>
+                )}
                 <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
-                  <dt className="opacity-80">Conteúdos marcados para mídia paga</dt>
+                  <dt className="opacity-80">Marcados para anúncio (sem ativação)</dt>
                   <dd className="font-bold tabular-nums">{paidMedia.adMarkedCount}</dd>
                 </div>
                 {paidMedia.adPlanEnabledCount > 0 && (

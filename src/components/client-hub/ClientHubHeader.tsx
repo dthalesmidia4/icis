@@ -86,7 +86,7 @@ export default function ClientHubHeader({
                 {formatShort(period.period_end)}
               </span>
               <span className="rounded-sm bg-primary px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-primary-foreground">
-                Campanha
+                Ciclo de conteúdo
               </span>
             </div>
           )}
