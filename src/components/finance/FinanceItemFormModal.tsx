@@ -881,11 +881,7 @@ export default function FinanceItemFormModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label>Data da 1ª parcela</Label>
-                  <Input
-                    type="date"
-                    value={installmentStart}
-                    onChange={(e) => setInstallmentStart(e.target.value)}
-                  />
+                  <FinanceDateInput value={installmentStart} onChange={setInstallmentStart} />
                 </div>
                 <div>
                   <Label>Quantidade de parcelas</Label>
