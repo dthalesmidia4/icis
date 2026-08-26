@@ -991,18 +991,40 @@ export default function FinanceItemFormModal({
                 )}
                 {isOneOff && (
                   <div>
-                    <Label htmlFor="one-off-date">Data / vencimento</Label>
-                    <FinanceDateInput id="one-off-date" value={oneOffDate} onChange={setOneOffDate} />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {materializesOneOff
-                        ? "Gasto avulso é um lançamento do mês: ele já aparece nos totais desta competência."
-                        : "Data real do gasto."}
-                    </p>
-                    {!oneOffDateValid && (
-                      <p className="text-xs text-destructive mt-1">Informe a data do gasto</p>
+                    {/*
+                      CRIAÇÃO materializa o fato do mês, então a data é pedida
+                      aqui. Em cadastro JÁ EXISTENTE a data pertence ao FATO
+                      (`finance_occurrences`) e este formulário não a persiste —
+                      então não existe campo falso: o texto manda para o lugar
+                      certo ("Dados deste mês", no primeiro modal).
+                    */}
+                    {materializesOneOff ? (
+                      <>
+                        <Label htmlFor="one-off-date">Data / vencimento</Label>
+                        <FinanceDateInput
+                          id="one-off-date"
+                          value={oneOffDate}
+                          onChange={setOneOffDate}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Gasto avulso é um lançamento do mês: ele já aparece nos totais desta
+                          competência.
+                        </p>
+                        {!oneOffDateValid && (
+                          <p className="text-xs text-destructive mt-1">Informe a data do gasto</p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Label>Data do gasto</Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          A data real pertence ao lançamento. Edite em “Dados deste mês”.
+                        </p>
+                      </>
                     )}
                   </div>
                 )}
+
               </div>
 
               {chargeDueConflict && (
