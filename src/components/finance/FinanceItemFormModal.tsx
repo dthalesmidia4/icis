@@ -86,11 +86,21 @@ interface Props {
    * sem ela o avulso não teria onde ser materializado.
    */
   competence?: Competence | null;
+  /** Agendas de PAGAMENTO já gravadas (para reabrir o cadastro com a atual). */
+  paymentRules?: FinancePaymentRule[];
   onSave: (
     payload: Partial<FinanceItem>,
     id?: string,
     /** Fato do mês que acompanha a criação de um avulso. */
     oneOff?: OneOffFact | null,
+    /** Agenda de PAGAMENTO: quando eu realmente pago (não é quando o gasto acontece). */
+    paymentSchedule?: {
+      mode: FinancePaymentMode;
+      interval: number;
+      weekday?: number | null;
+      dayOfMonth?: number | null;
+      effectiveFrom?: string | null;
+    } | null,
   ) => Promise<boolean>;
 }
 
