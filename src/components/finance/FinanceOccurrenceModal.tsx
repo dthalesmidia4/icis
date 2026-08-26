@@ -79,20 +79,18 @@ import {
   inactivateFinanceItemSafe,
 } from "@/lib/financeSafeDelete";
 import {
-  FACT_CORRECTION_BUTTON,
   FACT_CORRECTION_INCONSISTENT,
   FACT_CORRECTION_NOTE,
-  FACT_CORRECTION_SAVE_LABEL,
   FACT_CORRECTION_SUCCESS,
-  LEGACY_CONVERT_LABEL,
-  LEGACY_CONVERT_NEEDS_DATE,
-  LEGACY_CONVERT_SUCCESS,
   LEGACY_DIRECT_ON_CARD_NOTE,
   buildFactCorrectionPatch,
   correctionWasApplied,
-  factCorrectionMode,
+  factFieldsEditable,
   isLegacyDirectPaymentOnCard,
+  occurrenceSaveRoute,
+  paymentProofEditable,
 } from "@/lib/financeFactCorrection";
+
 import {
   convertOccurrenceToCardCharge,
   correctFinanceOccurrence,
