@@ -45,22 +45,34 @@ export default function OfficeWorld({
       aria-label="Planta do escritório"
       className="relative flex min-h-[calc(100vh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/70 via-muted/30 to-muted/55"
     >
-      {/* ---------- Parede ---------- */}
+      {/* ---------- Parede (faixa decorativa acima + faixa funcional abaixo) ---------- */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[20%] bg-gradient-to-b from-background/95 via-background/70 to-background/15"
+        className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-background/95 via-background/70 to-background/15"
+        style={{ height: `${WALL_HEIGHT_PCT}%` }}
       />
       {/* moldura/junção parede-piso: rodapé + sombra de contato */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[20%] h-[6px] bg-foreground/20" />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-[calc(20%+6px)] h-6 bg-gradient-to-b from-foreground/12 to-transparent"
+        className="pointer-events-none absolute inset-x-0 h-[6px] bg-foreground/20"
+        style={{ top: `${WALL_HEIGHT_PCT}%` }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 h-6 bg-gradient-to-b from-foreground/12 to-transparent"
+        style={{ top: `calc(${WALL_HEIGHT_PCT}% + 6px)` }}
       />
 
-      {/* decoração da parede: presente, mas secundária aos móveis */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[20%] hidden sm:block">
+      {/* decoração da parede: confinada à FAIXA SUPERIOR — janelas, quadro,
+          prateleira e luminária nunca disputam espaço com o Painel da Agência */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 hidden sm:block"
+        style={{ height: `${WALL_DECOR_BAND_PCT}%` }}
+      >
         {/* janelas */}
         <div className="absolute left-[5%] top-[20%] flex gap-3">
+
           {[0, 1].map((i) => (
             <div
               key={i}
