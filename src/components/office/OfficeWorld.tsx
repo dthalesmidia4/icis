@@ -117,7 +117,7 @@ export default function OfficeWorld({
       </div>
 
       {/* armário e planta encostados na parede */}
-      <div aria-hidden="true" className="pointer-events-none absolute left-[2.5%] top-[17%] hidden sm:block">
+      <div aria-hidden="true" className="pointer-events-none absolute left-[2.5%] top-[19%] hidden sm:block">
         <div className="h-20 w-14 rounded-sm bg-gradient-to-b from-muted-foreground/40 to-muted-foreground/20 shadow-[0_8px_12px_-10px_hsl(var(--foreground)/0.9)]">
           <div className="mx-auto mt-3 h-[3px] w-9 bg-foreground/25" />
           <div className="mx-auto mt-5 h-[3px] w-9 bg-foreground/25" />
@@ -125,7 +125,7 @@ export default function OfficeWorld({
         </div>
         <span className="mx-auto block h-1.5 w-12 rounded-[50%] bg-foreground/15 blur-[2px]" />
       </div>
-      <div aria-hidden="true" className="pointer-events-none absolute right-[2.5%] top-[15%] hidden flex-col items-center sm:flex">
+      <div aria-hidden="true" className="pointer-events-none absolute right-[2.5%] top-[18%] hidden flex-col items-center sm:flex">
         <span className="h-9 w-1.5 rounded bg-foreground/35" />
         <span className="-mt-10 h-8 w-8 -rotate-45 rounded-full bg-primary/40" />
         <span className="-mt-4 ml-6 h-6 w-6 rotate-45 rounded-full bg-primary/32" />
@@ -136,7 +136,8 @@ export default function OfficeWorld({
       {/* ---------- Piso ---------- */}
       <svg
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 top-[20%] h-auto w-full text-foreground/[0.13]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-auto w-full text-foreground/[0.13]"
+        style={{ top: `${WALL_HEIGHT_PCT}%` }}
       >
         <defs>
           <pattern
