@@ -204,8 +204,10 @@ function FinancialCockpit() {
   const finance = useFinance(competence);
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
+    skipped, skipOccurrence, restoreOccurrence,
     saveOccurrence, togglePaid, payStatement, setPaidStatementIof, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
+
 
   /**
    * `Contas e despesas` é a tela de CONSULTA E GESTÃO do mês: abre em `Todas`.
