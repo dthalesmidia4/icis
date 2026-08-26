@@ -220,6 +220,13 @@ export default function FinanceItemFormModal({
 
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  /**
+   * Aceita RECARGA/EXTRA no mesmo mês: o cadastro passa a admitir mais de um
+   * FATO por competência sem virar outro cadastro (ex.: créditos comprados no
+   * meio do mês além da renovação).
+   */
+  const [supportsSupplemental, setSupportsSupplemental] = useState(false);
+  const [supplementalKind, setSupplementalKind] = useState<"recharge" | "extra">("extra");
   const [deleteOpen, setDeleteOpen] = useState(false);
   /**
    * O cadastro deixou de existir (excluído) ou foi inativado nesta sessão do
@@ -301,6 +308,8 @@ export default function FinanceItemFormModal({
     setChargeDay(item?.charge_day != null ? String(item.charge_day) : "");
     setDueDay(item?.due_day != null ? String(item.due_day) : "");
     setPaymentMethod(item?.payment_method ?? NONE);
+    setSupportsSupplemental(item?.supports_supplemental_entries === true);
+    setSupplementalKind(item?.supplemental_entry_kind === "recharge" ? "recharge" : "extra");
     setCardItemId(item?.card_item_id ?? NONE);
     setParentItemId(item?.parent_item_id ?? NONE);
     setBankName(item?.bank_name ?? "");
@@ -503,6 +512,10 @@ export default function FinanceItemFormModal({
       installment_count: isInstallments ? installmentCountNumber : null,
       link: link.trim() || null,
       notes: notes.trim() || null,
+      // Cartão/recurso incluído nunca aceita suplementar (o banco também barra).
+      supports_supplemental_entries: isCard || isIncluded ? false : supportsSupplemental,
+      supplemental_entry_kind:
+        !isCard && !isIncluded && supportsSupplemental ? supplementalKind : null,
     };
     /**
      * Gasto avulso não é cadastro abstrato: já nasce como fato da competência
@@ -1137,6 +1150,38 @@ export default function FinanceItemFormModal({
               </div>
             )}
           </div>
+
+          {!isCard && !isIncluded && (
+            <div className="rounded-lg border divide-y">
+              <div className="flex items-center justify-between gap-3 p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Aceita recargas/lançamentos extras no mês</p>
+                  <p className="text-xs text-muted-foreground">
+                    Permite registrar mais de um fato deste mesmo cadastro no mês, sem criar outro
+                    cadastro e sem substituir o lançamento previsto.
+                  </p>
+                </div>
+                <Switch checked={supportsSupplemental} onCheckedChange={setSupportsSupplemental} />
+              </div>
+              {supportsSupplemental && (
+                <div className="p-3">
+                  <Label>Como chamar esses lançamentos</Label>
+                  <Select
+                    value={supplementalKind}
+                    onValueChange={(v) => setSupplementalKind(v as "recharge" | "extra")}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="recharge">Recarga (créditos comprados)</SelectItem>
+                      <SelectItem value="extra">Lançamento extra</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
