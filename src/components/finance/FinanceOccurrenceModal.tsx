@@ -57,6 +57,7 @@ import {
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
 import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
+import FinanceDateInput from "./FinanceDateInput";
 import {
   canSubmitOccurrence,
   initialPaymentDate,
