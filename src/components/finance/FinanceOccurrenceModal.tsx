@@ -66,6 +66,10 @@ import {
 } from "@/lib/financeOccurrenceForm";
 import { effectivePaid } from "@/lib/financeModel";
 import {
+  CARD_CHARGE_DATE_HELP,
+  cardChargeDateFieldLabel,
+} from "@/lib/financeCardLabels";
+import {
   OCCURRENCE_ACTION_LABELS,
   occurrenceDeleteActionForRow,
 } from "@/lib/financeDeletePolicy";
