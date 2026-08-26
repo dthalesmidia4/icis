@@ -652,6 +652,22 @@ export default function FinanceOccurrenceModal({
             <span className="hidden sm:block" />
           )}
           <div className="flex flex-wrap justify-end gap-2 min-w-0">
+            {/* Exceção do mês: só faz sentido em data prevista e ainda não paga. */}
+            {onSkip && row.scheduledDate && !row.paid && !readOnlyFact ? (
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  setSkipping(true);
+                  const ok = await onSkip(row);
+                  setSkipping(false);
+                  if (ok) onOpenChange(false);
+                }}
+                disabled={saving || removing || skipping}
+              >
+                <CalendarOff className="w-4 h-4 mr-2 flex-shrink-0" />
+                {skipping ? "Ignorando..." : "Ignorar este lançamento"}
+              </Button>
+            ) : null}
             {deleteAction === "delete_statement" ||
             deleteAction === "delete_one_off" ||
             deleteAction === "inactivate_item" ? (
@@ -666,6 +682,7 @@ export default function FinanceOccurrenceModal({
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+
             {(!readOnlyFact || correcting) && (
               <Button
                 onClick={handleSave}
