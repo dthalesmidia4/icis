@@ -158,12 +158,22 @@ export const WALL_PANEL_BAND_TOP_PCT = 13;
 export const WALL_HEIGHT_PCT = 27;
 
 /**
- * PAINEL DA AGÊNCIA: elemento principal da parede. Cresce com o palco lógico
- * (não com a largura bruta), na faixa pedida de ~420–520px.
+ * PAINEL DA AGÊNCIA: elemento principal da parede, com TETO POR PERFIL.
+ * Desktop normal ~380–400px (não pode dominar a cena nem competir com os
+ * monitores); ultrawide ~492–508px. Cresce com o palco lógico, nunca com a
+ * largura bruta da viewport.
  */
-export function agencyPanelWidthPx(stageWidth: number): number {
-  return Math.round(Math.min(520, Math.max(420, (stageWidth || DEFAULT_SIZE.width) * 0.3)));
+export function agencyPanelWidthPx(stageWidth: number, size?: WorldSize): number {
+  const profile = resolveOfficeProfile(size ?? { width: stageWidth, height: DEFAULT_SIZE.height });
+  const stage = stageWidth || DEFAULT_SIZE.width;
+  return Math.round(Math.min(profile.panelWidthPx, Math.max(320, stage * 0.34)));
 }
+
+/** Altura (%) do topo do painel na parede — por perfil. */
+export function agencyPanelTopPct(size: WorldSize = DEFAULT_SIZE): number {
+  return resolveOfficeProfile(size).panelTopPct;
+}
+
 
 
 
