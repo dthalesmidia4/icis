@@ -529,22 +529,6 @@ export default function SystemsCommercial() {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigate(`/plan-period?campaign=${activeCampaign.id}`)}
-                >
-                  Planejar período
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigate(`/campanhas/${activeCampaign.id}`)}
-                >
-                  Ver campanha
-                </Button>
-              </div>
             </div>
           </div>
         )}

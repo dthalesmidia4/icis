@@ -64,8 +64,6 @@ const ClientEvolution = lazy(() => import("./pages/ClientEvolution"));
 const CustomerSuccessSistemas = lazy(() => import("./pages/CustomerSuccessSistemas"));
 const SystemsClients = lazy(() => import("./pages/SystemsClients"));
 const SystemsCommercial = lazy(() => import("./pages/SystemsCommercial"));
-const Campaigns = lazy(() => import("./pages/Campaigns"));
-const CampaignDetail = lazy(() => import("./pages/CampaignDetail"));
 const OverviewPage = lazy(() => import("./pages/OverviewPage"));
 
 const queryClient = new QueryClient({
@@ -406,25 +404,9 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
 
-      <Route path="/campanhas" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <Campaigns />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/campanhas/:id" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <CampaignDetail />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
+      {/* `marketing_campaigns` é camada interna de atribuição Mídia ↔ Comercial.
+          A superfície operacional é o Client Hub (aba Aquisição): as telas de
+          campanha continuam no código, mas sem rota navegável. */}
 
       <Route path="/comercial-sistemas" element={
         <ProtectedRoute>
