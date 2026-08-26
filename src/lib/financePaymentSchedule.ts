@@ -18,7 +18,13 @@
  * Tudo aqui é lógica PURA e determinística: mesma entrada, mesma saída, nunca
  * depende do relógio e nunca grava nada.
  */
-import { Competence, addMonths, dateInMonth, normalizeCompetence } from "./financeCardCycle";
+import {
+  Competence,
+  addMonths,
+  competenceToISO,
+  dateInMonth,
+  normalizeCompetence,
+} from "./financeCardCycle";
 import type { FinanceItem, MonthRow } from "./financeModel";
 import { addDaysISO, diffDaysISO, monthDates, weekdayISO } from "./financeRecurrenceSchedule";
 
