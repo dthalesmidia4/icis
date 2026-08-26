@@ -20,6 +20,8 @@ import {
   sameCompetence,
 } from "./financeCardCycle";
 
+import { CARD_CHARGE_DATE_MISSING, cardChargeDateLabel } from "./financeCardLabels";
+
 import type { FinanceSettlementContext } from "./financeSettlement";
 import { visibleStatementGroups } from "./financeCardVisibility";
 
