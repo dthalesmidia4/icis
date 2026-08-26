@@ -57,6 +57,7 @@ import {
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
 import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
+import FinanceDateInput from "./FinanceDateInput";
 import {
   canSubmitOccurrence,
   initialPaymentDate,
@@ -431,12 +432,12 @@ export default function FinanceOccurrenceModal({
               </div>
 
               <div className="min-w-0">
-                <Label>{dateLabel}</Label>
-                <Input
-                  type="date"
-                  className="w-full min-w-0 max-w-full"
+                <Label htmlFor="occurrence-fact-date">{dateLabel}</Label>
+                {/* Digitável E com calendário: `type=date` não garantia digitação. */}
+                <FinanceDateInput
+                  id="occurrence-fact-date"
                   value={factDate}
-                  onChange={(e) => setFactDate(e.target.value)}
+                  onChange={setFactDate}
                   readOnly={readOnlyFact}
                 />
                 {cardRow && (
@@ -544,12 +545,11 @@ export default function FinanceOccurrenceModal({
                 {paid && (
                   <div className="p-3 min-w-0">
                     <Label htmlFor="occurrence-payment-date">Data do pagamento</Label>
-                    <Input
+                    <FinanceDateInput
                       id="occurrence-payment-date"
-                      type="date"
-                      className="mt-1 w-full min-w-0 max-w-full"
+                      className="mt-1"
                       value={paymentDate}
-                      onChange={(e) => setPaymentDate(e.target.value)}
+                      onChange={setPaymentDate}
                       readOnly={readOnlyFact}
                     />
                     {!canSubmit ? (

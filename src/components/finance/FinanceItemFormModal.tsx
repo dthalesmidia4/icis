@@ -46,7 +46,13 @@ import {
   CARD_CHARGE_DAY_HELP,
   DIRECT_CHARGE_DAY_FIELD_LABEL,
 } from "@/lib/financeCardLabels";
+import {
+  chargeDueConflictMessage,
+  itemDueDayIsMeaningless,
+  resolveRecurrenceIntervals,
+} from "@/lib/financeItemPayload";
 import FinanceItemDeleteModal from "./FinanceItemDeleteModal";
+import FinanceDateInput from "./FinanceDateInput";
 
 
 
@@ -303,6 +309,36 @@ export default function FinanceItemFormModal({
   const isSubMonthly = isRecurring && (frequency === "daily" || frequency === "weekly");
   const subIntervalNumber = parsePositiveInt(subInterval) ?? 1;
   const weekdayNumber = Number(weekday) || 1;
+  const cardSelected = onCard && cardItemId !== NONE;
+  /**
+   * Compra no cartão não tem vencimento próprio: o vencimento é da FATURA.
+   * O campo desaparece e `due_day` é gravado como NULL.
+   */
+  const hideItemDueDay = itemDueDayIsMeaningless(onCard, cardSelected);
+  const selectedCard = cardSelected ? cards.find((c) => c.id === cardItemId) ?? null : null;
+  const chargeDayNumber = parseDayOfMonth(chargeDay);
+  const dueDayNumber = parseDayOfMonth(dueDay);
+  /**
+   * Cobrança/vencimento no mesmo mês precisam ser coerentes. Não é regra de
+   * banco: `due < charge` pode ser vencimento no mês seguinte, e não guardamos
+   * offset de mês — então bloqueamos aqui, explicando a saída.
+   */
+  const chargeDueConflict =
+    !isCard && !isInstallments && !isOneOff
+      ? chargeDueConflictMessage({
+          onCard,
+          cardSelected,
+          chargeDay: chargeDayNumber,
+          dueDay: hideItemDueDay ? null : dueDayNumber,
+        })
+      : null;
+  /** Intervalos NOT NULL do banco: resolvidos num único lugar, nunca null. */
+  const recurrenceIntervals = resolveRecurrenceIntervals({
+    isRecurring,
+    frequency,
+    intervalMonths: frequency === "custom" ? parsePositiveInt(intervalMonths) : null,
+    subInterval: subIntervalNumber,
+  });
 
 
   /** Escolha humana -> `recurrence_type` do banco. */
@@ -368,6 +404,8 @@ export default function FinanceItemFormModal({
 
     if (!installmentsValid) return;
     if (!oneOffDateValid) return;
+    // Ambiguidade de mês: validamos ANTES do request, com explicação.
+    if (chargeDueConflict) return;
     setSaving(true);
 
     const payload: Partial<FinanceItem> = {
@@ -378,10 +416,11 @@ export default function FinanceItemFormModal({
       cost_center: costCenter,
       active,
       recurrence_type: recurrence,
-      recurrence_interval_months: isRecurring && frequency === "custom" ? intervalNumber : 1,
+      // Colunas NOT NULL DEFAULT 1: sempre >= 1, nunca null.
+      recurrence_interval_months: recurrenceIntervals.recurrence_interval_months,
       recurrence_start_date: isRecurring && frequency === "custom" ? recurrenceStart || null : null,
       // Cronograma sub-mensal: "a cada N", dia da semana e âncora de contagem.
-      recurrence_interval: isSubMonthly ? subIntervalNumber : null,
+      recurrence_interval: recurrenceIntervals.recurrence_interval,
       recurrence_weekday: isSubMonthly && frequency === "weekly" ? weekdayNumber : null,
       recurrence_anchor_date: isSubMonthly ? recurrenceStart || null : null,
 
@@ -391,8 +430,9 @@ export default function FinanceItemFormModal({
       default_exchange_rate: currency === "USD" ? effectiveRate : null,
       default_amount_brl: isIncluded ? null : brlPreview != null ? Number(brlPreview.toFixed(2)) : null,
       // No parcelamento o cronograma define os dias: nada de dia genérico.
-      charge_day: isCard || isInstallments ? null : parseDayOfMonth(chargeDay),
-      due_day: isCard || isInstallments ? null : parseDayOfMonth(dueDay),
+      charge_day: isCard || isInstallments ? null : chargeDayNumber,
+      // Item no cartão: vencimento é da FATURA (`statement_due_day`).
+      due_day: isCard || isInstallments || hideItemDueDay ? null : dueDayNumber,
       payment_method: isCard || paymentMethod === NONE ? null : paymentMethod,
       card_item_id: !isCard && onCard && cardItemId !== NONE ? cardItemId : null,
       parent_item_id: isIncluded && parentItemId !== NONE ? parentItemId : null,
@@ -625,11 +665,7 @@ export default function FinanceItemFormModal({
                         </div>
                         <div>
                           <Label>Primeira cobrança</Label>
-                          <Input
-                            type="date"
-                            value={recurrenceStart}
-                            onChange={(e) => setRecurrenceStart(e.target.value)}
-                          />
+                          <FinanceDateInput value={recurrenceStart} onChange={setRecurrenceStart} />
                         </div>
                       </>
                     )}
@@ -659,11 +695,7 @@ export default function FinanceItemFormModal({
                         ) : (
                           <div>
                             <Label>Começa em</Label>
-                            <Input
-                              type="date"
-                              value={recurrenceStart}
-                              onChange={(e) => setRecurrenceStart(e.target.value)}
-                            />
+                            <FinanceDateInput value={recurrenceStart} onChange={setRecurrenceStart} />
                           </div>
                         )}
                       </>
@@ -674,11 +706,7 @@ export default function FinanceItemFormModal({
                 {isSubMonthly && frequency === "weekly" && (
                   <div className="max-w-xs">
                     <Label>Começa em</Label>
-                    <Input
-                      type="date"
-                      value={recurrenceStart}
-                      onChange={(e) => setRecurrenceStart(e.target.value)}
-                    />
+                    <FinanceDateInput value={recurrenceStart} onChange={setRecurrenceStart} />
                   </div>
                 )}
 
@@ -788,21 +816,19 @@ export default function FinanceItemFormModal({
                         <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DAY_HELP}</p>
                       )}
                     </div>
-                    <div>
-                      <Label>Dia de vencimento</Label>
-                      <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="10" inputMode="numeric" />
-                    </div>
+                    {/* Item no cartão não tem vencimento próprio: ele é da fatura. */}
+                    {!hideItemDueDay && (
+                      <div>
+                        <Label>Dia de vencimento</Label>
+                        <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="10" inputMode="numeric" />
+                      </div>
+                    )}
                   </>
                 )}
                 {isOneOff && (
                   <div>
                     <Label htmlFor="one-off-date">Data / vencimento</Label>
-                    <Input
-                      id="one-off-date"
-                      type="date"
-                      value={oneOffDate}
-                      onChange={(e) => setOneOffDate(e.target.value)}
-                    />
+                    <FinanceDateInput id="one-off-date" value={oneOffDate} onChange={setOneOffDate} />
                     <p className="text-xs text-muted-foreground mt-1">
                       {materializesOneOff
                         ? "Gasto avulso é um lançamento do mês: ele já aparece nos totais desta competência."
@@ -815,6 +841,9 @@ export default function FinanceItemFormModal({
                 )}
               </div>
 
+              {chargeDueConflict && (
+                <p className="text-xs text-destructive">{chargeDueConflict}</p>
+              )}
 
               {onCard && (
                 <div>
@@ -830,6 +859,9 @@ export default function FinanceItemFormModal({
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
                     Vinculando ao cartão, a despesa entra na composição da fatura.
+                    {selectedCard?.statement_due_day != null && (
+                      <> A fatura vence no dia {selectedCard.statement_due_day}.</>
+                    )}
                   </p>
                 </div>
               )}
@@ -841,11 +873,7 @@ export default function FinanceItemFormModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label>Data da 1ª parcela</Label>
-                  <Input
-                    type="date"
-                    value={installmentStart}
-                    onChange={(e) => setInstallmentStart(e.target.value)}
-                  />
+                  <FinanceDateInput value={installmentStart} onChange={setInstallmentStart} />
                 </div>
                 <div>
                   <Label>Quantidade de parcelas</Label>
@@ -868,7 +896,7 @@ export default function FinanceItemFormModal({
           {(isAnnual || !!subscriptionDate) && (
             <div>
               <Label>Data da assinatura</Label>
-              <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
+              <FinanceDateInput value={subscriptionDate} onChange={setSubscriptionDate} />
               <p className="text-xs text-muted-foreground mt-1">
                 Em cobranças anuais, o mês da assinatura define quando a despesa aparece.
               </p>
@@ -889,7 +917,7 @@ export default function FinanceItemFormModal({
                 {!isAnnual && !subscriptionDate && (
                   <div>
                     <Label>Data da assinatura</Label>
-                    <Input type="date" value={subscriptionDate} onChange={(e) => setSubscriptionDate(e.target.value)} />
+                    <FinanceDateInput value={subscriptionDate} onChange={setSubscriptionDate} />
                   </div>
                 )}
                 <div>
@@ -953,7 +981,14 @@ export default function FinanceItemFormModal({
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button
               onClick={handleSubmit}
-              disabled={saving || destroyed || !name.trim() || !installmentsValid || !oneOffDateValid}
+              disabled={
+                saving ||
+                destroyed ||
+                !name.trim() ||
+                !installmentsValid ||
+                !oneOffDateValid ||
+                !!chargeDueConflict
+              }
             >
 
               {saving ? "Salvando..." : "Salvar"}

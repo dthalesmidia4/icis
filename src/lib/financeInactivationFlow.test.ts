@@ -19,7 +19,9 @@ describe("inativação de cadastro — fechamento determinístico", () => {
   it("o formulário guarda o estado destruído e bloqueia o salvar stale", () => {
     expect(form).toContain("const [destroyed, setDestroyed] = useState(false)");
     expect(form).toContain("if (destroyed) return;");
-    expect(form).toContain("disabled={saving || destroyed ||");
+    // O botão pode estar formatado em múltiplas linhas: o que importa é que
+    // `saving` e `destroyed` continuem desabilitando o salvar.
+    expect(form).toMatch(/disabled=\{\s*saving \|\|\s*destroyed \|\|/);
   });
 
   it("concluir a exclusão/inativação fecha a consulta e o formulário", () => {
