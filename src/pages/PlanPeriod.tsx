@@ -82,7 +82,7 @@ type Step = 'form' | 'loading-normal' | 'choose-ultra' | 'loading-ultra' | 'comp
 const PlanPeriod = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { selectedClient } = useSelectedClient();
+  const { selectedClient, setSelectedClient } = useSelectedClient();
   const { tenantId } = useTenant();
 
   // Tab state - check URL param for initial tab
@@ -130,6 +130,38 @@ const PlanPeriod = () => {
     enabled: !!(selectedClient?.id && tenantId),
     onChange: () => { checkVisualIdentity(); },
   });
+
+  // Entrada por campanha (/plan-period?campaign=ID): garante que o cliente da
+  // campanha esteja selecionado antes de planejar.
+  useEffect(() => {
+    const paramCampaign = searchParams.get('campaign');
+    if (!paramCampaign || !tenantId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const camp = await loadCampaign(paramCampaign);
+        if (cancelled || !camp || camp.company_id === selectedClient?.id) return;
+        const { data } = await supabase
+          .from('tenant_companies')
+          .select('id, name, fantasy_name, cnpj_cpf, email')
+          .eq('id', camp.company_id)
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+        if (cancelled || !data) return;
+        setSelectedClient({
+          id: data.id,
+          name: data.name,
+          fantasy_name: data.fantasy_name,
+          cnpj_cpf: data.cnpj_cpf,
+          email: data.email,
+        });
+      } catch (err) {
+        console.error('[PlanPeriod] falha ao abrir campanha', err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, tenantId]);
 
   // Campanha (opcional): costura o período de Mídia à camada de campanha.
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
