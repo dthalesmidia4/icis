@@ -212,7 +212,7 @@ describe("pagamento parcial de fatura não é suportado", () => {
     expect(src).toMatch(/exactRequired = group\?\.actualTotal != null/);
     /**
      * O IOF é classificação contida no total da fatura: o valor pago valida
-     * contra o total da fatura, nunca contra fatura + IOF.
+     * contra o total bancário da fatura, sem acréscimos.
      */
     expect(src).toMatch(/const expected = suggested != null \? Number\(suggested\.toFixed\(2\)\) : null/);
     expect(src).not.toMatch(/suggested \+ iofBrl/);

@@ -323,7 +323,7 @@ describe("pay_finance_statement_reconciled — contrato", () => {
   it("mantém o bloqueio de pagamento parcial da fatura", () => {
     expect(flat).toContain("abs(_paid_amount_brl - v_invoice_amount) > 0.011");
     expect(flat).toContain("private.finance_decrypt_numeric(v_occ.amount_brl_enc)");
-    expect(flat).not.toContain("v_invoice_amount + v_iof");
+    expect(flat).not.toMatch(/v_invoice_amount\s*\+\s*v_iof/);
   });
 
   it("é SECURITY DEFINER com search_path vazio e grants restritos", () => {

@@ -62,7 +62,7 @@ describe("RPC reconciliada — snapshot canônico da forma de pagamento", () => 
     expect(rpc).toContain("SECURITY DEFINER");
     expect(rpc).toMatch(/SET search_path TO ''/);
     expect(flat).toContain("abs(_paid_amount_brl - v_invoice_amount) > 0.011");
-    expect(flat).not.toContain("v_invoice_amount + v_iof");
+    expect(flat).not.toMatch(/v_invoice_amount\s*\+\s*v_iof/);
     expect(rpc).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.pay_finance_statement_reconciled[^;]*TO authenticated/,
     );
