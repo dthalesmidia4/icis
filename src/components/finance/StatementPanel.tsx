@@ -41,6 +41,12 @@ import {
 import { Competence } from "@/lib/financeCardCycle";
 import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
 import { paymentTimestampToDate } from "@/lib/financePaymentDate";
+import {
+  type OccurrenceLabel,
+  groupStatementComponents,
+  occurrenceDisplayName,
+  occurrenceDisplaySuffix,
+} from "@/lib/financeOccurrenceLabels";
 
 interface Props {
   groups: StatementGroup[];
@@ -50,6 +56,8 @@ interface Props {
   focusCardId?: string | null;
   highlightIncomplete?: boolean;
   onOpenRow: (row: MonthRow) => void;
+  /** Rótulos dinâmicos das linhas do mês (renovação, recargas, 1/4...). */
+  labels?: Map<string, OccurrenceLabel>;
   onOpenStatement: (group: StatementGroup) => void;
   onPayStatement: (group: StatementGroup) => void;
   onAdjustIof: (group: StatementGroup) => void;
