@@ -730,18 +730,27 @@ export function isStatementRow(row: MonthRow): boolean {
 /**
  * REGRA CANÔNICA DE OPERAÇÃO: um cadastro `active = false` NÃO participa mais do
  * mês operacional (composição, KPIs, contas e despesas, assinaturas, filas e
- * alertas). O registro continua no banco para auditoria e segue acessível no
- * catálogo de cadastros — mas o mês não pode continuar cobrando dele.
+ * alertas) enquanto PROJEÇÃO. O registro continua no banco para auditoria e
+ * segue acessível no catálogo de cadastros — mas o mês não pode continuar
+ * cobrando dele.
  *
- * ÚNICA exceção: a FATURA de um cartão inativo com fato real persistido segue
- * visível, senão um pagamento de fatura já realizado desapareceria do histórico
- * (ver `financeCardVisibility`).
+ * EXCEÇÕES — fatos REAIS já persistidos nunca desaparecem da competência:
+ * 1. FATURA de cartão inativo com ocorrência real (ver `financeCardVisibility`);
+ * 2. AVULSO (`one_off`) inativo com ocorrência real: o master inativo é apenas o
+ *    registro arquivado do gasto pontual (inclusive importações legadas); a
+ *    ocorrência é o fato histórico/contábil da competência.
+ *
+ * Recorrentes inativos (monthly/annual/daily/weekly/installments/credits/
+ * variable) seguem FORA do operacional mesmo com ocorrência, preservando a
+ * supressão já decidida para cadastros encerrados.
  */
 export function isOperationalRow(row: MonthRow): boolean {
   if (row.item.active) return true;
-  if (isStatementRow(row)) return !!row.occurrence;
-  return false;
+  if (!row.occurrence) return false;
+  if (isStatementRow(row)) return true;
+  return row.item.recurrence_type === "one_off";
 }
+
 
 /** Recorte operacional do mês — ponto único, nunca filtro por tela. */
 export function operationalMonthRows(rows: MonthRow[]): MonthRow[] {

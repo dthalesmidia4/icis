@@ -221,3 +221,83 @@ describe("itens vinculados ao cartão fora da fatura", () => {
     expect(linked.some((l) => l.item.id === "old")).toBe(false);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* 6) Fatos avulsos de master arquivado                                        */
+/* -------------------------------------------------------------------------- */
+
+describe("avulso inativo com ocorrência real continua sendo fato da competência", () => {
+  const avulso = item({
+    id: "cert",
+    name: "CERTIFICADO DIGITAL",
+    kind: "expense",
+    cost_center: "administrativo",
+    recurrence_type: "one_off",
+    active: false,
+  });
+
+  it("pago em ago/2026 aparece no operacional e entra em expected/paid", () => {
+    const rows = operationalMonthRows(
+      buildMonthRows({
+        items: [avulso],
+        occurrences: [
+          occ({ id: "o", item_id: "cert", amount_brl: 480, due_date: "2026-08-07", paid_at: "2026-08-07T12:00:00Z", paid_amount_brl: 480 }),
+        ],
+        competence: AUG,
+      }),
+    );
+    expect(rows.map((r) => r.item.id)).toEqual(["cert"]);
+    const totals = computeTotals(rows);
+    expect(totals.expected).toBe(480);
+    expect(totals.paid).toBe(480);
+    expect(totals.open).toBe(0);
+  });
+
+  it("ocorrência aberta aparece como fato real, não como projeção", () => {
+    const rows = operationalMonthRows(
+      buildMonthRows({
+        items: [avulso],
+        occurrences: [occ({ id: "o2", item_id: "cert", amount_brl: 200, due_date: "2026-08-21" })],
+        competence: AUG,
+      }),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].projected).toBe(false);
+    expect(computeTotals(rows).open).toBe(200);
+  });
+
+  it("sem ocorrência não aparece", () => {
+    expect(
+      operationalMonthRows(buildMonthRows({ items: [avulso], occurrences: [], competence: AUG })),
+    ).toHaveLength(0);
+  });
+
+  it("avulso ignorado (skipped) não reaparece", () => {
+    const rows = operationalMonthRows(
+      buildMonthRows({
+        items: [avulso],
+        occurrences: [occ({ id: "o3", item_id: "cert", amount_brl: 200, due_date: "2026-08-21", skipped_at: "2026-08-01T00:00:00Z" })],
+        competence: AUG,
+      }),
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it("mensal inativo com ocorrência real continua fora do operacional", () => {
+    const contabilidade = item({
+      id: "contab",
+      name: "SERVIÇO DE CONTABILIDADE",
+      kind: "expense",
+      recurrence_type: "monthly",
+      active: false,
+    });
+    const rows = operationalMonthRows(
+      buildMonthRows({
+        items: [contabilidade],
+        occurrences: [occ({ id: "o4", item_id: "contab", amount_brl: 900, due_date: "2026-08-10" })],
+        competence: AUG,
+      }),
+    );
+    expect(rows).toHaveLength(0);
+  });
+});
