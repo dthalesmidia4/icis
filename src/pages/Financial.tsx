@@ -313,6 +313,44 @@ function FinancialCockpit() {
     [rows, statements, today, cardsById],
   );
 
+  /**
+   * Saídas de caixa AGRUPADAS: quando a agenda de pagamento do cadastro junta
+   * várias ocorrências numa só saída (faxina semanal paga na sexta, por ex.).
+   */
+  const groupedPayments = useMemo(
+    () =>
+      buildGroupedPayments({
+        rows: operationalRows,
+        rules: finance.paymentRules,
+        batches: finance.batches,
+        entries: finance.batchEntries,
+        competence,
+      }),
+    [operationalRows, finance.paymentRules, finance.batches, finance.batchEntries, competence],
+  );
+
+  const handleGroupedPay = async (group: GroupedPayment) => {
+    if (group.batch) {
+      await finance.payPaymentBatch(group.batch.id, group.paymentDate ?? today);
+      return;
+    }
+    await finance.createPaymentBatch({
+      itemId: group.itemId,
+      scheduledDate: group.paymentDate,
+      entries: group.rows
+        .map((row) => ({ itemId: row.item.id, scheduledDate: rowFactDate(row) }))
+        .filter((e): e is { itemId: string; scheduledDate: string } => !!e.scheduledDate),
+      payNow: true,
+      paidDateISO: group.paymentDate ?? today,
+    });
+  };
+
+  const handleGroupedUndo = async (group: GroupedPayment) => {
+    if (!group.batch) return;
+    await finance.unpayPaymentBatch(group.batch.id);
+  };
+
+
   /** Relação pago x em aberto — derivada apenas dos totais, nunca persistida. */
   const composition = useMemo(() => buildPaidComposition(totals), [totals]);
 
