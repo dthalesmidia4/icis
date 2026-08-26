@@ -1577,6 +1577,8 @@ export type Database = {
           exchange_rate: number | null
           exchange_rate_enc: string | null
           id: string
+          iof_amount_brl: number | null
+          iof_amount_brl_enc: string | null
           is_estimated: boolean
           item_id: string
           legacy_bill_id: string | null
@@ -1607,6 +1609,8 @@ export type Database = {
           exchange_rate?: number | null
           exchange_rate_enc?: string | null
           id?: string
+          iof_amount_brl?: number | null
+          iof_amount_brl_enc?: string | null
           is_estimated?: boolean
           item_id: string
           legacy_bill_id?: string | null
@@ -1637,6 +1641,8 @@ export type Database = {
           exchange_rate?: number | null
           exchange_rate_enc?: string | null
           id?: string
+          iof_amount_brl?: number | null
+          iof_amount_brl_enc?: string | null
           is_estimated?: boolean
           item_id?: string
           legacy_bill_id?: string | null
@@ -3273,6 +3279,7 @@ export type Database = {
           amount_original: number
           exchange_rate: number
           id: string
+          iof_amount_brl: number
           paid_amount_brl: number
         }[]
       }
@@ -3386,6 +3393,7 @@ export type Database = {
       }
       pay_finance_statement_reconciled: {
         Args: {
+          _iof_brl?: number
           _occurrence_id: string
           _paid_amount_brl?: number
           _paid_at?: string

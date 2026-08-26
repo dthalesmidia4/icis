@@ -29,6 +29,11 @@ import { formatDayMonth } from "@/lib/financeRowStatus";
 import { isValidPaymentDate } from "@/lib/financePaymentDate";
 import { parseLocalizedNumber } from "@/lib/financeNumber";
 import {
+  buildStatementConference,
+  iofInputMessage,
+  parseIofInput,
+} from "@/lib/financeIof";
+import {
   buildReconciliation,
   reconciliationPayload,
   usdComponentsOf,
@@ -46,6 +51,8 @@ interface Props {
     paidDateISO: string;
     paidAmountBrl: number | null;
     usdComponents?: unknown[];
+    /** Repasse de IOF cobrado junto com a fatura (0 quando não houver). */
+    iofBrl: number;
   }) => Promise<boolean>;
 }
 
@@ -53,6 +60,8 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   const [date, setDate] = useState(today);
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
+  /** IOF é SEMPRE perguntado, com padrão 0 — exista ou não compra em dólar. */
+  const [iof, setIof] = useState("0");
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
   const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
 
@@ -65,7 +74,9 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   useEffect(() => {
     if (!open) return;
     setDate(today);
-    setAmount(suggested != null ? String(suggested) : "");
+    setIof("0");
+    // Vazio herda o total esperado (fatura + IOF), então o valor acompanha o IOF.
+    setAmount("");
     const seed: Record<string, string> = {};
     for (const comp of usdComponents) {
       // Estimativa entra como ponto de partida; o usuário confirma o valor real.
@@ -76,11 +87,27 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
 
   if (!group) return null;
 
-  const amountResult = resolveStatementPaymentAmount(amount, suggested, { exactRequired });
+  const iofResult = parseIofInput(iof);
+  const iofMessage = iofInputMessage(iofResult);
+  const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
+  /** Total esperado da cobrança: fatura + repasse de IOF. */
+  const expected = suggested != null ? Number((suggested + iofBrl).toFixed(2)) : null;
+
+  const amountResult = resolveStatementPaymentAmount(amount, expected, { exactRequired });
   const amountMessage = statementPaymentAmountMessage(amountResult);
   const dateValid = isValidPaymentDate(date);
   const reconciliation = buildReconciliation(usdComponents, usdInputs);
-  const canSubmit = dateValid && amountResult.state === "ok" && reconciliation.state === "ok";
+  const conference = buildStatementConference({
+    statementBrl: suggested,
+    componentsBrl: reconciliation.state === "ok" ? reconciliation.totalBrl : null,
+    iofBrl,
+    paidBrl: amountResult.state === "ok" ? amountResult.amountBrl ?? expected : null,
+  });
+  const canSubmit =
+    dateValid &&
+    iofResult.state === "ok" &&
+    amountResult.state === "ok" &&
+    reconciliation.state === "ok";
 
   const submit = async () => {
     if (!canSubmit || amountResult.state !== "ok" || reconciliation.state !== "ok") return;
@@ -91,6 +118,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
         paidDateISO: date,
         paidAmountBrl: amountResult.amountBrl,
         usdComponents: reconciliationPayload(reconciliation.entries),
+        iofBrl,
       });
       if (ok) onOpenChange(false);
     } finally {
@@ -203,28 +231,68 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
             {amountMessage && <p className="text-xs text-destructive">{amountMessage}</p>}
             {exactRequired && !amountMessage && (
               <p className="text-xs text-muted-foreground">
-                A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(suggested)}.
+                A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}
+                {iofBrl > 0 ? " (fatura + repasse de IOF)" : ""}.
               </p>
             )}
           </div>
 
-          {reconciliation.state === "ok" && usdComponents.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="pay-statement-iof">Repasse de IOF (R$)</Label>
+            <Input
+              id="pay-statement-iof"
+              inputMode="decimal"
+              className="w-full min-w-0 max-w-full"
+              value={iof}
+              onChange={(e) => setIof(e.target.value)}
+              placeholder="0,00"
+            />
+            {iofMessage ? (
+              <p className="text-xs text-destructive">{iofMessage}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                IOF cobrado pelo banco junto com esta fatura. Use 0 quando não houver.
+              </p>
+            )}
+          </div>
+
+          {reconciliation.state === "ok" && (
             <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
-              <p className="flex justify-between">
+              <p className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Total da fatura</span>
-                <span className="font-medium">{formatBRL(suggested)}</span>
+                <span className="font-medium">{formatBRL(conference.statementBrl)}</span>
               </p>
-              <p className="flex justify-between">
-                <span className="text-muted-foreground">Total real das compras em dólar</span>
-                <span className="font-medium">{formatBRL(reconciliation.totalBrl)}</span>
+              {usdComponents.length > 0 && (
+                <>
+                  <p className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Compras em dólar corrigidas</span>
+                    <span className="font-medium">{formatBRL(conference.componentsBrl)}</span>
+                  </p>
+                  <p className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Ajuste cambial identificado</span>
+                    <span className="font-medium">{formatBRL(reconciliation.drift)}</span>
+                  </p>
+                </>
+              )}
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Repasse de IOF</span>
+                <span className="font-medium">{formatBRL(conference.iofBrl)}</span>
               </p>
-              <p className="flex justify-between">
-                <span className="text-muted-foreground">Ajuste cambial identificado</span>
-                <span className="font-medium">{formatBRL(reconciliation.drift)}</span>
+              <p className="flex justify-between gap-3 border-t pt-1">
+                <span className="text-muted-foreground">Total esperado (fatura + IOF)</span>
+                <span className="font-semibold">{formatBRL(conference.expectedBrl)}</span>
+              </p>
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Valor cobrado/pago</span>
+                <span className="font-medium">{formatBRL(conference.paidBrl)}</span>
+              </p>
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Diferença remanescente</span>
+                <span className="font-medium">{formatBRL(conference.remainingBrl)}</span>
               </p>
               <p className="text-muted-foreground pt-1">
-                Diferenças de IOF, tarifas ou compras não classificadas continuam sendo diferença
-                da fatura e não impedem o pagamento.
+                O IOF já está explicado acima: só sobra como diferença o que vier de tarifas ou
+                compras ainda não classificadas.
               </p>
             </div>
           )}

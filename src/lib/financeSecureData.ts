@@ -42,6 +42,8 @@ export interface SecureOccurrenceValues {
   exchange_rate: number | null;
   amount_brl: number | null;
   paid_amount_brl: number | null;
+  /** Repasse de IOF da fatura (apenas ocorrências de cartão o possuem). */
+  iof_amount_brl: number | null;
 }
 
 export interface SecureTenantValues {
@@ -151,6 +153,7 @@ export function mergeOccurrenceValues(
       exchange_rate: v ? v.exchange_rate : null,
       amount_brl: v ? v.amount_brl : null,
       paid_amount_brl: v ? v.paid_amount_brl : null,
+      iof_amount_brl: v ? v.iof_amount_brl : null,
     };
   });
 }
@@ -196,6 +199,7 @@ export async function fetchSecureOccurrenceValues(
       exchange_rate: num(row.exchange_rate),
       amount_brl: num(row.amount_brl),
       paid_amount_brl: num(row.paid_amount_brl),
+      iof_amount_brl: num(row.iof_amount_brl),
     });
   }
   return map;

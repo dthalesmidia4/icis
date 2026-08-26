@@ -300,10 +300,16 @@ export function useFinance(competence: Competence) {
        * componentes USD, mesma rota única.
        */
       usdComponents?: unknown[],
+      /**
+       * Repasse de IOF cobrado pelo banco junto com a fatura. Persistido no
+       * PRÓPRIO acerto da fatura (cifrado), nunca como despesa cadastrada.
+       */
+      iofBrl?: number | null,
     ) => {
       const { error } = await supabase.rpc("pay_finance_statement_reconciled", {
         _occurrence_id: occurrenceId,
         _usd_components: usdComponents ?? [],
+        _iof_brl: iofBrl != null && iofBrl > 0 ? iofBrl : 0,
         ...(paidDateISO ? { _paid_at: paymentDateToTimestamp(paidDateISO) } : {}),
         ...(paidAmountBrl != null ? { _paid_amount_brl: paidAmountBrl } : {}),
       } as any);

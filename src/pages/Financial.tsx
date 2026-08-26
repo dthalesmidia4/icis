@@ -43,6 +43,7 @@ import FinancePasswordSettingsCard from "@/components/finance/FinancePasswordSet
 import StatementPanel from "@/components/finance/StatementPanel";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
+import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
 import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
@@ -135,7 +136,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
     subtitle: "Veja exatamente quais despesas formam os valores do resumo.",
   },
   accounts: {
-    title: "Pagamentos diretos",
+    title: "Contas e despesas",
     subtitle: "Pix, boletos, transferências e outras despesas pagas fora do cartão.",
   },
   cards: {
@@ -152,7 +153,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   },
 };
 
-/** Visão simples de "Pagamentos diretos". */
+/** Visão simples de "Contas e despesas". */
 type MainView = "to_pay" | "paid" | "all";
 
 const MAIN_VIEWS: { value: MainView; label: string }[] = [
@@ -409,6 +410,15 @@ function FinancialCockpit() {
       );
     }
 
+    /**
+     * Repasse de IOF das faturas PAGAS: fato do banco que não tem cadastro
+     * próprio. Entra como linha em `Pagas`/`Todas` (jamais em `A pagar`) e
+     * NUNCA traz a ocorrência da fatura inteira, que duplicaria os componentes.
+     */
+    if (mainView !== "to_pay" && advanced === "none") {
+      result = [...result, ...iofRowsForStatements(statements)];
+    }
+
     result = filterByCostCenter(result, costCenter);
 
     const term = search.trim().toLowerCase();
@@ -421,7 +431,10 @@ function FinancialCockpit() {
       );
     }
     return result;
-  }, [accountRows, mainView, advanced, costCenter, search, today, statusContext, settlement]);
+  }, [accountRows, statements, mainView, advanced, costCenter, search, today, statusContext, settlement]);
+
+  /** Total das linhas visíveis (inclui os repasses de IOF exibidos). */
+  const visibleRowsTotal = useMemo(() => sumRowsBrl(visibleRows), [visibleRows]);
 
   /* ------------------------- Números por domínio ------------------------- */
 
@@ -478,20 +491,24 @@ function FinancialCockpit() {
     paidDateISO,
     paidAmountBrl,
     usdComponents,
+    iofBrl,
   }: {
     group: StatementGroup;
     paidDateISO: string;
     paidAmountBrl: number | null;
     usdComponents?: unknown[];
+    iofBrl?: number;
   }): Promise<boolean> => {
     const occ = group.statementRow?.occurrence;
     if (!occ) return false;
     // `due_date` não é enviado: o vencimento é histórico e não muda ao pagar.
+    const iof = iofBrl ?? 0;
     return await payStatement(
       occ.id,
-      paidAmountBrl ?? group.actualTotal ?? group.projectedTotal,
+      paidAmountBrl ?? Number(((group.actualTotal ?? group.projectedTotal) + iof).toFixed(2)),
       paidDateISO,
       usdComponents ?? [],
+      iof,
     );
   };
 
@@ -547,7 +564,7 @@ function FinancialCockpit() {
     {
       view: "accounts" as View,
       icon: Receipt,
-      title: "Pagamentos diretos",
+      title: "Contas e despesas",
       meta:
         accountsSummary.pending === 1
           ? "1 pendente"
@@ -1151,6 +1168,13 @@ function FinancialCockpit() {
                   </Button>
                 </PopoverContent>
               </Popover>
+            </div>
+
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                {visibleRows.length === 1 ? "1 linha" : `${visibleRows.length} linhas`} neste recorte
+              </p>
+              <p className="text-sm font-semibold">Total: {formatBRL(visibleRowsTotal)}</p>
             </div>
 
             <MonthAccountsList
