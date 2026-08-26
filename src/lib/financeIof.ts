@@ -18,6 +18,7 @@ import {
   MonthRow,
   StatementGroup,
   cardDisplayLabel,
+  paidStatementIofBrl,
 } from "./financeModel";
 import { parseLocalizedNumber } from "./financeNumber";
 
