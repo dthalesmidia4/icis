@@ -3,9 +3,26 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  canEditAdPlan,
+  normalizeAdPlan,
+  setAdPlanBoost,
+  setAdPlanCampaign,
+  type AdPlanShape,
+  type AdPlanTextKey,
+} from "@/lib/adPlan";
 import { cn } from "@/lib/utils";
+
 
 export type ClassificationKey = "anuncio" | "grafica";
 
