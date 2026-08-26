@@ -28,6 +28,17 @@ import {
   formatCurrencyValue,
 } from "@/lib/financeModel";
 import { statementIofBrl } from "@/lib/financeIof";
+import {
+  CARD_CHARGE_DATE_MISSING,
+  cardChargeDateLabel,
+  CARD_CLOSING_FACT_LABEL,
+  CARD_DUE_FACT_LABEL,
+} from "@/lib/financeCardLabels";
+import {
+  LINKED_CARD_FIX_LABELS,
+  LinkedCardItem,
+  needsChargeDateCorrection,
+} from "@/lib/financeCardLinkedItems";
 import { Competence } from "@/lib/financeCardCycle";
 import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
 import { paymentTimestampToDate } from "@/lib/financePaymentDate";
@@ -44,6 +55,12 @@ interface Props {
   onPayStatement: (group: StatementGroup) => void;
   onAdjustIof: (group: StatementGroup) => void;
   onEditCard: (card: FinanceItem) => void;
+  /**
+   * Itens ATIVOS ligados ao cartão que não compõem esta fatura, por `card.id`.
+   * Só apresentação: nada aqui soma no total da fatura.
+   */
+  linkedItems?: Record<string, LinkedCardItem[]>;
+  onEditItem?: (item: FinanceItem) => void;
 }
 
 function Fact({ label, value, tone, hint }: { label: string; value: string; tone?: "muted" | "warning"; hint?: string }) {
@@ -73,9 +90,12 @@ export default function StatementPanel({
   onPayStatement,
   onAdjustIof,
   onEditCard,
+  linkedItems,
+  onEditItem,
 }: Props) {
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [linkedOpen, setLinkedOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (focusCardId) setExpanded((prev) => ({ ...prev, [focusCardId]: true }));
@@ -92,6 +112,9 @@ export default function StatementPanel({
         const overdue = !group.paid && !!group.dueDate && group.dueDate < today;
         const focused = card.id === focusCardId || (highlightIncomplete && group.configIncomplete);
         const gap = cycleGapLabel(card);
+        const linked = linkedItems?.[card.id] ?? [];
+        const linkedIsOpen = !!linkedOpen[card.id];
+        const needsFix = linked.filter((l) => l.needsChargeDateCorrection).length;
         const limit = card.card_limit_brl ?? null;
         const usageBase = group.actualTotal ?? (group.projectedTotal > 0 ? group.projectedTotal : null);
         const valueLabel = statementValueLabel(group);
@@ -152,12 +175,12 @@ export default function StatementPanel({
                   tone={limit != null ? undefined : "muted"}
                 />
                 <Fact
-                  label="Fechamento"
+                  label={CARD_CLOSING_FACT_LABEL}
                   value={card.statement_closing_day != null ? `Dia ${card.statement_closing_day}` : "Não informado"}
                   tone={card.statement_closing_day != null ? undefined : "warning"}
                 />
                 <Fact
-                  label="Vencimento"
+                  label={CARD_DUE_FACT_LABEL}
                   value={card.statement_due_day != null ? `Dia ${card.statement_due_day}` : "Não informado"}
                   tone={card.statement_due_day != null ? undefined : "warning"}
                 />
@@ -172,7 +195,11 @@ export default function StatementPanel({
                   hint={valueLabel.hint ?? undefined}
                 />
                 <Fact
-                  label={group.paid && group.dueDate && group.dueDate < today ? "Venceu em" : "Vence em"}
+                  label={
+                    group.paid && group.dueDate && group.dueDate < today
+                      ? "Fatura venceu em"
+                      : "Fatura vence em"
+                  }
                   value={group.dueDate ? formatDayMonth(group.dueDate) : "Não informado"}
                   tone={group.dueDate ? undefined : "muted"}
                 />
@@ -215,8 +242,23 @@ export default function StatementPanel({
                   onClick={() => setExpanded((prev) => ({ ...prev, [card.id]: !open }))}
                 >
                   {open ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
-                  Ver cobranças ({group.components.length})
+                  Nesta fatura ({group.components.length})
                 </Button>
+                {linked.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-10"
+                    onClick={() => setLinkedOpen((prev) => ({ ...prev, [card.id]: !linkedIsOpen }))}
+                  >
+                    {linkedIsOpen ? (
+                      <ChevronDown className="w-4 h-4 mr-1" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 mr-1" />
+                    )}
+                    Outros vinculados ({linked.length})
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="min-h-10" onClick={() => onOpenStatement(group)}>
                   {group.paid ? "Ver detalhes" : "Informar valor da fatura"}
                 </Button>
@@ -282,8 +324,15 @@ export default function StatementPanel({
                         {row.projected && <span className="text-muted-foreground"> · prevista</span>}
                       </span>
                       <span className="flex items-center gap-3 flex-shrink-0">
-                        <span className="text-muted-foreground">
-                          Cobrança em {formatDayMonth(row.chargeDate)}
+                        <span
+                          className={
+                            row.chargeDate ? "text-muted-foreground" : "text-destructive"
+                          }
+                        >
+                          {cardChargeDateLabel({
+                            chargeDate: row.chargeDate,
+                            projected: row.projected,
+                          })}
                         </span>
                         {row.currency === "USD" && (
                           <span className="text-muted-foreground">
@@ -295,6 +344,82 @@ export default function StatementPanel({
                     </button>
                   ))
                 )}
+              </div>
+            )}
+            {needsFix > 0 && (
+              <div className="flex items-start gap-2 px-4 py-3 bg-amber-500/10 text-amber-700 dark:text-amber-500 text-sm">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  {needsFix === 1
+                    ? "1 lançamento deste cartão está sem data de cobrança"
+                    : `${needsFix} lançamentos deste cartão estão sem data de cobrança`}{" "}
+                  e por isso não entram em nenhuma fatura. Abra em <strong>Outros vinculados</strong>{" "}
+                  para corrigir.
+                </span>
+              </div>
+            )}
+
+            {linkedIsOpen && linked.length > 0 && (
+              <div className="border-t bg-muted/30">
+                <p className="px-4 pt-3 text-sm text-muted-foreground">
+                  Ligados a este cartão, mas <strong>fora da fatura de {monthLabel}</strong>. Não
+                  somam no valor desta fatura.
+                </p>
+                <div className="divide-y mt-2">
+                  {linked.map((entry) => {
+                    const fixLabel = LINKED_CARD_FIX_LABELS[entry.fix];
+                    return (
+                      <div
+                        key={entry.item.id}
+                        className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-foreground">{entry.item.name}</p>
+                          <p
+                            className={
+                              entry.reason === "next_statement" || entry.reason === "other_statement"
+                                ? "text-xs text-muted-foreground"
+                                : "text-xs text-destructive"
+                            }
+                          >
+                            {entry.label}
+                          </p>
+                          {entry.detail && (
+                            <p className="text-xs text-muted-foreground">{entry.detail}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {entry.row && (
+                            <span className="text-muted-foreground">
+                              {entry.row.chargeDate
+                                ? cardChargeDateLabel({
+                                    chargeDate: entry.row.chargeDate,
+                                    projected: entry.row.projected,
+                                  })
+                                : CARD_CHARGE_DATE_MISSING}
+                            </span>
+                          )}
+                          {fixLabel && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="min-h-10"
+                              onClick={() => {
+                                if (entry.fix === "fix_charge_date" && entry.row) {
+                                  onOpenRow(entry.row);
+                                  return;
+                                }
+                                onEditItem?.(entry.item);
+                              }}
+                            >
+                              {fixLabel}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </Card>
