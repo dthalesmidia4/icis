@@ -364,8 +364,8 @@ const GENERIC_MIN_ROW_GAP_PCT = 22;
  * Café/Reunião/Espera à direita) e por isso são reservadas em px: as mesas
  * ficam concentradas na faixa central, nunca invadindo as zonas.
  */
-export const RICH_LEFT_ZONE_PX = 252;
-export const RICH_RIGHT_ZONE_PX = 276;
+export const RICH_LEFT_ZONE_PX = 238;
+export const RICH_RIGHT_ZONE_PX = 250;
 /** Tetos das faixas: em palco largo elas crescem, mas não indefinidamente. */
 export const RICH_LEFT_ZONE_MAX_PX = 312;
 export const RICH_RIGHT_ZONE_MAX_PX = 336;
@@ -385,8 +385,8 @@ export function richRightZonePx(stageWidth: number): number {
 /** Faixa superior do Painel da agência (parede): a fileira do fundo fica abaixo. */
 export const RICH_PANEL_BAND_PCT = WALL_HEIGHT_PCT;
 /** Centros horizontais (%) das mesas no modo rico — faixas 36–40% e 62–66%. */
-export const RICH_CENTERS_BACK: [number, number] = [34, 66];
-export const RICH_CENTERS_FRONT: [number, number] = [33, 67];
+export const RICH_CENTERS_BACK: [number, number] = [35, 64];
+export const RICH_CENTERS_FRONT: [number, number] = [34, 65];
 /** Altura visual acima do tampo (monitor + personagem + pilha), como fração da base. */
 export const DESK_ABOVE_TABLE_RATIO = 0.52;
 
