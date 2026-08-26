@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 import { useRealtimePeriodPlans, useDebouncedCallback, useRealtimeVisualIdentity } from "@/hooks/realtime";
-import { isCampaignClosed, loadCampaigns, type MarketingCampaign } from "@/lib/marketingCampaigns";
+import { isCampaignClosed, loadCampaign, loadCampaigns, type MarketingCampaign } from "@/lib/marketingCampaigns";
 import { Sparkles, Zap, Check, X, Package, History, Plus, Calendar as CalendarIcon, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Instagram, Facebook, Youtube, Linkedin, ChevronDown, TrendingUp, CheckSquare, Rocket, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
