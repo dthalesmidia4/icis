@@ -243,7 +243,7 @@ const COMFORT_GAP_MIN_PX = 56;
 const COMFORT_GAP_MAX_PX = 120;
 export function comfortGapPx(size: WorldSize = DEFAULT_SIZE): number {
   const width = size.width || DEFAULT_SIZE.width;
-  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.044)));
+  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.038)));
 }
 
 /**
