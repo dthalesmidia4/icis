@@ -73,6 +73,14 @@ import {
   deleteFinanceOccurrenceSafe,
   inactivateFinanceItemSafe,
 } from "@/lib/financeSafeDelete";
+import {
+  CLOSED_CORRECTION_NOTE,
+  CLOSED_CORRECTION_SAVE_LABEL,
+  CLOSED_CORRECTION_SUCCESS,
+  buildClosedCorrectionPatch,
+  closedFactMode,
+} from "@/lib/financeClosedCorrection";
+
 
 const BUCKET = "bill-attachments";
 
@@ -137,14 +145,27 @@ export default function FinanceOccurrenceModal({
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
 
   /**
-   * Fato FECHADO (pago direto ou liquidado por fatura paga) é imutável: a única
-   * resposta possível é preservar. A RPC valida isso de novo no banco.
+   * Fato FECHADO (pago direto ou liquidado por fatura paga) é imutável nas suas
+   * PROVAS: data, origem, pagamento e comprovante. A RPC valida de novo no banco.
+   *
+   * Exceção estritamente monetária: um COMPONENTE de cartão liquidado por uma
+   * fatura já paga pode ter o valor deste mês corrigido (o banco cobrou outro
+   * valor) — sem desfazer pagamento nem mexer em datas (`financeClosedCorrection`).
    */
   const rowClosed = row
     ? effectivePaid(row, statusContext?.rows ?? [row], statusContext?.settlement ?? null)
     : false;
+  /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
+  const cardRow = !!row && isCardCharge(row);
+  const statementRow = !!row && isStatementRow(row);
+  const factMode = closedFactMode({ cardRow, statementRow, closed: rowClosed });
+  /** Correção seletiva: só os campos monetários deste mês abrem. */
+  const correcting = factMode === "card_component_correction";
   const readOnlyFact = rowClosed;
+  /** Valor / dólar / câmbio: bloqueados só quando nem correção é permitida. */
+  const readOnlyMoney = readOnlyFact && !correcting;
   const deleteAction = row ? occurrenceDeleteActionForRow(row, rowClosed) : "nothing_to_delete";
+
 
   const handleDestructive = async () => {
     if (!row) return;
@@ -167,9 +188,7 @@ export default function FinanceOccurrenceModal({
     onRefresh?.();
   };
 
-  /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
-  const cardRow = !!row && isCardCharge(row);
-  const statementRow = !!row && isStatementRow(row);
+
   /** Câmbio já provado pelo par (BRL real / USD original) desta compra. */
   const persistedRate = row ? effectiveUsdRate(row) : null;
   /** Dia civil do `paid_at` já salvo — a prova do fato. */
@@ -302,30 +321,44 @@ export default function FinanceOccurrenceModal({
   }, [origin]);
 
   const handleSave = async () => {
-    if (!row || !canSubmit || readOnlyFact) return;
+    if (!row) return;
+    if (readOnlyFact && !correcting) return;
+    if (!correcting && !canSubmit) return;
     setSaving(true);
-    const patch = buildOccurrencePatch({
-      row,
-      cardRow,
-      factDate,
-      amountOriginal: amountNumber,
-      amountBrl: brl,
-      exchangeRate: rateNumber,
-      paid,
-      paymentDate: cardRow ? null : paymentDate,
-      observations,
-      attachmentUrl,
-      attachmentName,
-      originPatch,
-    });
+    /**
+     * Correção fechada envia patch MÍNIMO: nada de data, origem, pagamento ou
+     * comprovante entra — a prova histórica permanece exatamente como está.
+     */
+    const patch = correcting
+      ? buildClosedCorrectionPatch({
+          currency: row.currency,
+          amountOriginal: amountNumber,
+          amountBrl: brl,
+          exchangeRate: rateNumber,
+        })
+      : buildOccurrencePatch({
+          row,
+          cardRow,
+          factDate,
+          amountOriginal: amountNumber,
+          amountBrl: brl,
+          exchangeRate: rateNumber,
+          paid,
+          paymentDate: cardRow ? null : paymentDate,
+          observations,
+          attachmentUrl,
+          attachmentName,
+          originPatch,
+        });
     const saved = await onSave(row, patch);
 
     setSaving(false);
     if (saved) {
-      toast.success("Lançamento salvo");
+      toast.success(correcting ? CLOSED_CORRECTION_SUCCESS : "Lançamento salvo");
       onOpenChange(false);
     }
   };
+
 
   if (!row) return null;
 
@@ -378,7 +411,8 @@ export default function FinanceOccurrenceModal({
                   onChange={(e) => editUsd("original", e.target.value)}
                   inputMode="decimal"
                   placeholder="0,00"
-                  readOnly={readOnlyFact}
+                  readOnly={readOnlyMoney}
+
                 />
               </div>
 
@@ -402,7 +436,8 @@ export default function FinanceOccurrenceModal({
                       value={rate}
                       onChange={(e) => editUsd("rate", e.target.value)}
                       inputMode="decimal"
-                      readOnly={readOnlyFact}
+                      readOnly={readOnlyMoney}
+
                     />
                   </div>
                   <div className="min-w-0">
@@ -413,7 +448,8 @@ export default function FinanceOccurrenceModal({
                       onChange={(e) => editUsd("brl", e.target.value)}
                       inputMode="decimal"
                       placeholder="0,00"
-                      readOnly={readOnlyFact}
+                      readOnly={readOnlyMoney}
+
                     />
                   </div>
                 </>
@@ -470,8 +506,11 @@ export default function FinanceOccurrenceModal({
                 <p className="text-xs text-muted-foreground mt-1">
                   {statementRow
                     ? "Fatura fechada: valores, datas e pagamento ficam somente para consulta."
-                    : "Compras no cartão são liquidadas pelo pagamento da fatura."}
+                    : correcting
+                      ? CLOSED_CORRECTION_NOTE
+                      : "Compras no cartão são liquidadas pelo pagamento da fatura."}
                 </p>
+
               </div>
             ) : (
               <div className="rounded-lg border divide-y">
@@ -562,6 +601,14 @@ export default function FinanceOccurrenceModal({
             </div>
           </Block>
 
+          {/* Cadastro inativado: o fato do mês continua real, mas não se repete. */}
+          {!row.item.active && (
+            <p className="text-xs text-muted-foreground break-words">
+              <strong>Cadastro inativo</strong> — este lançamento continua valendo neste mês, mas o
+              cadastro não será mais projetado nos meses seguintes.
+            </p>
+          )}
+
           {/* Categoria é do CADASTRO permanente, nunca do fato mensal. */}
           <p className="text-xs text-muted-foreground break-words">
             Categoria: <strong>{row.item.category?.trim() || "Sem categoria"}</strong> — definida no
@@ -602,12 +649,20 @@ export default function FinanceOccurrenceModal({
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            {!readOnlyFact && (
-              <Button onClick={handleSave} disabled={saving || uploading || !canSubmit}>
-                {saving ? "Salvando..." : "Salvar lançamento"}
+            {(!readOnlyFact || correcting) && (
+              <Button
+                onClick={handleSave}
+                disabled={saving || uploading || (!correcting && !canSubmit)}
+              >
+                {saving
+                  ? "Salvando..."
+                  : correcting
+                    ? CLOSED_CORRECTION_SAVE_LABEL
+                    : "Salvar lançamento"}
               </Button>
             )}
           </div>
+
         </DialogFooter>
 
       </DialogContent>

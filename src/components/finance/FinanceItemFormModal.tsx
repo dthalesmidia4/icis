@@ -172,14 +172,23 @@ export default function FinanceItemFormModal({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  /**
+   * O cadastro deixou de existir (excluído) ou foi inativado nesta sessão do
+   * modal. Um `Salvar` stale reativaria `active=true` a partir do estado antigo
+   * do formulário — por isso o formulário morre junto com o cadastro.
+   */
+  const [destroyed, setDestroyed] = useState(false);
   /** Passo 1: intenção. Só existe para NOVOS cadastros. */
   const [step, setStep] = useState<"intent" | "form">("form");
   const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setDestroyed(false);
+    setDeleteOpen(false);
     setStep(item || initialKind ? "form" : "intent");
     setShowMore(false);
+
     setKind((item?.kind as FinanceKind) ?? initialKind ?? (scope === "tools" ? "tool" : "expense"));
     setName(item?.name ?? "");
     setPurpose(item?.purpose ?? "");
@@ -322,7 +331,10 @@ export default function FinanceItemFormModal({
   }, [amountNumber, currency, usdNumbers.amountBrl]);
 
   const handleSubmit = async () => {
+    // Cadastro já inativado/excluído: salvar aqui ressuscitaria o registro.
+    if (destroyed) return;
     if (!name.trim()) return;
+
     if (!installmentsValid) return;
     if (!oneOffDateValid) return;
     setSaving(true);
@@ -839,7 +851,7 @@ export default function FinanceItemFormModal({
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button
               onClick={handleSubmit}
-              disabled={saving || !name.trim() || !installmentsValid || !oneOffDateValid}
+              disabled={saving || destroyed || !name.trim() || !installmentsValid || !oneOffDateValid}
             >
 
               {saving ? "Salvando..." : "Salvar"}
@@ -852,12 +864,20 @@ export default function FinanceItemFormModal({
           open={deleteOpen}
           onOpenChange={setDeleteOpen}
           item={item}
+          /**
+           * Fechamento DETERMINÍSTICO: consulta fechada, formulário fechado e
+           * tela recarregada — nunca sobra um formulário vivo capaz de
+           * reativar o cadastro que acabou de ser inativado.
+           */
           onDone={() => {
+            setDestroyed(true);
+            setDeleteOpen(false);
             onOpenChange(false);
             onAfterDelete?.();
           }}
         />
       )}
+
     </Dialog>
   );
 }

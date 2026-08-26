@@ -90,6 +90,9 @@ export default function FinanceItemDeleteModal({ open, onOpenChange, item, onDon
           </p>
         ) : (
           <div className="space-y-3">
+            {!item.active && (
+              <p className="text-sm font-medium">Este cadastro já está inativo.</p>
+            )}
             <p className="text-sm text-muted-foreground">{ITEM_DECISION_HINTS[decision.action]}</p>
             {decision.occurrence_count > 0 && (
               <p className="text-sm flex items-start gap-2">
@@ -104,6 +107,7 @@ export default function FinanceItemDeleteModal({ open, onOpenChange, item, onDon
             )}
           </div>
         )}
+
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={running}>

@@ -137,10 +137,17 @@ export default function MonthAccountsList({
                 Duplicidade
               </Badge>
             )}
+            {/* Cadastro inativado: o fato deste mês é real, mas não se repete. */}
+            {!row.item.active && !locked && (
+              <Badge variant="outline" className="text-muted-foreground">
+                Cadastro inativo
+              </Badge>
+            )}
             {row.occurrence?.attachment_url && !locked && (
               <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
             )}
           </div>
+
           <p className="text-sm text-muted-foreground flex items-center gap-1">
             {row.cardItemId && <CreditCard className="w-3.5 h-3.5" />}
             {locked ? row.item.purpose : metaFor(row)}
@@ -214,7 +221,11 @@ export default function MonthAccountsList({
           <div className="min-w-0">
             <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
             <p className="text-sm text-muted-foreground">{locked ? row.item.purpose : metaFor(row)}</p>
+            {!row.item.active && !locked && (
+              <p className="text-xs text-muted-foreground">Cadastro inativo</p>
+            )}
           </div>
+
           <span className="text-[15px] font-semibold whitespace-nowrap">
             {formatBRL(row.amountBrl)}
           </span>

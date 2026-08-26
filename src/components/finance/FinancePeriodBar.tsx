@@ -11,6 +11,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Competence, addMonths } from "@/lib/financeCardCycle";
 import { formatDayMonth } from "@/lib/financePaidLabel";
+import {
+  FINANCE_TRACKING_START,
+  FINANCE_TRACKING_START_MESSAGE,
+  clampToTrackingStart,
+  compareCompetence,
+} from "@/lib/financeTrackingPeriod";
 
 const MONTH_LABELS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -23,6 +29,8 @@ interface Props {
   /** Dia civil de hoje (`YYYY-MM-DD`) — fonte do rótulo contextual. */
   today: string;
   className?: string;
+  /** Primeiro mês operacional. Padrão: corte do novo Financeiro. */
+  minCompetence?: Competence;
 }
 
 /** Competência do dia de hoje, derivada do próprio `today`. */
@@ -31,9 +39,17 @@ function competenceOfToday(today: string): Competence {
   return { year, month };
 }
 
-export default function FinancePeriodBar({ competence, onChange, today, className }: Props) {
-  const current = competenceOfToday(today);
+export default function FinancePeriodBar({
+  competence,
+  onChange,
+  today,
+  className,
+  minCompetence = FINANCE_TRACKING_START,
+}: Props) {
+  const current = clampToTrackingStart(competenceOfToday(today), minCompetence);
   const isCurrentMonth = competence.year === current.year && competence.month === current.month;
+  // Antes do corte não existe mês operacional: a seta simplesmente não abre.
+  const canGoBack = compareCompetence(addMonths(competence, -1), minCompetence) >= 0;
 
   return (
     <div
@@ -44,7 +60,9 @@ export default function FinancePeriodBar({ competence, onChange, today, classNam
         size="icon"
         className="h-8 w-8"
         aria-label="Mês anterior"
-        onClick={() => onChange(addMonths(competence, -1))}
+        disabled={!canGoBack}
+        title={canGoBack ? undefined : FINANCE_TRACKING_START_MESSAGE}
+        onClick={() => canGoBack && onChange(addMonths(competence, -1))}
       >
         <ChevronLeft className="w-4 h-4" />
       </Button>
@@ -60,6 +78,7 @@ export default function FinancePeriodBar({ competence, onChange, today, classNam
       >
         <ChevronRight className="w-4 h-4" />
       </Button>
+
       <span className="mx-1 hidden sm:block h-5 w-px bg-border" aria-hidden="true" />
       {isCurrentMonth ? (
         <span className="px-1 text-sm text-muted-foreground whitespace-nowrap">
