@@ -11,6 +11,7 @@
  * de `Composição do mês`, para que "Administrativo", "Encargos trabalhistas"
  * etc. sejam rastreáveis aqui, sem tela paralela nem outra fonte de dados.
  */
+import { Fragment } from "react";
 import { AlertTriangle, CheckCircle2, Clock, CreditCard, MoreVertical, Paperclip } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -270,7 +271,7 @@ export default function MonthAccountsList({
           </TableHeader>
           <TableBody>
             {groups.map((group) => (
-              <>
+              <Fragment key={`g-${group.key}`}>
                 {grouped && (
                   <TableRow key={`cc-${group.key}`} className="bg-muted/40 hover:bg-muted/40">
                     <TableCell colSpan={4} className="py-2 text-xs font-bold uppercase tracking-wider">
@@ -282,7 +283,7 @@ export default function MonthAccountsList({
                   </TableRow>
                 )}
                 {group.categories.map((category) => (
-                  <>
+                  <Fragment key={`c-${group.key}-${category.key}`}>
                     {grouped && (
                       <TableRow
                         key={`cat-${group.key}-${category.key}`}
@@ -297,9 +298,9 @@ export default function MonthAccountsList({
                       </TableRow>
                     )}
                     {category.rows.map(desktopRow)}
-                  </>
+                  </Fragment>
                 ))}
-              </>
+              </Fragment>
             ))}
           </TableBody>
         </Table>
