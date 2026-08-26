@@ -36,6 +36,8 @@ import {
   seedUsdConversion,
 } from "@/lib/financeUsdConversion";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
+import { WEEKDAYS } from "@/lib/financeRecurrenceSchedule";
+
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 import { Competence, competenceToISO } from "@/lib/financeCardCycle";
 import { OneOffFact, shouldMaterializeOneOff } from "@/lib/financeOneOff";
