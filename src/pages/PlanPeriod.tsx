@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 import { useRealtimePeriodPlans, useDebouncedCallback, useRealtimeVisualIdentity } from "@/hooks/realtime";
+import { isCampaignClosed, loadCampaigns, type MarketingCampaign } from "@/lib/marketingCampaigns";
 import { Sparkles, Zap, Check, X, Package, History, Plus, Calendar as CalendarIcon, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Instagram, Facebook, Youtube, Linkedin, ChevronDown, TrendingUp, CheckSquare, Rocket, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -129,6 +130,23 @@ const PlanPeriod = () => {
     enabled: !!(selectedClient?.id && tenantId),
     onChange: () => { checkVisualIdentity(); },
   });
+
+  // Campanha (opcional): costura o período de Mídia à camada de campanha.
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  const [campaignId, setCampaignId] = useState<string>(searchParams.get('campaign') || "");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!tenantId || !selectedClient?.id) { setCampaigns([]); return; }
+      try {
+        const rows = await loadCampaigns(tenantId, selectedClient.id);
+        if (!cancelled) setCampaigns(rows.filter((c) => !isCampaignClosed(c.status)));
+      } catch (err) {
+        console.error('[PlanPeriod] falha ao carregar campanhas', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tenantId, selectedClient?.id]);
 
   // Form state
   const [periodTitle, setPeriodTitle] = useState("");
@@ -828,6 +846,8 @@ const PlanPeriod = () => {
         demand_type: tipo || null,
         demand_type_key: demandTypeKey,
         source: 'card',
+        // Cards gerados pelo planejamento de Mídia são sempre da área de Mídia.
+        work_area: 'midia' as const,
         observations: null
       };
     });
@@ -890,6 +910,7 @@ const PlanPeriod = () => {
         client_acquisition: null,
         paid_traffic_budget: null,
         production_line: activeProductionLine,
+        campaign_id: campaignId || null,
         status: 'draft'
       } as any).select().single();
       if (createError) throw createError;
@@ -1327,6 +1348,26 @@ const PlanPeriod = () => {
             <Label htmlFor="periodTitle" className="text-sm">Título do Período *</Label>
             <Input id="periodTitle" placeholder="Ex: Campanha de Verão 2025" value={periodTitle} onChange={e => setPeriodTitle(e.target.value)} className="mt-1" />
           </div>
+
+          {campaigns.length > 0 && (
+            <div>
+              <Label className="text-sm">Campanha (opcional)</Label>
+              <Select value={campaignId || "none"} onValueChange={v => setCampaignId(v === "none" ? "" : v)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Sem campanha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem campanha</SelectItem>
+                  {campaigns.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Vincular conecta as demandas deste período à campanha e ao Comercial.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
