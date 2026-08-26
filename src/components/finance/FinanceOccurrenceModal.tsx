@@ -79,12 +79,25 @@ import {
   inactivateFinanceItemSafe,
 } from "@/lib/financeSafeDelete";
 import {
-  CLOSED_CORRECTION_NOTE,
-  CLOSED_CORRECTION_SAVE_LABEL,
-  CLOSED_CORRECTION_SUCCESS,
-  buildClosedCorrectionPatch,
-  closedFactMode,
-} from "@/lib/financeClosedCorrection";
+  FACT_CORRECTION_BUTTON,
+  FACT_CORRECTION_INCONSISTENT,
+  FACT_CORRECTION_NOTE,
+  FACT_CORRECTION_SAVE_LABEL,
+  FACT_CORRECTION_SUCCESS,
+  LEGACY_CONVERT_LABEL,
+  LEGACY_CONVERT_NEEDS_DATE,
+  LEGACY_CONVERT_SUCCESS,
+  LEGACY_DIRECT_ON_CARD_NOTE,
+  buildFactCorrectionPatch,
+  correctionWasApplied,
+  factCorrectionMode,
+  isLegacyDirectPaymentOnCard,
+} from "@/lib/financeFactCorrection";
+import {
+  convertOccurrenceToCardCharge,
+  correctFinanceOccurrence,
+} from "@/lib/financeCorrectionRpc";
+
 
 
 const BUCKET = "bill-attachments";
