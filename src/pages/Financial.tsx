@@ -41,6 +41,7 @@ import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal"
 import FinanceAccessGate from "@/components/finance/FinanceAccessGate";
 import FinancePasswordSettingsCard from "@/components/finance/FinancePasswordSettingsCard";
 import StatementPanel from "@/components/finance/StatementPanel";
+import { LinkedCardItem, buildLinkedCardItems } from "@/lib/financeCardLinkedItems";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
 import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
@@ -458,6 +459,19 @@ function FinancialCockpit() {
    * operacional — o cadastro continua existindo em `Gerenciar cadastros`.
    */
   const visibleStatements = useMemo(() => visibleStatementGroups(statements), [statements]);
+
+  /**
+   * Itens ATIVOS ligados a cada cartão que NÃO compõem a fatura do mês, com o
+   * motivo (outro ciclo, data ausente, ciclo não classificável). É apresentação:
+   * nada aqui soma no total da fatura.
+   */
+  const linkedByCard = useMemo(() => {
+    const map: Record<string, LinkedCardItem[]> = {};
+    for (const group of visibleStatements) {
+      map[group.card.id] = buildLinkedCardItems({ group, items, rows, competence });
+    }
+    return map;
+  }, [visibleStatements, items, rows, competence]);
 
   /**
    * Cartão que realmente precisa ser completado: inativo não projeta nada,
@@ -1250,6 +1264,8 @@ function FinancialCockpit() {
                 onPayStatement={handlePayStatement}
                 onAdjustIof={setAdjustingIofGroup}
                 onEditCard={(card) => openItemModal(card)}
+                linkedItems={linkedByCard}
+                onEditItem={(item) => openItemModal(item)}
               />
             )}
           </section>
