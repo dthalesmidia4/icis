@@ -119,12 +119,26 @@ export function characterSizePx(anchorWidth: number, posture: keyof typeof CHARA
 }
 
 /**
+ * PAREDE EM DUAS FAIXAS.
+ * - faixa DECORATIVA (0 → `WALL_DECOR_BAND_PCT`): janelas, quadro, prateleira,
+ *   luminária pendente;
+ * - faixa FUNCIONAL (`WALL_PANEL_BAND_TOP_PCT` → `WALL_HEIGHT_PCT`): só o
+ *   Painel da Agência, centralizado no PALCO LÓGICO.
+ * A parede ficou mais alta de propósito: o painel deixou de sobrepor
+ * janela/luminária sem precisar invadir a primeira fileira de mesas.
+ */
+export const WALL_DECOR_BAND_PCT = 16;
+export const WALL_PANEL_BAND_TOP_PCT = 16.5;
+export const WALL_HEIGHT_PCT = 27;
+
+/**
  * PAINEL DA AGÊNCIA: elemento principal da parede. Cresce com o palco lógico
  * (não com a largura bruta), na faixa pedida de ~420–520px.
  */
 export function agencyPanelWidthPx(stageWidth: number): number {
   return Math.round(Math.min(520, Math.max(420, (stageWidth || DEFAULT_SIZE.width) * 0.3)));
 }
+
 
 
 const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
