@@ -331,7 +331,10 @@ export default function FinanceItemFormModal({
   }, [amountNumber, currency, usdNumbers.amountBrl]);
 
   const handleSubmit = async () => {
+    // Cadastro já inativado/excluído: salvar aqui ressuscitaria o registro.
+    if (destroyed) return;
     if (!name.trim()) return;
+
     if (!installmentsValid) return;
     if (!oneOffDateValid) return;
     setSaving(true);
