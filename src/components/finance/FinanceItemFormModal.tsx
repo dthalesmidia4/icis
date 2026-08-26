@@ -309,6 +309,36 @@ export default function FinanceItemFormModal({
   const isSubMonthly = isRecurring && (frequency === "daily" || frequency === "weekly");
   const subIntervalNumber = parsePositiveInt(subInterval) ?? 1;
   const weekdayNumber = Number(weekday) || 1;
+  const cardSelected = onCard && cardItemId !== NONE;
+  /**
+   * Compra no cartão não tem vencimento próprio: o vencimento é da FATURA.
+   * O campo desaparece e `due_day` é gravado como NULL.
+   */
+  const hideItemDueDay = itemDueDayIsMeaningless(onCard, cardSelected);
+  const selectedCard = cardSelected ? cards.find((c) => c.id === cardItemId) ?? null : null;
+  const chargeDayNumber = parseDayOfMonth(chargeDay);
+  const dueDayNumber = parseDayOfMonth(dueDay);
+  /**
+   * Cobrança/vencimento no mesmo mês precisam ser coerentes. Não é regra de
+   * banco: `due < charge` pode ser vencimento no mês seguinte, e não guardamos
+   * offset de mês — então bloqueamos aqui, explicando a saída.
+   */
+  const chargeDueConflict =
+    !isCard && !isInstallments && !isOneOff
+      ? chargeDueConflictMessage({
+          onCard,
+          cardSelected,
+          chargeDay: chargeDayNumber,
+          dueDay: hideItemDueDay ? null : dueDayNumber,
+        })
+      : null;
+  /** Intervalos NOT NULL do banco: resolvidos num único lugar, nunca null. */
+  const recurrenceIntervals = resolveRecurrenceIntervals({
+    isRecurring,
+    frequency,
+    intervalMonths: frequency === "custom" ? parsePositiveInt(intervalMonths) : null,
+    subInterval: subIntervalNumber,
+  });
 
 
   /** Escolha humana -> `recurrence_type` do banco. */
