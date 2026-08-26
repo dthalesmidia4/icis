@@ -1,4 +1,6 @@
 import type { ReactNode, RefObject } from "react";
+import { WALL_DECOR_BAND_PCT, WALL_HEIGHT_PCT } from "@/lib/officeLayout";
+
 
 interface OfficeWorldProps {
   children: ReactNode;
