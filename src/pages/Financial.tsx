@@ -204,7 +204,12 @@ function FinancialCockpit() {
     saveOccurrence, togglePaid, payStatement, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
-  const [mainView, setMainView] = useState<MainView>("to_pay");
+  /**
+   * `Contas e despesas` é a tela de CONSULTA E GESTÃO do mês: abre em `Todas`.
+   * Os recortes operacionais (`A pagar`/`Atrasadas`) só vêm de deep-link
+   * explícito de fila/alerta.
+   */
+  const [mainView, setMainView] = useState<MainView>("all");
   const [advanced, setAdvanced] = useState<AdvancedFilter>("none");
   const [costCenter, setCostCenter] = useState("all");
   const [search, setSearch] = useState("");
@@ -566,9 +571,9 @@ function FinancialCockpit() {
       icon: Receipt,
       title: "Contas e despesas",
       meta:
-        accountsSummary.pending === 1
-          ? "1 pendente"
-          : `${accountsSummary.pending} pendentes`,
+        accountRows.length === 1
+          ? "1 lançamento no mês"
+          : `${accountRows.length} lançamentos no mês`,
     },
     {
       view: "cards" as View,
@@ -847,7 +852,15 @@ function FinancialCockpit() {
                   return (
                     <button
                       key={shortcut.view}
-                      onClick={() => goTo(shortcut.view)}
+                      onClick={() => {
+                        if (shortcut.view === "accounts") {
+                          // Atalho normal: consulta do mês inteiro, sem recorte.
+                          setMainView("all");
+                          setAdvanced("none");
+                          setCostCenter("all");
+                        }
+                        goTo(shortcut.view);
+                      }}
                       className="text-left w-full px-4 py-4 min-h-[72px] flex items-center gap-3 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                     >
                       <Icon className="w-4 h-4 text-primary flex-shrink-0" />
