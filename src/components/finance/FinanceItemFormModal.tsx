@@ -37,6 +37,14 @@ import {
 } from "@/lib/financeUsdConversion";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
 import { WEEKDAYS } from "@/lib/financeRecurrenceSchedule";
+import {
+  FinancePaymentMode,
+  FinancePaymentRule,
+  PAYMENT_MODE_HELP,
+  PAYMENT_MODE_LABELS,
+  describePaymentRule,
+  effectivePaymentRuleFor,
+} from "@/lib/financePaymentSchedule";
 
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 import { Competence, competenceToISO } from "@/lib/financeCardCycle";
