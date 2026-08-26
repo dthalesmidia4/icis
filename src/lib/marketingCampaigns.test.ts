@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   campaignRegionLabel,
   campaignStatusLabel,
+  countCampaignStages,
   isCampaignClosed,
   parseNumber,
   pickActiveCampaign,
@@ -133,5 +134,20 @@ describe("summarizeCampaignCommercial", () => {
       { lifecycle: "customer", commercial_stage: "ganho" },
     ]);
     expect(s).toEqual({ total: 3, prospects: 2, customers: 1, won: 1, lost: 1 });
+  });
+});
+
+describe("countCampaignStages", () => {
+  it("distribui pelas etapas comerciais reais", () => {
+    const out = countCampaignStages([
+      { commercial_stage: "mapeado" },
+      { commercial_stage: "negociacao" },
+      { commercial_stage: "negociacao" },
+    ]);
+    const map = Object.fromEntries(out.map((r) => [r.stage, r.count]));
+    expect(map.mapeado).toBe(1);
+    expect(map.negociacao).toBe(2);
+    expect(map.ganho).toBe(0);
+    expect(out.length).toBeGreaterThanOrEqual(8);
   });
 });

@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 import { useRealtimePeriodPlans, useDebouncedCallback, useRealtimeVisualIdentity } from "@/hooks/realtime";
-import { isCampaignClosed, loadCampaigns, type MarketingCampaign } from "@/lib/marketingCampaigns";
+import { isCampaignClosed, loadCampaign, loadCampaigns, type MarketingCampaign } from "@/lib/marketingCampaigns";
 import { Sparkles, Zap, Check, X, Package, History, Plus, Calendar as CalendarIcon, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Instagram, Facebook, Youtube, Linkedin, ChevronDown, TrendingUp, CheckSquare, Rocket, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -82,7 +82,7 @@ type Step = 'form' | 'loading-normal' | 'choose-ultra' | 'loading-ultra' | 'comp
 const PlanPeriod = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { selectedClient } = useSelectedClient();
+  const { selectedClient, setSelectedClient } = useSelectedClient();
   const { tenantId } = useTenant();
 
   // Tab state - check URL param for initial tab
@@ -131,6 +131,38 @@ const PlanPeriod = () => {
     onChange: () => { checkVisualIdentity(); },
   });
 
+  // Entrada por campanha (/plan-period?campaign=ID): garante que o cliente da
+  // campanha esteja selecionado antes de planejar.
+  useEffect(() => {
+    const paramCampaign = searchParams.get('campaign');
+    if (!paramCampaign || !tenantId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const camp = await loadCampaign(paramCampaign);
+        if (cancelled || !camp || camp.company_id === selectedClient?.id) return;
+        const { data } = await supabase
+          .from('tenant_companies')
+          .select('id, name, fantasy_name, cnpj_cpf, email')
+          .eq('id', camp.company_id)
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+        if (cancelled || !data) return;
+        setSelectedClient({
+          id: data.id,
+          name: data.name,
+          fantasy_name: data.fantasy_name,
+          cnpj_cpf: data.cnpj_cpf,
+          email: data.email,
+        });
+      } catch (err) {
+        console.error('[PlanPeriod] falha ao abrir campanha', err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, tenantId]);
+
   // Campanha (opcional): costura o período de Mídia à camada de campanha.
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [campaignId, setCampaignId] = useState<string>(searchParams.get('campaign') || "");
@@ -140,7 +172,11 @@ const PlanPeriod = () => {
       if (!tenantId || !selectedClient?.id) { setCampaigns([]); return; }
       try {
         const rows = await loadCampaigns(tenantId, selectedClient.id);
-        if (!cancelled) setCampaigns(rows.filter((c) => !isCampaignClosed(c.status)));
+        // Encerradas ficam fora, exceto a que veio explicitamente pela URL.
+        const current = searchParams.get('campaign') || campaignId;
+        if (!cancelled) {
+          setCampaigns(rows.filter((c) => !isCampaignClosed(c.status) || c.id === current));
+        }
       } catch (err) {
         console.error('[PlanPeriod] falha ao carregar campanhas', err);
       }
@@ -250,6 +286,7 @@ const PlanPeriod = () => {
 
   // === Draft persistence (Salvar Rascunho do Planejamento) ===
   const buildDraftPayload = useCallback(() => ({
+    campaignId,
     periodTitle,
     periodStart: periodStart?.toISOString() ?? null,
     periodEnd: periodEnd?.toISOString() ?? null,
@@ -274,7 +311,7 @@ const PlanPeriod = () => {
     materiaisNovosDescricao,
     quantidadeConteudos,
   }), [
-    periodTitle, periodStart, periodEnd, budget, observations, excludedFormats, selectedChannels,
+    campaignId, periodTitle, periodStart, periodEnd, budget, observations, excludedFormats, selectedChannels,
     objetivosSelecionados, objetivoOutro, metaNumerica, porqueObjetivo,
     produtoFoco, temPromocao, promocaoDescricao, comoComprar,
     temDataComemorativa, dataComemorativaDescricao, temNovidade, novidadeDescricao,
@@ -299,7 +336,7 @@ const PlanPeriod = () => {
       try {
         const { data, error } = await supabase
           .from('period_plans')
-          .select('id, form_draft, updated_at')
+          .select('id, form_draft, campaign_id, updated_at')
           .eq('tenant_id', tenantId)
           .eq('company_id', selectedClient.id)
           .eq('status', 'draft')
@@ -311,6 +348,10 @@ const PlanPeriod = () => {
         if (data?.form_draft) {
           const d: any = data.form_draft;
           setDraftId(data.id);
+          // A campanha do rascunho só sobrescreve quando não veio explícita na URL.
+          const urlCampaign = searchParams.get('campaign') || "";
+          const savedCampaign = (data as any).campaign_id || d.campaignId || "";
+          if (!urlCampaign && savedCampaign) setCampaignId(savedCampaign);
           if (d.periodTitle !== undefined) setPeriodTitle(d.periodTitle || "");
           if (d.periodStart) setPeriodStart(new Date(d.periodStart));
           if (d.periodEnd) setPeriodEnd(new Date(d.periodEnd));
@@ -359,6 +400,7 @@ const PlanPeriod = () => {
           .from('period_plans')
           .update({
             form_draft: payload,
+            campaign_id: campaignId || null,
             period_title: periodTitle || null,
             period_start: periodStart ? periodStart.toISOString().slice(0, 10) : null,
             period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : null,
@@ -379,6 +421,7 @@ const PlanPeriod = () => {
             period_start: periodStart ? periodStart.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             priority_channel: selectedChannels[0] || 'Não definido',
+            campaign_id: campaignId || null,
             form_draft: payload,
           } as any)
           .select('id')
@@ -395,7 +438,7 @@ const PlanPeriod = () => {
     } finally {
       setIsSavingDraft(false);
     }
-  }, [selectedClient, tenantId, draftId, buildDraftPayload, periodTitle, periodStart, periodEnd]);
+  }, [selectedClient, tenantId, draftId, buildDraftPayload, periodTitle, periodStart, periodEnd, campaignId]);
 
   const handleSuggestConfig = async () => {
 

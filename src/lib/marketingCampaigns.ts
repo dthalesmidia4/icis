@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isAdEnabled } from "@/lib/adPlan";
+import { STAGE_OPTIONS, type CommercialStage } from "@/lib/systemsClients";
 
 /**
  * Camada de CAMPANHA (marketing_campaigns).
@@ -288,7 +290,7 @@ export async function loadCampaignMedia(
   return {
     periods: periods || [],
     demandsTotal: rows.length,
-    demandsBoosted: rows.filter((d) => !!d.ad_plan && (d.ad_plan as any).boost === true).length,
+    demandsBoosted: rows.filter((d) => isAdEnabled(d.ad_plan)).length,
     demandsPublished: rows.filter((d) => !!d.published_at).length,
   };
 }
@@ -313,6 +315,37 @@ export function summarizeCampaignCommercial(
     won: list.filter((r) => r.commercial_stage === "ganho").length,
     lost: list.filter((r) => r.commercial_stage === "perdido").length,
   };
+}
+
+/** Distribuição por etapa comercial REAL (mapeado → perdido). */
+export function countCampaignStages(
+  rows: { commercial_stage?: string | null }[],
+): { stage: CommercialStage; count: number }[] {
+  const list = rows || [];
+  return STAGE_OPTIONS.map(({ value: stage }) => ({
+    stage,
+    count: list.filter((r) => r.commercial_stage === stage).length,
+  }));
+}
+
+/** Estratégias da empresa, para vincular a campanha à estratégia geral. */
+export async function loadCompanyStrategies(
+  tenantId: string,
+  companyId: string,
+): Promise<{ id: string; label: string }[]> {
+  const { data, error } = await supabase
+    .from("strategies")
+    .select("id, name, status, created_at")
+    .eq("tenant_id", tenantId)
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((s: any) => ({
+    id: s.id,
+    label:
+      s.name?.trim() ||
+      `Estratégia de ${new Date(s.created_at).toLocaleDateString("pt-BR")}${s.status ? ` · ${s.status}` : ""}`,
+  }));
 }
 
 export async function loadCampaignCommercial(tenantId: string, campaignId: string) {

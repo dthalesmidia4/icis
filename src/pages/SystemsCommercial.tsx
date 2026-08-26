@@ -210,6 +210,7 @@ export default function SystemsCommercial() {
   // Nova oportunidade
   const [newOpen, setNewOpen] = useState(false);
   const [newCompany, setNewCompany] = useState("");
+  const [newCampaignId, setNewCampaignId] = useState("");
   const [newName, setNewName] = useState("");
   const [newContact, setNewContact] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -273,11 +274,19 @@ export default function SystemsCommercial() {
     return pickActiveCampaign(pool);
   }, [campaigns, companyFilter]);
 
-  /** Oportunidades já atribuídas à campanha vigente. */
+  /** Oportunidades já atribuídas à campanha vigente, por etapa comercial real. */
   const campaignStats = useMemo(() => {
-    if (!activeCampaign) return { linked: 0, won: 0 };
+    if (!activeCampaign) return { linked: 0, won: 0, lost: 0, open: 0, negotiating: 0 };
     const linked = rows.filter((r) => r.client.acquisition_campaign_id === activeCampaign.id);
-    return { linked: linked.length, won: linked.filter((r) => r.client.commercial_stage === "ganho").length };
+    const byStage = (stage: string) =>
+      linked.filter((r) => r.client.commercial_stage === stage).length;
+    return {
+      linked: linked.length,
+      won: byStage("ganho"),
+      lost: byStage("perdido"),
+      negotiating: byStage("negociacao") + byStage("avaliacao"),
+      open: linked.filter((r) => !isFinalStage(r.client.commercial_stage)).length,
+    };
   }, [rows, activeCampaign]);
 
   const visible = useMemo(() => {
@@ -496,18 +505,46 @@ export default function SystemsCommercial() {
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {campaignRegionLabel(activeCampaign)} · {campaignStats.linked} oportunidade(s) da
-                    campanha · {campaignStats.won} ganha(s)
+                    {campaignRegionLabel(activeCampaign)}
+                    {activeCampaign.channels.length
+                      ? ` · ${activeCampaign.channels.join(", ")}`
+                      : ""}
                   </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="text-[10px] font-black uppercase">
+                      {campaignStats.linked} da campanha
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-black uppercase">
+                      {campaignStats.open} em aberto
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-black uppercase">
+                      {campaignStats.negotiating} avaliação/negociação
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-black uppercase">
+                      {campaignStats.won} ganhos
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-black uppercase">
+                      {campaignStats.lost} perdidos
+                    </Badge>
+                  </div>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => navigate(`/campanhas/${activeCampaign.id}`)}
-              >
-                Ver campanha
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/plan-period?campaign=${activeCampaign.id}`)}
+                >
+                  Planejar período
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/campanhas/${activeCampaign.id}`)}
+                >
+                  Ver campanha
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -1065,6 +1102,32 @@ export default function SystemsCommercial() {
               <label className="text-xs font-semibold uppercase text-muted-foreground">Sistema atual</label>
               <Input value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="mt-1" />
             </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Campanha de origem (opcional)
+              </label>
+              <Select
+                value={newCampaignId || "none"}
+                onValueChange={(v) => setNewCampaignId(v === "none" ? "" : v)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Sem campanha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem campanha</SelectItem>
+                  {campaigns
+                    .filter((c) => !newCompany || c.company_id === newCompany)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                O vínculo de campanha nunca é automático — atribua apenas quando a origem for real.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setNewOpen(false)}>
@@ -1090,12 +1153,8 @@ export default function SystemsCommercial() {
                   lifecycle: "prospect",
                   commercialStage: "mapeado",
                   commercialOwnerId: user?.id || null,
-                  // Nova oportunidade nasce atribuída à campanha vigente da empresa.
-                  acquisitionCampaignId:
-                    (activeCampaign && activeCampaign.company_id === newCompany
-                      ? activeCampaign.id
-                      : null),
-
+                  // Vínculo de campanha é sempre escolha explícita: nunca automático.
+                  acquisitionCampaignId: newCampaignId || null,
                 });
                 setNewSaving(false);
                 if (!res.success) {
@@ -1108,6 +1167,7 @@ export default function SystemsCommercial() {
                 setNewContact("");
                 setNewPhone("");
                 setNewCity("");
+                setNewCampaignId("");
                 setNewSystem("");
                 load();
               }}

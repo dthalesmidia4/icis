@@ -24,6 +24,7 @@ import {
 import {
   CAMPAIGN_CHANNEL_OPTIONS,
   CAMPAIGN_STATUS_OPTIONS,
+  loadCompanyStrategies,
   saveCampaign,
   validateCampaignInput,
   type CampaignStatus,
@@ -39,6 +40,7 @@ interface Props {
 }
 
 interface FormState {
+  strategyId: string;
   name: string;
   objective: string;
   status: CampaignStatus;
@@ -55,6 +57,7 @@ interface FormState {
 }
 
 const empty: FormState = {
+  strategyId: "",
   name: "",
   objective: "",
   status: "planning",
@@ -71,6 +74,7 @@ const empty: FormState = {
 };
 
 const fromCampaign = (c: MarketingCampaign): FormState => ({
+  strategyId: c.strategy_id || "",
   name: c.name,
   objective: c.objective || "",
   status: c.status,
@@ -99,6 +103,23 @@ export default function CampaignFormModal({
   const { tenantId } = useTenant();
   const [form, setForm] = useState<FormState>(empty);
   const [saving, setSaving] = useState(false);
+  const [strategies, setStrategies] = useState<{ id: string; label: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!open || !tenantId || !companyId) return;
+      try {
+        const rows = await loadCompanyStrategies(tenantId, companyId);
+        if (!cancelled) setStrategies(rows);
+      } catch (err) {
+        console.error("[CampaignFormModal] falha ao carregar estratégias", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, tenantId, companyId]);
 
   useEffect(() => {
     if (!open) return;
@@ -133,6 +154,7 @@ export default function CampaignFormModal({
       id: campaign?.id,
       tenantId,
       companyId,
+      strategyId: form.strategyId || null,
       name: form.name,
       objective: form.objective,
       status: form.status,
@@ -176,6 +198,28 @@ export default function CampaignFormModal({
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Ex.: Ribeirão Preto — Aquisição"
             />
+          </div>
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label>Estratégia vinculada</Label>
+            <Select
+              value={form.strategyId || "none"}
+              onValueChange={(v) => setForm({ ...form, strategyId: v === "none" ? "" : v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem estratégia vinculada" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem estratégia vinculada</SelectItem>
+                {strategies.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              A campanha é a execução de uma estratégia geral já aprovada do cliente.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Status</Label>

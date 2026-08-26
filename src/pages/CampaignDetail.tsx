@@ -7,6 +7,7 @@ import {
   Loader2,
   MapPin,
   Megaphone,
+  Sparkles,
   Target,
   Wallet,
 } from "lucide-react";
@@ -18,9 +19,11 @@ import CampaignFormModal from "@/components/campaigns/CampaignFormModal";
 import {
   campaignRegionLabel,
   campaignStatusLabel,
+  countCampaignStages,
   loadCampaign,
   loadCampaignCommercial,
   loadCampaignMedia,
+  loadCompanyStrategies,
   summarizeCampaignCommercial,
   type CampaignMediaSummary,
   type MarketingCampaign,
@@ -56,6 +59,7 @@ export default function CampaignDetail() {
   const [commercial, setCommercial] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [strategyLabel, setStrategyLabel] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!tenantId || !id) return;
@@ -70,6 +74,16 @@ export default function CampaignDetail() {
         ]);
         setMedia(m);
         setCommercial(comm);
+        if (c.strategy_id) {
+          try {
+            const list = await loadCompanyStrategies(tenantId, c.company_id);
+            setStrategyLabel(list.find((s) => s.id === c.strategy_id)?.label ?? null);
+          } catch {
+            setStrategyLabel(null);
+          }
+        } else {
+          setStrategyLabel(null);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -125,9 +139,18 @@ export default function CampaignDetail() {
             )}
           </div>
         </div>
-        <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-          Editar campanha
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={() => navigate(`/plan-period?campaign=${campaign.id}`)}
+          >
+            <Sparkles className="mr-1.5 h-4 w-4" />
+            Planejar período nesta campanha
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+            Editar campanha
+          </Button>
+        </div>
       </div>
 
       {/* GERAL */}
@@ -169,6 +192,15 @@ export default function CampaignDetail() {
           </p>
         </div>
       </section>
+
+      {strategyLabel && (
+        <section className="mb-4 rounded-xl border bg-card p-4">
+          <h2 className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+            Estratégia vinculada
+          </h2>
+          <p className="text-sm font-semibold">{strategyLabel}</p>
+        </section>
+      )}
 
       {campaign.acquisition_strategy && (
         <section className="mb-8 rounded-xl border bg-card p-4">
@@ -213,10 +245,19 @@ export default function CampaignDetail() {
               ))}
             </ul>
           ) : (
-            <p className="p-4 text-sm text-muted-foreground">
-              Nenhum período vinculado. Ao planejar um período, selecione esta campanha para
-              conectar as demandas de Mídia.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 p-4">
+              <p className="text-sm text-muted-foreground">
+                Nenhum período vinculado. Planeje um período já dentro desta campanha para conectar
+                as demandas de Mídia ao Comercial.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => navigate(`/plan-period?campaign=${campaign.id}`)}
+              >
+                <Sparkles className="mr-1.5 h-4 w-4" />
+                Planejar período nesta campanha
+              </Button>
+            </div>
           )}
         </div>
       </section>
@@ -229,8 +270,19 @@ export default function CampaignDetail() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Metric label="Oportunidades" value={comm.total} />
           <Metric label="Prospects" value={comm.prospects} />
+          <Metric label="Clientes" value={comm.customers} />
           <Metric label="Ganhos" value={comm.won} />
-          <Metric label="Perdidos" value={comm.lost} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {countCampaignStages(commercial).map(({ stage, count }) => (
+            <Badge
+              key={stage}
+              variant={count > 0 ? "secondary" : "outline"}
+              className="text-[10px] font-black uppercase"
+            >
+              {stageLabel(stage)}: {count}
+            </Badge>
+          ))}
         </div>
         <div className="rounded-xl border bg-card">
           {commercial.length ? (

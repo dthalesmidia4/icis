@@ -14,13 +14,15 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  AD_PLAN_PLATFORMS,
   canEditAdPlan,
   normalizeAdPlan,
-  setAdPlanBoost,
-  setAdPlanCampaign,
+  parseAdBudget,
+  setAdPlanEnabled,
   type AdPlanShape,
   type AdPlanTextKey,
 } from "@/lib/adPlan";
+
 import { cn } from "@/lib/utils";
 
 
@@ -112,10 +114,9 @@ export function ClassificationSelector({ value, onChange, disabled }: SelectorPr
 export type AdPlan = AdPlanShape;
 
 const AD_FIELDS: { key: AdPlanTextKey; label: string; long?: boolean; placeholder?: string }[] = [
-  { key: "objective", label: "Objetivo" },
-  { key: "budget", label: "Verba" },
-  { key: "period", label: "Período/janela" },
-  { key: "territory", label: "Território", placeholder: "Ex.: Ribeirão Preto + 30 km" },
+  { key: "objective", label: "Objetivo", placeholder: "Ex.: Mensagens no WhatsApp" },
+  { key: "location", label: "Localização", placeholder: "Ex.: Ribeirão Preto e região" },
+  { key: "cta", label: "CTA", placeholder: "Ex.: Enviar mensagem" },
   { key: "audience", label: "Público", long: true },
   { key: "notes", label: "Observações/validação", long: true },
 ];
@@ -127,8 +128,6 @@ interface AdPlanSectionProps {
   readOnly?: boolean;
   /** ad_plan é operacional apenas em demandas de Mídia. */
   workArea?: string | null;
-  /** Campanhas da empresa para vínculo opcional. */
-  campaignOptions?: { id: string; name: string }[];
 }
 
 /** Seção "Informações do anúncio" — preserva chaves não reconhecidas do JSON. */
@@ -138,13 +137,13 @@ export function AdPlanSection({
   onBlur,
   readOnly,
   workArea,
-  campaignOptions,
 }: AdPlanSectionProps) {
   const plan = normalizeAdPlan(value);
   const editable = !readOnly && canEditAdPlan(workArea);
-  const boosted = !!plan.boost;
+  const enabled = !!plan.enabled;
 
   const set = (key: string, v: string) => onChange({ ...plan, [key]: v });
+  const asText = (key: string) => (typeof plan[key] === "string" ? (plan[key] as string) : "");
 
   return (
     <div className="space-y-4">
@@ -154,18 +153,18 @@ export function AdPlanSection({
         </p>
         <div className="flex items-center gap-2">
           <Switch
-            id="ad-plan-boost"
-            checked={boosted}
+            id="ad-plan-enabled"
+            checked={enabled}
             disabled={!editable}
             onCheckedChange={(checked) => {
-              onChange(setAdPlanBoost(plan, checked));
+              onChange(setAdPlanEnabled(plan, checked));
               onBlur?.();
             }}
           />
-          <Label htmlFor="ad-plan-boost" className="text-xs font-bold uppercase tracking-wide">
+          <Label htmlFor="ad-plan-enabled" className="text-xs font-bold uppercase tracking-wide">
             Impulsionar
           </Label>
-          {boosted && (
+          {enabled && (
             <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-bold uppercase">
               Mídia paga
             </Badge>
@@ -179,42 +178,93 @@ export function AdPlanSection({
         </p>
       )}
 
-      {!!campaignOptions?.length && (
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Plataforma */}
         <div className="space-y-1.5">
           <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Campanha
+            Plataforma
           </Label>
-          {editable ? (
+          {!editable ? (
+            <p className="text-sm text-muted-foreground">{asText("platform") || "—"}</p>
+          ) : (
             <Select
-              value={plan.campaign_id || "none"}
+              value={asText("platform") || "none"}
               onValueChange={(v) => {
-                onChange(setAdPlanCampaign(plan, v === "none" ? null : v));
+                onChange({ ...plan, platform: v === "none" ? "" : v });
                 onBlur?.();
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sem campanha" />
+                <SelectValue placeholder="Selecionar" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Sem campanha</SelectItem>
-                {campaignOptions.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
+                <SelectItem value="none">Não definida</SelectItem>
+                {AD_PLAN_PLATFORMS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {campaignOptions.find((c) => c.id === plan.campaign_id)?.name || "—"}
-            </p>
           )}
         </div>
-      )}
 
-      <div className="grid gap-4 md:grid-cols-2">
+        {/* Verba */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Verba (R$)
+          </Label>
+          {!editable ? (
+            <p className="text-sm text-muted-foreground">
+              {typeof plan.budget === "number" ? String(plan.budget) : "—"}
+            </p>
+          ) : (
+            <Input
+              defaultValue={typeof plan.budget === "number" ? String(plan.budget) : ""}
+              onBlur={(e) => {
+                onChange({ ...plan, budget: parseAdBudget(e.target.value) });
+                onBlur?.();
+              }}
+              placeholder="0"
+              inputMode="decimal"
+            />
+          )}
+        </div>
+
+        {/* Janela do anúncio */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Início
+          </Label>
+          {!editable ? (
+            <p className="text-sm text-muted-foreground">{asText("start_date") || "—"}</p>
+          ) : (
+            <Input
+              type="date"
+              value={asText("start_date")}
+              onChange={(e) => set("start_date", e.target.value)}
+              onBlur={onBlur}
+            />
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Término
+          </Label>
+          {!editable ? (
+            <p className="text-sm text-muted-foreground">{asText("end_date") || "—"}</p>
+          ) : (
+            <Input
+              type="date"
+              value={asText("end_date")}
+              onChange={(e) => set("end_date", e.target.value)}
+              onBlur={onBlur}
+            />
+          )}
+        </div>
+
         {AD_FIELDS.map(({ key, label, long, placeholder }) => {
-          const current = typeof plan[key] === "string" ? (plan[key] as string) : "";
+          const current = asText(key);
           return (
             <div key={key} className={cn("space-y-1.5", long && "md:col-span-2")}>
               <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -245,4 +295,5 @@ export function AdPlanSection({
     </div>
   );
 }
+
 

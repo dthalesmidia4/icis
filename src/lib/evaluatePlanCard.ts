@@ -91,6 +91,8 @@ export async function approvePlanCard(ctx: PlanCardContext): Promise<string> {
     period_plan_id: ctx.periodId,
     title,
     source: ctx.source === "ultra" ? "ultra_card" : "card",
+    // Planejamento/aprovação de período é sempre operação de Mídia.
+    work_area: "midia",
   };
   if (objetivo) payload.objective = objetivo;
   if (conteudo) payload.description = conteudo;
