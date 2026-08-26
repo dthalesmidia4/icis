@@ -101,7 +101,9 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
         <Metric label="Em risco" value={atRisk} tone={atRisk > 0 ? "danger" : undefined} />
         <Metric label="Aguardando" value={awaitingClient} />
       </div>
+      </div>
     </div>
+
   );
 });
 
