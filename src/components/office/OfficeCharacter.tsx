@@ -22,6 +22,8 @@ interface OfficeCharacterProps {
   posture?: CharacterPosture;
   /** Retrocompatibilidade: `standing` equivale a `posture="standing"`. */
   standing?: boolean;
+  /** Está na zona do café: ganha o copinho piscando na mão. */
+  holdingCup?: boolean;
 }
 
 /**
@@ -37,6 +39,7 @@ export const OfficeCharacter = memo(function OfficeCharacter({
   size = 52,
   posture,
   standing = false,
+  holdingCup = false,
 }: OfficeCharacterProps) {
   const pose: CharacterPosture = posture ?? (standing ? "standing" : "seated");
   const seated = pose === "seated";
@@ -46,6 +49,7 @@ export const OfficeCharacter = memo(function OfficeCharacter({
   const torsoH = Math.round(size * (seated ? 0.5 : 0.62));
   const legH = Math.round(size * 0.3);
   const armsAnimate = (working && seated) || walking;
+
 
   return (
     <div
