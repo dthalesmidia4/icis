@@ -253,6 +253,21 @@ export function useFinance(competence: Competence) {
         { event: "*", schema: "public", table: "finance_recurrence_rules", filter: `tenant_id=eq.${agencyId}` },
         () => fetchAll(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "finance_payment_rules", filter: `tenant_id=eq.${agencyId}` },
+        () => fetchAll(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "finance_payment_batches", filter: `tenant_id=eq.${agencyId}` },
+        () => fetchAll(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "finance_payment_batch_entries", filter: `tenant_id=eq.${agencyId}` },
+        () => fetchAll(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
