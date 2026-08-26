@@ -404,6 +404,8 @@ export default function FinanceItemFormModal({
 
     if (!installmentsValid) return;
     if (!oneOffDateValid) return;
+    // Ambiguidade de mês: validamos ANTES do request, com explicação.
+    if (chargeDueConflict) return;
     setSaving(true);
 
     const payload: Partial<FinanceItem> = {
@@ -414,10 +416,11 @@ export default function FinanceItemFormModal({
       cost_center: costCenter,
       active,
       recurrence_type: recurrence,
-      recurrence_interval_months: isRecurring && frequency === "custom" ? intervalNumber : 1,
+      // Colunas NOT NULL DEFAULT 1: sempre >= 1, nunca null.
+      recurrence_interval_months: recurrenceIntervals.recurrence_interval_months,
       recurrence_start_date: isRecurring && frequency === "custom" ? recurrenceStart || null : null,
       // Cronograma sub-mensal: "a cada N", dia da semana e âncora de contagem.
-      recurrence_interval: isSubMonthly ? subIntervalNumber : null,
+      recurrence_interval: recurrenceIntervals.recurrence_interval,
       recurrence_weekday: isSubMonthly && frequency === "weekly" ? weekdayNumber : null,
       recurrence_anchor_date: isSubMonthly ? recurrenceStart || null : null,
 
@@ -427,8 +430,9 @@ export default function FinanceItemFormModal({
       default_exchange_rate: currency === "USD" ? effectiveRate : null,
       default_amount_brl: isIncluded ? null : brlPreview != null ? Number(brlPreview.toFixed(2)) : null,
       // No parcelamento o cronograma define os dias: nada de dia genérico.
-      charge_day: isCard || isInstallments ? null : parseDayOfMonth(chargeDay),
-      due_day: isCard || isInstallments ? null : parseDayOfMonth(dueDay),
+      charge_day: isCard || isInstallments ? null : chargeDayNumber,
+      // Item no cartão: vencimento é da FATURA (`statement_due_day`).
+      due_day: isCard || isInstallments || hideItemDueDay ? null : dueDayNumber,
       payment_method: isCard || paymentMethod === NONE ? null : paymentMethod,
       card_item_id: !isCard && onCard && cardItemId !== NONE ? cardItemId : null,
       parent_item_id: isIncluded && parentItemId !== NONE ? parentItemId : null,
