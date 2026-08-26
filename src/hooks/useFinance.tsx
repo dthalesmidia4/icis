@@ -14,6 +14,7 @@ import {
   Competence,
   competenceToISO,
   competenceFromISO,
+
   normalizeCompetence,
 } from "@/lib/financeCardCycle";
 import {
