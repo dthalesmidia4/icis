@@ -22,6 +22,12 @@ import {
   resolveStatementForCharge,
   sameCompetence,
 } from "./financeCardCycle";
+import {
+  type FinanceRecurrenceRule,
+  scheduleIdentity,
+  scheduledDatesInMonth,
+} from "./financeRecurrenceSchedule";
+
 
 export type FinanceKind = "expense" | "tool" | "package" | "card" | "included_resource";
 export type FinanceCostCenter = "midia" | "sistemas" | "administrativo" | "compartilhado";
@@ -32,7 +38,11 @@ export type FinanceRecurrence =
   | "credits"
   | "variable"
   /** Prazo determinado: primeira parcela + quantidade total, termina sozinho. */
-  | "installments";
+  | "installments"
+  /** Recorrência sub-mensal: gera mais de um lançamento no mesmo mês. */
+  | "daily"
+  | "weekly";
+
 export type FinanceCurrency = "BRL" | "USD";
 /** Natureza do valor: previsível (`fixed`) ou por consumo (`variable`). */
 export type FinanceAmountMode = "fixed" | "variable";
@@ -62,10 +72,20 @@ export interface FinanceItem {
   recurrence_type: FinanceRecurrence;
   /** Intervalo da recorrência em meses (1 = todo mês, 2 = a cada 2 meses...). */
   recurrence_interval_months?: number | null;
+  /**
+   * Intervalo GENÉRICO da recorrência ("a cada N dias/semanas/meses").
+   * Canônico para `daily`/`weekly`; em mensal espelha `recurrence_interval_months`.
+   */
+  recurrence_interval?: number | null;
+  /** Dia padrão da semana em ISO (1 = segunda ... 7 = domingo). Só `weekly`. */
+  recurrence_weekday?: number | null;
+  /** Âncora genérica do cronograma (a partir de quando o intervalo é contado). */
+  recurrence_anchor_date?: string | null;
   /** Âncora da recorrência: define a partir de quando o intervalo é contado. */
   recurrence_start_date?: string | null;
   /** `fixed` = valor previsível; `variable` = consumo (valor só se confirma no mês). */
   amount_mode?: FinanceAmountMode | null;
+
   charge_day?: number | null;
   due_day?: number | null;
   subscription_date?: string | null;
@@ -83,6 +103,18 @@ export interface FinanceOccurrence {
   tenant_id?: string;
   item_id: string;
   competence_month: string;
+  /**
+   * IDENTIDADE do lançamento recorrente: a data ORIGINALMENTE agendada pelo
+   * cronograma. Mover a data efetiva (`due_date`/`charge_date`) não muda a
+   * identidade nem cria uma segunda ocorrência. `null` em faturas e legado.
+   */
+  scheduled_date?: string | null;
+  /** Ocorrência ignorada (exceção): sai do mês sem apagar a trilha. */
+  skipped_at?: string | null;
+  skip_reason?: string | null;
+  skipped_by?: string | null;
+  restored_at?: string | null;
+
   charge_date?: string | null;
   due_date?: string | null;
   amount_original?: number | null;
@@ -137,7 +169,13 @@ export interface MonthRow {
   installmentNumber: number | null;
   /** Apresentação: total de parcelas do cronograma (nunca persistido). */
   installmentCount: number | null;
+  /**
+   * Data ORIGINALMENTE agendada pelo cronograma (identidade da ocorrência).
+   * `null` em linhas mensais/anuais/parceladas, faturas e legado.
+   */
+  scheduledDate: string | null;
 }
+
 
 
 export const COST_CENTER_LABELS: Record<FinanceCostCenter, string> = {
@@ -162,6 +200,9 @@ export const RECURRENCE_LABELS: Record<FinanceRecurrence, string> = {
   credits: "Créditos",
   variable: "Variável",
   installments: "Parcelado",
+  daily: "Diária",
+  weekly: "Semanal",
+
 };
 
 export const PAYMENT_METHODS = [
@@ -335,16 +376,23 @@ export function effectiveCardItemId(
 /*                       RECORRÊNCIA COM INTERVALO PRÓPRIO                     */
 /* -------------------------------------------------------------------------- */
 
-/** Intervalo em meses da recorrência (1 quando não informado). */
+/**
+ * Intervalo em meses da recorrência mensal (1 quando não informado).
+ * `recurrence_interval_months` continua a fonte histórica; o intervalo genérico
+ * é aceito como equivalente para cadastros criados pelo novo formulário.
+ */
 export function recurrenceIntervalMonths(item: FinanceItem): number {
-  const raw = item.recurrence_interval_months;
+  const raw = item.recurrence_interval_months ?? item.recurrence_interval;
   return raw != null && raw > 0 ? Math.trunc(raw) : 1;
 }
 
 /** Âncora usada para contar o intervalo (início da recorrência). */
 export function recurrenceAnchorDate(item: FinanceItem): string | null {
-  return item.recurrence_start_date ?? item.subscription_date ?? null;
+  return (
+    item.recurrence_start_date ?? item.recurrence_anchor_date ?? item.subscription_date ?? null
+  );
 }
+
 
 /**
  * Para intervalos > 1 mês: a competência cai em um ciclo válido?
@@ -364,13 +412,21 @@ export function matchesRecurrenceInterval(item: FinanceItem, competence: Compete
 }
 
 /** O cadastro deve aparecer no mês informado mesmo sem ocorrência persistida? */
-export function isProjectableInMonth(item: FinanceItem, competence: Competence): boolean {
+export function isProjectableInMonth(
+  item: FinanceItem,
+  competence: Competence,
+  rules?: FinanceRecurrenceRule[],
+): boolean {
   if (!item.active || !isCostBearing(item)) return false;
   switch (item.recurrence_type) {
     case "monthly":
     case "credits":
     case "variable":
       return matchesRecurrenceInterval(item, competence);
+    case "daily":
+    case "weekly":
+      // O cronograma sub-mensal decide sozinho quantas linhas o mês tem.
+      return scheduledDatesInMonth({ item, rules, competence }).length > 0;
     case "annual": {
       if (!item.subscription_date) return false;
       const month = Number(item.subscription_date.slice(5, 7));
@@ -383,6 +439,7 @@ export function isProjectableInMonth(item: FinanceItem, competence: Competence):
     default:
       return false;
   }
+
 }
 
 function projectedDates(item: FinanceItem, competence: Competence) {
@@ -464,6 +521,7 @@ function rowFromOccurrence(
       competenceFromISO(occ.competence_month),
     ),
     installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
+    scheduledDate: occ.scheduled_date ?? null,
   };
 }
 
@@ -472,8 +530,17 @@ function rowFromProjection(
   item: FinanceItem,
   competence: Competence,
   fallbackRate: number | null,
+  /**
+   * Data agendada pelo cronograma sub-mensal. Quando presente, ela é a data do
+   * fato previsto (vencimento, ou cobrança quando o item cai no cartão) e faz
+   * parte da chave da linha — é o que permite várias linhas no mesmo mês.
+   */
+  scheduledDate?: string | null,
 ): MonthRow {
-  const { chargeDate, dueDate } = projectedDates(item, competence);
+  const base = projectedDates(item, competence);
+  const onCard = billedOnCard(item);
+  const chargeDate = scheduledDate ? (onCard ? scheduledDate : base.chargeDate) : base.chargeDate;
+  const dueDate = scheduledDate ? (onCard ? null : scheduledDate) : base.dueDate;
   const amountBrl = toBrl({
     currency: item.currency,
     amountOriginal: item.default_amount_original,
@@ -487,7 +554,9 @@ function rowFromProjection(
     item.amount_mode === "variable" ||
     amountBrl == null;
   return {
-    key: `proj:${item.id}:${competenceToISO(competence)}`,
+    key: scheduledDate
+      ? `proj:${item.id}:${scheduledDate}`
+      : `proj:${item.id}:${competenceToISO(competence)}`,
     item,
     occurrence: null,
     projected: true,
@@ -505,35 +574,90 @@ function rowFromProjection(
     estimated,
     installmentNumber: installmentNumberForCompetence(item, competence),
     installmentCount: isInstallmentItem(item) ? item.installment_count ?? null : null,
+    scheduledDate: scheduledDate ?? null,
   };
+}
+
+/** Ocorrência IGNORADA: exceção do mês, nunca uma linha do mês. */
+export function isSkippedOccurrence(occ: FinanceOccurrence | null | undefined): boolean {
+  return !!occ?.skipped_at;
 }
 
 /**
  * Constrói as linhas do mês combinando ocorrências reais e projeções.
  * Nunca cria nada no banco.
+ *
+ * Recorrência sub-mensal (diária/semanal) gera UMA LINHA POR DATA AGENDADA;
+ * mensal/anual/parcelado/avulso seguem com no máximo uma linha por competência.
+ * Ocorrências ignoradas não entram como linha nem voltam como projeção.
  */
 export function buildMonthRows(params: {
   items: FinanceItem[];
   occurrences: FinanceOccurrence[];
   competence: Competence;
   fallbackRate?: number | null;
+  /** Versões de regra de recorrência (histórico). Opcional. */
+  rules?: FinanceRecurrenceRule[];
 }): MonthRow[] {
   const { items, occurrences, competence } = params;
   const fallbackRate = params.fallbackRate ?? null;
+  const rules = params.rules ?? [];
   const competenceISO = competenceToISO(competence);
+
+  /** Ocorrências com identidade agendada (`item_id + scheduled_date`). */
+  const byScheduled = new Map<string, FinanceOccurrence>();
+  /** Ocorrências sem data agendada: faturas, avulsos, legado e mensais. */
   const byItem = new Map<string, FinanceOccurrence>();
   for (const occ of occurrences) {
     if (occ.competence_month !== competenceISO) continue;
-    byItem.set(occ.item_id, occ);
+    if (occ.scheduled_date) {
+      byScheduled.set(scheduleIdentity(occ.item_id, occ.scheduled_date), occ);
+    } else {
+      byItem.set(occ.item_id, occ);
+    }
   }
 
   const rows: MonthRow[] = [];
+  const consumed = new Set<string>();
+
   for (const item of items) {
     if (!isCostBearing(item)) continue;
-    const occ = byItem.get(item.id);
+
+    // ---- Recorrência sub-mensal: uma linha por data agendada do cronograma.
+    if (item.recurrence_type === "daily" || item.recurrence_type === "weekly") {
+      const dates = item.active ? scheduledDatesInMonth({ item, rules, competence }) : [];
+      for (const date of dates) {
+        const identity = scheduleIdentity(item.id, date);
+        const occ = byScheduled.get(identity);
+        if (occ) {
+          consumed.add(identity);
+          // Ignorada: sai do mês inteiro (não vira linha nem volta a projetar).
+          if (isSkippedOccurrence(occ)) continue;
+          rows.push(rowFromOccurrence(item, occ, fallbackRate));
+        } else {
+          rows.push(rowFromProjection(item, competence, fallbackRate, date));
+        }
+      }
+      // Fatos fora do cronograma atual (regra mudou depois): o fato manda.
+      for (const [identity, occ] of byScheduled) {
+        if (occ.item_id !== item.id || consumed.has(identity)) continue;
+        consumed.add(identity);
+        if (isSkippedOccurrence(occ)) continue;
+        rows.push(rowFromOccurrence(item, occ, fallbackRate));
+      }
+      continue;
+    }
+
+    // ---- Demais naturezas: no máximo uma linha por competência (inalterado).
+    const scheduledFallback = [...byScheduled.entries()].find(
+      ([identity, occ]) => occ.item_id === item.id && !consumed.has(identity),
+    );
+    const occ = byItem.get(item.id) ?? scheduledFallback?.[1];
+    if (scheduledFallback) consumed.add(scheduledFallback[0]);
     if (occ) {
+      if (isSkippedOccurrence(occ)) continue;
       rows.push(rowFromOccurrence(item, occ, fallbackRate));
-    } else if (isProjectableInMonth(item, competence)) {
+    } else if (isProjectableInMonth(item, competence, rules)) {
       rows.push(rowFromProjection(item, competence, fallbackRate));
     }
   }
@@ -544,6 +668,42 @@ export function buildMonthRows(params: {
     return a.item.name.localeCompare(b.item.name, "pt-BR");
   });
 }
+
+/** Exceção do mês: lançamento ignorado, com o cadastro de origem. */
+export interface SkippedEntry {
+  occurrence: FinanceOccurrence;
+  item: FinanceItem;
+  scheduledDate: string | null;
+  reason: string | null;
+}
+
+/**
+ * Ocorrências IGNORADAS da competência — para uma área discreta de exceções.
+ * Elas nunca entram em previsto, aberto, composição, fatura ou alertas.
+ */
+export function skippedEntriesInMonth(params: {
+  items: FinanceItem[];
+  occurrences: FinanceOccurrence[];
+  competence: Competence;
+}): SkippedEntry[] {
+  const competenceISO = competenceToISO(params.competence);
+  const byId = new Map(params.items.map((i) => [i.id, i]));
+  return params.occurrences
+    .filter((occ) => occ.competence_month === competenceISO && isSkippedOccurrence(occ))
+    .map((occ) => {
+      const item = byId.get(occ.item_id);
+      if (!item) return null;
+      return {
+        occurrence: occ,
+        item,
+        scheduledDate: occ.scheduled_date ?? occ.due_date ?? occ.charge_date ?? null,
+        reason: occ.skip_reason ?? null,
+      } satisfies SkippedEntry;
+    })
+    .filter((e): e is SkippedEntry => e !== null)
+    .sort((a, b) => (a.scheduledDate ?? "").localeCompare(b.scheduledDate ?? ""));
+}
+
 
 /* -------------------------------------------------------------------------- */
 /*                                   TOTAIS                                   */
@@ -783,11 +943,15 @@ export function buildStatementGroups(params: {
   occurrences: FinanceOccurrence[];
   competence: Competence;
   fallbackRate?: number | null;
+  /** Versões de regra de recorrência (histórico). Opcional. */
+  rules?: FinanceRecurrenceRule[];
 }): StatementGroup[] {
   const { items, occurrences, competence } = params;
   const fallbackRate = params.fallbackRate ?? null;
+  const rules = params.rules ?? [];
   const cards = items.filter((i) => i.kind === "card");
-  const currentRows = buildMonthRows({ items, occurrences, competence, fallbackRate });
+  const currentRows = buildMonthRows({ items, occurrences, competence, fallbackRate, rules });
+
 
   return cards.map((card) => {
     const cycle = { closingDay: card.statement_closing_day, dueDay: card.statement_due_day };
@@ -813,7 +977,7 @@ export function buildStatementGroups(params: {
       for (const chargeCompetence of candidateChargeCompetences(competence)) {
         const monthRows = sameCompetence(chargeCompetence, competence)
           ? currentRows
-          : buildMonthRows({ items: cardItems, occurrences, competence: chargeCompetence, fallbackRate });
+          : buildMonthRows({ items: cardItems, occurrences, competence: chargeCompetence, fallbackRate, rules });
         for (const row of monthRows) {
           // Cadastro inativo sem fato real não compõe fatura nenhuma.
           if (!isOperationalRow(row)) continue;

@@ -1446,9 +1446,12 @@ export type Database = {
           parent_item_id: string | null
           payment_method: string | null
           purpose: string | null
+          recurrence_anchor_date: string | null
+          recurrence_interval: number
           recurrence_interval_months: number
           recurrence_start_date: string | null
           recurrence_type: string
+          recurrence_weekday: number | null
           statement_closing_day: number | null
           statement_due_day: number | null
           subscription_date: string | null
@@ -1486,9 +1489,12 @@ export type Database = {
           parent_item_id?: string | null
           payment_method?: string | null
           purpose?: string | null
+          recurrence_anchor_date?: string | null
+          recurrence_interval?: number
           recurrence_interval_months?: number
           recurrence_start_date?: string | null
           recurrence_type?: string
+          recurrence_weekday?: number | null
           statement_closing_day?: number | null
           statement_due_day?: number | null
           subscription_date?: string | null
@@ -1526,9 +1532,12 @@ export type Database = {
           parent_item_id?: string | null
           payment_method?: string | null
           purpose?: string | null
+          recurrence_anchor_date?: string | null
+          recurrence_interval?: number
           recurrence_interval_months?: number
           recurrence_start_date?: string | null
           recurrence_type?: string
+          recurrence_weekday?: number | null
           statement_closing_day?: number | null
           statement_due_day?: number | null
           subscription_date?: string | null
@@ -1587,6 +1596,12 @@ export type Database = {
           paid_amount_brl_enc: string | null
           paid_at: string | null
           payment_method_snapshot: string | null
+          restored_at: string | null
+          restored_by: string | null
+          scheduled_date: string | null
+          skip_reason: string | null
+          skipped_at: string | null
+          skipped_by: string | null
           statement_competence_snapshot: string | null
           statement_occurrence_id: string | null
           tenant_id: string
@@ -1619,6 +1634,12 @@ export type Database = {
           paid_amount_brl_enc?: string | null
           paid_at?: string | null
           payment_method_snapshot?: string | null
+          restored_at?: string | null
+          restored_by?: string | null
+          scheduled_date?: string | null
+          skip_reason?: string | null
+          skipped_at?: string | null
+          skipped_by?: string | null
           statement_competence_snapshot?: string | null
           statement_occurrence_id?: string | null
           tenant_id: string
@@ -1651,6 +1672,12 @@ export type Database = {
           paid_amount_brl_enc?: string | null
           paid_at?: string | null
           payment_method_snapshot?: string | null
+          restored_at?: string | null
+          restored_by?: string | null
+          scheduled_date?: string | null
+          skip_reason?: string | null
+          skipped_at?: string | null
+          skipped_by?: string | null
           statement_competence_snapshot?: string | null
           statement_occurrence_id?: string | null
           tenant_id?: string
@@ -1680,6 +1707,69 @@ export type Database = {
           },
           {
             foreignKeyName: "finance_occurrences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_recurrence_rules: {
+        Row: {
+          anchor_date: string | null
+          created_at: string
+          created_by: string | null
+          day_of_month: number | null
+          effective_from: string
+          frequency: string
+          id: string
+          interval_count: number
+          item_id: string
+          note: string | null
+          tenant_id: string
+          updated_at: string
+          weekday: number | null
+        }
+        Insert: {
+          anchor_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          day_of_month?: number | null
+          effective_from: string
+          frequency: string
+          id?: string
+          interval_count?: number
+          item_id: string
+          note?: string | null
+          tenant_id: string
+          updated_at?: string
+          weekday?: number | null
+        }
+        Update: {
+          anchor_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          day_of_month?: number | null
+          effective_from?: string
+          frequency?: string
+          id?: string
+          interval_count?: number
+          item_id?: string
+          note?: string | null
+          tenant_id?: string
+          updated_at?: string
+          weekday?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_recurrence_rules_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_recurrence_rules_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3289,6 +3379,26 @@ export type Database = {
           finance_default_usd_rate: number
           finance_monthly_budget_brl: number
         }[]
+      }
+      finance_restore_occurrence: {
+        Args: { _occurrence_id: string }
+        Returns: boolean
+      }
+      finance_set_recurrence_future: {
+        Args: {
+          _anchor_date?: string
+          _day_of_month?: number
+          _effective_from: string
+          _frequency: string
+          _interval?: number
+          _item_id: string
+          _weekday?: number
+        }
+        Returns: string
+      }
+      finance_skip_occurrence: {
+        Args: { _item_id: string; _reason?: string; _scheduled_date: string }
+        Returns: string
       }
       finance_tools_item_allowed: {
         Args: { _item_id: string; _tenant_id: string }

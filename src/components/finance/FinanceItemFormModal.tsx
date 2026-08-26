@@ -36,6 +36,8 @@ import {
   seedUsdConversion,
 } from "@/lib/financeUsdConversion";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
+import { WEEKDAYS } from "@/lib/financeRecurrenceSchedule";
+
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 import { Competence, competenceToISO } from "@/lib/financeCardCycle";
 import { OneOffFact, shouldMaterializeOneOff } from "@/lib/financeOneOff";
@@ -96,9 +98,11 @@ const CHARGE_MODES: { value: ChargeMode; title: string; help: string }[] = [
   { value: "consumption", title: "Consumo", help: "O valor muda: só se confirma no mês." },
 ];
 
-type Frequency = "monthly" | "custom" | "annual";
+type Frequency = "daily" | "weekly" | "monthly" | "custom" | "annual";
 
 const FREQUENCIES: { value: Frequency; label: string }[] = [
+  { value: "daily", label: "Todos os dias" },
+  { value: "weekly", label: "Toda semana" },
   { value: "monthly", label: "Todo mês" },
   { value: "custom", label: "A cada X meses" },
   { value: "annual", label: "Uma vez por ano" },
@@ -116,9 +120,12 @@ function chargeModeFromItem(item?: FinanceItem | null): ChargeMode {
 
 function frequencyFromItem(item?: FinanceItem | null): Frequency {
   if (!item) return "monthly";
+  if (item.recurrence_type === "daily") return "daily";
+  if (item.recurrence_type === "weekly") return "weekly";
   if (item.recurrence_type === "annual") return "annual";
   return (item.recurrence_interval_months ?? 1) > 1 ? "custom" : "monthly";
 }
+
 
 export default function FinanceItemFormModal({
   open,
@@ -148,6 +155,11 @@ export default function FinanceItemFormModal({
   const [frequency, setFrequency] = useState<Frequency>("monthly");
   const [intervalMonths, setIntervalMonths] = useState("2");
   const [recurrenceStart, setRecurrenceStart] = useState("");
+  /** "A cada N" das frequências sub-mensais (dias/semanas). */
+  const [subInterval, setSubInterval] = useState("1");
+  /** Dia da semana (ISO 1–7) da recorrência semanal. */
+  const [weekday, setWeekday] = useState<string>("1");
+
   const [currency, setCurrency] = useState<FinanceCurrency>("BRL");
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
@@ -210,6 +222,13 @@ export default function FinanceItemFormModal({
         ? String(item.recurrence_interval_months)
         : "2",
     );
+    setSubInterval(
+      item?.recurrence_interval != null && item.recurrence_interval > 0
+        ? String(item.recurrence_interval)
+        : "1",
+    );
+    setWeekday(item?.recurrence_weekday != null ? String(item.recurrence_weekday) : "1");
+
     setRecurrenceStart(item?.recurrence_start_date ?? "");
     setCurrency((item?.currency as FinanceCurrency) ?? "BRL");
     setAmount(
@@ -280,6 +299,10 @@ export default function FinanceItemFormModal({
   const materializesOneOff = isOneOff && !item && !!competence;
   const oneOffDateValid = !materializesOneOff || /^\d{4}-\d{2}-\d{2}$/.test(oneOffDate);
   const intervalNumber = frequency === "custom" ? parsePositiveInt(intervalMonths) ?? 1 : 1;
+  /** Recorrência sub-mensal: gera mais de um lançamento no mesmo mês. */
+  const isSubMonthly = isRecurring && (frequency === "daily" || frequency === "weekly");
+  const subIntervalNumber = parsePositiveInt(subInterval) ?? 1;
+  const weekdayNumber = Number(weekday) || 1;
 
 
   /** Escolha humana -> `recurrence_type` do banco. */
@@ -293,9 +316,12 @@ export default function FinanceItemFormModal({
       case "consumption":
         return "variable";
       default:
+        if (frequency === "daily") return "daily";
+        if (frequency === "weekly") return "weekly";
         return frequency === "annual" ? "annual" : "monthly";
     }
   }, [chargeMode, frequency, isIncluded]);
+
 
   const amountMode: FinanceAmountMode = chargeMode === "consumption" ? "variable" : "fixed";
 
@@ -354,6 +380,11 @@ export default function FinanceItemFormModal({
       recurrence_type: recurrence,
       recurrence_interval_months: isRecurring && frequency === "custom" ? intervalNumber : 1,
       recurrence_start_date: isRecurring && frequency === "custom" ? recurrenceStart || null : null,
+      // Cronograma sub-mensal: "a cada N", dia da semana e âncora de contagem.
+      recurrence_interval: isSubMonthly ? subIntervalNumber : null,
+      recurrence_weekday: isSubMonthly && frequency === "weekly" ? weekdayNumber : null,
+      recurrence_anchor_date: isSubMonthly ? recurrenceStart || null : null,
+
       amount_mode: isIncluded ? "fixed" : amountMode,
       currency,
       default_amount_original: isIncluded ? null : amountNumber,
@@ -602,7 +633,67 @@ export default function FinanceItemFormModal({
                         </div>
                       </>
                     )}
+                    {isSubMonthly && (
+                      <>
+                        <div>
+                          <Label>{frequency === "daily" ? "A cada quantos dias" : "A cada quantas semanas"}</Label>
+                          <Input
+                            value={subInterval}
+                            onChange={(e) => setSubInterval(e.target.value)}
+                            inputMode="numeric"
+                            placeholder="1"
+                          />
+                        </div>
+                        {frequency === "weekly" ? (
+                          <div>
+                            <Label>Dia da semana</Label>
+                            <Select value={weekday} onValueChange={setWeekday}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {WEEKDAYS.map((w) => (
+                                  <SelectItem key={w.value} value={String(w.value)}>{w.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div>
+                            <Label>Começa em</Label>
+                            <Input
+                              type="date"
+                              value={recurrenceStart}
+                              onChange={(e) => setRecurrenceStart(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
+                )}
+
+                {isSubMonthly && frequency === "weekly" && (
+                  <div className="max-w-xs">
+                    <Label>Começa em</Label>
+                    <Input
+                      type="date"
+                      value={recurrenceStart}
+                      onChange={(e) => setRecurrenceStart(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {isSubMonthly && (
+                  <p className="text-xs text-muted-foreground">
+                    {frequency === "daily"
+                      ? subIntervalNumber === 1
+                        ? "Aparece um lançamento por dia no mês."
+                        : `Aparece um lançamento a cada ${subIntervalNumber} dias.`
+                      : subIntervalNumber === 1
+                        ? `Aparece toda ${(WEEKDAYS.find((w) => w.value === weekdayNumber)?.label ?? "").toLowerCase()}.`
+                        : `Aparece a cada ${subIntervalNumber} semanas na ${(WEEKDAYS.find((w) => w.value === weekdayNumber)?.label ?? "").toLowerCase()}.`}
+                    {" "}Nenhum lançamento é criado antes do tempo: o mês mostra as datas previstas e
+                    você confirma cada uma.
+                  </p>
                 )}
 
                 {isRecurring && frequency === "custom" && (
@@ -612,6 +703,7 @@ export default function FinanceItemFormModal({
                       : "Informe a primeira cobrança para o sistema saber quais meses contar."}
                   </p>
                 )}
+
 
                 {chargeMode === "consumption" && (
                   <p className="text-xs text-muted-foreground">

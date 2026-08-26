@@ -28,7 +28,9 @@ import {
   buildStatementGroups,
   computeTotals,
   detectPackageOverlaps,
+  skippedEntriesInMonth,
 } from "@/lib/financeModel";
+import type { FinanceRecurrenceRule } from "@/lib/financeRecurrenceSchedule";
 import { buildStatementSettlementIndex } from "@/lib/financeSettlement";
 import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
 import {
@@ -36,6 +38,7 @@ import {
   buildOneOffRpcArgs,
   shouldMaterializeOneOff,
 } from "@/lib/financeOneOff";
+
 
 
 import { paymentDateToTimestamp } from "@/lib/financePaymentDate";
@@ -82,6 +85,9 @@ export function useFinance(competence: Competence) {
   const { user } = useAuth();
   const [items, setItems] = useState<FinanceItem[]>([]);
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
+  /** Versões da regra de recorrência (histórico por cadastro). */
+  const [rules, setRules] = useState<FinanceRecurrenceRule[]>([]);
+
   const [settings, setSettings] = useState<FinanceSettings>({
     monthlyBudgetBrl: null,
     defaultUsdRate: null,
@@ -104,7 +110,7 @@ export function useFinance(competence: Competence) {
     const next = normalizeCompetence({ year: normalized.year, month: normalized.month + 1 });
 
     try {
-      const [itemsRes, occRes, itemValues, occValues, tenantValues] = await Promise.all([
+      const [itemsRes, occRes, rulesRes, itemValues, occValues, tenantValues] = await Promise.all([
         supabase
           .from("finance_items")
           .select(FINANCE_ITEM_METADATA_COLUMNS)
@@ -119,6 +125,12 @@ export function useFinance(competence: Competence) {
             competenceToISO(normalized),
             competenceToISO(next),
           ]),
+        // Histórico da regra: metadata não sensível, lida por RLS.
+        (supabase as any)
+          .from("finance_recurrence_rules")
+          .select("id,tenant_id,item_id,effective_from,frequency,interval_count,weekday,day_of_month,anchor_date,note")
+          .eq("tenant_id", agencyId)
+          .order("effective_from", { ascending: true }),
         fetchSecureItemValues(agencyId),
         fetchSecureOccurrenceValues(agencyId, competenceToISO(prev), competenceToISO(next)),
         fetchSecureTenantValues(agencyId),
@@ -131,6 +143,7 @@ export function useFinance(competence: Competence) {
         toast.error(message);
         setItems([]);
         setOccurrences([]);
+        setRules([]);
         setLoadError(message);
         return;
       }
@@ -139,11 +152,13 @@ export function useFinance(competence: Competence) {
       setOccurrences(
         mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
       );
+      setRules(((rulesRes?.data as any[]) ?? []) as FinanceRecurrenceRule[]);
       setSettings({
         monthlyBudgetBrl: tenantValues.monthlyBudgetBrl,
         defaultUsdRate: tenantValues.defaultUsdRate,
       });
       setLoadError(null);
+
     } catch (err) {
       const message =
         err instanceof FinanceSecureReadError
@@ -153,6 +168,7 @@ export function useFinance(competence: Competence) {
       // Nunca deixar dados parciais no ar: zeros virariam “informação”.
       setItems([]);
       setOccurrences([]);
+      setRules([]);
       setSettings({ monthlyBudgetBrl: null, defaultUsdRate: null });
       setLoadError(message);
     } finally {
@@ -180,6 +196,11 @@ export function useFinance(competence: Competence) {
         { event: "*", schema: "public", table: "finance_occurrences", filter: `tenant_id=eq.${agencyId}` },
         () => fetchAll(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "finance_recurrence_rules", filter: `tenant_id=eq.${agencyId}` },
+        () => fetchAll(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -202,10 +223,11 @@ export function useFinance(competence: Competence) {
               occurrences,
               competence: normalized,
               fallbackRate: settings.defaultUsdRate,
+              rules,
             }),
           )
         : [],
-    [items, occurrences, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
+    [items, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
 
   const statements = useMemo(
@@ -216,10 +238,18 @@ export function useFinance(competence: Competence) {
             occurrences,
             competence: normalized,
             fallbackRate: settings.defaultUsdRate,
+            rules,
           })
         : [],
-    [items, occurrences, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
+    [items, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
+
+  /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
+  const skipped = useMemo(
+    () => (tracked ? skippedEntriesInMonth({ items, occurrences, competence: normalized }) : []),
+    [items, occurrences, normalized.year, normalized.month, tracked],
+  );
+
 
 
   /**
@@ -237,14 +267,22 @@ export function useFinance(competence: Competence) {
 
   /* ----------------------------- Persistência ---------------------------- */
 
-  /** Materializa (ou atualiza) a ocorrência de um item na competência. */
+  /**
+   * Materializa (ou atualiza) a ocorrência de um item na competência.
+   *
+   * IDENTIDADE: quando a linha vem de um cronograma sub-mensal, a ocorrência
+   * nasce com `scheduled_date` = data agendada. Alterar a data efetiva depois
+   * NUNCA reescreve essa identidade (o banco bloqueia), então a alteração
+   * continua sendo "somente este lançamento" e o padrão segue intacto.
+   */
   const saveOccurrence = useCallback(
     async (row: MonthRow, patch: Partial<FinanceOccurrence>) => {
       if (!agencyId) return null;
       if (row.occurrence) {
+        const { scheduled_date: _ignored, ...safePatch } = patch as any;
         const { data, error } = await supabase
           .from("finance_occurrences")
-          .update(patch as any)
+          .update(safePatch as any)
           .eq("id", row.occurrence.id)
           .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
           .maybeSingle();
@@ -261,6 +299,7 @@ export function useFinance(competence: Competence) {
           tenant_id: agencyId,
           item_id: row.item.id,
           competence_month: competenceToISO(normalized),
+          scheduled_date: row.scheduledDate,
           charge_date: row.chargeDate,
           due_date: row.dueDate,
           currency: row.currency,
@@ -281,6 +320,85 @@ export function useFinance(competence: Competence) {
     },
     [agencyId, normalized, user?.id, fetchAll],
   );
+
+  /**
+   * IGNORA uma ocorrência do cronograma (exceção do mês).
+   * Só o servidor decide se pode: pago ou liquidado por fatura paga é imutável.
+   */
+  const skipOccurrence = useCallback(
+    async (row: MonthRow, reason?: string | null) => {
+      const scheduled = row.scheduledDate ?? row.dueDate ?? row.chargeDate;
+      if (!scheduled) {
+        toast.error("Este lançamento não tem data agendada para ignorar");
+        return false;
+      }
+      const { error } = await (supabase as any).rpc("finance_skip_occurrence", {
+        _item_id: row.item.id,
+        _scheduled_date: scheduled,
+        _reason: reason ?? null,
+      });
+      if (error) {
+        toast.error(error.message || "Não foi possível ignorar o lançamento");
+        return false;
+      }
+      toast.success("Lançamento ignorado — a recorrência continua normalmente");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
+  /** Restaura uma ocorrência ignorada, preservando a trilha. */
+  const restoreOccurrence = useCallback(
+    async (occurrenceId: string) => {
+      const { error } = await (supabase as any).rpc("finance_restore_occurrence", {
+        _occurrence_id: occurrenceId,
+      });
+      if (error) {
+        toast.error(error.message || "Não foi possível restaurar o lançamento");
+        return false;
+      }
+      toast.success("Lançamento restaurado");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
+  /**
+   * Altera a recorrência A PARTIR de uma data: cria uma nova versão de regra e
+   * atualiza o cadastro mestre. O passado permanece explicado pela versão
+   * anterior — nada é reescrito.
+   */
+  const setRecurrenceFuture = useCallback(
+    async (input: {
+      itemId: string;
+      effectiveFrom: string;
+      frequency: "daily" | "weekly" | "monthly";
+      interval: number;
+      weekday?: number | null;
+      dayOfMonth?: number | null;
+    }) => {
+      const { error } = await (supabase as any).rpc("finance_set_recurrence_future", {
+        _item_id: input.itemId,
+        _effective_from: input.effectiveFrom,
+        _frequency: input.frequency,
+        _interval: input.interval,
+        _weekday: input.weekday ?? null,
+        _day_of_month: input.dayOfMonth ?? null,
+        _anchor_date: input.effectiveFrom,
+      });
+      if (error) {
+        toast.error(error.message || "Não foi possível alterar a recorrência");
+        return false;
+      }
+      toast.success("Recorrência alterada para os próximos lançamentos");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
 
   /** Marca/desmarca pagamento de uma linha comum (não fatura). */
   const togglePaid = useCallback(
@@ -445,10 +563,12 @@ export function useFinance(competence: Competence) {
 
     items,
     occurrences,
+    rules,
     rows,
     statements,
     settlement,
     totals,
+    skipped,
 
     overlaps,
     cards,
@@ -456,7 +576,11 @@ export function useFinance(competence: Competence) {
     settings,
     refresh: fetchAll,
     saveOccurrence,
+    skipOccurrence,
+    restoreOccurrence,
+    setRecurrenceFuture,
     togglePaid,
+
     payStatement,
     setPaidStatementIof,
     saveSettings,

@@ -44,6 +44,8 @@ import StatementPanel from "@/components/finance/StatementPanel";
 import { LinkedCardItem, buildLinkedCardItems } from "@/lib/financeCardLinkedItems";
 import AttentionPanel from "@/components/finance/AttentionPanel";
 import MonthAccountsList from "@/components/finance/MonthAccountsList";
+import SkippedEntriesPanel from "@/components/finance/SkippedEntriesPanel";
+
 import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
 import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
@@ -204,8 +206,10 @@ function FinancialCockpit() {
   const finance = useFinance(competence);
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
+    skipped, skipOccurrence, restoreOccurrence,
     saveOccurrence, togglePaid, payStatement, setPaidStatementIof, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
+
 
   /**
    * `Contas e despesas` é a tela de CONSULTA E GESTÃO do mês: abre em `Todas`.
@@ -1229,7 +1233,11 @@ function FinancialCockpit() {
               onTogglePaid={togglePaid}
               onEditItem={(item) => openItemModal(item)}
             />
+
+            {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
+            <SkippedEntriesPanel entries={skipped} onRestore={restoreOccurrence} />
           </section>
+
         )}
 
         {/* ====================== CARTÕES E FATURAS ====================== */}
@@ -1386,7 +1394,9 @@ function FinancialCockpit() {
         defaultUsdRate={settings.defaultUsdRate}
         statusContext={statusContext}
         onSave={saveOccurrence}
+        onSkip={(row) => skipOccurrence(row)}
         onRefresh={refresh}
+
         onEditItem={(item) => {
           setOccurrenceRow(null);
           openItemModal(item);
