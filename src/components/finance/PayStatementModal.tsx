@@ -66,19 +66,22 @@ interface Props {
     usdComponents?: unknown[];
     /** Repasse de IOF cobrado junto com a fatura (0 quando não houver). */
     iofBrl: number;
+    /** Total do FECHAMENTO informado aqui (null = mantém o total conhecido). */
+    statementAmountBrl: number | null;
   }) => Promise<boolean>;
 }
 
 export default function PayStatementModal({ open, onOpenChange, group, today, onConfirm }: Props) {
   const [date, setDate] = useState(today);
-  const [amount, setAmount] = useState("");
+  /** Total do fechamento (o mesmo valor que será pago). */
+  const [total, setTotal] = useState("");
   const [saving, setSaving] = useState(false);
   /** IOF é SEMPRE perguntado, com padrão 0 — exista ou não compra em dólar. */
   const [iof, setIof] = useState("0");
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
   const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
 
-  const suggested = group ? group.actualTotal ?? group.projectedTotal : null;
+  const knownTotal = group?.actualTotal ?? null;
   /** Fatura com valor real informado: o total é fato, não pode pagar parcial. */
   const exactRequired = group?.actualTotal != null;
 
@@ -87,22 +90,34 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   useEffect(() => {
     if (!open) return;
     setDate(today);
-    setIof("0");
-    // Vazio herda o total da fatura. IOF é classificação dentro desse total.
-    setAmount("");
-    const seed: Record<string, string> = {};
+    const seed = seedStatementClosure(group);
+    // Fechamento já conhecido abre predefinido: total real + IOF classificado.
+    setTotal(seed.total);
+    setIof(seed.iof);
+    const usdSeed: Record<string, string> = {};
     for (const comp of usdComponents) {
       // Estimativa entra como ponto de partida; o usuário confirma o valor real.
-      seed[comp.row.key] = comp.estimatedBrl != null ? String(comp.estimatedBrl) : "";
+      usdSeed[comp.row.key] = comp.estimatedBrl != null ? String(comp.estimatedBrl) : "";
     }
-    setUsdInputs(seed);
-  }, [open, today, suggested, usdComponents]);
+    setUsdInputs(usdSeed);
+  }, [open, today, group, usdComponents]);
 
   if (!group) return null;
 
+  const closure = resolveStatementClosure({ total, iof, knownTotalBrl: knownTotal });
+  const closureMessage = statementClosureMessage(closure);
   const iofResult = parseIofInput(iof);
   const iofMessage = iofInputMessage(iofResult);
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
+  /** Total confirmado no fechamento; sem digitação, cai no total conhecido. */
+  const closureTotalBrl = closure.state === "ok" ? closure.totalBrl : null;
+  const suggested = closureTotalBrl ?? knownTotal ?? group.projectedTotal;
+  /**
+   * O `Valor pago` NÃO é um campo próprio: a fatura é paga por inteiro, então
+   * ele é sempre o total do fechamento acima.
+   */
+  const amount = total.trim();
+
   /** Total da fatura: o IOF já está contido nele, não é somado por cima. */
   const expected = suggested != null ? Number(suggested.toFixed(2)) : null;
 
