@@ -7,6 +7,8 @@ interface OfficeAgencyPanelProps {
   atRisk: number;
   awaitingClient: number;
   progressPct: number | null;
+  /** Largura em px vinda do palco lógico (~420–520). */
+  width?: number;
 }
 
 const Metric = ({
@@ -18,24 +20,24 @@ const Metric = ({
   value: number;
   tone?: "danger" | "primary";
 }) => (
-  <div className="flex flex-col items-center leading-none">
+  <div className="flex flex-col items-center gap-[2px] leading-none">
     <span
       className={cn(
-        "text-[13px] font-bold tabular-nums",
+        "text-[19px] font-bold tabular-nums leading-none",
         tone === "danger" && "text-destructive",
         tone === "primary" && "text-primary",
       )}
     >
       {value}
     </span>
-    <span className="text-[8px] uppercase tracking-wide text-muted-foreground">{label}</span>
+    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</span>
   </div>
 );
 
 /**
- * PAINEL DA AGÊNCIA na parede: sempre AGENCY-WIDE. O filtro Todas/Mídia/
- * Sistemas muda a cena (mesas), nunca estes números — por isso o título é
- * explícito.
+ * PAINEL DA AGÊNCIA na parede: elemento principal, sempre AGENCY-WIDE. O filtro
+ * Todas/Mídia/Sistemas muda a cena (mesas), nunca estes números — por isso o
+ * título é explícito. Largura vem do PALCO LÓGICO, não da viewport bruta.
  */
 export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
   deliveredToday,
@@ -43,21 +45,29 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
   atRisk,
   awaitingClient,
   progressPct,
+  width = 440,
 }: OfficeAgencyPanelProps) {
   return (
-    <div className="w-[300px] rounded-md border border-border/70 bg-background/80 px-3 py-2 shadow-[0_8px_18px_-14px_hsl(var(--foreground)/0.8)] backdrop-blur-[2px] sm:w-[340px]">
-      <div className="flex items-baseline justify-between">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+    <div
+      className="relative rounded-[6px] border-[3px] border-foreground/20 bg-background/90 px-4 pb-2.5 pt-2 shadow-[0_14px_24px_-16px_hsl(var(--foreground)/0.95)] backdrop-blur-[2px]"
+      style={{ width }}
+    >
+      {/* parafusos de fixação na parede */}
+      <span aria-hidden="true" className="absolute left-2 top-1.5 h-1 w-1 rounded-full bg-foreground/25" />
+      <span aria-hidden="true" className="absolute right-2 top-1.5 h-1 w-1 rounded-full bg-foreground/25" />
+
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/80">
           Painel da agência
         </span>
-        <span className="text-[9px] text-muted-foreground">
+        <span className="text-[10px] font-medium text-muted-foreground">
           {progressPct === null ? "Sem entregas previstas" : `${progressPct}% do dia`}
         </span>
       </div>
 
       {progressPct !== null && (
         <div
-          className="mt-1 h-[5px] w-full overflow-hidden rounded-full bg-foreground/10"
+          className="mt-1.5 h-[8px] w-full overflow-hidden rounded-full bg-foreground/12 ring-1 ring-inset ring-foreground/10"
           role="progressbar"
           aria-label="Progresso de entregas do dia"
           aria-valuemin={0}
@@ -71,7 +81,7 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
         </div>
       )}
 
-      <div className="mt-2 grid grid-cols-4 gap-1">
+      <div className="mt-2.5 grid grid-cols-4 gap-1 border-t border-border/60 pt-2">
         <Metric label="Concluídas" value={deliveredToday} tone="primary" />
         <Metric label="Em andamento" value={inProgress} />
         <Metric label="Em risco" value={atRisk} tone={atRisk > 0 ? "danger" : undefined} />

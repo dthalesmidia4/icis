@@ -58,7 +58,7 @@ const MIN_BASE_WIDTH = 196;
  * da fileira do fundo. O anti-colisão entre mesas não enxergava isso, então a
  * estação superior direita entrava visualmente no balcão.
  */
-export const COFFEE_WIDTH_PX = 214;
+export const COFFEE_WIDTH_PX = 240;
 export const COFFEE_RIGHT_OFFSET_PX = 32;
 /** Margem visual segura pedida (24–40px). */
 export const COFFEE_SAFE_MARGIN_PX = 32;
@@ -69,16 +69,61 @@ export function coffeeZoneLeftPx(worldWidth: number): number {
 }
 
 /**
+ * PALCO LÓGICO. A cena NÃO se espalha pela largura bruta da viewport: em
+ * ultrawide o escritório precisa continuar coeso (margens externas calmas são
+ * aceitáveis; vazio gigante ENTRE os elementos, não). Em 1366–1920 o palco usa
+ * quase toda a largura útil.
+ */
+export const STAGE_MIN_PX = 980;
+export const STAGE_MAX_PX = 2040;
+export function stageWidthPx(worldWidth: number): number {
+  const width = worldWidth || DEFAULT_SIZE.width;
+  if (width <= STAGE_MIN_PX) return width;
+  return Math.round(Math.min(STAGE_MAX_PX, Math.max(STAGE_MIN_PX, width * 0.96)));
+}
+/** Tamanho do palco lógico usado por TODA a matemática de composição. */
+export function stageSize(world: WorldSize): WorldSize {
+  return { width: stageWidthPx(world.width), height: world.height };
+}
+
+/**
  * Largura relativa do monitor dentro da estação. O monitor deixou de usar
  * `flex-1` (absorvia todo o tampo): agora tem teto explícito, sobrando faixa
  * estável para personagem/objetos à esquerda e fila/objetos à direita.
+ * Presença reduzida (~15%) para a mesa/cadeira/pilha voltarem a pesar mais
+ * que o card — o escritório não é um Kanban ilustrado.
  */
 export const MONITOR_MAX_PCT = 62;
 export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
   const profile = resolveOfficeProfile(size);
   // Ultrawide pode crescer discretamente, sem voltar ao aspecto horizontal.
-  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 60 : 57;
+  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 55 : 52;
 }
+
+/** Altura mínima (px) do "vidro" do monitor: mais horizontal, menos pôster. */
+export const MONITOR_MIN_HEIGHT_PX = 46;
+
+/**
+ * ESCALA DO PERSONAGEM sobre a largura MEDIDA do anchor. Pessoas ganham
+ * protagonismo (~15–20%) sem sair da cadeira nem cobrir monitor/labels.
+ */
+export const CHARACTER_SCALE: Record<"seated" | "standing" | "walking", number> = {
+  seated: 1.16,
+  standing: 1.22,
+  walking: 1.22,
+};
+export function characterSizePx(anchorWidth: number, posture: keyof typeof CHARACTER_SCALE): number {
+  return Math.max(26, Math.round(anchorWidth * CHARACTER_SCALE[posture]));
+}
+
+/**
+ * PAINEL DA AGÊNCIA: elemento principal da parede. Cresce com o palco lógico
+ * (não com a largura bruta), na faixa pedida de ~420–520px.
+ */
+export function agencyPanelWidthPx(stageWidth: number): number {
+  return Math.round(Math.min(520, Math.max(420, (stageWidth || DEFAULT_SIZE.width) * 0.3)));
+}
+
 
 const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
 
@@ -303,13 +348,29 @@ const GENERIC_MIN_ROW_GAP_PCT = 22;
  * Café/Reunião/Espera à direita) e por isso são reservadas em px: as mesas
  * ficam concentradas na faixa central, nunca invadindo as zonas.
  */
-export const RICH_LEFT_ZONE_PX = 196;
-export const RICH_RIGHT_ZONE_PX = 224;
+export const RICH_LEFT_ZONE_PX = 252;
+export const RICH_RIGHT_ZONE_PX = 276;
+/** Tetos das faixas: em palco largo elas crescem, mas não indefinidamente. */
+export const RICH_LEFT_ZONE_MAX_PX = 312;
+export const RICH_RIGHT_ZONE_MAX_PX = 336;
+
+/**
+ * Faixas físicas laterais em px do PALCO LÓGICO (~17–19% cada). Não são
+ * percentuais puros: as zonas têm móveis com largura real, então há piso e teto.
+ */
+export function richLeftZonePx(stageWidth: number): number {
+  const w = stageWidth || 1440;
+  return Math.round(Math.min(RICH_LEFT_ZONE_MAX_PX, Math.max(RICH_LEFT_ZONE_PX, w * 0.18)));
+}
+export function richRightZonePx(stageWidth: number): number {
+  const w = stageWidth || 1440;
+  return Math.round(Math.min(RICH_RIGHT_ZONE_MAX_PX, Math.max(RICH_RIGHT_ZONE_PX, w * 0.19)));
+}
 /** Faixa superior do Painel da agência (parede): a fileira do fundo fica abaixo. */
 export const RICH_PANEL_BAND_PCT = 28;
 /** Centros horizontais (%) das mesas no modo rico — faixas 36–40% e 62–66%. */
-export const RICH_CENTERS_BACK: [number, number] = [38, 64];
-export const RICH_CENTERS_FRONT: [number, number] = [37, 65];
+export const RICH_CENTERS_BACK: [number, number] = [36, 65];
+export const RICH_CENTERS_FRONT: [number, number] = [35, 66];
 /** Altura visual acima do tampo (monitor + personagem + pilha), como fração da base. */
 export const DESK_ABOVE_TABLE_RATIO = 0.52;
 
@@ -327,8 +388,10 @@ export function richZonesActive(count: number, options: DeskSlotOptions = {}): b
 
 /** Faixa central útil (px) entre as zonas laterais reservadas. */
 export function centerBandPx(worldWidth: number): { left: number; right: number } {
-  return { left: RICH_LEFT_ZONE_PX, right: Math.max(RICH_LEFT_ZONE_PX + 200, worldWidth - RICH_RIGHT_ZONE_PX) };
+  const left = richLeftZonePx(worldWidth);
+  return { left, right: Math.max(left + 200, worldWidth - richRightZonePx(worldWidth)) };
 }
+
 
 /** Footprint real de uma estação, em px do mundo (usado por layout e testes). */
 export function deskFootprint(
