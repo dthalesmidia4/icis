@@ -86,16 +86,16 @@ export default function OfficeWorld({
             <svg width="46" height="52" viewBox="0 0 46 52" className="block">
               {/* folhas */}
               <g fill="none" strokeLinecap="round">
-                <path d="M23 34 C23 24 23 16 23 9" stroke="hsl(150 42% 34%)" strokeWidth="2" />
-                <path d="M23 30 C15 27 9 21 7 13" stroke="hsl(150 38% 38%)" strokeWidth="1.6" />
-                <path d="M23 28 C31 25 37 19 39 12" stroke="hsl(150 38% 38%)" strokeWidth="1.6" />
+                <path d="M23 34 C23 24 23 16 23 9" stroke="hsl(var(--office-leaf))" strokeWidth="2" />
+                <path d="M23 30 C15 27 9 21 7 13" stroke="hsl(var(--office-leaf-soft))" strokeWidth="1.6" />
+                <path d="M23 28 C31 25 37 19 39 12" stroke="hsl(var(--office-leaf-soft))" strokeWidth="1.6" />
               </g>
               <g>
-                <ellipse cx="23" cy="8" rx="5.5" ry="9" fill="hsl(150 46% 36%)" transform="rotate(-4 23 8)" />
-                <ellipse cx="8" cy="13" rx="8.5" ry="5" fill="hsl(152 42% 40%)" transform="rotate(-32 8 13)" />
-                <ellipse cx="38" cy="12" rx="8.5" ry="5" fill="hsl(150 40% 32%)" transform="rotate(32 38 12)" />
-                <ellipse cx="12" cy="24" rx="7.5" ry="4.5" fill="hsl(158 38% 44%)" transform="rotate(-16 12 24)" />
-                <ellipse cx="34" cy="23" rx="7.5" ry="4.5" fill="hsl(150 44% 38%)" transform="rotate(16 34 23)" />
+                <ellipse cx="23" cy="8" rx="5.5" ry="9" fill="hsl(var(--office-leaf))" transform="rotate(-4 23 8)" />
+                <ellipse cx="8" cy="13" rx="8.5" ry="5" fill="hsl(var(--office-leaf-soft))" transform="rotate(-32 8 13)" />
+                <ellipse cx="38" cy="12" rx="8.5" ry="5" fill="hsl(var(--office-leaf-deep))" transform="rotate(32 38 12)" />
+                <ellipse cx="12" cy="24" rx="7.5" ry="4.5" fill="hsl(var(--office-leaf-soft))" transform="rotate(-16 12 24)" />
+                <ellipse cx="34" cy="23" rx="7.5" ry="4.5" fill="hsl(var(--office-leaf))" transform="rotate(16 34 23)" />
               </g>
               {/* vaso cinza/neutro */}
               <path d="M14 34 H32 L29.5 50 H16.5 Z" fill="hsl(var(--muted-foreground) / 0.55)" />
