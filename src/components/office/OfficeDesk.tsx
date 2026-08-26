@@ -15,12 +15,8 @@ import {
 } from "@/lib/officeDeskObjects";
 import { isCoffeeEligible } from "@/lib/officePresence";
 import { MONITOR_MIN_HEIGHT_PX } from "@/lib/officeLayout";
+import { hasOfficeCardSpan, officeCardSpan } from "@/lib/officeCardTime";
 
-const timeLabel = (date?: string | null, time?: string | null) => {
-  if (!date) return null;
-  const [, m, d] = date.split("-");
-  return `${d}/${m}${time ? ` ${time.slice(0, 5)}` : ""}`;
-};
 
 /** Progresso temporal do card atual (0..1) — nunca reflete volume de fila. */
 const cardProgress = (start: number | null, end: number | null, now: number): number | null => {
