@@ -126,6 +126,9 @@ export interface FinanceOccurrence {
   tenant_id?: string;
   item_id: string;
   competence_month: string;
+  /** Papel do lançamento no mês (default `regular` no banco e no legado). */
+  entry_role?: FinanceEntryRole | null;
+
   /**
    * IDENTIDADE do lançamento recorrente: a data ORIGINALMENTE agendada pelo
    * cronograma. Mover a data efetiva (`due_date`/`charge_date`) não muda a
