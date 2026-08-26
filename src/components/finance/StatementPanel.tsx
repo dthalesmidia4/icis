@@ -28,6 +28,7 @@ import {
   formatCurrencyValue,
 } from "@/lib/financeModel";
 import { statementIofBrl } from "@/lib/financeIof";
+import { statementClosureButtonLabel } from "@/lib/financeStatementClosure";
 import {
   CARD_CHARGE_DATE_MISSING,
   cardChargeDateLabel,
@@ -58,9 +59,9 @@ interface Props {
   onOpenRow: (row: MonthRow) => void;
   /** Rótulos dinâmicos das linhas do mês (renovação, recargas, 1/4...). */
   labels?: Map<string, OccurrenceLabel>;
+  /** Abre o FECHAMENTO da fatura: total e IOF juntos, num único lugar. */
   onOpenStatement: (group: StatementGroup) => void;
   onPayStatement: (group: StatementGroup) => void;
-  onAdjustIof: (group: StatementGroup) => void;
   onEditCard: (card: FinanceItem) => void;
   /**
    * Itens ATIVOS ligados ao cartão que não compõem esta fatura, por `card.id`.
@@ -95,7 +96,6 @@ export default function StatementPanel({
   onOpenRow,
   onOpenStatement,
   onPayStatement,
-  onAdjustIof,
   onEditCard,
   linkedItems,
   onEditItem,
@@ -217,7 +217,7 @@ export default function StatementPanel({
                   <Fact label="Pago em" value={paidOn ? formatDayMonth(paidOn) : "Data não registrada"} tone={paidOn ? undefined : "muted"} />
                 )}
                 {group.paid && classifiedIof > 0 && (
-                  <Fact label="IOF classificado" value={formatBRL(classifiedIof)} />
+                  <Fact label="IOF incluído na fatura" value={formatBRL(classifiedIof)} />
                 )}
               </div>
 
@@ -269,19 +269,16 @@ export default function StatementPanel({
                     Outros vinculados ({linked.length})
                   </Button>
                 )}
-                <Button variant="outline" size="sm" className="min-h-10" onClick={() => onOpenStatement(group)}>
-                  {group.paid ? "Ver detalhes" : "Informar valor da fatura"}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-10"
+                  disabled={!group.statementRow?.occurrence}
+                  onClick={() => onOpenStatement(group)}
+                >
+                  {statementClosureButtonLabel(group)}
                 </Button>
-                {group.paid ? (
-                  <Button
-                    size="sm"
-                    className="min-h-10"
-                    disabled={!group.statementRow?.occurrence}
-                    onClick={() => onAdjustIof(group)}
-                  >
-                    {classifiedIof > 0 ? "Ajustar IOF" : "Informar IOF"}
-                  </Button>
-                ) : (
+                {!group.paid && (
                   <Button
                     size="sm"
                     className="min-h-10"
