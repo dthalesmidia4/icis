@@ -201,3 +201,72 @@ describe("correctionWasApplied", () => {
     expect(correctionWasApplied({ due_date: "2026-08-17" }, null)).toBe(false);
   });
 });
+
+describe("caso ADOBE: híbrido com snapshots de cartão já preenchidos", () => {
+  const adobe = row({
+    item: item({ name: "Adobe", payment_method: "Cartão de Crédito", card_item_id: "card-itau" }),
+    occurrence: occ({
+      due_date: "2026-07-14",
+      paid_at: "2026-08-01T12:00:00Z",
+      charge_date: null,
+      payment_method_snapshot: "Cartão de Crédito",
+      card_item_id_snapshot: "card-itau",
+    }),
+  });
+
+  it("detecta o híbrido mesmo com snapshot de cartão preenchido", () => {
+    expect(isLegacyDirectPaymentOnCard(adobe)).toBe(true);
+  });
+
+  it("com a data digitada o Save converte sozinho, sem botão intermediário", () => {
+    expect(
+      occurrenceSaveRoute({
+        statementRow: false,
+        hasOccurrence: true,
+        closed: true,
+        legacyDirectOnCard: isLegacyDirectPaymentOnCard(adobe),
+        factDate: "2026-08-05",
+      }),
+    ).toBe("convert_then_correct");
+  });
+
+  it("patch da conversão fixa charge_date e não toca em prova de pagamento", () => {
+    const patch = buildFactCorrectionPatch({
+      cardRow: true,
+      currency: "BRL",
+      amountOriginal: 300,
+      amountBrl: 300,
+      exchangeRate: null,
+      factDate: "2026-08-05",
+      observations: "",
+      paymentMethodSnapshot: "Cartão de Crédito",
+      cardItemIdSnapshot: "card-itau",
+    });
+    expect(patch.charge_date).toBe("2026-08-05");
+    expect(patch).not.toHaveProperty("due_date");
+    expect(patch).not.toHaveProperty("paid_at");
+  });
+});
+
+describe("caso LASER JET: corrigir valor sem desfazer pagamento", () => {
+  it("175 → 17,50 mantém a prova de pagamento fora do patch", () => {
+    const patch = buildFactCorrectionPatch({
+      cardRow: false,
+      currency: "BRL",
+      amountOriginal: 17.5,
+      amountBrl: 17.5,
+      exchangeRate: null,
+      factDate: "2026-08-17",
+      observations: "",
+      paymentMethodSnapshot: "Pix",
+      cardItemIdSnapshot: null,
+    });
+    expect(patch.amount_brl).toBe(17.5);
+    expect(patch.amount_original).toBe(17.5);
+    expect(patch).not.toHaveProperty("paid_at");
+    expect(patch).not.toHaveProperty("paid_amount_brl");
+    expect(patch).not.toHaveProperty("statement_id");
+    expect(patch).not.toHaveProperty("skipped_at");
+    expect(correctionWasApplied(patch, { ...({} as never), due_date: "2026-08-17", observations: null } as never)).toBe(true);
+  });
+});
