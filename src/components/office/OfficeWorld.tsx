@@ -71,14 +71,27 @@ export default function OfficeWorld({
         className="pointer-events-none absolute inset-x-0 top-0 hidden sm:block"
         style={{ height: `${WALL_DECOR_BAND_PCT}%` }}
       >
-        {/* janela única, à direita do quadro de Missões */}
+        {/* janela única, à direita do quadro de Missões, com uma planta abaixo
+            dela integrando parede e piso (só CSS, sem imagem externa). */}
         <div className="absolute left-[24%] top-[22%]">
           <div className="relative h-20 w-28 rounded-sm border-[3px] border-foreground/25 bg-gradient-to-br from-primary/25 to-background/70 shadow-[inset_0_2px_8px_hsl(var(--foreground)/0.12)]">
             <span className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-foreground/25" />
             <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-foreground/20" />
             <span className="absolute -bottom-[4px] inset-x-[-3px] h-[4px] rounded-sm bg-foreground/25" />
           </div>
+          {/* planta em vaso encostada abaixo/ao lado da janela */}
+          <div className="absolute -right-6 top-[86px] flex flex-col items-center">
+            <span className="relative block h-8 w-8">
+              <span className="absolute bottom-0 left-1/2 h-8 w-[3px] -translate-x-1/2 rounded bg-foreground/35" />
+              <span className="absolute left-0 top-0 h-4 w-4 -rotate-[35deg] rounded-full bg-primary/45" />
+              <span className="absolute right-0 top-1 h-3.5 w-3.5 rotate-[35deg] rounded-full bg-primary/32" />
+              <span className="absolute left-1.5 top-4 h-3 w-3 -rotate-[20deg] rounded-full bg-primary/38" />
+            </span>
+            <span className="h-5 w-6 rounded-b-md bg-foreground/38" />
+            <span className="mt-[1px] h-1.5 w-8 rounded-[50%] bg-foreground/15 blur-[1px] dark:bg-background/60" />
+          </div>
         </div>
+
 
         {/* gráfico emoldurado na parede (lado direito, longe da lousa central) */}
         <div className="absolute right-[26%] top-[24%] hidden md:block">
