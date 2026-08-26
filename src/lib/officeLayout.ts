@@ -383,7 +383,7 @@ export function richRightZonePx(stageWidth: number): number {
   return Math.round(Math.min(RICH_RIGHT_ZONE_MAX_PX, Math.max(RICH_RIGHT_ZONE_PX, w * 0.19)));
 }
 /** Faixa superior do Painel da agência (parede): a fileira do fundo fica abaixo. */
-export const RICH_PANEL_BAND_PCT = 28;
+export const RICH_PANEL_BAND_PCT = WALL_HEIGHT_PCT;
 /** Centros horizontais (%) das mesas no modo rico — faixas 36–40% e 62–66%. */
 export const RICH_CENTERS_BACK: [number, number] = [36, 65];
 export const RICH_CENTERS_FRONT: [number, number] = [35, 66];
