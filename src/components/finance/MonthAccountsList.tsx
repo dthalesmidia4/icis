@@ -221,7 +221,11 @@ export default function MonthAccountsList({
           <div className="min-w-0">
             <p className="text-[15px] font-semibold text-foreground">{row.item.name}</p>
             <p className="text-sm text-muted-foreground">{locked ? row.item.purpose : metaFor(row)}</p>
+            {!row.item.active && !locked && (
+              <p className="text-xs text-muted-foreground">Cadastro inativo</p>
+            )}
           </div>
+
           <span className="text-[15px] font-semibold whitespace-nowrap">
             {formatBRL(row.amountBrl)}
           </span>
