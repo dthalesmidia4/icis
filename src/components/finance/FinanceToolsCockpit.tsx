@@ -167,6 +167,7 @@ export default function FinanceToolsCockpit() {
         row={occurrenceRow}
         cards={safeCardItems}
         defaultUsdRate={null}
+        statusContext={statusContext}
         onSave={saveOccurrence}
         onEditItem={(item) => {
           setOccurrenceRow(null);
