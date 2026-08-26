@@ -487,6 +487,12 @@ export default function FinanceItemFormModal({
       statement_closing_day: isCard ? parseDayOfMonth(closingDay) : null,
       statement_due_day: isCard ? parseDayOfMonth(statementDueDay) : null,
       subscription_date: subscriptionDate || null,
+      /**
+       * Dia do FATO mensal (agenda da DESPESA). É o que dá data à linha quando o
+       * pagamento acontece em outro dia — vencimento/cobrança falam de PAGAMENTO.
+       */
+      recurrence_day_of_month:
+        isRecurring && !isSubMonthly ? parseDayOfMonth(factDayOfMonth) : null,
       installment_start_date: isInstallments ? installmentStart : null,
       installment_count: isInstallments ? installmentCountNumber : null,
       link: link.trim() || null,
@@ -509,7 +515,20 @@ export default function FinanceItemFormModal({
             cardItemId: payload.card_item_id ?? null,
           }
         : null;
-    const ok = await onSave(payload, item?.id, oneOff);
+    /**
+     * Agenda de PAGAMENTO: só faz sentido para recorrência (o avulso/parcelado
+     * já tem data própria) e fora do cartão (aí quem paga é a fatura).
+     */
+    const paymentSchedule = showPaymentSchedule
+      ? {
+          mode: paymentMode,
+          interval: Number(paymentInterval) || 1,
+          weekday: paymentMode === "weekly" ? Number(paymentWeekday) || 5 : null,
+          dayOfMonth: paymentMode === "monthly" ? parseDayOfMonth(paymentDayOfMonth) : null,
+          effectiveFrom: competence ? competenceToISO(competence) : null,
+        }
+      : null;
+    const ok = await onSave(payload, item?.id, oneOff, paymentSchedule);
     setSaving(false);
     if (ok) onOpenChange(false);
   };
