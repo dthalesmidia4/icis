@@ -447,27 +447,41 @@ const GENERIC_MIN_ROW_GAP_PCT = 22;
  * Café/Reunião/Espera à direita) e por isso são reservadas em px: as mesas
  * ficam concentradas na faixa central, nunca invadindo as zonas.
  */
-export const RICH_LEFT_ZONE_PX = 238;
-export const RICH_RIGHT_ZONE_PX = 244;
+export const RICH_LEFT_ZONE_PX = 208;
+export const RICH_RIGHT_ZONE_PX = 214;
 /** Tetos das faixas: em palco largo elas crescem, mas não indefinidamente. */
 export const RICH_LEFT_ZONE_MAX_PX = 312;
 export const RICH_RIGHT_ZONE_MAX_PX = 336;
 
-/**
- * Faixas físicas laterais em px do PALCO LÓGICO (~17–19% cada). Não são
- * percentuais puros: as zonas têm móveis com largura real, então há piso e teto.
- */
-export function richLeftZonePx(stageWidth: number): number {
-  const w = stageWidth || 1440;
-  return Math.round(Math.min(RICH_LEFT_ZONE_MAX_PX, Math.max(RICH_LEFT_ZONE_PX, w * 0.18)));
+/** Aceita largura do palco (número) ou o `WorldSize` completo. */
+function asStageSize(stage: number | WorldSize): WorldSize {
+  return typeof stage === "number" ? { width: stage, height: DEFAULT_SIZE.height } : stage;
 }
-export function richRightZonePx(stageWidth: number): number {
-  const w = stageWidth || 1440;
-  return Math.round(Math.min(RICH_RIGHT_ZONE_MAX_PX, Math.max(RICH_RIGHT_ZONE_PX, w * 0.19)));
+
+/**
+ * Faixas físicas laterais em px do PALCO LÓGICO. POR PERFIL: no desktop normal
+ * elas ficam enxutas (~208/214px) para não comprimir o núcleo central das 4
+ * mesas; em ultrawide crescem (~300/330px) mantendo o respiro atual.
+ */
+export function richLeftZonePx(stage: number | WorldSize): number {
+  const size = asStageSize(stage);
+  const w = size.width || 1440;
+  const profile = resolveOfficeProfile(size);
+  return Math.round(
+    Math.min(RICH_LEFT_ZONE_MAX_PX, Math.max(RICH_LEFT_ZONE_PX, Math.min(profile.leftZonePx, w * 0.18))),
+  );
+}
+export function richRightZonePx(stage: number | WorldSize): number {
+  const size = asStageSize(stage);
+  const w = size.width || 1440;
+  const profile = resolveOfficeProfile(size);
+  return Math.round(
+    Math.min(RICH_RIGHT_ZONE_MAX_PX, Math.max(RICH_RIGHT_ZONE_PX, Math.min(profile.rightZonePx, w * 0.19))),
+  );
 }
 /** Faixa superior do Painel da agência (parede): a fileira do fundo fica abaixo. */
 export const RICH_PANEL_BAND_PCT = WALL_HEIGHT_PCT;
-/** Centros horizontais (%) das mesas no modo rico — faixas 36–40% e 62–66%. */
+/** Centros horizontais (%) das mesas no modo rico (fallback do perfil). */
 export const RICH_CENTERS_BACK: [number, number] = [34, 66];
 export const RICH_CENTERS_FRONT: [number, number] = [33, 67];
 /** Altura visual acima do tampo (monitor + personagem + pilha), como fração da base. */
@@ -486,10 +500,13 @@ export function richZonesActive(count: number, options: DeskSlotOptions = {}): b
 }
 
 /** Faixa central útil (px) entre as zonas laterais reservadas. */
-export function centerBandPx(worldWidth: number): { left: number; right: number } {
-  const left = richLeftZonePx(worldWidth);
-  return { left, right: Math.max(left + 200, worldWidth - richRightZonePx(worldWidth)) };
+export function centerBandPx(stage: number | WorldSize): { left: number; right: number } {
+  const size = asStageSize(stage);
+  const width = size.width || DEFAULT_SIZE.width;
+  const left = richLeftZonePx(size);
+  return { left, right: Math.max(left + 200, width - richRightZonePx(size)) };
 }
+
 
 
 /** Footprint real de uma estação, em px do mundo (usado por layout e testes). */
