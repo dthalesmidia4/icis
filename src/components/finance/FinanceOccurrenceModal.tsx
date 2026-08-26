@@ -8,7 +8,12 @@
  *  - obrigação direta → o fato é o VENCIMENTO (`due_date`).
  *
  * Compra no cartão também não tem switch `Pago`: a liquidação é derivada do
- * pagamento da fatura.
+ * pagamento da fatura. Já a obrigação direta tem `Pago` + `Data do pagamento`
+ * reais e reversíveis — o `paid_at` nunca sai do relógio como regra.
+ *
+ * LAYOUT: todo par de campos é `grid-cols-1 sm:grid-cols-2` com trilhas
+ * `minmax(0,1fr)` e filhos `min-w-0`; `input[type=date]` tem largura intrínseca
+ * maior que a trilha e estouraria o modal sem isso.
  */
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,7 +36,6 @@ import {
   formatBRL,
   formatDateBR,
   installmentRowLabel,
-  KIND_LABELS,
   effectiveUsdRate,
 } from "@/lib/financeModel";
 import { parseLocalizedNumber } from "@/lib/financeNumber";
@@ -44,6 +48,13 @@ import {
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
 import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
+import {
+  canSubmitOccurrence,
+  initialPaymentDate,
+  occurrenceContextLine,
+  paymentStatusMessage,
+  persistedPaymentDate,
+} from "@/lib/financeOccurrenceForm";
 import { effectivePaid } from "@/lib/financeModel";
 import {
   OCCURRENCE_ACTION_LABELS,
@@ -77,6 +88,16 @@ interface Props {
   onRefresh?: () => void;
 }
 
+/** Seção do modal: título discreto + conteúdo, sem accordion obrigatório. */
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3 min-w-0">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+      {children}
+    </section>
+  );
+}
+
 export default function FinanceOccurrenceModal({
   open,
   onOpenChange,
@@ -93,6 +114,8 @@ export default function FinanceOccurrenceModal({
   /** Data do fato: cobrança (cartão) ou vencimento (obrigação direta). */
   const [factDate, setFactDate] = useState("");
   const [paid, setPaid] = useState(false);
+  /** Data REAL do pagamento (obrigação direta). Nunca é o vencimento. */
+  const [paymentDate, setPaymentDate] = useState("");
   const [observations, setObservations] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
@@ -136,6 +159,10 @@ export default function FinanceOccurrenceModal({
   const cardRow = !!row && isCardCharge(row);
   /** Câmbio já provado pelo par (BRL real / USD original) desta compra. */
   const persistedRate = row ? effectiveUsdRate(row) : null;
+  /** Dia civil do `paid_at` já salvo — a prova do fato. */
+  const persistedPaidDate = persistedPaymentDate(row);
+  /** Hoje canônico do Financeiro (fonte única já usada pelos status). */
+  const today = statusContext?.today ?? new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     if (!open || !row) return;
@@ -164,6 +191,7 @@ export default function FinanceOccurrenceModal({
         : row.dueDate ?? row.chargeDate ?? "",
     );
     setPaid(row.paid);
+    setPaymentDate(initialPaymentDate(row, today));
     setObservations(row.occurrence?.observations ?? "");
     setAttachmentUrl(row.occurrence?.attachment_url ?? null);
     setAttachmentName(row.occurrence?.attachment_name ?? null);
@@ -171,7 +199,7 @@ export default function FinanceOccurrenceModal({
     if (occ?.card_item_id_snapshot) setOrigin(`card:${occ.card_item_id_snapshot}`);
     else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
     else setOrigin(FOLLOW_ITEM);
-  }, [open, row, defaultUsdRate]);
+  }, [open, row, defaultUsdRate, today]);
 
   const amountNumber = parseLocalizedNumber(amount);
   const rateNumber = parseLocalizedNumber(rate) ?? defaultUsdRate;
@@ -187,6 +215,20 @@ export default function FinanceOccurrenceModal({
     if (!row || !cardRow || !statusContext) return null;
     return resolveRowStatus(row, statusContext);
   }, [row, cardRow, statusContext]);
+
+  const status = useMemo(
+    () =>
+      paymentStatusMessage({
+        cardRow,
+        cardStatusLabel: cardStatus?.label ?? (row?.paid ? "Pago" : null),
+        persistedPaymentDate: persistedPaidDate,
+        paid,
+        paymentDate,
+      }),
+    [cardRow, cardStatus?.label, row?.paid, persistedPaidDate, paid, paymentDate],
+  );
+
+  const canSubmit = canSubmitOccurrence({ cardRow, paid, paymentDate });
 
   const handleUpload = async (file: File) => {
     if (!row) return;
@@ -220,7 +262,7 @@ export default function FinanceOccurrenceModal({
   }, [origin]);
 
   const handleSave = async () => {
-    if (!row) return;
+    if (!row || !canSubmit) return;
     setSaving(true);
     const patch = buildOccurrencePatch({
       row,
@@ -230,6 +272,7 @@ export default function FinanceOccurrenceModal({
       amountBrl: brl,
       exchangeRate: rateNumber,
       paid,
+      paymentDate: cardRow ? null : paymentDate,
       observations,
       attachmentUrl,
       attachmentName,
@@ -250,184 +293,246 @@ export default function FinanceOccurrenceModal({
   const rateLabel = persistedRate != null ? "Câmbio efetivo" : "Câmbio de referência";
   const whenText = cardRow
     ? `cobrança ${row.projected ? "prevista" : "real"} em ${formatDateBR(row.chargeDate)}`
-    : `vencimento previsto ${formatDateBR(row.dueDate ?? row.chargeDate)}`;
+    : `vencimento ${row.projected ? "previsto" : ""} ${formatDateBR(row.dueDate ?? row.chargeDate)}`.replace("  ", " ");
+
+  const toneClass =
+    status.tone === "success"
+      ? "text-primary"
+      : status.tone === "warning"
+        ? "text-amber-600 dark:text-amber-500"
+        : "text-muted-foreground";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{row.item.name}</DialogTitle>
-          <DialogDescription>
-            {isInstallmentRow(row) ? (
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="break-words pr-8">{row.item.name}</DialogTitle>
+          <DialogDescription className="break-words">
+            {occurrenceContextLine(row, statusContext?.competenceMonth)}
+            <br />
+            <span className={`font-medium ${toneClass}`}>{status.label}</span>
+            {row.projected && " · ainda não lançado neste mês"}
+            {isInstallmentRow(row) && (
               <>
-                {installmentHeaderLine(row) ?? installmentRowLabel(row) ?? "Parcelamento"}
                 <br />
-                {KIND_LABELS[row.item.kind]} · {whenText}
-                {installmentProjectedNote(row) && (
-                  <>
-                    <br />
-                    {installmentProjectedNote(row)}
-                  </>
-                )}
+                {installmentHeaderLine(row) ?? installmentRowLabel(row)}
               </>
-            ) : (
+            )}
+            {installmentProjectedNote(row) && (
               <>
-                {KIND_LABELS[row.item.kind]} · {whenText}
-                {row.projected && " · ainda não lançado neste mês"}
+                <br />
+                {installmentProjectedNote(row)}
               </>
             )}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>{occurrenceAmountLabel(row)}</Label>
-              <Input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="0,00" />
+        <div className="space-y-5 py-1 min-w-0">
+          <Block title="Dados deste mês">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="min-w-0">
+                <Label>{occurrenceAmountLabel(row)}</Label>
+                <Input
+                  className="w-full min-w-0 max-w-full"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div className="min-w-0">
+                <Label>{dateLabel}</Label>
+                <Input
+                  type="date"
+                  className="w-full min-w-0 max-w-full"
+                  value={factDate}
+                  onChange={(e) => setFactDate(e.target.value)}
+                />
+              </div>
+
+              {row.currency === "USD" && (
+                <>
+                  <div className="min-w-0">
+                    <Label>{rateLabel}</Label>
+                    <Input
+                      className="w-full min-w-0 max-w-full"
+                      value={rate}
+                      onChange={(e) => setRate(e.target.value)}
+                      inputMode="decimal"
+                    />
+                  </div>
+                  <div className="min-w-0 flex items-end">
+                    <p className="text-sm text-muted-foreground pb-2 break-words">
+                      Em reais: <span className="font-semibold text-foreground">{formatBRL(brl)}</span>
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
 
-            {row.currency === "USD" ? (
-              <div>
-                <Label>{rateLabel}</Label>
-                <Input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" />
-              </div>
-            ) : (
-              <div>
-                <Label>{dateLabel}</Label>
-                <Input type="date" value={factDate} onChange={(e) => setFactDate(e.target.value)} />
-              </div>
-            )}
-          </div>
-
-          {row.currency === "USD" && (
-            <>
-              <div className="grid grid-cols-2 gap-4 items-end">
-                <div>
-                  <Label>{dateLabel}</Label>
-                  <Input type="date" value={factDate} onChange={(e) => setFactDate(e.target.value)} />
-                </div>
-                <p className="text-sm text-muted-foreground pb-2">
-                  Em reais: <span className="font-semibold text-foreground">{formatBRL(brl)}</span>
-                </p>
-              </div>
+            {row.currency === "USD" && (
               <p className="text-xs text-muted-foreground">
                 {persistedRate != null
                   ? "Câmbio efetivo desta compra, calculado pelo valor exato cobrado em reais."
                   : "Usado apenas para estimativa até o valor real ser confirmado."}
               </p>
-            </>
-          )}
+            )}
 
-          {cardRow && (
-            <p className="text-xs text-muted-foreground">
-              O vencimento pertence à fatura do cartão, não a esta compra.
-            </p>
-          )}
+            {cardRow && (
+              <p className="text-xs text-muted-foreground">
+                O vencimento pertence à fatura do cartão, não a esta compra.
+              </p>
+            )}
 
-          <div>
-            <Label>Forma de pagamento deste mês</Label>
-            <Select value={origin} onValueChange={setOrigin}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={FOLLOW_ITEM}>
-                  Seguir o cadastro{row.item.payment_method ? ` (${row.item.payment_method})` : ""}
-                </SelectItem>
-                {cards.map((card) => (
-                  <SelectItem key={card.id} value={`card:${card.id}`}>
-                    {cardDisplayLabel(card)}
+            <div className="min-w-0">
+              <Label>Forma de pagamento deste mês</Label>
+              <Select value={origin} onValueChange={setOrigin}>
+                <SelectTrigger className="mt-1 w-full min-w-0 max-w-full">
+                  <SelectValue className="truncate" />
+                </SelectTrigger>
+                <SelectContent className="max-w-[min(28rem,calc(100vw-3rem))]">
+                  <SelectItem value={FOLLOW_ITEM}>
+                    Seguir o cadastro{row.item.payment_method ? ` (${row.item.payment_method})` : ""}
                   </SelectItem>
-                ))}
-                {PAYMENT_METHODS.filter((m) => m !== CARD_PAYMENT_METHOD).map((m) => (
-                  <SelectItem key={m} value={`method:${m}`}>{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Vale só para este mês. O cadastro permanente e os meses anteriores não mudam.
-            </p>
-          </div>
-
-          {cardRow ? (
-            <div className="rounded-lg border p-3">
-              <p className="text-sm font-medium">Situação</p>
-              <p className="text-sm text-foreground mt-0.5">
-                {cardStatus?.label ?? (row.paid ? "Pago" : "Na fatura do cartão")}
-              </p>
+                  {cards.map((card) => (
+                    <SelectItem key={card.id} value={`card:${card.id}`}>
+                      {cardDisplayLabel(card)}
+                    </SelectItem>
+                  ))}
+                  {PAYMENT_METHODS.filter((m) => m !== CARD_PAYMENT_METHOD).map((m) => (
+                    <SelectItem key={m} value={`method:${m}`}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                Compras no cartão são liquidadas pelo pagamento da fatura.
+                Vale só para este mês. O cadastro permanente e os meses anteriores não mudam.
               </p>
             </div>
-          ) : (
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p className="text-sm font-medium">Pago</p>
-                <p className="text-xs text-muted-foreground">{occurrencePaidHelp(row)}</p>
-              </div>
-              <Switch checked={paid} onCheckedChange={setPaid} />
-            </div>
-          )}
 
-          <div>
-            <Label>Comprovante</Label>
-            {attachmentUrl ? (
-              <div className="flex items-center justify-between rounded-lg border p-2 mt-1">
-                <span className="flex items-center gap-2 text-sm truncate">
-                  <Paperclip className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate">{attachmentName ?? "Comprovante"}</span>
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setAttachmentUrl(null);
-                    setAttachmentName(null);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
+            <p className="text-xs text-muted-foreground">{whenText}</p>
+          </Block>
+
+          <Block title="Situação do pagamento">
+            {cardRow ? (
+              <div className="rounded-lg border p-3 min-w-0">
+                <p className={`text-sm font-medium ${toneClass}`}>{status.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Compras no cartão são liquidadas pelo pagamento da fatura.
+                </p>
               </div>
             ) : (
-              <Input
-                type="file"
-                className="mt-1"
-                disabled={uploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleUpload(file);
-                }}
-              />
+              <div className="rounded-lg border divide-y">
+                <div className="flex items-center justify-between gap-3 p-3 min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Pago</p>
+                    <p className="text-xs text-muted-foreground break-words">
+                      {occurrencePaidHelp(row)}
+                    </p>
+                  </div>
+                  <Switch checked={paid} onCheckedChange={setPaid} className="flex-shrink-0" />
+                </div>
+
+                {paid && (
+                  <div className="p-3 min-w-0">
+                    <Label htmlFor="occurrence-payment-date">Data do pagamento</Label>
+                    <Input
+                      id="occurrence-payment-date"
+                      type="date"
+                      className="mt-1 w-full min-w-0 max-w-full"
+                      value={paymentDate}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                    />
+                    {!canSubmit ? (
+                      <p className="text-xs text-destructive mt-1">
+                        Informe uma data de pagamento válida
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Data real da saída de caixa, mesmo retroativa. O vencimento não muda.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {status.pendingNote && (
+                  <p className={`p-3 text-xs ${toneClass}`}>{status.pendingNote}</p>
+                )}
+              </div>
             )}
-          </div>
+          </Block>
+
+          <Block title="Comprovante e observações">
+            <div className="min-w-0">
+              <Label>Comprovante</Label>
+              {attachmentUrl ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border p-2 mt-1 min-w-0">
+                  <span className="flex items-center gap-2 text-sm min-w-0">
+                    <Paperclip className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{attachmentName ?? "Comprovante"}</span>
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="flex-shrink-0"
+                    onClick={() => {
+                      setAttachmentUrl(null);
+                      setAttachmentName(null);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ) : (
+                <Input
+                  type="file"
+                  className="mt-1 w-full min-w-0 max-w-full file:mr-2"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUpload(file);
+                  }}
+                />
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <Label>Observações</Label>
+              <Textarea
+                className="w-full min-w-0 max-w-full"
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </Block>
 
           {/* Categoria é do CADASTRO permanente, nunca do fato mensal. */}
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground break-words">
             Categoria: <strong>{row.item.category?.trim() || "Sem categoria"}</strong> — definida no
             cadastro do item e válida para os próximos meses.
           </p>
-
-          <div>
-            <Label>Observações</Label>
-            <Textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={2} />
-          </div>
         </div>
 
-        <DialogFooter className="sm:justify-between gap-2">
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           {onEditItem ? (
             <Button
               variant="ghost"
-              className="justify-start"
+              className="justify-start min-w-0 sm:w-auto"
               onClick={() => {
                 onOpenChange(false);
                 onEditItem(row.item);
               }}
             >
-              <Pencil className="w-4 h-4 mr-2" />
-              {isInstallmentRow(row) ? "Editar parcelamento" : "Editar cadastro / categoria"}
+              <Pencil className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">
+                {isInstallmentRow(row) ? "Editar parcelamento" : "Editar cadastro / categoria"}
+              </span>
             </Button>
           ) : (
-            <span />
+            <span className="hidden sm:block" />
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2 min-w-0">
             {deleteAction === "delete_statement" ||
             deleteAction === "delete_one_off" ||
             deleteAction === "inactivate_item" ? (
@@ -437,12 +542,12 @@ export default function FinanceOccurrenceModal({
                 onClick={handleDestructive}
                 disabled={saving || removing}
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="w-4 h-4 mr-2 flex-shrink-0" />
                 {removing ? "Processando..." : OCCURRENCE_ACTION_LABELS[deleteAction]}
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving || uploading}>
+            <Button onClick={handleSave} disabled={saving || uploading || !canSubmit}>
               {saving ? "Salvando..." : "Salvar lançamento"}
             </Button>
           </div>
