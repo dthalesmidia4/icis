@@ -50,21 +50,31 @@ describe("corte operacional — navegação", () => {
 });
 
 describe("correção do fato fechado — modal", () => {
-  it("valor/câmbio usam a trava monetária e a correção é explícita e auditada", () => {
-    expect(occurrenceModal).toContain("readOnly={readOnlyMoney}");
-    expect(occurrenceModal).toContain("FACT_CORRECTION_SAVE_LABEL");
+  it("campos factuais abrem digitáveis: nenhum gate de correção na UI", () => {
+    expect(occurrenceModal).toContain("factFieldsEditable");
+    expect(occurrenceModal).toContain("occurrenceSaveRoute");
     expect(occurrenceModal).toContain("buildFactCorrectionPatch");
     expect(occurrenceModal).toContain("correctFinanceOccurrence");
+    expect(occurrenceModal).not.toContain("setCorrecting");
+    expect(occurrenceModal).not.toContain("Corrigir lançamento");
   });
 
   it("provas de pagamento e comprovante seguem imutáveis em fato fechado", () => {
-    expect(occurrenceModal).toContain("readOnlyProof");
+    expect(occurrenceModal).toContain("paymentProofEditable({ cardRow, statementRow, closed: rowClosed })");
+    expect(occurrenceModal).toContain("readOnly={readOnlyProof}");
     expect(occurrenceModal).not.toContain("paid_at:");
   });
 
-  it("conversão do fato legado para cobrança do cartão exige data real", () => {
+  it("conversão direta→cartão é roteada pelo próprio Save", () => {
     expect(occurrenceModal).toContain("convertOccurrenceToCardCharge");
-    expect(occurrenceModal).toContain("LEGACY_CONVERT_NEEDS_DATE");
+    expect(occurrenceModal).toContain("convert_then_correct");
+  });
+
+  it("a data do fato nunca é readOnly por estar fechada e faz round-trip do salvo", () => {
+    expect(occurrenceModal).toContain("readOnly={readOnlyFact}");
+    expect(occurrenceModal).toContain("const readOnlyFact = !factEditable;");
+    expect(occurrenceModal).toContain("row.chargeDate ?? \"\"");
   });
 });
+
 
