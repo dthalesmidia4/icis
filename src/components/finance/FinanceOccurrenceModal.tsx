@@ -171,18 +171,14 @@ export default function FinanceOccurrenceModal({
   const [removing, setRemoving] = useState(false);
   /** Origem do pagamento DESTE mês (`NONE` = seguir o cadastro permanente). */
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
-  /** O usuário pediu explicitamente `Corrigir lançamento` neste fato fechado. */
-  const [correcting, setCorrecting] = useState(false);
-  /** Data real da cobrança usada na conversão do fato legado para cartão. */
-  const [convertDate, setConvertDate] = useState("");
-  const [converting, setConverting] = useState(false);
 
   /**
-   * Fato FECHADO (pago direto ou liquidado por fatura paga) abre em CONSULTA.
-   * A correção nunca é implícita: existe o botão `Corrigir lançamento`, e nele
-   * abrem apenas valor, data do fato, origem e observações
-   * (`financeFactCorrection`). O pagamento (`paid_at`) é prova separada e nunca
-   * é alterado por aqui; a fatura paga continua totalmente bloqueada.
+   * Fato FECHADO (pago direto ou liquidado por fatura paga) NÃO trava a
+   * digitação: valor, data do fato, origem e observações abrem no primeiro
+   * render (`factFieldsEditable`). O que continua protegido é a PROVA de
+   * pagamento (`paymentProofEditable`): `paid`, data do pagamento e comprovante.
+   * A persistência de um fato fechado é roteada automaticamente pelo Save para
+   * as RPCs seguras — não existe modo de correção na UI.
    */
   const rowClosed = row
     ? effectivePaid(row, statusContext?.rows ?? [row], statusContext?.settlement ?? null)
@@ -190,21 +186,17 @@ export default function FinanceOccurrenceModal({
   /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
   const cardRow = !!row && isCardCharge(row);
   const statementRow = !!row && isStatementRow(row);
-  const correctionMode = factCorrectionMode({
-    hasOccurrence: !!row?.occurrence,
-    statementRow,
-    closed: rowClosed,
-  });
-  /** Em correção: campos factuais abertos, provas de pagamento intactas. */
-  const inCorrection = correctionMode === "correctable" && correcting;
-  const readOnlyFact = rowClosed && !inCorrection;
+  /** Campos factuais: abertos sempre, exceto na própria fatura. */
+  const factEditable = !!row && factFieldsEditable({ statementRow });
+  const readOnlyFact = !factEditable;
   /** Valor / dólar / câmbio seguem a mesma regra do fato. */
   const readOnlyMoney = readOnlyFact;
   /** Pagamento e comprovante permanecem imutáveis em fato fechado. */
-  const readOnlyProof = rowClosed;
+  const readOnlyProof = !paymentProofEditable({ cardRow, statementRow, closed: rowClosed });
   /** Transição incoerente: fato pago direto que hoje pertence a um cartão. */
   const legacyDirectOnCard = isLegacyDirectPaymentOnCard(row);
   const deleteAction = row ? occurrenceDeleteActionForRow(row, rowClosed) : "nothing_to_delete";
+
 
 
 
