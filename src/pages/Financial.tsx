@@ -1231,7 +1231,11 @@ function FinancialCockpit() {
               onTogglePaid={togglePaid}
               onEditItem={(item) => openItemModal(item)}
             />
+
+            {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
+            <SkippedEntriesPanel entries={skipped} onRestore={restoreOccurrence} />
           </section>
+
         )}
 
         {/* ====================== CARTÕES E FATURAS ====================== */}
