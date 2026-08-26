@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { isAdEnabled } from "@/lib/adPlan";
-import { COMMERCIAL_STAGES, type CommercialStage } from "@/lib/systemsClients";
+import { STAGE_OPTIONS, type CommercialStage } from "@/lib/systemsClients";
 
 /**
  * Camada de CAMPANHA (marketing_campaigns).
@@ -322,7 +322,7 @@ export function countCampaignStages(
   rows: { commercial_stage?: string | null }[],
 ): { stage: CommercialStage; count: number }[] {
   const list = rows || [];
-  return COMMERCIAL_STAGES.map((stage) => ({
+  return STAGE_OPTIONS.map(({ value: stage }) => ({
     stage,
     count: list.filter((r) => r.commercial_stage === stage).length,
   }));
