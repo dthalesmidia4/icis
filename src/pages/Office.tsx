@@ -392,11 +392,11 @@ export default function Office() {
               />
             </div>
 
-            {/* FAIXA ESQUERDA: quadro de missões (mais leve, encostado na
-                parede) + Planejamento + Revisão, com respiro entre ambientes. */}
+            {/* QUADRO DE MISSÕES/XP montado na PAREDE superior esquerda: some da
+                faixa do piso para deixar de parecer card flutuante. */}
             {richZones && (
               <div
-                className="pointer-events-none absolute bottom-4 left-2 z-30 hidden flex-col gap-7 sm:flex"
+                className="pointer-events-none absolute left-2 top-2 z-30 hidden sm:block"
                 style={{ width: richLeftZonePx(worldSize.width) - 16 }}
               >
                 <OfficeMissionPanel
@@ -405,10 +405,20 @@ export default function Office() {
                   doneCount={pulse.missionsDone}
                   total={pulse.missionsTotal}
                 />
+              </div>
+            )}
+
+            {/* FAIXA ESQUERDA (piso): Planejamento + Revisão, com respiro. */}
+            {richZones && (
+              <div
+                className="pointer-events-none absolute bottom-4 left-2 z-30 hidden flex-col gap-7 sm:flex"
+                style={{ width: richLeftZonePx(worldSize.width) - 16 }}
+              >
                 <PlanningZone register={registerPersonAnchor} />
                 <ReviewZone register={registerPersonAnchor} />
               </div>
             )}
+
 
             {/* FAIXA DIREITA: café + reunião + sala de espera */}
             <div

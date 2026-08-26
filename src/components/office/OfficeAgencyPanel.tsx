@@ -35,9 +35,10 @@ const Metric = ({
 );
 
 /**
- * PAINEL DA AGÊNCIA na parede: elemento principal, sempre AGENCY-WIDE. O filtro
- * Todas/Mídia/Sistemas muda a cena (mesas), nunca estes números — por isso o
- * título é explícito. Largura vem do PALCO LÓGICO, não da viewport bruta.
+ * PAINEL DA AGÊNCIA como LOUSA FÍSICA AUTOPORTANTE: moldura limpa + duas pernas
+ * finas com pés e sombra de contato (CSS puro, sem 3D e sem imagem externa).
+ * Sempre AGENCY-WIDE: o filtro Todas/Mídia/Sistemas muda a cena (mesas), nunca
+ * estes números. Largura vem do PALCO LÓGICO, não da viewport bruta.
  */
 export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
   deliveredToday,
@@ -48,13 +49,26 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
   width = 440,
 }: OfficeAgencyPanelProps) {
   return (
-    <div
-      className="relative rounded-[6px] border-[3px] border-foreground/20 bg-background/90 px-4 pb-2.5 pt-2 shadow-[0_14px_24px_-16px_hsl(var(--foreground)/0.95)] backdrop-blur-[2px]"
-      style={{ width }}
-    >
-      {/* parafusos de fixação na parede */}
-      <span aria-hidden="true" className="absolute left-2 top-1.5 h-1 w-1 rounded-full bg-foreground/25" />
-      <span aria-hidden="true" className="absolute right-2 top-1.5 h-1 w-1 rounded-full bg-foreground/25" />
+    <div className="relative" style={{ width }}>
+      {/* pernas/suportes da lousa: atrás do quadro, nunca capturam ponteiro */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-full flex h-[clamp(44px,6vh,78px)] justify-between px-[13%]"
+      >
+        {[0, 1].map((i) => (
+          <span key={i} className="flex h-full flex-col items-center">
+            <span className="w-[5px] flex-1 bg-gradient-to-b from-foreground/32 to-foreground/16" />
+            <span className="h-[4px] w-[22px] rounded-[2px] bg-foreground/28" />
+            <span className="mt-[1px] h-[5px] w-[30px] rounded-[50%] bg-foreground/15 blur-[2px] dark:bg-background/60" />
+          </span>
+        ))}
+      </div>
+
+      <div className="relative w-full rounded-[6px] border-[3px] border-foreground/20 bg-background/92 px-4 pb-2.5 pt-2 shadow-[0_10px_18px_-16px_hsl(var(--foreground)/0.9)]">
+        {/* parafusos da moldura */}
+        <span aria-hidden="true" className="absolute left-2 top-1.5 h-1 w-1 rounded-full bg-foreground/25" />
+        <span aria-hidden="true" className="absolute right-2 top-1.5 h-1 w-1 rounded-full bg-foreground/25" />
+
 
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/80">
@@ -87,7 +101,9 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
         <Metric label="Em risco" value={atRisk} tone={atRisk > 0 ? "danger" : undefined} />
         <Metric label="Aguardando" value={awaitingClient} />
       </div>
+      </div>
     </div>
+
   );
 });
 

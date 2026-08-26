@@ -11,11 +11,11 @@ interface OfficeMissionPanelProps {
 }
 
 /**
- * QUADRO DE AVISOS DA PAREDE (placar coletivo): nível + XP + missões do dia.
- * Tudo derivado do estado real — XP vem de entregas registradas em
- * `demand_flow_history` e as missões, do próprio quadro operacional. Sem
- * ranking individual. Visualmente é um quadro físico com moldura e pinos, não
- * um card SaaS flutuante.
+ * QUADRO DE AVISOS MONTADO NA PAREDE (placar coletivo): nível + XP + missões do
+ * dia. Visual de quadro fixado (moldura fina + parafusos), sem sombra de card
+ * flutuante: pertence à parede, não ao piso. Tudo derivado do estado real — XP
+ * vem de entregas registradas em `demand_flow_history` e as missões, do próprio
+ * quadro operacional. Sem ranking individual.
  */
 export const OfficeMissionPanel = memo(function OfficeMissionPanel({
   level,
@@ -25,12 +25,13 @@ export const OfficeMissionPanel = memo(function OfficeMissionPanel({
 }: OfficeMissionPanelProps) {
   const pct = Math.round((level.xpInLevel / level.nextLevelXp) * 100);
   return (
-    <div className="relative w-[clamp(212px,17vw,268px)] rounded-[4px] border-[3px] border-foreground/25 bg-muted/70 p-1 shadow-[0_10px_18px_-12px_hsl(var(--foreground)/0.9)]">
-      {/* pinos do quadro */}
-      <span aria-hidden="true" className="absolute left-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary/70" />
-      <span aria-hidden="true" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-foreground/35" />
+    <div className="relative w-full max-w-[268px] rounded-[3px] border-2 border-foreground/25 bg-muted/55 p-[3px]">
+      {/* parafusos de fixação na parede */}
+      <span aria-hidden="true" className="absolute left-1 top-1 h-1 w-1 rounded-full bg-foreground/35" />
+      <span aria-hidden="true" className="absolute right-1 top-1 h-1 w-1 rounded-full bg-foreground/35" />
 
-      <div className="rounded-[2px] bg-background/85 px-2 py-1.5">
+      <div className="rounded-[2px] bg-background/80 px-2 py-1.5">
+
         {/* nível coletivo */}
         <div className="flex items-center justify-between" title={XP_LEGEND}>
           <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-bold uppercase leading-[16px] tracking-wide text-primary">
