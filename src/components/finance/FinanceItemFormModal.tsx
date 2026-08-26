@@ -993,7 +993,14 @@ export default function FinanceItemFormModal({
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button
               onClick={handleSubmit}
-              disabled={saving || destroyed || !name.trim() || !installmentsValid || !oneOffDateValid}
+              disabled={
+                saving ||
+                destroyed ||
+                !name.trim() ||
+                !installmentsValid ||
+                !oneOffDateValid ||
+                !!chargeDueConflict
+              }
             >
 
               {saving ? "Salvando..." : "Salvar"}
