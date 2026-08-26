@@ -714,11 +714,7 @@ export default function FinanceItemFormModal({
                 {isSubMonthly && frequency === "weekly" && (
                   <div className="max-w-xs">
                     <Label>Começa em</Label>
-                    <Input
-                      type="date"
-                      value={recurrenceStart}
-                      onChange={(e) => setRecurrenceStart(e.target.value)}
-                    />
+                    <FinanceDateInput value={recurrenceStart} onChange={setRecurrenceStart} />
                   </div>
                 )}
 
