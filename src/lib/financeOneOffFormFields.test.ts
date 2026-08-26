@@ -32,8 +32,8 @@ describe("primeiro modal — data digitável e imutáveis", () => {
     expect(modal).not.toContain("competence_month:");
   });
 
-  it("reabre sempre em consulta e nunca inventa a data de cobrança", () => {
-    expect(modal).toContain("setCorrecting(false)");
-    expect(modal).toContain('setConvertDate("")');
+  it("reabre com o fato salvo e sem nenhum gate para digitar", () => {
+    expect(modal).toContain("factFieldsEditable({ statementRow })");
+    expect(modal).not.toContain("inCorrection");
   });
 });
