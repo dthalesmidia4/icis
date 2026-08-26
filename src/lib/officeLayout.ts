@@ -243,7 +243,7 @@ const COMFORT_GAP_MIN_PX = 56;
 const COMFORT_GAP_MAX_PX = 120;
 export function comfortGapPx(size: WorldSize = DEFAULT_SIZE): number {
   const width = size.width || DEFAULT_SIZE.width;
-  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.038)));
+  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.044)));
 }
 
 /**
@@ -254,7 +254,7 @@ export function comfortGapPx(size: WorldSize = DEFAULT_SIZE): number {
 const TIGHT_WIDTH_PX = 1300;
 const ROOMY_WIDTH_PX = 1700;
 /** Redução máxima admitida por aperto (mantém legibilidade do card atual). */
-export const MAX_DOWNSCALE = 0.14;
+export const MAX_DOWNSCALE = 0.08;
 
 function tightnessFactor(size: WorldSize): number {
   const width = size.width || DEFAULT_SIZE.width;
