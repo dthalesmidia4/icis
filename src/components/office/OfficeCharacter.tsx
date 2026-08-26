@@ -122,7 +122,24 @@ export const OfficeCharacter = memo(function OfficeCharacter({
             animationDelay: armsAnimate ? "220ms" : undefined,
           }}
         />
+
+        {/* COPO NA MÃO (zona do café): copinho minúsculo preso à ponta do braço
+            direito, piscando devagar via keyframes CSS de opacidade — sem timer
+            JS, sem blur/box-shadow animado. Estático em prefers-reduced-motion. */}
+        {holdingCup && (
+          <span
+            aria-hidden="true"
+            className="absolute z-30 animate-office-cup rounded-b-[2px] rounded-t-[1px] bg-primary/75 ring-1 ring-foreground/25 motion-reduce:animate-none"
+            style={{
+              right: -Math.round(size * 0.36),
+              top: Math.round(torsoH * 0.3),
+              width: Math.max(5, Math.round(size * 0.13)),
+              height: Math.max(6, Math.round(size * 0.16)),
+            }}
+          />
+        )}
       </span>
+
 
       {/* pernas simples: só em pé / andando */}
       {!seated && (
