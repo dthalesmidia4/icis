@@ -120,6 +120,25 @@ export interface FinanceItem {
  */
 export type FinanceEntryRole = "regular" | "extra" | "recharge";
 
+/** Papel efetivo de uma ocorrência (legado sem coluna = `regular`). */
+export function occurrenceEntryRole(
+  occ: FinanceOccurrence | null | undefined,
+): FinanceEntryRole {
+  const role = occ?.entry_role;
+  return role === "extra" || role === "recharge" ? role : "regular";
+}
+
+/** O cadastro aceita recarga/extra dentro do mês? Cartão/pacote incluído nunca. */
+export function itemSupportsSupplemental(item: FinanceItem): boolean {
+  if (item.kind === "card" || item.kind === "included_resource") return false;
+  return item.supports_supplemental_entries === true;
+}
+
+/** Natureza do suplementar do cadastro (default `extra`). */
+export function supplementalRoleFor(item: FinanceItem): Exclude<FinanceEntryRole, "regular"> {
+  return item.supplemental_entry_kind === "recharge" ? "recharge" : "extra";
+}
+
 
 export interface FinanceOccurrence {
   id: string;
