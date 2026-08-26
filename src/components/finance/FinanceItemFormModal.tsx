@@ -802,6 +802,100 @@ export default function FinanceItemFormModal({
                   </p>
                 )}
 
+                {isRecurring && !isSubMonthly && (
+                  <div className="max-w-xs">
+                    <Label>Dia do mês em que o gasto acontece</Label>
+                    <Input
+                      value={factDayOfMonth}
+                      onChange={(e) => setFactDayOfMonth(e.target.value)}
+                      inputMode="numeric"
+                      placeholder="Ex.: 1"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      É quando a despesa acontece — não precisa ser o dia em que você paga.
+                    </p>
+                  </div>
+                )}
+
+                {showPaymentSchedule && (
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold">Como você paga</p>
+                      <p className="text-xs text-muted-foreground">
+                        A despesa acontece na agenda acima. Aqui você diz quando o dinheiro sai —
+                        podem ser dias diferentes.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label>Forma de pagamento</Label>
+                        <Select
+                          value={paymentMode}
+                          onValueChange={(v) => setPaymentMode(v as FinancePaymentMode)}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(PAYMENT_MODE_LABELS) as FinancePaymentMode[]).map((m) => (
+                              <SelectItem key={m} value={m}>{PAYMENT_MODE_LABELS[m]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(paymentMode === "daily" || paymentMode === "weekly") && (
+                        <div>
+                          <Label>
+                            {paymentMode === "daily" ? "A cada quantos dias" : "A cada quantas semanas"}
+                          </Label>
+                          <Input
+                            value={paymentInterval}
+                            onChange={(e) => setPaymentInterval(e.target.value)}
+                            inputMode="numeric"
+                            placeholder="1"
+                          />
+                        </div>
+                      )}
+                      {paymentMode === "weekly" && (
+                        <div>
+                          <Label>Dia do pagamento</Label>
+                          <Select value={paymentWeekday} onValueChange={setPaymentWeekday}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {WEEKDAYS.map((w) => (
+                                <SelectItem key={w.value} value={String(w.value)}>{w.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {paymentMode === "monthly" && (
+                        <div>
+                          <Label>Dia do mês do pagamento</Label>
+                          <Input
+                            value={paymentDayOfMonth}
+                            onChange={(e) => setPaymentDayOfMonth(e.target.value)}
+                            inputMode="numeric"
+                            placeholder="Ex.: 5"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {describePaymentRule({
+                        item_id: item?.id ?? "",
+                        effective_from: "0001-01-01",
+                        mode: paymentMode,
+                        interval_count: Number(paymentInterval) || 1,
+                        weekday: paymentMode === "weekly" ? Number(paymentWeekday) || 5 : null,
+                        day_of_month:
+                          paymentMode === "monthly" ? parseDayOfMonth(paymentDayOfMonth) : null,
+                      })}
+                      {" "}{PAYMENT_MODE_HELP[paymentMode]}
+                    </p>
+                  </div>
+                )}
+
+
+
 
                 {chargeMode === "consumption" && (
                   <p className="text-xs text-muted-foreground">
