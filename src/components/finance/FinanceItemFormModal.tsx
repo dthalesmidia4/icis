@@ -163,6 +163,7 @@ export default function FinanceItemFormModal({
   defaultUsdRate,
   scope = "full",
   competence = null,
+  paymentRules = [],
   onSave,
   onAfterDelete,
 }: Props) {
@@ -179,6 +180,13 @@ export default function FinanceItemFormModal({
   const [frequency, setFrequency] = useState<Frequency>("monthly");
   const [intervalMonths, setIntervalMonths] = useState("2");
   const [recurrenceStart, setRecurrenceStart] = useState("");
+  /** Dia do MÊS em que o FATO da despesa acontece (agenda da despesa). */
+  const [factDayOfMonth, setFactDayOfMonth] = useState("");
+  /* --- AGENDA DE PAGAMENTO (quando eu pago) — separada da agenda acima --- */
+  const [paymentMode, setPaymentMode] = useState<FinancePaymentMode>("per_occurrence");
+  const [paymentInterval, setPaymentInterval] = useState("1");
+  const [paymentWeekday, setPaymentWeekday] = useState("5");
+  const [paymentDayOfMonth, setPaymentDayOfMonth] = useState("");
   /** "A cada N" das frequências sub-mensais (dias/semanas). */
   const [subInterval, setSubInterval] = useState("1");
   /** Dia da semana (ISO 1–7) da recorrência semanal. */
