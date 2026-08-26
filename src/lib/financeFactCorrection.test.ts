@@ -267,6 +267,6 @@ describe("caso LASER JET: corrigir valor sem desfazer pagamento", () => {
     expect(patch).not.toHaveProperty("paid_amount_brl");
     expect(patch).not.toHaveProperty("statement_id");
     expect(patch).not.toHaveProperty("skipped_at");
-    expect(correctionWasApplied(patch, { ...({} as never), due_date: "2026-08-17", observations: null } as never)).toBe(true);
+    expect(correctionWasApplied(patch, occ({ due_date: "2026-08-17", observations: null }))).toBe(true);
   });
 });
