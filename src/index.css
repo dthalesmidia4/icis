@@ -39,6 +39,12 @@ All colors MUST be HSL.
     --ring: 200 80% 55%;
 
     --radius: 0.75rem;
+
+    /* folhagem decorativa do Escritório (planta 2D em CSS/SVG) */
+    --office-leaf: 152 44% 38%;
+    --office-leaf-soft: 158 38% 46%;
+    --office-leaf-deep: 150 42% 30%;
+
     
     --gradient-primary: linear-gradient(135deg, hsl(200 80% 55%), hsl(195 70% 50%));
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 20% 98%));
@@ -91,6 +97,11 @@ All colors MUST be HSL.
     --gradient-card: linear-gradient(180deg, hsl(220 5% 16%), hsl(220 5% 14%));
     --shadow-card: 0 2px 8px -2px hsl(0 0% 0% / 0.5);
     --shadow-elevated: 0 8px 24px -4px hsl(0 0% 0% / 0.6);
+
+    --office-leaf: 152 36% 44%;
+    --office-leaf-soft: 158 32% 52%;
+    --office-leaf-deep: 150 34% 34%;
+
     
     --sidebar-background: 220 5% 13%;
     --sidebar-foreground: 0 0% 95%;

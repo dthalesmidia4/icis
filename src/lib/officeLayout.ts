@@ -26,7 +26,13 @@ export interface WorldSize {
   height: number;
 }
 
-export type OfficeProfileId = "compact" | "desktop" | "large" | "ultrawide" | "ultrawideShort";
+export type OfficeProfileId =
+  | "compact"
+  | "desktopShort"
+  | "desktop"
+  | "large"
+  | "ultrawide"
+  | "ultrawideShort";
 
 interface OfficeProfile {
   id: OfficeProfileId;
@@ -44,7 +50,26 @@ interface OfficeProfile {
   /** Escala da fileira do fundo / da frente. */
   scaleBack: number;
   scaleFront: number;
+  /**
+   * RESPONSIVIDADE VISUAL POR PERFIL (desktop normal ≠ ultrawide).
+   * Painel da parede: teto de largura (px) e altura na parede (%).
+   */
+  panelWidthPx: number;
+  panelTopPct: number;
+  /** Largura relativa do monitor dentro da estação (%). */
+  monitorPct: number;
+  /** Footprint (px) reservado às faixas laterais no modo rico. */
+  leftZonePx: number;
+  rightZonePx: number;
+  /**
+   * Centros das mesas no modo rico. IMPORTANTE: iguais em `desktop` e
+   * `desktopShort` (a altura muda âncoras verticais, nunca a matemática
+   * horizontal), para o anti-colisão continuar determinístico.
+   */
+  richCentersBack: [number, number];
+  richCentersFront: [number, number];
 }
+
 
 /** Margem lateral de segurança (px) entre footprints de duas estações. */
 const SAFE_GUTTER_PX = 28;
@@ -94,12 +119,13 @@ export function stageSize(world: WorldSize): WorldSize {
  * ~20% para o card ficar HORIZONTAL, sem retomar o monitor gigante original —
  * mesa/cadeira/pilha continuam com faixas laterais reservadas.
  */
-export const MONITOR_MAX_PCT = 72;
+export const MONITOR_MAX_PCT = 76;
 export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
-  const profile = resolveOfficeProfile(size);
-  // Ultrawide pode crescer discretamente, sem voltar ao aspecto horizontal.
-  return profile.id === "ultrawide" || profile.id === "ultrawideShort" ? 68 : 70;
+  // Por PERFIL: desktop normal precisa de card claramente HORIZONTAL;
+  // ultrawide já tem estação larga e cresce menos em proporção.
+  return Math.min(MONITOR_MAX_PCT, resolveOfficeProfile(size).monitorPct);
 }
+
 
 /** Altura mínima (px) do "vidro" do monitor: mais horizontal, menos pôster. */
 export const MONITOR_MIN_HEIGHT_PX = 46;
@@ -132,17 +158,40 @@ export const WALL_PANEL_BAND_TOP_PCT = 13;
 export const WALL_HEIGHT_PCT = 27;
 
 /**
- * PAINEL DA AGÊNCIA: elemento principal da parede. Cresce com o palco lógico
- * (não com a largura bruta), na faixa pedida de ~420–520px.
+ * PAINEL DA AGÊNCIA: elemento principal da parede, com TETO POR PERFIL.
+ * Desktop normal ~380–400px (não pode dominar a cena nem competir com os
+ * monitores); ultrawide ~492–508px. Cresce com o palco lógico, nunca com a
+ * largura bruta da viewport.
  */
-export function agencyPanelWidthPx(stageWidth: number): number {
-  return Math.round(Math.min(520, Math.max(420, (stageWidth || DEFAULT_SIZE.width) * 0.3)));
+export function agencyPanelWidthPx(stageWidth: number, size?: WorldSize): number {
+  const profile = resolveOfficeProfile(size ?? { width: stageWidth, height: DEFAULT_SIZE.height });
+  const stage = stageWidth || DEFAULT_SIZE.width;
+  return Math.round(Math.min(profile.panelWidthPx, Math.max(320, stage * 0.34)));
 }
+
+/** Altura (%) do topo do painel na parede — por perfil. */
+export function agencyPanelTopPct(size: WorldSize = DEFAULT_SIZE): number {
+  return resolveOfficeProfile(size).panelTopPct;
+}
+
 
 
 
 const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
 
+
+/** Faixas laterais e centros do modo rico no DESKTOP NORMAL (1366–1599). */
+const DESKTOP_RICH = {
+  leftZonePx: 208,
+  rightZonePx: 214,
+  richCentersBack: [32, 68] as [number, number],
+  richCentersFront: [32, 68] as [number, number],
+};
+/** Faixas/centros do ULTRAWIDE: mais respiro, painel maior, monitor menor. */
+const ULTRAWIDE_RICH = {
+  richCentersBack: [34, 66] as [number, number],
+  richCentersFront: [33, 67] as [number, number],
+};
 
 export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProfile {
   const width = size.width || DEFAULT_SIZE.width;
@@ -165,6 +214,12 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
           jitterPct: 0,
           scaleBack: 0.96,
           scaleFront: 1.08,
+          panelWidthPx: 492,
+          panelTopPct: 13,
+          monitorPct: 68,
+          leftZonePx: 300,
+          rightZonePx: 312,
+          ...ULTRAWIDE_RICH,
         }
       : {
           id: "ultrawide",
@@ -176,6 +231,12 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
           jitterPct: 0,
           scaleBack: 0.98,
           scaleFront: 1.12,
+          panelWidthPx: 508,
+          panelTopPct: 13,
+          monitorPct: 68,
+          leftZonePx: 312,
+          rightZonePx: 330,
+          ...ULTRAWIDE_RICH,
         };
   }
 
@@ -186,24 +247,38 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
       bottomAnchorPct: 88,
       centersBack: [28, 72],
       centersFront: [25.5, 74.5],
-      baseWidth: 396,
+      baseWidth: 416,
       jitterPct: 0.5,
       scaleBack: 0.95,
       scaleFront: 1.06,
+      panelWidthPx: 436,
+      panelTopPct: 12,
+      monitorPct: 73,
+      leftZonePx: 238,
+      rightZonePx: 244,
+      richCentersBack: [33, 67],
+      richCentersFront: [33, 67],
     };
   }
 
   if (width >= 1200) {
+    // DESKTOP NORMAL: painel mais estreito e alto na parede, mesas maiores.
+    // `desktopShort` (ex.: 1366x768) só muda âncoras/verticalidade.
+    const short = height < 800;
     return {
-      id: "desktop",
-      topAnchorPct: 52,
-      bottomAnchorPct: 88,
+      id: short ? "desktopShort" : "desktop",
+      topAnchorPct: short ? 53 : 52,
+      bottomAnchorPct: short ? 89 : 88,
       centersBack: [28, 72],
       centersFront: [26, 74],
-      baseWidth: 372,
+      baseWidth: short ? 392 : 404,
       jitterPct: 0.8,
       scaleBack: 0.94,
       scaleFront: 1.05,
+      panelWidthPx: short ? 380 : 400,
+      panelTopPct: short ? 10.5 : 11.5,
+      monitorPct: 74,
+      ...DESKTOP_RICH,
     };
   }
 
@@ -217,8 +292,16 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
     jitterPct: 0.8,
     scaleBack: 0.93,
     scaleFront: 1.04,
+    panelWidthPx: 340,
+    panelTopPct: 13,
+    monitorPct: 72,
+    leftZonePx: 206,
+    rightZonePx: 212,
+    richCentersBack: [33, 67],
+    richCentersFront: [33, 67],
   };
 }
+
 
 const jitter = (index: number, amplitude: number) => {
   if (amplitude <= 0) return 0;
@@ -324,21 +407,20 @@ export function deskBaseWidth(
   let richBase = Number.POSITIVE_INFINITY;
   let richSepBase = Number.POSITIVE_INFINITY;
   if (richZonesActive(count, options)) {
-    const band = centerBandPx(width);
-    const leftCenter = (Math.min(RICH_CENTERS_BACK[0], RICH_CENTERS_FRONT[0]) / 100) * width;
-    const rightCenter = (Math.max(RICH_CENTERS_BACK[1], RICH_CENTERS_FRONT[1]) / 100) * width;
+    const band = centerBandPx(size);
+    const back = profile.richCentersBack;
+    const front = profile.richCentersFront;
+    const leftCenter = (Math.min(back[0], front[0]) / 100) * width;
+    const rightCenter = (Math.max(back[1], front[1]) / 100) * width;
     const leftLimit = (2 * (leftCenter - band.left)) / profile.scaleFront;
     const rightLimit = (2 * (band.right - rightCenter)) / profile.scaleFront;
     richBase = Math.min(leftLimit, rightLimit);
     if (perRow >= 2) {
-      const sep =
-        Math.min(
-          RICH_CENTERS_BACK[1] - RICH_CENTERS_BACK[0],
-          RICH_CENTERS_FRONT[1] - RICH_CENTERS_FRONT[0],
-        ) / 100;
+      const sep = Math.min(back[1] - back[0], front[1] - front[0]) / 100;
       richSepBase = (sep * width - gap) / scaleMax;
     }
   }
+
 
   // Nunca encolher além do necessário: o piso de conforto é o downscale máximo.
   const floor = Math.max(MIN_BASE_WIDTH, desired * (1 - MAX_DOWNSCALE));
@@ -364,27 +446,41 @@ const GENERIC_MIN_ROW_GAP_PCT = 22;
  * Café/Reunião/Espera à direita) e por isso são reservadas em px: as mesas
  * ficam concentradas na faixa central, nunca invadindo as zonas.
  */
-export const RICH_LEFT_ZONE_PX = 238;
-export const RICH_RIGHT_ZONE_PX = 244;
+export const RICH_LEFT_ZONE_PX = 208;
+export const RICH_RIGHT_ZONE_PX = 214;
 /** Tetos das faixas: em palco largo elas crescem, mas não indefinidamente. */
 export const RICH_LEFT_ZONE_MAX_PX = 312;
 export const RICH_RIGHT_ZONE_MAX_PX = 336;
 
-/**
- * Faixas físicas laterais em px do PALCO LÓGICO (~17–19% cada). Não são
- * percentuais puros: as zonas têm móveis com largura real, então há piso e teto.
- */
-export function richLeftZonePx(stageWidth: number): number {
-  const w = stageWidth || 1440;
-  return Math.round(Math.min(RICH_LEFT_ZONE_MAX_PX, Math.max(RICH_LEFT_ZONE_PX, w * 0.18)));
+/** Aceita largura do palco (número) ou o `WorldSize` completo. */
+function asStageSize(stage: number | WorldSize): WorldSize {
+  return typeof stage === "number" ? { width: stage, height: DEFAULT_SIZE.height } : stage;
 }
-export function richRightZonePx(stageWidth: number): number {
-  const w = stageWidth || 1440;
-  return Math.round(Math.min(RICH_RIGHT_ZONE_MAX_PX, Math.max(RICH_RIGHT_ZONE_PX, w * 0.19)));
+
+/**
+ * Faixas físicas laterais em px do PALCO LÓGICO. POR PERFIL: no desktop normal
+ * elas ficam enxutas (~208/214px) para não comprimir o núcleo central das 4
+ * mesas; em ultrawide crescem (~300/330px) mantendo o respiro atual.
+ */
+export function richLeftZonePx(stage: number | WorldSize): number {
+  const size = asStageSize(stage);
+  const w = size.width || 1440;
+  const profile = resolveOfficeProfile(size);
+  return Math.round(
+    Math.min(RICH_LEFT_ZONE_MAX_PX, Math.max(RICH_LEFT_ZONE_PX, Math.min(profile.leftZonePx, w * 0.18))),
+  );
+}
+export function richRightZonePx(stage: number | WorldSize): number {
+  const size = asStageSize(stage);
+  const w = size.width || 1440;
+  const profile = resolveOfficeProfile(size);
+  return Math.round(
+    Math.min(RICH_RIGHT_ZONE_MAX_PX, Math.max(RICH_RIGHT_ZONE_PX, Math.min(profile.rightZonePx, w * 0.19))),
+  );
 }
 /** Faixa superior do Painel da agência (parede): a fileira do fundo fica abaixo. */
 export const RICH_PANEL_BAND_PCT = WALL_HEIGHT_PCT;
-/** Centros horizontais (%) das mesas no modo rico — faixas 36–40% e 62–66%. */
+/** Centros horizontais (%) das mesas no modo rico (fallback do perfil). */
 export const RICH_CENTERS_BACK: [number, number] = [34, 66];
 export const RICH_CENTERS_FRONT: [number, number] = [33, 67];
 /** Altura visual acima do tampo (monitor + personagem + pilha), como fração da base. */
@@ -403,10 +499,13 @@ export function richZonesActive(count: number, options: DeskSlotOptions = {}): b
 }
 
 /** Faixa central útil (px) entre as zonas laterais reservadas. */
-export function centerBandPx(worldWidth: number): { left: number; right: number } {
-  const left = richLeftZonePx(worldWidth);
-  return { left, right: Math.max(left + 200, worldWidth - richRightZonePx(worldWidth)) };
+export function centerBandPx(stage: number | WorldSize): { left: number; right: number } {
+  const size = asStageSize(stage);
+  const width = size.width || DEFAULT_SIZE.width;
+  const left = richLeftZonePx(size);
+  return { left, right: Math.max(left + 200, width - richRightZonePx(size)) };
 }
+
 
 
 /** Footprint real de uma estação, em px do mundo (usado por layout e testes). */
@@ -487,11 +586,12 @@ export function computeDeskSlots(
     } else if (inRow === 2) {
       const centers = rich
         ? isFront
-          ? RICH_CENTERS_FRONT
-          : RICH_CENTERS_BACK
+          ? profile.richCentersFront
+          : profile.richCentersBack
         : isFront
           ? profile.centersFront
           : profile.centersBack;
+
       leftPct = centers[posInRow] + (rich ? 0 : jitter(i + row, profile.jitterPct));
     } else {
       // Fileiras do fundo recuam levemente para dentro (perspectiva).

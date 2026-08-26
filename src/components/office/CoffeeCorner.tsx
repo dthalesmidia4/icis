@@ -27,19 +27,19 @@ export const CoffeeCorner = memo(function CoffeeCorner({
   register,
 }: CoffeeCornerProps) {
   return (
-    <div className="relative flex w-[224px] flex-col items-stretch sm:w-[238px]">
-      {/* ---------- tapete oval: uma única zona para pessoas + balcão ---------- */}
+    <div className="relative flex w-full min-w-[188px] max-w-[238px] flex-col items-stretch pb-[6px]">
+      {/* ---------- tapete oval HORIZONTAL, sempre inteiro na zona ---------- */}
       <span
         aria-hidden="true"
-        className="absolute bottom-0 left-1/2 h-[52px] w-[96%] -translate-x-1/2 rounded-[46%] border border-foreground/10 bg-foreground/[0.07] dark:bg-background/40"
+        className="absolute bottom-0 left-1/2 h-[54px] w-full -translate-x-1/2 rounded-[50%] border border-foreground/10 bg-foreground/[0.07] dark:bg-background/40"
       />
 
       <div className="relative flex items-end justify-between gap-1">
         {/* ---------- PESSOAS (metade esquerda) ---------- */}
-        <div className="relative z-20 flex items-end gap-0.5 pb-3">
+        <div className="relative z-20 flex flex-1 items-end justify-start gap-0.5 pb-3">
           {Array.from({ length: SEATS }).map((_, i) => (
-            <span key={i} className="relative flex h-0 w-[40px] justify-center">
-              <OfficeZoneAnchor anchorKey={`coffee:${i}`} width={38} register={register} />
+            <span key={i} className="relative flex h-0 w-[36px] justify-center">
+              <OfficeZoneAnchor anchorKey={`coffee:${i}`} width={36} register={register} />
             </span>
           ))}
           {overflow > 0 && (
@@ -49,8 +49,9 @@ export const CoffeeCorner = memo(function CoffeeCorner({
           )}
         </div>
 
+
         {/* ---------- BALCÃO à direita, com objetos SOBRE o tampo ---------- */}
-        <div aria-hidden="true" className="relative z-10 w-[104px] shrink-0">
+        <div aria-hidden="true" className="relative z-10 w-[92px] shrink-0">
           {/* objetos apoiados no tampo: cafeteira + jarra + canecas */}
           <div className="relative z-10 mb-[-2px] flex items-end justify-center gap-1.5">
             <span className="relative block h-11 w-7 rounded-[4px] bg-foreground/65 shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">

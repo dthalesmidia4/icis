@@ -29,7 +29,8 @@ const SIZES: Array<[number, number]> = [
 
 describe("officeLayout responsivo", () => {
   it("escolhe perfil por largura/aspect", () => {
-    expect(resolveOfficeProfile({ width: 1366, height: 700 }).id).toBe("desktop");
+    expect(resolveOfficeProfile({ width: 1366, height: 700 }).id).toBe("desktopShort");
+    expect(resolveOfficeProfile({ width: 1440, height: 900 }).id).toBe("desktop");
     expect(resolveOfficeProfile({ width: 1680, height: 820 }).id).toBe("large");
     expect(resolveOfficeProfile({ width: 3440, height: 1250 }).id).toBe("ultrawide");
     expect(resolveOfficeProfile({ width: 2560, height: 900 }).id).toBe("ultrawideShort");
@@ -270,12 +271,22 @@ describe("modo rico de zonas (até 4 mesas)", () => {
     expect(stageWidthPx(3440)).toBeLessThan(3440 * 0.75);
   });
 
-  it("painel da parede fica na faixa 420–520px e personagens ganham escala", () => {
-    for (const w of [1366, 1920, 2560, 3440]) {
-      const pw = agencyPanelWidthPx(stageWidthPx(w));
-      expect(pw).toBeGreaterThanOrEqual(420);
+  it("painel da parede é MENOR no desktop normal que no ultrawide", () => {
+    const sizes: Array<[number, number]> = [
+      [1366, 700],
+      [1920, 1000],
+      [2560, 1000],
+      [3440, 1300],
+    ];
+    const widths = sizes.map(([w, h]) => {
+      const stage = { width: stageWidthPx(w), height: h };
+      const pw = agencyPanelWidthPx(stage.width, stage);
+      expect(pw).toBeGreaterThanOrEqual(360);
       expect(pw).toBeLessThanOrEqual(520);
-    }
+      return pw;
+    });
+    // desktop normal (1366/1920) < ultrawide (2560/3440)
+    expect(Math.max(widths[0], widths[1])).toBeLessThan(Math.min(widths[2], widths[3]));
     expect(characterSizePx(50, "seated")).toBeGreaterThan(50);
     expect(characterSizePx(50, "standing")).toBeGreaterThanOrEqual(
       characterSizePx(50, "seated"),
