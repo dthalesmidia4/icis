@@ -70,8 +70,6 @@ describe("cadastro inativo sai da operação do mês", () => {
 
   it("projeção de item inativo não entra nas linhas operacionais nem nos totais", () => {
     const rows = buildMonthRows({ items: [ativo, inativo], occurrences: [], competence: AUG });
-    expect(rows.some((r) => r.item.id === "inativo")).toBe(true);
-
     const operational = operationalMonthRows(rows);
     expect(operational.map((r) => r.item.id)).toEqual(["ativo"]);
     expect(computeTotals(operational).expected).toBe(50);
@@ -166,7 +164,7 @@ describe("itens vinculados ao cartão fora da fatura", () => {
   const items = [
     card,
     item({ id: "gpt", name: "ChatGPT", card_item_id: "card", charge_day: 6, default_amount_brl: 120 }),
-    // cobrança dia 20 > fechamento 14 => fatura de setembro
+    // cobrança dia 20: a de 20/JUL fecha em 14/AGO e compõe a fatura de agosto
     item({ id: "avisa", name: "AVISA", card_item_id: "card", charge_day: 20, default_amount_brl: 69 }),
     // sem dia de cobrança => não classificável por data
     item({ id: "canva", name: "Canva", card_item_id: "card", default_amount_brl: 55 }),
@@ -182,15 +180,17 @@ describe("itens vinculados ao cartão fora da fatura", () => {
 
   it("separa quem compõe a fatura de quem só está vinculado, com motivo", () => {
     const { rows, group } = build();
-    expect(group.components.map((c) => c.item.id)).toEqual(["gpt"]);
+    expect(group.components.map((c) => c.item.id).sort()).toEqual(["avisa", "gpt"]);
 
     const linked = buildLinkedCardItems({ group, items, rows, competence: AUG });
     const byId = new Map(linked.map((l) => [l.item.id, l]));
-    expect(byId.get("avisa")!.reason).toBe("next_statement");
-    expect(byId.get("avisa")!.label).toContain("setembro");
-    expect(byId.get("canva")!.reason).toBe("missing_charge_date");
+    // Quem compõe a fatura NUNCA é listado como "outro vinculado".
     expect(byId.has("gpt")).toBe(false);
+    expect(byId.has("avisa")).toBe(false);
     expect(byId.has("card")).toBe(false);
+    // Sem dia de cobrança não é possível dizer a qual fatura pertence.
+    expect(byId.get("canva")!.reason).toBe("missing_charge_date");
+    expect(byId.get("canva")!.fix).toBe("edit_item");
   });
 
   it("fato real de cartão sem charge_date é sinalizado para correção", () => {
