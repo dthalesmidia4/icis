@@ -188,9 +188,7 @@ export default function FinanceOccurrenceModal({
     onRefresh?.();
   };
 
-  /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
-  const cardRow = !!row && isCardCharge(row);
-  const statementRow = !!row && isStatementRow(row);
+
   /** Câmbio já provado pelo par (BRL real / USD original) desta compra. */
   const persistedRate = row ? effectiveUsdRate(row) : null;
   /** Dia civil do `paid_at` já salvo — a prova do fato. */
