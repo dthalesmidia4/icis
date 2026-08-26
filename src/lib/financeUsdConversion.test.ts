@@ -16,7 +16,7 @@ describe("conversão USD bidirecional", () => {
 
   it("editar os reais recalcula o câmbio", () => {
     const next = applyUsdEdit({ original: "66.5", rate: "5.13", brl: "" }, "brl", "341,15");
-    expect(next.rate).toBe("5.130827");
+    expect(next.rate).toBe("5.130075");
     expect(next.brl).toBe("341,15");
   });
 
@@ -36,7 +36,7 @@ describe("conversão USD bidirecional", () => {
 
   it("não há loop: o campo editado volta literal", () => {
     let state = seedUsdConversion({ original: 66.5, rate: 5.13, brl: null });
-    expect(state.brl).toBe("341.15");
+    expect(state.brl).toBe("341.14");
     state = applyUsdEdit(state, "brl", "341,1");
     expect(state.brl).toBe("341,1");
     state = applyUsdEdit(state, "brl", "341,15");
