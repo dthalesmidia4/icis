@@ -601,6 +601,14 @@ export default function FinanceOccurrenceModal({
             </div>
           </Block>
 
+          {/* Cadastro inativado: o fato do mês continua real, mas não se repete. */}
+          {!row.item.active && (
+            <p className="text-xs text-muted-foreground break-words">
+              <strong>Cadastro inativo</strong> — este lançamento continua valendo neste mês, mas o
+              cadastro não será mais projetado nos meses seguintes.
+            </p>
+          )}
+
           {/* Categoria é do CADASTRO permanente, nunca do fato mensal. */}
           <p className="text-xs text-muted-foreground break-words">
             Categoria: <strong>{row.item.category?.trim() || "Sem categoria"}</strong> — definida no
@@ -641,12 +649,20 @@ export default function FinanceOccurrenceModal({
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            {!readOnlyFact && (
-              <Button onClick={handleSave} disabled={saving || uploading || !canSubmit}>
-                {saving ? "Salvando..." : "Salvar lançamento"}
+            {(!readOnlyFact || correcting) && (
+              <Button
+                onClick={handleSave}
+                disabled={saving || uploading || (!correcting && !canSubmit)}
+              >
+                {saving
+                  ? "Salvando..."
+                  : correcting
+                    ? CLOSED_CORRECTION_SAVE_LABEL
+                    : "Salvar lançamento"}
               </Button>
             )}
           </div>
+
         </DialogFooter>
 
       </DialogContent>
