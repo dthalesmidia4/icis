@@ -145,14 +145,27 @@ export default function FinanceOccurrenceModal({
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
 
   /**
-   * Fato FECHADO (pago direto ou liquidado por fatura paga) é imutável: a única
-   * resposta possível é preservar. A RPC valida isso de novo no banco.
+   * Fato FECHADO (pago direto ou liquidado por fatura paga) é imutável nas suas
+   * PROVAS: data, origem, pagamento e comprovante. A RPC valida de novo no banco.
+   *
+   * Exceção estritamente monetária: um COMPONENTE de cartão liquidado por uma
+   * fatura já paga pode ter o valor deste mês corrigido (o banco cobrou outro
+   * valor) — sem desfazer pagamento nem mexer em datas (`financeClosedCorrection`).
    */
   const rowClosed = row
     ? effectivePaid(row, statusContext?.rows ?? [row], statusContext?.settlement ?? null)
     : false;
+  /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
+  const cardRow = !!row && isCardCharge(row);
+  const statementRow = !!row && isStatementRow(row);
+  const factMode = closedFactMode({ cardRow, statementRow, closed: rowClosed });
+  /** Correção seletiva: só os campos monetários deste mês abrem. */
+  const correcting = factMode === "card_component_correction";
   const readOnlyFact = rowClosed;
+  /** Valor / dólar / câmbio: bloqueados só quando nem correção é permitida. */
+  const readOnlyMoney = readOnlyFact && !correcting;
   const deleteAction = row ? occurrenceDeleteActionForRow(row, rowClosed) : "nothing_to_delete";
+
 
   const handleDestructive = async () => {
     if (!row) return;
