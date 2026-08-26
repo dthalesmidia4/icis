@@ -210,6 +210,7 @@ export default function SystemsCommercial() {
   // Nova oportunidade
   const [newOpen, setNewOpen] = useState(false);
   const [newCompany, setNewCompany] = useState("");
+  const [newCampaignId, setNewCampaignId] = useState("");
   const [newName, setNewName] = useState("");
   const [newContact, setNewContact] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -1065,6 +1066,32 @@ export default function SystemsCommercial() {
               <label className="text-xs font-semibold uppercase text-muted-foreground">Sistema atual</label>
               <Input value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="mt-1" />
             </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Campanha de origem (opcional)
+              </label>
+              <Select
+                value={newCampaignId || "none"}
+                onValueChange={(v) => setNewCampaignId(v === "none" ? "" : v)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Sem campanha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem campanha</SelectItem>
+                  {campaigns
+                    .filter((c) => !newCompany || c.company_id === newCompany)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                O vínculo de campanha nunca é automático — atribua apenas quando a origem for real.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setNewOpen(false)}>
@@ -1104,6 +1131,7 @@ export default function SystemsCommercial() {
                 setNewContact("");
                 setNewPhone("");
                 setNewCity("");
+                setNewCampaignId("");
                 setNewSystem("");
                 load();
               }}
