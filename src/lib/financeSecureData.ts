@@ -95,6 +95,8 @@ export const FINANCE_ITEM_METADATA_COLUMNS = [
   "recurrence_interval",
   "recurrence_weekday",
   "recurrence_anchor_date",
+  // Dia do FATO mensal (agenda da despesa) — independe da agenda de pagamento.
+  "recurrence_day_of_month",
   "amount_mode",
 ].join(",");
 

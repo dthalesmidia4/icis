@@ -142,7 +142,9 @@ export function ruleFromItem(item: FinanceItem): FinanceRecurrenceRule | null {
     frequency,
     interval_count: recurrenceInterval(item),
     weekday: item.recurrence_weekday ?? null,
-    day_of_month: item.due_day ?? item.charge_day ?? null,
+    // Dia do FATO mensal: o campo próprio da agenda da despesa vem primeiro;
+    // vencimento/cobrança são só fallback histórico (eles falam de PAGAMENTO).
+    day_of_month: item.recurrence_day_of_month ?? item.due_day ?? item.charge_day ?? null,
     anchor_date: scheduleAnchor(item),
   };
 }

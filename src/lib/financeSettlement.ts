@@ -39,6 +39,26 @@ export const EMPTY_SETTLEMENT: FinanceSettlementContext = {
   statementByComponentKey: new Map<string, StatementGroup>(),
 };
 
+/**
+ * Une índices de liquidação de origens diferentes (fatura de cartão e LOTE de
+ * pagamento). Ambos respondem à mesma pergunta — "esta linha já foi quitada por
+ * uma saída de caixa?" — e nenhum grava pagamento item a item.
+ */
+export function mergeSettlementIndexes(
+  ...indexes: (Partial<FinanceSettlementContext> | null | undefined)[]
+): FinanceSettlementContext {
+  const paidComponentKeys = new Set<string>();
+  const statementByComponentKey = new Map<string, StatementGroup>();
+  for (const index of indexes) {
+    if (!index) continue;
+    index.paidComponentKeys?.forEach((key) => paidComponentKeys.add(key));
+    index.statementByComponentKey?.forEach((group, key) =>
+      statementByComponentKey.set(key, group),
+    );
+  }
+  return { paidComponentKeys, statementByComponentKey };
+}
+
 /** Índice de liquidação derivado dos grupos de fatura da competência. */
 export function buildStatementSettlementIndex(
   statements: StatementGroup[],

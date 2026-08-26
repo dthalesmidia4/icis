@@ -81,6 +81,12 @@ export interface FinanceItem {
   recurrence_weekday?: number | null;
   /** Âncora genérica do cronograma (a partir de quando o intervalo é contado). */
   recurrence_anchor_date?: string | null;
+  /**
+   * Dia do MÊS em que o FATO da despesa acontece (agenda da DESPESA).
+   * Não confundir com a agenda de PAGAMENTO (`finance_payment_rules`): uma
+   * despesa mensal pode acontecer no dia 1 e ser paga no dia 20.
+   */
+  recurrence_day_of_month?: number | null;
   /** Âncora da recorrência: define a partir de quando o intervalo é contado. */
   recurrence_start_date?: string | null;
   /** `fixed` = valor previsível; `variable` = consumo (valor só se confirma no mês). */
@@ -450,7 +456,17 @@ function projectedDates(item: FinanceItem, competence: Competence) {
     return { chargeDate: null, dueDate: date };
   }
   const chargeDate = item.charge_day != null ? dateInMonth(competence, item.charge_day) : null;
-  const dueDate = item.due_day != null ? dateInMonth(competence, item.due_day) : null;
+  /**
+   * Data do fato mensal. `due_day` continua a fonte histórica; quando ele não
+   * existe, o dia do FATO (`recurrence_day_of_month`) dá data à linha — é o caso
+   * da despesa que acontece num dia e é paga em outro (agenda de pagamento).
+   */
+  const dueDate =
+    item.due_day != null
+      ? dateInMonth(competence, item.due_day)
+      : item.recurrence_day_of_month != null
+        ? dateInMonth(competence, item.recurrence_day_of_month)
+        : null;
   return { chargeDate, dueDate };
 }
 

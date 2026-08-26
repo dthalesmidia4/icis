@@ -1447,6 +1447,7 @@ export type Database = {
           payment_method: string | null
           purpose: string | null
           recurrence_anchor_date: string | null
+          recurrence_day_of_month: number | null
           recurrence_interval: number
           recurrence_interval_months: number
           recurrence_start_date: string | null
@@ -1490,6 +1491,7 @@ export type Database = {
           payment_method?: string | null
           purpose?: string | null
           recurrence_anchor_date?: string | null
+          recurrence_day_of_month?: number | null
           recurrence_interval?: number
           recurrence_interval_months?: number
           recurrence_start_date?: string | null
@@ -1533,6 +1535,7 @@ export type Database = {
           payment_method?: string | null
           purpose?: string | null
           recurrence_anchor_date?: string | null
+          recurrence_day_of_month?: number | null
           recurrence_interval?: number
           recurrence_interval_months?: number
           recurrence_start_date?: string | null
@@ -1707,6 +1710,169 @@ export type Database = {
           },
           {
             foreignKeyName: "finance_occurrences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_payment_batch_entries: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          item_id: string
+          scheduled_date: string
+          tenant_id: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          item_id: string
+          scheduled_date: string
+          tenant_id: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          scheduled_date?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_payment_batch_entries_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "finance_payment_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_payment_batch_entries_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_payment_batch_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_payment_batches: {
+        Row: {
+          competence_month: string
+          created_at: string
+          created_by: string | null
+          id: string
+          item_id: string | null
+          note: string | null
+          paid_at: string | null
+          scheduled_date: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          competence_month: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string | null
+          note?: string | null
+          paid_at?: string | null
+          scheduled_date?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          competence_month?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string | null
+          note?: string | null
+          paid_at?: string | null
+          scheduled_date?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_payment_batches_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_payment_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_payment_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          day_of_month: number | null
+          effective_from: string
+          id: string
+          interval_count: number
+          item_id: string
+          mode: string
+          note: string | null
+          tenant_id: string
+          updated_at: string
+          weekday: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          day_of_month?: number | null
+          effective_from: string
+          id?: string
+          interval_count?: number
+          item_id: string
+          mode: string
+          note?: string | null
+          tenant_id: string
+          updated_at?: string
+          weekday?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          day_of_month?: number | null
+          effective_from?: string
+          id?: string
+          interval_count?: number
+          item_id?: string
+          mode?: string
+          note?: string | null
+          tenant_id?: string
+          updated_at?: string
+          weekday?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_payment_rules_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_payment_rules_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3560,6 +3726,10 @@ export type Database = {
         Returns: Json
       }
       finance_password_status: { Args: { _tenant_id: string }; Returns: Json }
+      finance_pay_payment_batch: {
+        Args: { _batch_id: string; _paid_at?: string }
+        Returns: undefined
+      }
       finance_read_item_values: {
         Args: { _tenant_id: string }
         Returns: {
@@ -3611,6 +3781,10 @@ export type Database = {
       finance_tools_item_allowed: {
         Args: { _item_id: string; _tenant_id: string }
         Returns: boolean
+      }
+      finance_unpay_payment_batch: {
+        Args: { _batch_id: string }
+        Returns: undefined
       }
       generate_demand_fingerprint: {
         Args: { p_channel: string; p_demand_type: string; p_title: string }

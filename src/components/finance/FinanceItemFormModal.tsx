@@ -37,6 +37,14 @@ import {
 } from "@/lib/financeUsdConversion";
 import { installmentSchedulePreview } from "@/lib/financeInstallmentPresentation";
 import { WEEKDAYS } from "@/lib/financeRecurrenceSchedule";
+import {
+  FinancePaymentMode,
+  FinancePaymentRule,
+  PAYMENT_MODE_HELP,
+  PAYMENT_MODE_LABELS,
+  describePaymentRule,
+  effectivePaymentRuleFor,
+} from "@/lib/financePaymentSchedule";
 
 import { FinanceScope, allowedCostCentersForScope, allowedKindsForScope } from "@/lib/financeScope";
 import { Competence, competenceToISO } from "@/lib/financeCardCycle";
@@ -78,11 +86,21 @@ interface Props {
    * sem ela o avulso não teria onde ser materializado.
    */
   competence?: Competence | null;
+  /** Agendas de PAGAMENTO já gravadas (para reabrir o cadastro com a atual). */
+  paymentRules?: FinancePaymentRule[];
   onSave: (
     payload: Partial<FinanceItem>,
     id?: string,
     /** Fato do mês que acompanha a criação de um avulso. */
     oneOff?: OneOffFact | null,
+    /** Agenda de PAGAMENTO: quando eu realmente pago (não é quando o gasto acontece). */
+    paymentSchedule?: {
+      mode: FinancePaymentMode;
+      interval: number;
+      weekday?: number | null;
+      dayOfMonth?: number | null;
+      effectiveFrom?: string | null;
+    } | null,
   ) => Promise<boolean>;
 }
 
@@ -145,6 +163,7 @@ export default function FinanceItemFormModal({
   defaultUsdRate,
   scope = "full",
   competence = null,
+  paymentRules = [],
   onSave,
   onAfterDelete,
 }: Props) {
@@ -161,6 +180,13 @@ export default function FinanceItemFormModal({
   const [frequency, setFrequency] = useState<Frequency>("monthly");
   const [intervalMonths, setIntervalMonths] = useState("2");
   const [recurrenceStart, setRecurrenceStart] = useState("");
+  /** Dia do MÊS em que o FATO da despesa acontece (agenda da despesa). */
+  const [factDayOfMonth, setFactDayOfMonth] = useState("");
+  /* --- AGENDA DE PAGAMENTO (quando eu pago) — separada da agenda acima --- */
+  const [paymentMode, setPaymentMode] = useState<FinancePaymentMode>("per_occurrence");
+  const [paymentInterval, setPaymentInterval] = useState("1");
+  const [paymentWeekday, setPaymentWeekday] = useState("5");
+  const [paymentDayOfMonth, setPaymentDayOfMonth] = useState("");
   /** "A cada N" das frequências sub-mensais (dias/semanas). */
   const [subInterval, setSubInterval] = useState("1");
   /** Dia da semana (ISO 1–7) da recorrência semanal. */
@@ -234,6 +260,25 @@ export default function FinanceItemFormModal({
         : "1",
     );
     setWeekday(item?.recurrence_weekday != null ? String(item.recurrence_weekday) : "1");
+    setFactDayOfMonth(
+      item?.recurrence_day_of_month != null ? String(item.recurrence_day_of_month) : "",
+    );
+    // Agenda de PAGAMENTO vigente do cadastro (padrão: a cada ocorrência).
+    const activeRule = item
+      ? effectivePaymentRuleFor(
+          item,
+          paymentRules,
+          competence ? competenceToISO(competence) : "9999-12-31",
+        )
+      : null;
+    setPaymentMode(activeRule?.mode ?? "per_occurrence");
+    setPaymentInterval(
+      activeRule?.interval_count != null && activeRule.interval_count > 0
+        ? String(activeRule.interval_count)
+        : "1",
+    );
+    setPaymentWeekday(activeRule?.weekday != null ? String(activeRule.weekday) : "5");
+    setPaymentDayOfMonth(activeRule?.day_of_month != null ? String(activeRule.day_of_month) : "");
 
     setRecurrenceStart(item?.recurrence_start_date ?? "");
     setCurrency((item?.currency as FinanceCurrency) ?? "BRL");
@@ -397,6 +442,12 @@ export default function FinanceItemFormModal({
     return amountNumber;
   }, [amountNumber, currency, usdNumbers.amountBrl]);
 
+  /**
+   * A agenda de PAGAMENTO só existe onde há o que agendar: recorrência fora do
+   * cartão. No cartão a saída de caixa é a FATURA; avulso/parcelado já têm data.
+   */
+  const showPaymentSchedule = isRecurring && !isCard && !onCard && !isIncluded;
+
   const handleSubmit = async () => {
     // Cadastro já inativado/excluído: salvar aqui ressuscitaria o registro.
     if (destroyed) return;
@@ -442,6 +493,12 @@ export default function FinanceItemFormModal({
       statement_closing_day: isCard ? parseDayOfMonth(closingDay) : null,
       statement_due_day: isCard ? parseDayOfMonth(statementDueDay) : null,
       subscription_date: subscriptionDate || null,
+      /**
+       * Dia do FATO mensal (agenda da DESPESA). É o que dá data à linha quando o
+       * pagamento acontece em outro dia — vencimento/cobrança falam de PAGAMENTO.
+       */
+      recurrence_day_of_month:
+        isRecurring && !isSubMonthly ? parseDayOfMonth(factDayOfMonth) : null,
       installment_start_date: isInstallments ? installmentStart : null,
       installment_count: isInstallments ? installmentCountNumber : null,
       link: link.trim() || null,
@@ -464,7 +521,20 @@ export default function FinanceItemFormModal({
             cardItemId: payload.card_item_id ?? null,
           }
         : null;
-    const ok = await onSave(payload, item?.id, oneOff);
+    /**
+     * Agenda de PAGAMENTO: só faz sentido para recorrência (o avulso/parcelado
+     * já tem data própria) e fora do cartão (aí quem paga é a fatura).
+     */
+    const paymentSchedule = showPaymentSchedule
+      ? {
+          mode: paymentMode,
+          interval: Number(paymentInterval) || 1,
+          weekday: paymentMode === "weekly" ? Number(paymentWeekday) || 5 : null,
+          dayOfMonth: paymentMode === "monthly" ? parseDayOfMonth(paymentDayOfMonth) : null,
+          effectiveFrom: competence ? competenceToISO(competence) : null,
+        }
+      : null;
+    const ok = await onSave(payload, item?.id, oneOff, paymentSchedule);
     setSaving(false);
     if (ok) onOpenChange(false);
   };
@@ -731,6 +801,100 @@ export default function FinanceItemFormModal({
                       : "Informe a primeira cobrança para o sistema saber quais meses contar."}
                   </p>
                 )}
+
+                {isRecurring && !isSubMonthly && (
+                  <div className="max-w-xs">
+                    <Label>Dia do mês em que o gasto acontece</Label>
+                    <Input
+                      value={factDayOfMonth}
+                      onChange={(e) => setFactDayOfMonth(e.target.value)}
+                      inputMode="numeric"
+                      placeholder="Ex.: 1"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      É quando a despesa acontece — não precisa ser o dia em que você paga.
+                    </p>
+                  </div>
+                )}
+
+                {showPaymentSchedule && (
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold">Como você paga</p>
+                      <p className="text-xs text-muted-foreground">
+                        A despesa acontece na agenda acima. Aqui você diz quando o dinheiro sai —
+                        podem ser dias diferentes.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label>Forma de pagamento</Label>
+                        <Select
+                          value={paymentMode}
+                          onValueChange={(v) => setPaymentMode(v as FinancePaymentMode)}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(PAYMENT_MODE_LABELS) as FinancePaymentMode[]).map((m) => (
+                              <SelectItem key={m} value={m}>{PAYMENT_MODE_LABELS[m]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(paymentMode === "daily" || paymentMode === "weekly") && (
+                        <div>
+                          <Label>
+                            {paymentMode === "daily" ? "A cada quantos dias" : "A cada quantas semanas"}
+                          </Label>
+                          <Input
+                            value={paymentInterval}
+                            onChange={(e) => setPaymentInterval(e.target.value)}
+                            inputMode="numeric"
+                            placeholder="1"
+                          />
+                        </div>
+                      )}
+                      {paymentMode === "weekly" && (
+                        <div>
+                          <Label>Dia do pagamento</Label>
+                          <Select value={paymentWeekday} onValueChange={setPaymentWeekday}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {WEEKDAYS.map((w) => (
+                                <SelectItem key={w.value} value={String(w.value)}>{w.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {paymentMode === "monthly" && (
+                        <div>
+                          <Label>Dia do mês do pagamento</Label>
+                          <Input
+                            value={paymentDayOfMonth}
+                            onChange={(e) => setPaymentDayOfMonth(e.target.value)}
+                            inputMode="numeric"
+                            placeholder="Ex.: 5"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {describePaymentRule({
+                        item_id: item?.id ?? "",
+                        effective_from: "0001-01-01",
+                        mode: paymentMode,
+                        interval_count: Number(paymentInterval) || 1,
+                        weekday: paymentMode === "weekly" ? Number(paymentWeekday) || 5 : null,
+                        day_of_month:
+                          paymentMode === "monthly" ? parseDayOfMonth(paymentDayOfMonth) : null,
+                      })}
+                      {" "}{PAYMENT_MODE_HELP[paymentMode]}
+                    </p>
+                  </div>
+                )}
+
+
 
 
                 {chargeMode === "consumption" && (
