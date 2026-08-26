@@ -256,12 +256,23 @@ export const OfficeDesk = memo(function OfficeDesk({
                   </span>
                 </p>
 
-                {timeLabel(monitorCard.dueDate, monitorCard.dueTime) && (
-                  <p className="flex items-center gap-0.5 text-[8px] leading-tight text-muted-foreground">
-                    <Clock className="h-2 w-2" />
-                    {timeLabel(monitorCard.dueDate, monitorCard.dueTime)}
+                {hasOfficeCardSpan(span) && (
+                  <p className="flex flex-wrap items-center gap-x-1.5 gap-y-[1px] text-[8px] leading-tight text-muted-foreground">
+                    {span.start && (
+                      <span className="inline-flex items-center gap-0.5">
+                        <Clock className="h-2 w-2 shrink-0" />
+                        <span className="tabular-nums">Início {span.start}</span>
+                      </span>
+                    )}
+                    {span.end && (
+                      <span className="inline-flex items-center gap-0.5">
+                        <Flag className="h-2 w-2 shrink-0" />
+                        <span className="tabular-nums">Fim {span.end}</span>
+                      </span>
+                    )}
                   </p>
                 )}
+
               </div>
             ) : (
               <div className="relative flex min-h-[38px] flex-col items-center justify-center gap-1 text-muted-foreground">
