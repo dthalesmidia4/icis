@@ -100,7 +100,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Pagar fatura · {cardDisplayLabel(group.card)}</DialogTitle>
           <DialogDescription>
@@ -110,7 +110,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {usdComponents.length > 0 && (
             <div className="space-y-3 rounded-lg border p-3">
               <div>
@@ -150,7 +150,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
                       <Input
                         id={`usd-${comp.row.key}`}
                         inputMode="decimal"
-                        className="sm:w-36"
+                        className="w-full min-w-0 max-w-full sm:w-36"
                         value={typed}
                         placeholder="Valor em R$"
                         onChange={(e) =>
@@ -178,6 +178,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
             <Input
               id="pay-statement-date"
               type="date"
+              className="w-full min-w-0 max-w-full"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
@@ -194,6 +195,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
             <Input
               id="pay-statement-amount"
               inputMode="decimal"
+              className="w-full min-w-0 max-w-full"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder={suggested != null ? formatBRL(suggested) : "0,00"}
@@ -228,7 +230,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-wrap gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
