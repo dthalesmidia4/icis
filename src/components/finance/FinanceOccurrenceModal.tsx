@@ -623,7 +623,7 @@ export default function FinanceOccurrenceModal({
                       {occurrencePaidHelp(row)}
                     </p>
                   </div>
-                  <Switch checked={paid} onCheckedChange={setPaid} className="flex-shrink-0" disabled={readOnlyFact} />
+                  <Switch checked={paid} onCheckedChange={setPaid} className="flex-shrink-0" disabled={readOnlyProof} />
                 </div>
 
                 {paid && (
@@ -634,7 +634,7 @@ export default function FinanceOccurrenceModal({
                       className="mt-1"
                       value={paymentDate}
                       onChange={setPaymentDate}
-                      readOnly={readOnlyFact}
+                      readOnly={readOnlyProof}
                     />
                     {!canSubmit ? (
                       <p className="text-xs text-destructive mt-1">
@@ -672,7 +672,7 @@ export default function FinanceOccurrenceModal({
                       setAttachmentUrl(null);
                       setAttachmentName(null);
                     }}
-                    disabled={readOnlyFact}
+                    disabled={readOnlyProof}
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
@@ -681,7 +681,7 @@ export default function FinanceOccurrenceModal({
                 <Input
                   type="file"
                   className="mt-1 w-full min-w-0 max-w-full file:mr-2"
-                  disabled={uploading || readOnlyFact}
+                  disabled={uploading || readOnlyProof}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleUpload(file);
