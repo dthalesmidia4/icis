@@ -1934,6 +1934,90 @@ export type Database = {
           },
         ]
       }
+      marketing_campaigns: {
+        Row: {
+          acquisition_strategy: string | null
+          channels: Json
+          city: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          end_date: string | null
+          id: string
+          name: string
+          objective: string | null
+          observations: string | null
+          paid_traffic_budget: number | null
+          radius_km: number | null
+          region_label: string | null
+          start_date: string | null
+          state: string | null
+          status: string
+          strategy_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          acquisition_strategy?: string | null
+          channels?: Json
+          city?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          objective?: string | null
+          observations?: string | null
+          paid_traffic_budget?: number | null
+          radius_km?: number | null
+          region_label?: string | null
+          start_date?: string | null
+          state?: string | null
+          status?: string
+          strategy_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          acquisition_strategy?: string | null
+          channels?: Json
+          city?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          objective?: string | null
+          observations?: string | null
+          paid_traffic_budget?: number | null
+          radius_km?: number | null
+          region_label?: string | null
+          start_date?: string | null
+          state?: string | null
+          status?: string
+          strategy_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       office_desk_preferences: {
         Row: {
           created_at: string
@@ -1972,6 +2056,7 @@ export type Database = {
       period_plans: {
         Row: {
           budget: string | null
+          campaign_id: string | null
           client_acquisition: string | null
           company_id: string
           created_at: string
@@ -2000,6 +2085,7 @@ export type Database = {
         }
         Insert: {
           budget?: string | null
+          campaign_id?: string | null
           client_acquisition?: string | null
           company_id: string
           created_at?: string
@@ -2028,6 +2114,7 @@ export type Database = {
         }
         Update: {
           budget?: string | null
+          campaign_id?: string | null
           client_acquisition?: string | null
           company_id?: string
           created_at?: string
@@ -2055,6 +2142,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "period_plans_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "period_plans_company_id_fkey"
             columns: ["company_id"]
@@ -2568,6 +2662,7 @@ export type Database = {
       }
       systems_clients: {
         Row: {
+          acquisition_campaign_id: string | null
           address: string | null
           city: string | null
           commercial_owner_id: string | null
@@ -2598,6 +2693,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acquisition_campaign_id?: string | null
           address?: string | null
           city?: string | null
           commercial_owner_id?: string | null
@@ -2628,6 +2724,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acquisition_campaign_id?: string | null
           address?: string | null
           city?: string | null
           commercial_owner_id?: string | null
@@ -2658,6 +2755,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "systems_clients_acquisition_campaign_id_fkey"
+            columns: ["acquisition_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "systems_clients_commercial_owner_id_fkey"
             columns: ["commercial_owner_id"]
