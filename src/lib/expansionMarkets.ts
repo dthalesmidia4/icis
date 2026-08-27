@@ -399,11 +399,14 @@ export async function loadExpansionMarkets(
 }
 
 export async function saveExpansionMarket(
-  input: ExpansionMarketInput,
+  input: ExpansionMarketInput & { mode?: MarketEditMode },
 ): Promise<{ success: boolean; message?: string; id?: string }> {
   const invalid = validateExpansionMarketInput(input);
   if (invalid) return { success: false, message: invalid };
-  const row = buildMarketRow(input);
+  const mode: MarketEditMode = input.mode || "full";
+  // Insert sempre grava a linha completa; update respeita a área de trabalho.
+  const row = input.id ? buildMarketPatch(mode, input) : buildMarketRow(input);
+
 
   if (input.id) {
     const { error } = await (supabase as any)
