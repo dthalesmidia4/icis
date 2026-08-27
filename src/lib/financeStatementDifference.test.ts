@@ -64,7 +64,7 @@ describe("interpretStatementPayment", () => {
     expect(payment.differenceBrl).toBe(0);
     expect(payment.situationLabel).toBe("Quitada");
     expect(payment.message).toContain("Pagamento conciliado");
-    expect(payment.message).toContain("R$ 0,00");
+    expect(payment.message.replace(/\u00a0/g, " ")).toContain("R$ 0,00");
   });
 
   it("pagamento divergente NÃO usa a diferença da composição", () => {
