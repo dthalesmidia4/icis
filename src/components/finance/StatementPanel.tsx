@@ -28,6 +28,8 @@ import {
   formatCurrencyValue,
 } from "@/lib/financeModel";
 import { statementIofBrl } from "@/lib/financeIof";
+import { interpretStatementCompositionDifference } from "@/lib/financeStatementDifference";
+
 import { statementClosureButtonLabel } from "@/lib/financeStatementClosure";
 import {
   CARD_CHARGE_DATE_MISSING,
