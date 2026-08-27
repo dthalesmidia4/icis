@@ -137,13 +137,18 @@ export default function PaidMediaTab({
     setModalOpen(true);
   };
 
+  const openEditMarket = (market: ExpansionMarket) => {
+    setEditingMarket(market);
+    setMarketModalOpen(true);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-3xl">
           <h2 className="text-2xl font-black leading-tight">Mídia paga</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Cada praça já tem verba e janela planejadas. Dentro dela, cada peça alocada consome
+            Cada cidade já tem verba e janela planejadas. Dentro dela, cada peça alocada consome
             parte dessa verba — o calendário editorial não muda e nenhuma peça é duplicada.
           </p>
         </div>
@@ -165,160 +170,182 @@ export default function PaidMediaTab({
           value={`${marketBudgetLabel(totals.allocatedKnown)}${undefinedSuffix(totals.allocatedUndefined, "verba")}`}
         />
         <Metric label="Saldo conhecido" value={marketBudgetLabel(totals.balanceKnown)} />
-        <Metric label="Praças programadas" value={String(totals.scheduledCities)} />
+        <Metric label="Cidades programadas" value={String(totals.scheduledCities)} />
         <Metric label="Ativações" value={String(totals.activations)} />
       </div>
 
-      <section>
-        <p className="border-b pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-          Planejamento por praça
-        </p>
-        {rows.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            {loading
-              ? "Carregando…"
-              : "Cadastre uma cidade na aba Expansão para planejar mídia paga."}
-          </p>
-        ) : (
-          rows.map(({ market, planned, allocated, available, activations: acts }) => {
-            const isOpen = expanded === market.id;
-            const live = acts.filter((a) => a.status !== "cancelled");
-            return (
-              <div
-                key={market.id}
-                className={cn(
-                  "border-b",
-                  selectedMarketId === market.id && "bg-primary/5",
-                )}
-              >
-                <div className="flex flex-wrap items-start gap-x-4 gap-y-2 py-3">
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex flex-wrap items-baseline gap-x-3">
-                      <span className="rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-                        {marketOrderLabel(market)}
-                      </span>
-                      <span className="text-sm font-black">{marketLabel(market)}</span>
-                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-                        {marketStatusLabel(market.status)}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                      <Chip
-                        label="Anúncios"
-                        value={marketWindow(market.ads_start_date, market.ads_end_date)}
-                      />
-                      <Chip label="Planejado" value={marketBudgetLabel(planned)} />
-                      <Chip label="Alocado" value={marketBudgetLabel(allocated)} />
-                      <Chip
-                        label="Disponível"
-                        value={available === null ? "A definir" : marketBudgetLabel(available)}
-                      />
-                      <Chip label="Ativações" value={String(live.length)} />
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => openNew(market.id)}
+      <section className="overflow-x-auto border">
+        <table className="w-full min-w-[1080px] text-sm">
+          <thead>
+            <tr className="border-b bg-muted/50 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+              <th className="p-3 text-left">#</th>
+              <th className="p-3 text-left">Cidade</th>
+              <th className="p-3 text-left">Status</th>
+              <th className="p-3 text-left">Período dos anúncios</th>
+              <th className="p-3 text-right">Verba planejada</th>
+              <th className="p-3 text-right">Alocado</th>
+              <th className="p-3 text-right">Disponível</th>
+              <th className="p-3 text-right">Ativações</th>
+              <th className="p-3 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                  {loading
+                    ? "Carregando o planejamento de mídia paga…"
+                    : "Nenhuma cidade com planejamento de mídia paga neste plano."}
+                </td>
+              </tr>
+            ) : (
+              rows.map(({ market, planned, allocated, available, activations: acts }) => {
+                const isOpen = expanded === market.id;
+                const live = acts.filter((a) => !isActivationCancelled(a.status));
+                return (
+                  <>
+                    <tr
+                      key={market.id}
+                      className={cn(
+                        "border-t align-top",
+                        selectedMarketId === market.id && "bg-primary/5",
+                      )}
                     >
-                      Adicionar ativação
-                    </Button>
-                    <button
-                      type="button"
-                      aria-label={isOpen ? "Recolher praça" : "Expandir praça"}
-                      onClick={() => setExpanded(isOpen ? null : market.id)}
-                      className="inline-flex h-8 w-8 items-center justify-center text-primary"
-                    >
-                      <ChevronDown
-                        className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")}
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                {isOpen && (
-                  <div className="border-l-2 border-primary pb-5 pl-4">
-                    {acts.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Nenhuma peça alocada ainda. A janela e o orçamento da praça já estão
-                        planejados.
-                      </p>
-                    ) : (
-                      <ul className="divide-y border-y text-sm">
-                        {acts.map((a) => (
-                          <li
-                            key={a.id}
-                            className="flex flex-wrap items-start gap-x-4 gap-y-1 py-2"
+                      <td className="p-3 font-black tabular-nums">{marketOrderLabel(market)}</td>
+                      <td className="p-3 font-bold">{marketLabel(market)}</td>
+                      <td className="p-3">{marketStatusLabel(market.status)}</td>
+                      <td className="p-3 tabular-nums">
+                        {marketWindow(market.ads_start_date, market.ads_end_date)}
+                      </td>
+                      <td className="p-3 text-right tabular-nums">
+                        {marketBudgetLabel(planned)}
+                      </td>
+                      <td className="p-3 text-right tabular-nums">
+                        {marketBudgetLabel(allocated)}
+                      </td>
+                      <td className="p-3 text-right tabular-nums">
+                        {available === null ? "A definir" : marketBudgetLabel(available)}
+                      </td>
+                      <td className="p-3 text-right tabular-nums">{live.length}</td>
+                      <td className="p-3">
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => openEditMarket(market)}
                           >
-                            <div className="min-w-0 flex-1">
-                              <p className="font-bold">
-                                {demandById.get(a.demand_id)?.title || "Conteúdo removido"}
-                              </p>
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                                <span>{a.platform}</span>
-                                <span className="tabular-nums">
-                                  {marketWindow(a.start_date, a.end_date)}
-                                </span>
-                                <span className="tabular-nums">
-                                  {formatActivationBudget(a.budget)}
-                                </span>
-                                <span>{paidMediaStatusLabel(a.status)}</span>
-                                {(a.objective || "").trim() && <span>{a.objective}</span>}
-                              </div>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => {
-                                  setEditing(a);
-                                  setInitialMarketId(null);
-                                  setModalOpen(true);
-                                }}
-                              >
-                                Editar
-                              </Button>
-                              {a.status !== "cancelled" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-xs text-muted-foreground"
-                                  onClick={async () => {
-                                    const res = await cancelPaidMediaActivation(a.id);
-                                    if (!res.success) {
-                                      toast.error(res.message || "Não foi possível cancelar.");
-                                      return;
-                                    }
-                                    toast.success("Ativação cancelada.");
-                                    load();
-                                  }}
-                                >
-                                  Cancelar
-                                </Button>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                            Editar verba
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-muted-foreground"
+                            onClick={() => openNew(market.id)}
+                          >
+                            Nova ativação
+                          </Button>
+                          <button
+                            type="button"
+                            aria-label={isOpen ? "Recolher cidade" : "Expandir cidade"}
+                            onClick={() => setExpanded(isOpen ? null : market.id)}
+                            className="inline-flex h-8 w-8 items-center justify-center text-primary"
+                          >
+                            <ChevronDown
+                              className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")}
+                            />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr key={`${market.id}-detail`} className="border-t bg-muted/20">
+                        <td colSpan={9} className="p-3">
+                          {acts.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              Nenhuma peça alocada nesta cidade. A janela e a verba já estão
+                              planejadas.
+                            </p>
+                          ) : (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-left text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                                  <th className="py-2 pr-3">Conteúdo</th>
+                                  <th className="py-2 pr-3">Plataforma</th>
+                                  <th className="py-2 pr-3">Período</th>
+                                  <th className="py-2 pr-3 text-right">Verba</th>
+                                  <th className="py-2 pr-3">Situação</th>
+                                  <th className="py-2 pr-3">Objetivo</th>
+                                  <th className="py-2 text-right">Ações</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {acts.map((a) => (
+                                  <tr key={a.id} className="border-t align-top">
+                                    <td className="py-2 pr-3 font-bold">
+                                      {demandById.get(a.demand_id)?.title || "Conteúdo removido"}
+                                    </td>
+                                    <td className="py-2 pr-3">{a.platform}</td>
+                                    <td className="py-2 pr-3 tabular-nums">
+                                      {marketWindow(a.start_date, a.end_date)}
+                                    </td>
+                                    <td className="py-2 pr-3 text-right tabular-nums">
+                                      {formatActivationBudget(a.budget)}
+                                    </td>
+                                    <td className="py-2 pr-3">{paidMediaStatusLabel(a.status)}</td>
+                                    <td className="py-2 pr-3 text-muted-foreground">
+                                      {(a.objective || "").trim() || "—"}
+                                    </td>
+                                    <td className="py-2">
+                                      <div className="flex justify-end gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-xs"
+                                          onClick={() => {
+                                            setEditing(a);
+                                            setInitialMarketId(null);
+                                            setModalOpen(true);
+                                          }}
+                                        >
+                                          Editar
+                                        </Button>
+                                        {!isActivationCancelled(a.status) && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-xs text-muted-foreground"
+                                            onClick={async () => {
+                                              const res = await cancelPaidMediaActivation(a.id);
+                                              if (!res.success) {
+                                                toast.error(
+                                                  res.message || "Não foi possível cancelar.",
+                                                );
+                                                return;
+                                              }
+                                              toast.success("Ativação cancelada.");
+                                              load();
+                                            }}
+                                          >
+                                            Cancelar
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 gap-2"
-                      onClick={() => openNew(market.id)}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Adicionar ativação
-                    </Button>
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
+                  </>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </section>
 
       {tenantId && companyId && plan && (
@@ -336,6 +363,22 @@ export default function PaidMediaTab({
           onSaved={load}
         />
       )}
+
+      {tenantId && companyId && plan && editingMarket && (
+        <PlaceFormModal
+          open={marketModalOpen}
+          onOpenChange={(v) => {
+            setMarketModalOpen(v);
+            if (!v) setEditingMarket(null);
+          }}
+          tenantId={tenantId}
+          companyId={companyId}
+          campaignId={plan.id}
+          market={editingMarket}
+          mode="paid-media"
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
@@ -347,11 +390,4 @@ const Metric = ({ label, value }: { label: string; value: string }) => (
     </p>
     <p className="mt-1 text-lg font-black tabular-nums">{value}</p>
   </div>
-);
-
-const Chip = ({ label, value }: { label: string; value: string }) => (
-  <span className="whitespace-nowrap">
-    <span className="text-[10px] font-black uppercase tracking-[0.14em]">{label} </span>
-    <span className="tabular-nums text-foreground">{value}</span>
-  </span>
 );
