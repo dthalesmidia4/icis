@@ -210,9 +210,10 @@ export default function PaidMediaTab({
           value={`${marketBudgetLabel(totals.allocatedKnown)}${undefinedSuffix(totals.allocatedUndefined, "verba")}`}
         />
         <Metric
-          label="Cidades programadas"
+          label="Cidades com janela definida"
           value={`${totals.scheduledCities} · ${totals.activations} peças vinculadas`}
         />
+
       </div>
 
       <section className="overflow-x-auto border">
