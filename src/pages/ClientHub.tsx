@@ -2090,12 +2090,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             </TabsContent>
             <TabsContent value="comercial" className="m-0">
               {/* Mesmo CRM de /comercial-sistemas: nada é duplicado aqui. */}
-              <SystemsCommercialWorkspace
-                lockedCompanyId={selectedClient.id}
-                embedded
-                groupByMarket
-              />
+              <Suspense fallback={<TabFallback />}>
+                <SystemsCommercialWorkspace
+                  lockedCompanyId={selectedClient.id}
+                  embedded
+                  groupByMarket
+                />
+              </Suspense>
             </TabsContent>
+
           </div>
         </Tabs>
 
