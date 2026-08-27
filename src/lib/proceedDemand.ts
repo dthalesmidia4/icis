@@ -1335,7 +1335,7 @@ export async function proceedDemand({
   if (currentFunctionKey === "captar") {
     proceedPayload.additional_assignees = [];
   }
-  await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key);
+  await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key, currentDemand);
   await applyFlowReactivation(proceedPayload, demandId, picked.userId);
   const proceedCommit = await commitFlowTransition({
     demandId,
