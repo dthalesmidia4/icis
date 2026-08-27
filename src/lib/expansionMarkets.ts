@@ -98,6 +98,21 @@ export function isBaseMarket(market: Pick<ExpansionMarket, "market_type">): bool
   return market.market_type === "base";
 }
 
+/**
+ * Rótulo semanticamente explícito: `BASE Bebedouro/SP` para a base existente e
+ * `01 Ribeirão Preto/SP` para as cidades numeradas da expansão.
+ */
+export function marketDisplayLabel(
+  market: Pick<
+    ExpansionMarket,
+    "sequence_order" | "market_type" | "city" | "state" | "region_label"
+  >,
+  index?: number,
+): string {
+  return `${marketOrderLabel(market, index)} ${marketLabel(market)}`.trim();
+}
+
+
 /** Bases existentes, ordem estável por cidade e depois created_at. */
 export function baseMarketsOf(markets: ExpansionMarket[]): ExpansionMarket[] {
   return (markets || [])
