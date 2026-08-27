@@ -1,0 +1,139 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { MarketingCampaign } from "@/lib/marketingCampaigns";
+import {
+  loadExpansionMarkets,
+  loadExpansionPlan,
+  marketBudgetLabel,
+  marketLabel,
+  marketOrderLabel,
+  marketStatusLabel,
+  marketWindow,
+  undefinedSuffix,
+  type ExpansionMarket,
+} from "@/lib/expansionMarkets";
+import {
+  cancelPaidMediaActivation,
+  formatActivationBudget,
+  loadPaidMediaActivations,
+  paidMediaStatusLabel,
+  type PaidMediaActivation,
+} from "@/lib/paidMediaActivations";
+import {
+  buildPaidMediaMarketRows,
+  summarizePaidMediaPlan,
+} from "@/lib/paidMediaPlanning";
+import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
+
+interface PaidMediaTabProps {
+  tenantId: string | null | undefined;
+  companyId: string | null | undefined;
+  currentPeriodId: string | null | undefined;
+  /** Praça vinda da aba Expansão (`market=`): abre e destaca a cidade. */
+  selectedMarketId?: string | null;
+}
+
+interface DemandRow {
+  id: string;
+  title: string;
+  publish_date: string | null;
+  period_plan_id: string | null;
+}
+
+/**
+ * MÍDIA PAGA EM DOIS NÍVEIS:
+ * 1. planejamento da praça (verba e janela já definidas no plano regional);
+ * 2. alocação de peças naquela praça (ativações).
+ *
+ * A tela nunca mostra "R$ 0,00 planejado" quando as praças já têm verba: o
+ * planejamento aparece mesmo com zero ativações.
+ */
+export default function PaidMediaTab({
+  tenantId,
+  companyId,
+  currentPeriodId,
+  selectedMarketId,
+}: PaidMediaTabProps) {
+  const [plan, setPlan] = useState<MarketingCampaign | null>(null);
+  const [markets, setMarkets] = useState<ExpansionMarket[]>([]);
+  const [demands, setDemands] = useState<DemandRow[]>([]);
+  const [activations, setActivations] = useState<PaidMediaActivation[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<PaidMediaActivation | null>(null);
+  const [initialMarketId, setInitialMarketId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!tenantId || !companyId) {
+      setPlan(null);
+      setMarkets([]);
+      setDemands([]);
+      setActivations([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const activePlan = await loadExpansionPlan(tenantId, companyId);
+      setPlan(activePlan);
+      const [mkts, acts, dem] = await Promise.all([
+        loadExpansionMarkets(tenantId, companyId, activePlan?.id ?? null),
+        loadPaidMediaActivations(tenantId, companyId),
+        supabase
+          .from("demands")
+          .select("id, title, publish_date, period_plan_id")
+          .eq("tenant_id", tenantId)
+          .eq("client_id", companyId)
+          .eq("work_area", "midia")
+          .eq("is_draft", false)
+          .order("publish_date", { ascending: true, nullsFirst: false }),
+      ]);
+      setMarkets(mkts);
+      setActivations(acts);
+      setDemands((dem.data || []) as unknown as DemandRow[]);
+    } catch (err) {
+      console.error("[PaidMediaTab]", err);
+      toast.error("Não foi possível carregar o planejamento de mídia paga.");
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantId, companyId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (selectedMarketId) setExpanded(selectedMarketId);
+  }, [selectedMarketId]);
+
+  const demandById = useMemo(() => {
+    const map = new Map<string, DemandRow>();
+    demands.forEach((d) => map.set(d.id, d));
+    return map;
+  }, [demands]);
+
+  const totals = useMemo(() => summarizePaidMediaPlan(markets, activations), [markets, activations]);
+  const rows = useMemo(() => buildPaidMediaMarketRows(markets, activations), [markets, activations]);
+
+  const demandOptions: ActivationDemandOption[] = useMemo(
+    () =>
+      demands.map((d) => ({
+        id: d.id,
+        title: d.title,
+        publish_date: d.publish_date,
+        inCurrentPeriod: !!currentPeriodId && d.period_plan_id === currentPeriodId,
+      })),
+    [demands, currentPeriodId],
+  );
+
+  const openNew = (marketId?: string | null) => {
+    setEditing(null);
+    setInitialMarketId(marketId ?? null);
+    setModalOpen(true);
+  };
+
