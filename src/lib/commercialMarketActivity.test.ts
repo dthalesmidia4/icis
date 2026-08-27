@@ -40,7 +40,17 @@ describe("groupLeadsByMarket", () => {
     expect(grouped.get("franca")?.map((l) => l.id)).toEqual(["b"]);
     expect(leadsWithoutMarket(leads).map((l) => l.id)).toEqual(["c"]);
   });
+
+  it("aviso de órfãos conta só oportunidades: customer sem carteira não infla", () => {
+    const leads = [
+      lead({ id: "vivapet" }),
+      lead({ id: "bellotti", lifecycle: "customer" }),
+      lead({ id: "leal", lifecycle: "customer" }),
+    ];
+    expect(leadsWithoutMarket(leads).map((l) => l.id)).toEqual(["vivapet"]);
+  });
 });
+
 
 describe("summarizeMarketCommercial", () => {
   it("conta etapas, clientes e execução real por cidade", () => {
@@ -59,7 +69,10 @@ describe("summarizeMarketCommercial", () => {
     ]);
     const rp = stats.get("rp")!;
     expect(rp.total).toBe(3);
+    // Oportunidades = só prospects; o customer entra em Ganhos/clientes.
+    expect(rp.opportunities).toBe(2);
     expect(rp.negotiating).toBe(2);
+
     expect(rp.won).toBe(1);
     expect(rp.customers).toBe(1);
     expect(rp.calls).toBe(1);

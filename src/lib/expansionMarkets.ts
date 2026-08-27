@@ -24,9 +24,11 @@ import {
  *
  * O ciclo editorial (`period_plans`) e as peças (`demands`) continuam únicos:
  * nenhuma cidade duplica conteúdo. A distribuição por cidade vive em
- * `paid_media_activations.market_id`; a origem comercial em
- * `systems_clients.acquisition_market_id`.
+ * `paid_media_activations.market_id`. A carteira operacional comercial (fonte
+ * territorial) vive em `systems_clients.market_id`;
+ * `systems_clients.acquisition_market_id` é apenas atribuição de aquisição.
  */
+
 
 export type MarketStatus = CampaignStatus;
 
@@ -95,6 +97,21 @@ export function marketOrderLabel(
 export function isBaseMarket(market: Pick<ExpansionMarket, "market_type">): boolean {
   return market.market_type === "base";
 }
+
+/**
+ * Rótulo semanticamente explícito: `BASE Bebedouro/SP` para a base existente e
+ * `01 Ribeirão Preto/SP` para as cidades numeradas da expansão.
+ */
+export function marketDisplayLabel(
+  market: Pick<
+    ExpansionMarket,
+    "sequence_order" | "market_type" | "city" | "state" | "region_label"
+  >,
+  index?: number,
+): string {
+  return `${marketOrderLabel(market, index)} ${marketLabel(market)}`.trim();
+}
+
 
 /** Bases existentes, ordem estável por cidade e depois created_at. */
 export function baseMarketsOf(markets: ExpansionMarket[]): ExpansionMarket[] {

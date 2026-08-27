@@ -134,7 +134,7 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
             <td className="py-3 pr-4 tabular-nums">
               {marketVisitWindow(market.visits_start_date, market.visits_end_date)}
             </td>
-            <td className="py-3 pr-4 tabular-nums">{stats.total}</td>
+            <td className="py-3 pr-4 tabular-nums">{stats.opportunities}</td>
             <td className="py-3 pr-4 tabular-nums">{stats.negotiating}</td>
             <td className="py-3 pr-4 tabular-nums">{`${stats.won}/${stats.customers}`}</td>
             <td className="py-3 pr-4 tabular-nums text-muted-foreground">
@@ -194,22 +194,46 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
                       ) : (
                         <ul className="mt-2 divide-y border-y text-sm">
                           {marketLeads.map((lead) => (
-                            <li key={lead.id} className="flex flex-wrap gap-x-3 gap-y-1 py-2">
-                              <span className="font-bold">{lead.name}</span>
-                              <span className="text-muted-foreground">
-                                {lead.lifecycle === "customer"
-                                  ? "Cliente"
-                                  : stageLabel(lead.commercial_stage)}
-                              </span>
-                              {lead.next_action && (
+                            <li key={lead.id} className="space-y-1 py-2">
+                              <div className="flex flex-wrap items-baseline gap-x-3">
+                                <span className="font-bold">{lead.name}</span>
                                 <span className="text-muted-foreground">
-                                  Próxima ação: {lead.next_action}
+                                  {lead.lifecycle === "customer"
+                                    ? "Cliente"
+                                    : stageLabel(lead.commercial_stage)}
                                 </span>
+                                {lead.current_system && (
+                                  <span className="text-muted-foreground">
+                                    Sistema atual: {lead.current_system}
+                                  </span>
+                                )}
+                              </div>
+                              {lead.last_contact_result && (
+                                <p className="text-xs text-muted-foreground">
+                                  Último resultado: {lead.last_contact_result}
+                                </p>
                               )}
+                              {lead.next_action && (
+                                <p className="text-xs text-muted-foreground">
+                                  Próxima ação: {lead.next_action}
+                                  {lead.next_action_at
+                                    ? ` · ${new Date(lead.next_action_at).toLocaleDateString("pt-BR")}`
+                                    : ""}
+                                </p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => onOpenCommercial(market.id)}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
+                              >
+                                Abrir no Comercial
+                                <ArrowRight className="h-3 w-3" />
+                              </button>
                             </li>
                           ))}
                         </ul>
                       )}
+
                     </div>
                   </div>
                   <div>
@@ -363,12 +387,13 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
           {orphanLeads.length > 0 && (
             <div className="border-t pt-3">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                Sem cidade definida
+                Oportunidades sem cidade operacional
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {orphanLeads.length} registro(s) comercial(is) ainda sem carteira territorial. A
+                {orphanLeads.length} oportunidade(s) comercial(is) ainda sem carteira operacional. A
                 atribuição nunca é automática — defina a cidade no Comercial.
               </p>
+
               <button
                 type="button"
                 onClick={() => onOpenCommercial()}

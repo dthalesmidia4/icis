@@ -66,6 +66,7 @@ import {
 import {
   isMarketClosed,
   loadExpansionMarkets,
+  marketDisplayLabel,
   marketLabel,
   marketOrderLabel,
   marketStatusLabel,
@@ -73,6 +74,7 @@ import {
   sortExpansionMarkets,
   type ExpansionMarket,
 } from "@/lib/expansionMarkets";
+
 import {
   buildOpportunityRows,
   countQuickFilters,
@@ -247,13 +249,19 @@ export default function SystemsCommercial() {
       ]);
       setCompanies(comps);
       setCampaigns(camps);
-      const plan = pickExpansionPlan(camps);
-      const mkts = plan
-        ? await loadExpansionMarkets(tenantId, plan.company_id, plan.id).catch(
+      // Markets de TODAS as empresas de Sistemas: nunca acopla a tela ao plano
+      // da primeira empresa do tenant.
+      const plans = comps
+        .map((c) => pickExpansionPlan(camps.filter((k) => k.company_id === c.id)))
+        .filter((p): p is MarketingCampaign => !!p);
+      const marketLists = await Promise.all(
+        plans.map((p) =>
+          loadExpansionMarkets(tenantId, p.company_id, p.id).catch(
             () => [] as ExpansionMarket[],
-          )
-        : [];
-      setMarkets(mkts);
+          ),
+        ),
+      );
+      setMarkets(marketLists.flat());
       const touches = await loadLastTouchBySubclient(
         tenantId,
         prospects.map((p) => p.id),
@@ -272,13 +280,64 @@ export default function SystemsCommercial() {
     load();
   }, [load]);
 
-  // Contexto vindo da aba Expansão: empresa/produto e cidade/carteira.
+  /** Escreve params sem mutar o objeto atual (evita estado inconsistente). */
+  const writeParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams);
+      Object.entries(patch).forEach(([key, value]) => {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      });
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // Contexto vindo da aba Expansão: valida empresa/produto e cidade/carteira
+  // depois que companies/markets carregam; params inválidos caem em "all".
   useEffect(() => {
     const company = searchParams.get("company");
     const market = searchParams.get("market");
-    if (company) setCompanyFilter(company);
-    if (market) setMarketFilter(market);
-  }, [searchParams]);
+    if (company) {
+      if (companies.length > 0 && !companies.some((c) => c.id === company)) {
+        setCompanyFilter("all");
+        writeParams({ company: null, market: null });
+        return;
+      }
+      setCompanyFilter(company);
+    }
+    if (market) {
+      const found = markets.find((m) => m.id === market);
+      if (markets.length > 0) {
+        if (!found || (company && found.company_id !== company)) {
+          setMarketFilter("all");
+          writeParams({ market: null });
+          return;
+        }
+      }
+      setMarketFilter(market);
+    }
+  }, [searchParams, companies, markets, writeParams]);
+
+  const handleCompanyFilter = (value: string) => {
+    setCompanyFilter(value);
+    const current = markets.find((m) => m.id === marketFilter);
+    const keepsMarket =
+      marketFilter !== "all" &&
+      !!current &&
+      (value === "all" || current.company_id === value);
+    if (!keepsMarket) setMarketFilter("all");
+    writeParams({
+      company: value === "all" ? null : value,
+      market: keepsMarket ? marketFilter : null,
+    });
+  };
+
+  const handleMarketFilter = (value: string) => {
+    setMarketFilter(value);
+    writeParams({ market: value === "all" ? null : value });
+  };
+
 
   const companyName = useMemo(() => {
     const map = new Map<string, string>();
@@ -560,7 +619,7 @@ export default function SystemsCommercial() {
                         type="button"
                         key={market.id}
                         onClick={() =>
-                          setMarketFilter((prev) => (prev === market.id ? "all" : market.id))
+                          handleMarketFilter(marketFilter === market.id ? "all" : market.id)
                         }
                         className={
                           selectedMarket
@@ -577,16 +636,13 @@ export default function SystemsCommercial() {
                   {marketFilter !== "all" && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setMarketFilter("all");
-                        searchParams.delete("market");
-                        setSearchParams(searchParams, { replace: true });
-                      }}
+                      onClick={() => handleMarketFilter("all")}
                       className="rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-wide"
                     >
                       Limpar cidade
                     </button>
                   )}
+
                 </div>
               </div>
             </div>
@@ -603,7 +659,7 @@ export default function SystemsCommercial() {
               className="pl-9"
             />
           </div>
-          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+          <Select value={companyFilter} onValueChange={handleCompanyFilter}>
             <SelectTrigger className="w-[220px]">
               <SelectValue />
             </SelectTrigger>
@@ -612,6 +668,20 @@ export default function SystemsCommercial() {
               {companies.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.fantasy_name || c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Filtro territorial explícito pela carteira operacional. */}
+          <Select value={marketFilter} onValueChange={handleMarketFilter}>
+            <SelectTrigger className="w-[220px]" aria-label="Cidade/carteira">
+              <SelectValue placeholder="Cidade/carteira" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[320px]">
+              <SelectItem value="all">Todas as cidades</SelectItem>
+              {planMarkets.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {marketDisplayLabel(m)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -942,19 +1012,19 @@ export default function SystemsCommercial() {
                       <SelectItem value="none">Sem carteira definida</SelectItem>
                       {planMarkets.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
-                          {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                          {`${marketDisplayLabel(m)} — ${marketStatusLabel(m.status)}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="mt-1 text-xs text-muted-foreground">
                     A carteira operacional é onde o registro é trabalhado hoje. Nunca é derivada da
-                    cidade de origem.
+                    cidade de aquisição.
                   </p>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Cidade de origem (opcional)
+                    Cidade de aquisição (opcional)
                   </label>
                   <Select
                     value={form.acquisitionMarketId || "none"}
@@ -963,18 +1033,23 @@ export default function SystemsCommercial() {
                     }
                   >
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Sem cidade de origem" />
+                      <SelectValue placeholder="Sem cidade de aquisição" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[320px]">
-                      <SelectItem value="none">Sem cidade de origem</SelectItem>
+                      <SelectItem value="none">Sem cidade de aquisição</SelectItem>
                       {planMarkets.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
-                          {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                          {`${marketDisplayLabel(m)} — ${marketStatusLabel(m.status)}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Use somente quando souber que a oportunidade foi adquirida por uma ação daquela
+                    cidade. A carteira operacional é independente.
+                  </p>
                 </div>
+
                 {(form.stage === "perdido" || form.stage === "pausado") && (
                   <div className="sm:col-span-2">
                     <label className="text-xs font-semibold uppercase text-muted-foreground">
@@ -1181,7 +1256,7 @@ export default function SystemsCommercial() {
                   <SelectItem value="none">Sem carteira definida</SelectItem>
                   {planMarkets.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                      {`${marketDisplayLabel(m)} — ${marketStatusLabel(m.status)}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1189,27 +1264,29 @@ export default function SystemsCommercial() {
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase text-muted-foreground">
-                Cidade de origem (opcional)
+                Cidade de aquisição (opcional)
               </label>
               <Select
                 value={newMarketId || "none"}
                 onValueChange={(v) => setNewMarketId(v === "none" ? "" : v)}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Sem cidade de origem" />
+                  <SelectValue placeholder="Sem cidade de aquisição" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[320px]">
-                  <SelectItem value="none">Sem cidade de origem</SelectItem>
+                  <SelectItem value="none">Sem cidade de aquisição</SelectItem>
                   {planMarkets.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                      {`${marketDisplayLabel(m)} — ${marketStatusLabel(m.status)}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                A cidade de origem nunca é automática — atribua apenas quando a origem for real.
+                Use somente quando souber que a oportunidade foi adquirida por uma ação daquela
+                cidade. A carteira operacional é independente.
               </p>
+
             </div>
           </div>
           <DialogFooter>
