@@ -17,6 +17,7 @@ const market = (partial: Partial<ExpansionMarket> & { id: string }): ExpansionMa
   state: "SP",
   region_label: null,
   status: "planning",
+  paid_media_status_override: null,
   objective: null,
   travel_distance_km: null,
   target_accounts: null,
