@@ -60,10 +60,6 @@ import {
   type SystemsCompany,
 } from "@/lib/systemsClients";
 import {
-  campaignStatusLabel,
-  isCampaignClosed,
-  placeLabel,
-  placeOrderLabel,
   loadCampaigns,
   type MarketingCampaign,
 } from "@/lib/marketingCampaigns";
