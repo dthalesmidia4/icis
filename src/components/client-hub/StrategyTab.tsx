@@ -188,7 +188,8 @@ export default function StrategyTab({
                 <p className="mt-4 text-xs leading-relaxed opacity-85">{periodObjective}</p>
               )}
               <p className="mt-3 text-[11px] leading-relaxed opacity-80">
-                A verba por praça e a verba de cada ativação vivem em Expansão e Mídia paga — esta
+                A verba por cidade e a verba de cada ativação vivem na aba Mídia paga — esta
+
                 verba é do ciclo editorial.
               </p>
             </>
