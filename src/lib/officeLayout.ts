@@ -205,7 +205,9 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
   const width = size.width || DEFAULT_SIZE.width;
   const height = size.height || DEFAULT_SIZE.height;
   const ratio = width / Math.max(height, 1);
-  const ultrawide = width >= 1900 || ratio >= 2.1;
+  // ULTRAWIDE É FORMATO, NÃO SÓ LARGURA. 1920x1080 (ratio 1.78) é monitor
+  // NORMAL e caía no perfil ultrawide, nascendo grande demais em 100% de zoom.
+  const ultrawide = ratio >= 2.1 || (width >= 2200 && ratio >= 1.9);
 
   if (ultrawide) {
     // Ultrawide baixo (ex.: 2560x1080) não pode subir tanto quanto o alto
@@ -227,6 +229,8 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
           monitorPct: 68,
           leftZonePx: 300,
           rightZonePx: 312,
+          sceneScale: 1,
+          gapScale: 1,
           ...ULTRAWIDE_RICH,
         }
       : {
@@ -244,48 +248,56 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
           monitorPct: 68,
           leftZonePx: 312,
           rightZonePx: 330,
+          sceneScale: 1,
+          gapScale: 1,
           ...ULTRAWIDE_RICH,
         };
   }
 
   if (width >= 1600) {
+    // 1920x1080 cai aqui: densidade de DESKTOP NORMAL (cenário mais compacto,
+    // monitor mais largo) — não a densidade do ultrawide.
     return {
       id: "large",
-      topAnchorPct: 51,
-      bottomAnchorPct: 88,
+      topAnchorPct: 50,
+      bottomAnchorPct: 86,
       centersBack: [28, 72],
       centersFront: [25.5, 74.5],
-      baseWidth: 416,
+      baseWidth: 358,
       jitterPct: 0.5,
       scaleBack: 0.95,
       scaleFront: 1.06,
-      panelWidthPx: 436,
-      panelTopPct: 12,
-      monitorPct: 73,
-      leftZonePx: 238,
-      rightZonePx: 244,
+      panelWidthPx: 356,
+      panelTopPct: 10.5,
+      monitorPct: 80,
+      leftZonePx: 192,
+      rightZonePx: 198,
+      sceneScale: 0.86,
+      gapScale: 0.88,
       richCentersBack: [33, 67],
       richCentersFront: [33, 67],
     };
   }
 
   if (width >= 1200) {
-    // DESKTOP NORMAL: painel mais estreito e alto na parede, mesas maiores.
+    // DESKTOP NORMAL: painel mais estreito e alto na parede, cenário compacto.
     // `desktopShort` (ex.: 1366x768) só muda âncoras/verticalidade.
     const short = height < 800;
     return {
       id: short ? "desktopShort" : "desktop",
-      topAnchorPct: short ? 53 : 52,
-      bottomAnchorPct: short ? 89 : 88,
+      topAnchorPct: short ? 51 : 50,
+      bottomAnchorPct: short ? 87 : 86,
       centersBack: [28, 72],
       centersFront: [26, 74],
-      baseWidth: short ? 392 : 404,
+      baseWidth: short ? 336 : 348,
       jitterPct: 0.8,
       scaleBack: 0.94,
       scaleFront: 1.05,
-      panelWidthPx: short ? 380 : 400,
-      panelTopPct: short ? 10.5 : 11.5,
-      monitorPct: 74,
+      panelWidthPx: short ? 336 : 348,
+      panelTopPct: short ? 9 : 10,
+      monitorPct: 80,
+      sceneScale: short ? 0.82 : 0.84,
+      gapScale: short ? 0.84 : 0.86,
       ...DESKTOP_RICH,
     };
   }
@@ -303,11 +315,22 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
     panelWidthPx: 340,
     panelTopPct: 13,
     monitorPct: 72,
-    leftZonePx: 206,
-    rightZonePx: 212,
+    leftZonePx: 200,
+    rightZonePx: 206,
+    sceneScale: 0.92,
+    gapScale: 0.92,
     richCentersBack: [33, 67],
     richCentersFront: [33, 67],
   };
+}
+
+/**
+ * ESCALA DE CENÁRIO por perfil, para os componentes decorativos/ambientais
+ * (Missões, Planejamento, Café, Reunião, Espera) nascerem já compactos no
+ * desktop normal — sem `scale()` global e sem depender do zoom do navegador.
+ */
+export function officeSceneScale(size: WorldSize = DEFAULT_SIZE): number {
+  return resolveOfficeProfile(size).sceneScale;
 }
 
 
