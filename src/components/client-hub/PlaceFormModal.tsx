@@ -52,6 +52,9 @@ interface FormState {
   adsEndDate: string;
   callsStartDate: string;
   visitsStartDate: string;
+  visitsEndDate: string;
+  travelDistanceKm: string;
+  targetAccounts: string;
   channels: string[];
   acquisitionStrategy: string;
   observations: string;
@@ -68,6 +71,9 @@ const empty = (nextOrder: number): FormState => ({
   adsEndDate: "",
   callsStartDate: "",
   visitsStartDate: "",
+  visitsEndDate: "",
+  travelDistanceKm: "",
+  targetAccounts: "",
   channels: [],
   acquisitionStrategy: "",
   observations: "",
@@ -84,6 +90,9 @@ const fromPlace = (c: MarketingCampaign): FormState => ({
   adsEndDate: c.ads_end_date || "",
   callsStartDate: c.calls_start_date || "",
   visitsStartDate: c.visits_start_date || "",
+  visitsEndDate: c.visits_end_date || "",
+  travelDistanceKm: c.travel_distance_km !== null ? String(c.travel_distance_km) : "",
+  targetAccounts: c.target_accounts !== null ? String(c.target_accounts) : "",
   channels: c.channels || [],
   acquisitionStrategy: c.acquisition_strategy || "",
   observations: c.observations || "",
@@ -140,6 +149,10 @@ export default function PlaceFormModal({
       sequenceOrder: form.sequenceOrder,
       adsStartDate: form.adsStartDate,
       adsEndDate: form.adsEndDate,
+      visitsStartDate: form.visitsStartDate,
+      visitsEndDate: form.visitsEndDate,
+      travelDistanceKm: form.travelDistanceKm,
+      targetAccounts: form.targetAccounts,
       paidTrafficBudget: form.paidTrafficBudget,
       status: form.status,
     });
@@ -165,6 +178,9 @@ export default function PlaceFormModal({
         adsEndDate: form.adsEndDate,
         callsStartDate: form.callsStartDate,
         visitsStartDate: form.visitsStartDate,
+        visitsEndDate: form.visitsEndDate,
+        travelDistanceKm: form.travelDistanceKm,
+        targetAccounts: form.targetAccounts,
         channels: form.channels,
         paidTrafficBudget: form.paidTrafficBudget,
         acquisitionStrategy: form.acquisitionStrategy,
@@ -238,6 +254,26 @@ export default function PlaceFormModal({
               className="mt-1"
             />
           </div>
+          <div>
+            <Label>Distância logística (km)</Label>
+            <Input
+              inputMode="decimal"
+              placeholder="A definir"
+              value={form.travelDistanceKm}
+              onChange={(e) => setForm({ ...form, travelDistanceKm: e.target.value })}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label>Meta de alvos a mapear</Label>
+            <Input
+              inputMode="numeric"
+              placeholder="A definir"
+              value={form.targetAccounts}
+              onChange={(e) => setForm({ ...form, targetAccounts: e.target.value })}
+              className="mt-1"
+            />
+          </div>
           <div className="sm:col-span-2">
             <Label>Objetivo comercial</Label>
             <Input
@@ -292,6 +328,17 @@ export default function PlaceFormModal({
               className="mt-1"
             />
           </div>
+
+          <div>
+            <Label>Fim das visitas</Label>
+            <Input
+              type="date"
+              value={form.visitsEndDate}
+              onChange={(e) => setForm({ ...form, visitsEndDate: e.target.value })}
+              className="mt-1"
+            />
+          </div>
+          <div />
 
           <div className="sm:col-span-2">
             <Label>Canais</Label>
