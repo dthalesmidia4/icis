@@ -457,7 +457,9 @@ const normalizeMarket = (row: any): ExpansionMarket => ({
   ...row,
   channels: Array.isArray(row?.channels) ? row.channels.map((c: unknown) => String(c)) : [],
   status: (row?.status || "planning") as MarketStatus,
+  paid_media_status_override: (row?.paid_media_status_override || null) as PaidMediaStatus | null,
 });
+
 
 /**
  * Plano vigente do cliente: prioriza `active`, depois o mais recente aberto.
