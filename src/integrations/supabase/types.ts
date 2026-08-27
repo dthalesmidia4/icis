@@ -2180,6 +2180,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          market_type: string
           objective: string | null
           observations: string | null
           paid_traffic_budget: number | null
@@ -2206,6 +2207,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          market_type?: string
           objective?: string | null
           observations?: string | null
           paid_traffic_budget?: number | null
@@ -2232,6 +2234,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          market_type?: string
           objective?: string | null
           observations?: string | null
           paid_traffic_budget?: number | null
@@ -3131,6 +3134,7 @@ export type Database = {
           lead_source: string | null
           lifecycle: string
           loss_reason: string | null
+          market_id: string | null
           name: string
           next_action: string | null
           next_action_at: string | null
@@ -3163,6 +3167,7 @@ export type Database = {
           lead_source?: string | null
           lifecycle?: string
           loss_reason?: string | null
+          market_id?: string | null
           name: string
           next_action?: string | null
           next_action_at?: string | null
@@ -3195,6 +3200,7 @@ export type Database = {
           lead_source?: string | null
           lifecycle?: string
           loss_reason?: string | null
+          market_id?: string | null
           name?: string
           next_action?: string | null
           next_action_at?: string | null
@@ -3229,6 +3235,13 @@ export type Database = {
             columns: ["commercial_owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "systems_clients_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaign_markets"
             referencedColumns: ["id"]
           },
           {
