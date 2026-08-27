@@ -2066,15 +2066,18 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               />
             </TabsContent>
             <TabsContent value="feed" className="m-0">
-              <InstagramFeedTab
-                planItems={workspace.planItems}
-                demands={workspace.demands}
-                statusNames={workspace.statusNames}
-                stageNames={workspace.stageNames}
-                onOpenDemand={(id) => setDrawerDemandId(id)}
-                onReload={workspace.reload}
-              />
+              <Suspense fallback={<TabFallback />}>
+                <InstagramFeedTab
+                  planItems={workspace.planItems}
+                  demands={workspace.demands}
+                  statusNames={workspace.statusNames}
+                  stageNames={workspace.stageNames}
+                  onOpenDemand={(id) => setDrawerDemandId(id)}
+                  onReload={workspace.reload}
+                />
+              </Suspense>
             </TabsContent>
+
             <TabsContent value="cuidados" className="m-0">
               <GuidelinesTab
                 requirements={contentRequirements}
