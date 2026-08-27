@@ -45,3 +45,19 @@ export function normalizeHubTab(tab: string | null | undefined): HubTab {
     ? (normalized as HubTab)
     : "estrategia";
 }
+
+/**
+ * Abas que realmente consomem período/plano/demandas.
+ * As demais não disparam nenhuma consulta do workspace do período.
+ */
+const WORKSPACE_TABS: readonly HubTab[] = [
+  "estrategia",
+  "midia-paga",
+  "calendario",
+  "demandas",
+  "feed",
+];
+
+export function hubTabNeedsPeriodWorkspace(tab: HubTab): boolean {
+  return WORKSPACE_TABS.includes(tab);
+}

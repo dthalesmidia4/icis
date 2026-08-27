@@ -86,17 +86,25 @@ async function avoidScheduleConflict(
   demandId: string,
   assignedTo: string | null,
   targetStage: string | null,
+  /** Card já carregado pela transição — evita reler a MESMA demanda. */
+  preloaded?: any,
 ): Promise<void> {
   if (!tenantId || !assignedTo || !targetStage) return;
   try {
-    const { data } = await supabase
-      .from("demands")
-      .select(
-        "id, title, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
-      )
-      .eq("id", demandId)
-      .maybeSingle();
+    const hasWindow = (c: any) => !!c && "due_date" in c && "delivery_date" in c;
+    let data: any = hasWindow(preloaded) ? preloaded : null;
+    if (!data) {
+      const res = await supabase
+        .from("demands")
+        .select(
+          "id, title, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
+        )
+        .eq("id", demandId)
+        .maybeSingle();
+      data = res.data;
+    }
     if (!data) return;
+
     const probe: any = { ...(data as any), ...payload, current_function_key: targetStage };
     const res = await checkAssignmentConflicts({
       tenantId,
@@ -919,8 +927,17 @@ export async function jumpToFunction({
   }
 
 
-  const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
+  // Uma única leitura do card serve ao responsável anterior E à checagem de
+  // agenda (antes eram duas consultas à MESMA demanda na mesma transição).
+  const { data: cur } = await supabase
+    .from("demands")
+    .select(
+      "id, title, assigned_to, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
+    )
+    .eq("id", demandId)
+    .maybeSingle();
   const prevUser = (cur as any)?.assigned_to || null;
+
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
   const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
   const jumpExecutors = await collectStageExecutors(tenantId, demandId, currentFunctionKey, prevUser, stageExtras);
@@ -1021,7 +1038,7 @@ export async function jumpToFunction({
   if (currentFunctionKey === "captar") {
     updatePayload.additional_assignees = [];
   }
-  await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key);
+  await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key, cur);
   await applyFlowReactivation(updatePayload, demandId, picked.userId);
   const jumpCommit = await commitFlowTransition({
     demandId,
@@ -1191,10 +1208,13 @@ export async function proceedDemand({
 
   const { data: currentDemand } = await supabase
     .from("demands")
-    .select("assigned_to")
+    .select(
+      "id, title, assigned_to, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
+    )
     .eq("id", demandId)
     .maybeSingle();
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
+
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
   const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
   const executors = await collectStageExecutors(
@@ -1315,7 +1335,7 @@ export async function proceedDemand({
   if (currentFunctionKey === "captar") {
     proceedPayload.additional_assignees = [];
   }
-  await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key);
+  await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key, currentDemand);
   await applyFlowReactivation(proceedPayload, demandId, picked.userId);
   const proceedCommit = await commitFlowTransition({
     demandId,

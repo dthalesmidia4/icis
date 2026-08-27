@@ -80,8 +80,10 @@ export function useClientPeriodWorkspace(params: {
   tenantId: string | null | undefined;
   clientId: string | null | undefined;
   refreshKey?: number;
+  /** `false` = aba que não usa período/plano/demandas: NENHUMA consulta. */
+  enabled?: boolean;
 }): ClientPeriodWorkspace {
-  const { tenantId, clientId, refreshKey = 0 } = params;
+  const { tenantId, clientId, refreshKey = 0, enabled = true } = params;
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<CurrentPeriodInfo | null>(null);
   const [planItems, setPlanItems] = useState<WorkspacePlanItem[]>([]);
@@ -95,7 +97,7 @@ export function useClientPeriodWorkspace(params: {
   const reload = useCallback(() => setLocalKey((k) => k + 1), []);
 
   useEffect(() => {
-    if (!tenantId || !clientId) {
+    if (!enabled || !tenantId || !clientId) {
       setLoading(false);
       setPeriod(null);
       setPlanItems([]);
@@ -104,6 +106,7 @@ export function useClientPeriodWorkspace(params: {
     }
     let cancelled = false;
     setLoading(true);
+    const started = import.meta.env.DEV ? performance.now() : 0;
 
     (async () => {
       try {
@@ -113,12 +116,8 @@ export function useClientPeriodWorkspace(params: {
 
         let snapshotItems: WorkspacePlanItem[] = [];
         if (current) {
-          const { data: raw } = await supabase
-            .from("period_plans")
-            .select("final_plan")
-            .eq("id", current.id)
-            .maybeSingle();
-          const finalPlan = Array.isArray((raw as any)?.final_plan) ? (raw as any).final_plan : null;
+          // `final_plan` já vem do período atual — nunca reconsultar `period_plans`.
+          const finalPlan = Array.isArray(current.final_plan) ? current.final_plan : null;
           const items: WorkspacePlanItem[] = finalPlan
             ? finalPlan.map((i: any) => normalizePlanItem(i, "normal"))
             : [
@@ -127,6 +126,7 @@ export function useClientPeriodWorkspace(params: {
               ];
           snapshotItems = items.filter((i) => i.titulo);
         }
+
 
 
         let demandQuery = supabase
@@ -176,6 +176,14 @@ export function useClientPeriodWorkspace(params: {
         );
         setStrategyText(((strategyRow as any)?.strategy_text as string | null) ?? null);
 
+        // Essencial já está na tela: os nomes dos responsáveis chegam depois.
+        if (!cancelled) setLoading(false);
+        if (import.meta.env.DEV) {
+          console.debug(
+            `[perf] client-period-workspace ${(performance.now() - started).toFixed(1)}ms · ${list.length} demanda(s)`,
+          );
+        }
+
         const userIds = [...new Set(list.map((d) => d.assigned_to).filter(Boolean))] as string[];
         if (userIds.length) {
           const { data: profiles } = await supabase
@@ -200,7 +208,8 @@ export function useClientPeriodWorkspace(params: {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, clientId, refreshKey, localKey]);
+  }, [enabled, tenantId, clientId, refreshKey, localKey]);
+
 
   return {
     loading,

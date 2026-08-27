@@ -43,7 +43,9 @@ const SEQUENCE = [
   { function_key: "aguardando_cliente", position: 5, active: true, requires_client_origin: false },
 ];
 
-const allow = (...keys: string[]) => keys.map((function_key) => ({ function_key, allowed: true }));
+// A consulta de funções permitidas agora é em lote (`in user_id`).
+const allow = (...keys: string[]) =>
+  keys.map((function_key) => ({ function_key, allowed: true, user_id: USER }));
 
 beforeEach(() => {
   TABLES.flow_functions = SEQUENCE.map((f) => ({ ...f }));

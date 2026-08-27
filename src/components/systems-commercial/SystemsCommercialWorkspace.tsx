@@ -305,20 +305,27 @@ export default function SystemsCommercialWorkspace({
   const load = useCallback(async () => {
     if (!tenantId) return;
     setLoading(true);
+    const started = import.meta.env.DEV ? performance.now() : 0;
     try {
+      // Empresa travada (Client Hub): TODAS as leituras já saem filtradas —
+      // nada de carteira do tenant inteiro nem planos de outras empresas.
       const [comps, prospects, custs, camps] = await Promise.all([
         loadSystemsCompanies(tenantId),
-        loadSystemsProspects(tenantId),
+        loadSystemsProspects(tenantId, lockedCompanyId ?? undefined),
         // Clientes convertidos vêm do MESMO cadastro: nada é duplicado.
-        loadSystemsClients(tenantId).catch(() => [] as SystemsClient[]),
-        loadCampaigns(tenantId).catch(() => [] as MarketingCampaign[]),
+        loadSystemsClients(tenantId, lockedCompanyId ?? undefined).catch(
+          () => [] as SystemsClient[],
+        ),
+        loadCampaigns(tenantId, lockedCompanyId ?? undefined).catch(
+          () => [] as MarketingCampaign[],
+        ),
       ]);
       setCompanies(comps);
       setCampaigns(camps);
       setCustomers(custs);
-      // Markets de TODAS as empresas de Sistemas: nunca acopla a tela ao plano
-      // da primeira empresa do tenant.
-      const plans = comps
+      // Markets somente das empresas em jogo (uma, quando travada).
+      const scoped = lockedCompanyId ? comps.filter((c) => c.id === lockedCompanyId) : comps;
+      const plans = scoped
         .map((c) => pickExpansionPlan(camps.filter((k) => k.company_id === c.id)))
         .filter((p): p is MarketingCampaign => !!p);
       const marketLists = await Promise.all(
@@ -329,29 +336,39 @@ export default function SystemsCommercialWorkspace({
         ),
       );
       setMarkets(marketLists.flat());
-      const touches = await loadLastTouchBySubclient(
-        tenantId,
-        prospects.map((p) => p.id),
-      );
-      setRows(buildOpportunityRows(prospects, touches));
-      if (groupByMarket) {
-        // Execução real da carteira inteira (prospects + clientes).
-        setMarketTouchpoints(
-          await loadMarketTouchpoints([
-            ...prospects.map((p) => p.id),
-            ...custs.map((c) => c.id),
-          ]).catch(() => [] as MarketTouchpoint[]),
+
+      // O essencial já pode ser renderizado; métricas de execução chegam depois.
+      setRows(buildOpportunityRows(prospects, new Map()));
+      if (comps.length === 1) setCompanyFilter((prev) => (prev === "all" ? comps[0].id : prev));
+      setLoading(false);
+      if (import.meta.env.DEV) {
+        console.debug(
+          `[perf] commercial-workspace ${(performance.now() - started).toFixed(1)}ms · ${lockedCompanyId ? "empresa travada" : "tenant"} · ${prospects.length} oportunidade(s)`,
         );
       }
 
-      if (comps.length === 1) setCompanyFilter((prev) => (prev === "all" ? comps[0].id : prev));
+      const [touches, marketTouches] = await Promise.all([
+        loadLastTouchBySubclient(
+          tenantId,
+          prospects.map((p) => p.id),
+        ).catch(() => new Map()),
+        groupByMarket
+          ? loadMarketTouchpoints([
+              ...prospects.map((p) => p.id),
+              ...custs.map((c) => c.id),
+            ]).catch(() => [] as MarketTouchpoint[])
+          : Promise.resolve([] as MarketTouchpoint[]),
+      ]);
+      setRows(buildOpportunityRows(prospects, touches as any));
+      if (groupByMarket) setMarketTouchpoints(marketTouches);
     } catch (err) {
       console.error(err);
       toast.error("Não foi possível carregar as oportunidades de Sistemas.");
     } finally {
       setLoading(false);
     }
-  }, [tenantId, groupByMarket]);
+  }, [tenantId, groupByMarket, lockedCompanyId]);
+
 
   useEffect(() => {
     load();

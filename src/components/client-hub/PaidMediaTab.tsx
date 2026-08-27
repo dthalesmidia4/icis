@@ -6,16 +6,20 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { MarketingCampaign } from "@/lib/marketingCampaigns";
 import {
+  PAID_MEDIA_STATUS_OPTIONS,
+  effectivePaidMediaStatus,
   loadExpansionMarkets,
   loadExpansionPlan,
   marketBudgetLabel,
   marketLabel,
   marketOrderLabel,
-  marketStatusLabel,
   marketWindow,
+  paidMediaMarketStatusLabel,
+
   patchExpansionMarket,
   undefinedSuffix,
   type ExpansionMarket,
+  type PaidMediaStatus,
 } from "@/lib/expansionMarkets";
 import {
   cancelPaidMediaActivation,
@@ -30,11 +34,22 @@ import {
   summarizePaidMediaPlan,
 } from "@/lib/paidMediaPlanning";
 import { InlineCurrencyCell } from "@/components/inline-edit/InlineCells";
-import { marketRowBadge, marketRowClass } from "@/lib/marketRowStyles";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { paidMediaRowBadge, paidMediaRowClass } from "@/lib/marketRowStyles";
+
 // MESMO seletor de início/término dos cards da Visão Geral.
 import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
 import PlaceFormModal from "./PlaceFormModal";
+
+/** Valor sentinela do dropdown: o banco guarda `null` para automático. */
+const AUTO_STATUS = "__auto__";
 
 
 interface PaidMediaTabProps {
@@ -228,13 +243,15 @@ export default function PaidMediaTab({
               rows.map(({ market, planned, allocated, available, linkedDemands, activations: acts }) => {
                 const isOpen = expanded === market.id;
                 const live = acts.filter((a) => !isActivationCancelled(a.status));
-                const badge = marketRowBadge(market);
+                // Status de MÍDIA (janela de anúncios + override), nunca `market.status`.
+                const mediaStatus = effectivePaidMediaStatus(market);
+                const badge = paidMediaRowBadge(mediaStatus);
                 return (
                   <Fragment key={market.id}>
                     <tr
                       className={cn(
                         "cursor-pointer border-t align-top transition-colors hover:bg-muted/40",
-                        marketRowClass(market),
+                        paidMediaRowClass(mediaStatus),
                         selectedMarketId === market.id && "bg-primary/5",
                       )}
                       onClick={() => setExpanded(isOpen ? null : market.id)}
@@ -255,15 +272,41 @@ export default function PaidMediaTab({
                           )}
                         </div>
                       </td>
-                      <td
-                        className={cn(
-                          "p-3",
-                          market.status === "planning" && "text-muted-foreground",
-                          market.status === "cancelled" && "text-muted-foreground line-through",
-                        )}
-                      >
-                        {marketStatusLabel(market.status)}
+                      <td className="p-2" onClick={(e) => e.stopPropagation()}>
+                        <Select
+                          value={market.paid_media_status_override ?? AUTO_STATUS}
+                          onValueChange={async (value) => {
+                            const override =
+                              value === AUTO_STATUS ? null : (value as PaidMediaStatus);
+                            const res = await patchMarket(market.id, {
+                              paid_media_status_override: override,
+                            });
+                            if (!res.success) {
+                              toast.error(res.message || "Não foi possível salvar o status.");
+                              return;
+                            }
+                            toast.success("Status de mídia atualizado.");
+                          }}
+                        >
+                          <SelectTrigger
+                            className="h-8 w-[150px] border-0 bg-muted/60 text-xs font-semibold"
+                            aria-label={`Status de mídia em ${marketLabel(market)}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent onClick={(e) => e.stopPropagation()}>
+                            {PAID_MEDIA_STATUS_OPTIONS.map((o) => (
+                              <SelectItem key={o.value ?? AUTO_STATUS} value={o.value ?? AUTO_STATUS}>
+                                {o.value === null
+                                  ? `Automático · ${paidMediaMarketStatusLabel(effectivePaidMediaStatus({ ...market, paid_media_status_override: null }))}`
+                                  : o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
+
                       {/* MESMO popover de início/término da Visão Geral. */}
                       <td className="p-2" onClick={(e) => e.stopPropagation()}>
                         <StartEndDatePopover

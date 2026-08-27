@@ -8,6 +8,9 @@ export interface CurrentPeriodInfo {
   default_plan: any[];
   ultra_plan: any[];
   rejected_plan: any[];
+  /** Snapshot final aprovado (quando existe) — evita reconsultar `period_plans`. */
+  final_plan: any[] | null;
+
   operational_status: string | null;
   budget?: string | null;
   paid_traffic_budget?: string | null;
@@ -36,7 +39,7 @@ export async function getCurrentPeriodForClient(params: {
   const { data, error } = await supabase
     .from("period_plans")
     .select(
-      "id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan, operational_status, budget, paid_traffic_budget, objective, campaign_id, client_acquisition, priority_channel, observations, production_line"
+      "id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan, final_plan, operational_status, budget, paid_traffic_budget, objective, campaign_id, client_acquisition, priority_channel, observations, production_line"
     )
     .eq("company_id", clientId)
     .eq("tenant_id", tenantId)
@@ -55,6 +58,8 @@ export async function getCurrentPeriodForClient(params: {
     default_plan: Array.isArray((data as any).default_plan) ? (data as any).default_plan : [],
     ultra_plan: Array.isArray((data as any).ultra_plan) ? (data as any).ultra_plan : [],
     rejected_plan: Array.isArray((data as any).rejected_plan) ? (data as any).rejected_plan : [],
+    final_plan: Array.isArray((data as any).final_plan) ? (data as any).final_plan : null,
+
     operational_status: (data as any).operational_status ?? null,
     budget: (data as any).budget ?? null,
     paid_traffic_budget: (data as any).paid_traffic_budget ?? null,
@@ -120,6 +125,8 @@ export async function getPeriodDemandReviewCounts(params: {
         default_plan: Array.isArray((data as any).default_plan) ? (data as any).default_plan : [],
         ultra_plan: Array.isArray((data as any).ultra_plan) ? (data as any).ultra_plan : [],
         rejected_plan: Array.isArray((data as any).rejected_plan) ? (data as any).rejected_plan : [],
+        final_plan: null,
+
         operational_status: (data as any).operational_status ?? null,
       };
     }
