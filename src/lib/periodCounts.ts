@@ -8,6 +8,9 @@ export interface CurrentPeriodInfo {
   default_plan: any[];
   ultra_plan: any[];
   rejected_plan: any[];
+  /** Snapshot final aprovado (quando existe) — evita reconsultar `period_plans`. */
+  final_plan: any[] | null;
+
   operational_status: string | null;
   budget?: string | null;
   paid_traffic_budget?: string | null;
