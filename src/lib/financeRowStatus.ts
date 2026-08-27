@@ -643,12 +643,14 @@ export function buildAttentionInsights(params: AttentionParams): AttentionInsigh
   for (const group of statements) {
     if (group.configIncomplete || group.difference == null) continue;
     if (Math.abs(group.difference) < 0.01) continue;
+    // Texto vem do helper central de comunicação da composição.
+    const reading = interpretStatementCompositionDifference(group.difference);
     insights.push({
       id: `difference-${group.card.id}`,
       tone: "warning",
       domain: "cards",
-      title: `Há ${formatBRL(group.difference)} de diferença na fatura ${cardDisplayLabel(group.card)}`,
-      detail: "Classifique a diferença para fechar a composição.",
+      title: `${reading.title} · fatura ${cardDisplayLabel(group.card)}`,
+      detail: reading.description,
       actionLabel: "Ver composição",
       action: { type: "open_statement_difference", cardId: group.card.id },
     });
