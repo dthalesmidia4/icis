@@ -24,9 +24,11 @@ import {
  *
  * O ciclo editorial (`period_plans`) e as peças (`demands`) continuam únicos:
  * nenhuma cidade duplica conteúdo. A distribuição por cidade vive em
- * `paid_media_activations.market_id`; a origem comercial em
- * `systems_clients.acquisition_market_id`.
+ * `paid_media_activations.market_id`. A carteira operacional comercial (fonte
+ * territorial) vive em `systems_clients.market_id`;
+ * `systems_clients.acquisition_market_id` é apenas atribuição de aquisição.
  */
+
 
 export type MarketStatus = CampaignStatus;
 
