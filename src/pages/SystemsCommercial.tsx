@@ -657,7 +657,7 @@ export default function SystemsCommercial() {
               className="pl-9"
             />
           </div>
-          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+          <Select value={companyFilter} onValueChange={handleCompanyFilter}>
             <SelectTrigger className="w-[220px]">
               <SelectValue />
             </SelectTrigger>
@@ -668,6 +668,23 @@ export default function SystemsCommercial() {
                   {c.fantasy_name || c.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          {/* Filtro territorial explícito pela carteira operacional. */}
+          <Select value={marketFilter} onValueChange={handleMarketFilter}>
+            <SelectTrigger className="w-[220px]" aria-label="Cidade/carteira">
+              <SelectValue placeholder="Cidade/carteira" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[320px]">
+              <SelectItem value="all">Todas as cidades</SelectItem>
+              {planMarkets.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {marketDisplayLabel(m)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
             </SelectContent>
           </Select>
           <Select value={stageFilter} onValueChange={setStageFilter}>
