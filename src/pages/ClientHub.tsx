@@ -2033,13 +2033,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               />
             </TabsContent>
             <TabsContent value="midia-paga" className="m-0">
-              <PaidMediaTab
-                tenantId={tenantId}
-                companyId={selectedClient.id}
-                currentPeriodId={workspace.period?.id ?? null}
-                selectedMarketId={focusedMarketId}
-              />
+              <Suspense fallback={<TabFallback />}>
+                <PaidMediaTab
+                  tenantId={tenantId}
+                  companyId={selectedClient.id}
+                  currentPeriodId={workspace.period?.id ?? null}
+                  selectedMarketId={focusedMarketId}
+                />
+              </Suspense>
             </TabsContent>
+
 
             <TabsContent value="calendario" className="m-0">
               <CalendarTab
