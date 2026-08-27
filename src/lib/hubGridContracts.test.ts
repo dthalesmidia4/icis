@@ -38,12 +38,17 @@ describe("Mídia paga · contrato de UI", () => {
 });
 
 describe("Comercial · contrato de UI", () => {
-  it("carrega prospects e clientes do MESMO cadastro", () => {
-    // Com empresa travada, as leituras já saem filtradas por empresa.
-    expect(commercial).toContain("loadSystemsProspects(tenantId, lockedCompanyId ?? undefined)");
-    expect(commercial).toContain("loadSystemsClients(tenantId, lockedCompanyId ?? undefined)");
-    expect(commercial).toContain("loadCampaigns(tenantId, lockedCompanyId ?? undefined)");
+  it("carrega prospects e clientes do MESMO cadastro em UMA request", () => {
+    // Empresa travada: o RPC já devolve somente aquela empresa.
+    expect(commercial).toContain(
+      "loadSystemsCommercialWorkspace(tenantId, lockedCompanyId ?? null)",
+    );
+    expect(commercial).toContain("buildOpportunityRows(data.prospects, data.lastTouches)");
+    expect(commercial).toContain("setCustomers(data.customers)");
+    expect(commercial).not.toContain("loadSystemsProspects(");
+    expect(commercial).not.toContain("loadExpansionMarkets(");
   });
+
 
   it("mantém uma tabela única com cabeçalho universal e coluna de clientes", () => {
     const headers = commercial.match(/<th[^>]*>\s*Cidade\/carteira/g) || [];
