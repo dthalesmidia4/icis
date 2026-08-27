@@ -1038,7 +1038,7 @@ export async function jumpToFunction({
   if (currentFunctionKey === "captar") {
     updatePayload.additional_assignees = [];
   }
-  await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key);
+  await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key, cur);
   await applyFlowReactivation(updatePayload, demandId, picked.userId);
   const jumpCommit = await commitFlowTransition({
     demandId,
