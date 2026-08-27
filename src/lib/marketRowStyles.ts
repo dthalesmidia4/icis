@@ -55,3 +55,39 @@ export function marketRowBadge(
 export function isPlanningTone(market: Pick<ExpansionMarket, "market_type" | "status">): boolean {
   return marketRowTone(market) === "planning";
 }
+
+/**
+ * HIERARQUIA DA LINHA NA ABA MÍDIA PAGA — derivada do STATUS DE MÍDIA, nunca do
+ * status comercial da praça (`ATUAL` é conceito comercial e não aparece aqui).
+ */
+export function paidMediaRowClass(status: PaidMediaStatus): string {
+  switch (status) {
+    case "running":
+      return "border-l-[3px] border-l-primary bg-primary/5";
+    case "paused":
+      return "bg-amber-500/5";
+    case "completed":
+      return "opacity-80";
+    case "cancelled":
+      return "bg-muted/40 text-muted-foreground";
+    default:
+      return "";
+  }
+}
+
+/** Selo da linha de mídia: só o status de mídia, e só quando agrega leitura. */
+export function paidMediaRowBadge(
+  status: PaidMediaStatus,
+): { label: string; className: string } | null {
+  if (status === "running") {
+    return { label: "RODANDO", className: "border-primary/40 bg-primary/10 text-primary" };
+  }
+  if (status === "paused") {
+    return { label: "PAUSADA", className: "border-amber-500/40 bg-amber-500/10 text-amber-600" };
+  }
+  if (status === "cancelled") {
+    return { label: "CANCELADA", className: "border-border bg-muted text-muted-foreground" };
+  }
+  return null;
+}
+
