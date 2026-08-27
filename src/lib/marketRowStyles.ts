@@ -1,4 +1,9 @@
-import { isBaseMarket, type ExpansionMarket } from "@/lib/expansionMarkets";
+import {
+  isBaseMarket,
+  type ExpansionMarket,
+  type PaidMediaStatus,
+} from "@/lib/expansionMarkets";
+
 
 /**
  * HIERARQUIA VISUAL ÚNICA DAS LINHAS DE CIDADE (Mídia paga e Comercial).
