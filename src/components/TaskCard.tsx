@@ -3483,18 +3483,19 @@ export default function TaskCard({
                                       showRoutingArrow && "rounded-r-none",
                                     )}
                                     onClick={() => handleProceed(directCandidate?.userId)}
-                                    disabled={proceeding || previewPending || !card.demand_type_key}
+                                    disabled={proceeding || !card.demand_type_key}
                                     title={proceedTitle}
                                   >
                                     <span className="max-w-[180px] truncate">
                                       {previewPending ? "Prosseguir" : proceedActionLabel}
                                     </span>
-                                    {proceeding || previewPending ? (
+                                    {proceeding ? (
                                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     ) : (
                                       <ArrowRight className="h-3.5 w-3.5" />
                                     )}
                                   </Button>
+
                                 )}
                                 {showRoutingArrow && !needsManualChoice && (
                                   <PopoverTrigger asChild>
