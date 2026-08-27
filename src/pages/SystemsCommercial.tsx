@@ -66,6 +66,7 @@ import {
 import {
   isMarketClosed,
   loadExpansionMarkets,
+  marketDisplayLabel,
   marketLabel,
   marketOrderLabel,
   marketStatusLabel,
@@ -73,6 +74,7 @@ import {
   sortExpansionMarkets,
   type ExpansionMarket,
 } from "@/lib/expansionMarkets";
+
 import {
   buildOpportunityRows,
   countQuickFilters,
