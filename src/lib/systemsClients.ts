@@ -259,9 +259,11 @@ export async function saveSystemsClient(
     lead_source: clean(payload.leadSource),
     acquisition_campaign_id: payload.acquisitionCampaignId || null,
     acquisition_market_id: payload.acquisitionMarketId || null,
-    // Carteira operacional: NUNCA sincronizada com acquisition_market_id.
-    market_id: payload.marketId || null,
   };
+
+  // Carteira operacional: NUNCA sincronizada/derivada de acquisition_market_id.
+  if (payload.marketId !== undefined) row.market_id = payload.marketId || null;
+
 
   if (payload.id) {
     // No update, lifecycle só entra quando informado — nunca converte silenciosamente.
