@@ -22,6 +22,10 @@ interface StrategyTabProps {
   strategyText: string | null;
   onOpenStrategy: () => void;
   onOpenPeriodHistory: () => void;
+  /** Encaminha a cidade para a aba Mídia paga. */
+  onOpenPaidMedia?: (marketId: string) => void;
+  /** Encaminha a carteira para a aba Comercial. */
+  onOpenCommercial?: (marketId?: string) => void;
 }
 
 export default function StrategyTab({
@@ -33,7 +37,10 @@ export default function StrategyTab({
   strategyText,
   onOpenStrategy,
   onOpenPeriodHistory,
+  onOpenPaidMedia,
+  onOpenCommercial,
 }: StrategyTabProps) {
+
   const channels = [
     ...new Set(
       planItems
