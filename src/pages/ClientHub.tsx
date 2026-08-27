@@ -46,6 +46,12 @@ const SystemsCommercialWorkspace = lazy(
   () => import("@/components/systems-commercial/SystemsCommercialWorkspace"),
 );
 
+/** Fallback pequeno: só dentro do conteúdo da aba, nunca tela cheia. */
+const TabFallback = () => (
+  <div className="p-6 text-xs text-muted-foreground">Carregando…</div>
+);
+
+
 import {
   HUB_TABS,
   HUB_TAB_LABELS,
