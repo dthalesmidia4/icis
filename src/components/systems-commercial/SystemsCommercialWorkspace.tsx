@@ -63,6 +63,12 @@ import {
   loadCampaigns,
   type MarketingCampaign,
 } from "@/lib/marketingCampaigns";
+import { patchSystemsClient } from "@/lib/systemsClients";
+import {
+  InlineDateTimeCell,
+  InlineSelectCell,
+  InlineTextCell,
+} from "@/components/inline-edit/InlineCells";
 import {
   isMarketClosed,
   loadExpansionMarkets,
@@ -622,6 +628,24 @@ export default function SystemsCommercialWorkspace({
     load();
   };
 
+  /**
+   * Edição inline do MESMO registro do CRM: gravação PARCIAL, só a coluna
+   * tocada. O drawer completo continua disponível para o restante.
+   */
+  const patchLead = async (leadId: string, patch: Record<string, unknown>) => {
+    const res = await patchSystemsClient(leadId, patch as any);
+    if (res.success) {
+      setRows((prev) =>
+        prev.map((row) =>
+          row.client.id === leadId
+            ? { ...row, client: { ...row.client, ...patch } as SystemsClient }
+            : row,
+        ),
+      );
+    }
+    return res;
+  };
+
   /** Estatísticas por carteira operacional, a partir dos MESMOS registros. */
   const marketStats = useMemo(
     () => summarizeMarketCommercial(scoped.map((r) => r.client) as any, marketTouchpoints),
@@ -1034,19 +1058,43 @@ export default function SystemsCommercialWorkspace({
                                     </thead>
                                     <tbody>
                                       {leads.map(({ client, bucket }) => (
-                                        <tr key={client.id} className="border-t align-top">
+                                        <tr key={client.id} className="border-t align-middle">
                                           <td className="py-2 pr-3 font-bold">{client.name}</td>
-                                          <td className="py-2 pr-3">
-                                            {stageLabel(client.commercial_stage)}
+                                          <td className="py-1 pr-3">
+                                            <InlineSelectCell
+                                              ariaLabel={`Etapa de ${client.name}`}
+                                              value={client.commercial_stage}
+                                              options={STAGE_OPTIONS}
+                                              emptyLabel={stageLabel(client.commercial_stage)}
+                                              onCommit={(v) =>
+                                                patchLead(client.id, {
+                                                  commercial_stage: (v as CommercialStage) || null,
+                                                })
+                                              }
+                                            />
                                           </td>
-                                          <td className="py-2 pr-3">
-                                            {client.current_system || "Desconhecido"}
+                                          <td className="py-1 pr-3">
+                                            <InlineTextCell
+                                              ariaLabel={`Sistema atual de ${client.name}`}
+                                              value={client.current_system}
+                                              display={client.current_system || "Desconhecido"}
+                                              onCommit={(v) =>
+                                                patchLead(client.id, { current_system: v })
+                                              }
+                                            />
                                           </td>
                                           <td className="py-2 pr-3 text-muted-foreground">
                                             {client.last_contact_result || "—"}
                                           </td>
-                                          <td className="py-2 pr-3">
-                                            <div>{client.next_action || "Sem próxima ação"}</div>
+                                          <td className="py-1 pr-3">
+                                            <InlineTextCell
+                                              ariaLabel={`Próxima ação de ${client.name}`}
+                                              value={client.next_action}
+                                              display={client.next_action || "Sem próxima ação"}
+                                              onCommit={(v) =>
+                                                patchLead(client.id, { next_action: v })
+                                              }
+                                            />
                                             <div
                                               className={cn(
                                                 bucket === "atrasado"
@@ -1054,9 +1102,18 @@ export default function SystemsCommercialWorkspace({
                                                   : "text-muted-foreground",
                                               )}
                                             >
-                                              {client.next_action_at
-                                                ? fmtDateTime(client.next_action_at)
-                                                : "Sem data"}
+                                              <InlineDateTimeCell
+                                                ariaLabel={`Data da próxima ação de ${client.name}`}
+                                                value={client.next_action_at}
+                                                display={
+                                                  client.next_action_at
+                                                    ? fmtDateTime(client.next_action_at)
+                                                    : "Sem data"
+                                                }
+                                                onCommit={(v) =>
+                                                  patchLead(client.id, { next_action_at: v })
+                                                }
+                                              />
                                             </div>
                                           </td>
                                           <td className="py-2 text-right">

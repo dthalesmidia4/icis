@@ -8,7 +8,15 @@ import {
   summarizePaidMediaActivations,
   type PaidMediaActivation,
 } from "@/lib/paidMediaActivations";
-import RegionalPlanTable from "./RegionalPlanTable";
+import {
+  loadExpansionMarkets,
+  loadExpansionPlan,
+  marketBudgetLabel,
+  undefinedSuffix,
+  type ExpansionMarket,
+} from "@/lib/expansionMarkets";
+import { summarizePaidMediaPlan } from "@/lib/paidMediaPlanning";
+import ExpansionAccordion from "./ExpansionAccordion";
 
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
@@ -29,7 +37,7 @@ interface StrategyTabProps {
   /** Encaminha a cidade para a aba Mídia paga. */
   onOpenPaidMedia?: (marketId: string) => void;
   /** Encaminha a carteira para a aba Comercial. */
-  onOpenCommercial?: (marketId?: string) => void;
+  onOpenCommercial?: (marketId?: string, opportunityId?: string) => void;
 }
 
 export default function StrategyTab({
@@ -87,12 +95,51 @@ export default function StrategyTab({
     };
   }, [tenantId, companyId, demandIds]);
 
+  // Planejamento territorial real: verba das praças + ativações do plano.
+  const [planMarkets, setPlanMarkets] = useState<ExpansionMarket[]>([]);
+  const [planActivations, setPlanActivations] = useState<PaidMediaActivation[]>([]);
+  useEffect(() => {
+    if (!tenantId || !companyId) {
+      setPlanMarkets([]);
+      setPlanActivations([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const plan = await loadExpansionPlan(tenantId, companyId);
+      if (!plan) {
+        if (!cancelled) {
+          setPlanMarkets([]);
+          setPlanActivations([]);
+        }
+        return;
+      }
+      const [mkts, acts] = await Promise.all([
+        loadExpansionMarkets(tenantId, companyId, plan.id),
+        loadPaidMediaActivations(tenantId, companyId, { campaignId: plan.id }),
+      ]);
+      if (cancelled) return;
+      setPlanMarkets(mkts);
+      setPlanActivations(acts);
+    })().catch((err) => console.error("[StrategyTab] plano pago", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId, companyId]);
+
+  const planTotals = useMemo(
+    () => summarizePaidMediaPlan(planMarkets, planActivations),
+    [planMarkets, planActivations],
+  );
+
   const activationSummary = useMemo(
     () => summarizePaidMediaActivations(activations),
     [activations],
   );
   const hasActivations = activationSummary.total - activationSummary.cancelled > 0;
-  const hasPaidMedia = paidMedia.hasPaidMedia || hasActivations;
+  const hasTerritorialPlan =
+    planTotals.plannedKnown > 0 || planTotals.plannedUndefined > 0 || planTotals.activations > 0;
+  const hasPaidMedia = paidMedia.hasPaidMedia || hasActivations || hasTerritorialPlan;
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1.7fr_1fr] lg:gap-14">
@@ -117,8 +164,8 @@ export default function StrategyTab({
           </button>
         </section>
 
-        {/* Plano regional: posicionamento das cidades, sem verba nem comercial. */}
-        <RegionalPlanTable
+        {/* Plano regional operacional: cidades em accordion, edição inline. */}
+        <ExpansionAccordion
           tenantId={tenantId}
           companyId={companyId}
           selectedMarketId={selectedMarketId}
@@ -149,6 +196,22 @@ export default function StrategyTab({
                     <dt className="opacity-80">Orçamento do período</dt>
                     <dd className="font-bold">{generalBudget}</dd>
                   </div>
+                )}
+                {hasTerritorialPlan && (
+                  <>
+                    <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                      <dt className="opacity-80">Verba planejada nas praças</dt>
+                      <dd className="font-bold tabular-nums">
+                        {`${marketBudgetLabel(planTotals.plannedKnown)}${undefinedSuffix(planTotals.plannedUndefined, "praça")}`}
+                      </dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
+                      <dt className="opacity-80">Alocado em ativações</dt>
+                      <dd className="font-bold tabular-nums">
+                        {`${marketBudgetLabel(planTotals.allocatedKnown)}${undefinedSuffix(planTotals.allocatedUndefined, "verba")}`}
+                      </dd>
+                    </div>
+                  </>
                 )}
                 {hasActivations && (
                   <>

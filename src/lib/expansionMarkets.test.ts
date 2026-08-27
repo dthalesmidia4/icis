@@ -5,6 +5,8 @@ import {
   buildMarketRow,
   expansionMarketsOf,
   isBaseMarket,
+  isInlineMarketColumn,
+  patchExpansionMarket,
   marketLabel,
   marketOrderLabel,
   sortExpansionMarkets,
@@ -237,5 +239,25 @@ describe("buildMarketPatch — cada área edita só o seu grupo", () => {
     expect(patch).toHaveProperty("city");
     expect(patch).toHaveProperty("paid_traffic_budget");
     expect(patch).toHaveProperty("calls_start_date");
+  });
+});
+
+describe("edição inline — patch parcial por área", () => {
+  it("só aceita colunas da área que está editando", () => {
+    expect(isInlineMarketColumn("paid-media", "paid_traffic_budget")).toBe(true);
+    expect(isInlineMarketColumn("paid-media", "calls_start_date")).toBe(false);
+    expect(isInlineMarketColumn("strategy", "target_accounts")).toBe(true);
+    expect(isInlineMarketColumn("strategy", "paid_traffic_budget")).toBe(false);
+    expect(isInlineMarketColumn("commercial", "visits_end_date")).toBe(true);
+  });
+
+  it("recusa a gravação de coluna fora da área, sem tocar o banco", async () => {
+    const res = await patchExpansionMarket("m1", { calls_start_date: "2026-09-01" }, "paid-media");
+    expect(res.success).toBe(false);
+    expect(res.message).toMatch(/fora da área/i);
+  });
+
+  it("patch vazio é no-op bem-sucedido", async () => {
+    await expect(patchExpansionMarket("m1", {})).resolves.toEqual({ success: true });
   });
 });

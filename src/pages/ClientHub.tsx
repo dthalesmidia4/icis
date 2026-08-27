@@ -1930,10 +1930,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             ? "max-w-[1800px]"
             : activeTab === "feed"
               ? "max-w-[1500px]"
-              : activeTab === "midia-paga" || activeTab === "comercial"
+              : activeTab === "comercial"
                 ? "max-w-[1750px]"
-                : activeTab === "estrategia"
-                  ? "max-w-[1650px]"
+                : activeTab === "estrategia" || activeTab === "midia-paga"
+                  ? "max-w-[1800px]"
                   : "max-w-7xl"
 
         )}
