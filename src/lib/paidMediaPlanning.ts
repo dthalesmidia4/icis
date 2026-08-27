@@ -32,7 +32,7 @@ export interface PaidMediaPlanTotals {
   allocatedUndefined: number;
   /** Saldo conhecido = planejado conhecido − alocado conhecido. */
   balanceKnown: number;
-  /** Cidades com janela de anúncios definida (início e fim). */
+  /** Cidades com JANELA PLANEJADA definida (início e fim) — não é status. */
   scheduledCities: number;
   /** Ativações não canceladas. */
   activations: number;
