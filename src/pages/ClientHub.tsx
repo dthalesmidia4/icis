@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import JSZip from "jszip";
 import { Card } from "@/components/ui/card";
 import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw, X, Activity } from "lucide-react";
@@ -39,8 +39,8 @@ import { cn } from "@/lib/utils";
 
 import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
-import ExpansionTab from "@/components/client-hub/ExpansionTab";
 import PaidMediaTab from "@/components/client-hub/PaidMediaTab";
+import SystemsCommercialWorkspace from "@/components/systems-commercial/SystemsCommercialWorkspace";
 
 const buildFallbackDemandaQuestions = (solicitacaoCliente: string, estrategiaGeral?: string | null) => {
   const normalizedRequest = solicitacaoCliente.toLowerCase();
@@ -1839,51 +1839,64 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   const hasVisualIdentity = presets.length > 0;
   const planPeriodBlockedMessage = "Para planejar um período, primeiro configure a Identidade Visual do cliente.";
 
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    const tab = new URLSearchParams(window.location.search).get('tab');
-    // Links antigos (`acquisition`/`aquisicao`) caem em Expansão.
+  /**
+   * NAVEGAÇÃO CANÔNICA DO HUB.
+   *
+   * Expansão saiu da navegação: o plano regional vive dentro de Estratégia.
+   * Links antigos (`expansion`, `expansao`, `acquisition`, `aquisicao`) caem em
+   * Estratégia preservando `market`.
+   */
+  const HUB_TABS = [
+    'estrategia',
+    'midia-paga',
+    'calendario',
+    'demandas',
+    'feed',
+    'cuidados',
+    'comercial',
+  ] as const;
+  const normalizeHubTab = (tab: string | null): string => {
     const alias: Record<string, string> = {
-      acquisition: 'expansao',
-      aquisicao: 'expansao',
-      expansion: 'expansao',
-      'paid-media': 'midia-paga',
+      acquisition: 'estrategia',
+      aquisicao: 'estrategia',
+      expansion: 'estrategia',
+      expansao: 'estrategia',
       strategy: 'estrategia',
+      'paid-media': 'midia-paga',
       calendar: 'calendario',
       demands: 'demandas',
       safeguards: 'cuidados',
+      commercial: 'comercial',
     };
     const normalized = alias[tab || ''] || tab || '';
-    return ['estrategia', 'expansao', 'midia-paga', 'calendario', 'demandas', 'cuidados', 'feed'].includes(normalized)
-      ? normalized
-      : 'estrategia';
-  });
-
-  /** Praça em foco (`?market=`): compartilhada entre Expansão e Mídia paga. */
-  const [focusedMarketId, setFocusedMarketId] = useState<string | null>(
-    () => new URLSearchParams(window.location.search).get('market'),
-  );
-
-  /**
-   * Troca de aba sem recarregar: escreve `?tab=` preservando `market` para não
-   * perder o contexto territorial ao navegar entre Expansão e Mídia paga.
-   */
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    const params = new URLSearchParams(window.location.search);
-    params.set('tab', tab);
-    if (focusedMarketId) params.set('market', focusedMarketId);
-    else params.delete('market');
-    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+    return (HUB_TABS as readonly string[]).includes(normalized) ? normalized : 'estrategia';
   };
 
-  const focusMarketInPaidMedia = (marketId: string) => {
-    setFocusedMarketId(marketId);
-    setActiveTab('midia-paga');
-    const params = new URLSearchParams(window.location.search);
-    params.set('tab', 'midia-paga');
-    params.set('market', marketId);
-    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  // `tab`, `market` e `opportunity` andam juntos: o deep link é a fonte de verdade.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = normalizeHubTab(searchParams.get('tab'));
+  const focusedMarketId = searchParams.get('market');
+
+  const patchParams = (patch: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams);
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    });
+    setSearchParams(params, { replace: true });
   };
+
+  const handleTabChange = (tab: string) => patchParams({ tab: normalizeHubTab(tab) });
+
+  const focusMarketInPaidMedia = (marketId: string) =>
+    patchParams({ tab: 'midia-paga', market: marketId });
+
+  const focusMarketInCommercial = (marketId?: string, opportunityId?: string) =>
+    patchParams({
+      tab: 'comercial',
+      market: marketId || null,
+      opportunity: opportunityId || null,
+    });
 
 
   // Demanda aberta em painel lateral (a partir do calendário)
@@ -1942,9 +1955,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             ? "max-w-[1800px]"
             : activeTab === "feed"
               ? "max-w-[1500px]"
-              : activeTab === "expansao" || activeTab === "midia-paga"
+              : activeTab === "midia-paga" || activeTab === "comercial"
                 ? "max-w-[1750px]"
-                : "max-w-7xl"
+                : activeTab === "estrategia"
+                  ? "max-w-[1650px]"
+                  : "max-w-7xl"
 
         )}
       >
@@ -1991,12 +2006,12 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">
             {[
               { value: "estrategia", label: "Estratégia" },
-              { value: "expansao", label: "Expansão" },
               { value: "midia-paga", label: "Mídia paga" },
               { value: "calendario", label: "Calendário" },
               { value: "demandas", label: "Demandas" },
               { value: "feed", label: "Feed Simulado" },
               { value: "cuidados", label: "Cuidados fundamentais" },
+              { value: "comercial", label: "Comercial" },
             ].map((t) => (
               <TabsTrigger
                 key={t.value}
@@ -2020,21 +2035,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 strategyText={workspace.strategyText}
                 onOpenStrategy={() => navigate('/strategies')}
                 onOpenPeriodHistory={() => navigate('/plan-period?tab=history')}
-              />
-            </TabsContent>
-            <TabsContent value="expansao" className="m-0">
-              <ExpansionTab
-                tenantId={tenantId}
-                companyId={selectedClient.id}
                 selectedMarketId={focusedMarketId}
                 onOpenPaidMedia={focusMarketInPaidMedia}
-                onOpenCommercial={(marketId?: string, opportunityId?: string) =>
-                  navigate(
-                    `/comercial-sistemas?company=${selectedClient.id}${
-                      marketId ? `&market=${marketId}` : ''
-                    }${opportunityId ? `&opportunity=${opportunityId}` : ''}`,
-                  )
-                }
+                onOpenCommercial={focusMarketInCommercial}
               />
             </TabsContent>
             <TabsContent value="midia-paga" className="m-0">
@@ -2085,6 +2088,14 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 saving={savingRequirements}
                 responsibles={workspaceResponsibles}
                 onOpenAnamnesis={() => navigate('/client-guide')}
+              />
+            </TabsContent>
+            <TabsContent value="comercial" className="m-0">
+              {/* Mesmo CRM de /comercial-sistemas: nada é duplicado aqui. */}
+              <SystemsCommercialWorkspace
+                lockedCompanyId={selectedClient.id}
+                embedded
+                groupByMarket
               />
             </TabsContent>
           </div>
