@@ -1937,12 +1937,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       <div
         className={cn(
           "container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8",
-          // O calendário precisa de mais largura horizontal que as demais abas.
+          // Cada aba tem uma largura operacional própria.
           activeTab === "calendario"
             ? "max-w-[1800px]"
             : activeTab === "feed"
               ? "max-w-[1500px]"
-              : "max-w-7xl"
+              : activeTab === "expansao" || activeTab === "midia-paga"
+                ? "max-w-[1750px]"
+                : "max-w-7xl"
+
         )}
       >
         <ClientHubHeader
