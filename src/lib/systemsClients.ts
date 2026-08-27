@@ -231,7 +231,8 @@ const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
 
 export async function saveSystemsClient(
   payload: SaveSystemsClientPayload,
-): Promise<{ success: boolean; message?: string; id?: string }> {
+): Promise<{ success: boolean; message?: string; id?: string; client?: SystemsClient }> {
+
   const row: Record<string, unknown> = {
     tenant_id: payload.tenantId,
     parent_company_id: payload.parentCompanyId,
@@ -279,6 +280,8 @@ export async function saveSystemsClient(
   }
 
   const { data: auth } = await supabase.auth.getUser();
+  // Retorna a linha completa: a planilha insere o lead no estado local sem
+  // recarregar o workspace inteiro.
   const { data, error } = await supabase
     .from("systems_clients")
     .insert({
@@ -286,11 +289,16 @@ export async function saveSystemsClient(
       lifecycle: payload.lifecycle ?? "customer",
       created_by: auth?.user?.id ?? null,
     } as any)
-    .select("id")
-    .maybeSingle();
+    .select("*")
+    .single();
   if (error) return { success: false, message: error.message };
-  return { success: true, id: (data as any)?.id };
+  return {
+    success: true,
+    id: (data as any)?.id,
+    client: data ? ((data as unknown) as SystemsClient) : undefined,
+  };
 }
+
 
 export async function deleteSystemsClient(id: string): Promise<{ success: boolean; message?: string }> {
   const { error } = await supabase.from("systems_clients").delete().eq("id", id);

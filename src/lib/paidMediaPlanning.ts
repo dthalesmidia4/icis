@@ -121,6 +121,23 @@ export function buildPaidMediaMarketRows(
 }
 
 /**
+ * A PLANILHA EDITA O SALDO, O BANCO GUARDA A VERBA.
+ *
+ * A visão principal mostra só `Disponível`. A contabilidade interna continua
+ * `available = paid_traffic_budget - allocated`, então gravar um saldo novo é
+ * gravar `paid_traffic_budget = novoDisponivel + allocated`: as peças já
+ * alocadas seguem preservadas e o saldo passa a valer exatamente o digitado.
+ * Saldo vazio (`null`) volta a verba para "a definir" — nunca para zero.
+ */
+export function budgetFromAvailable(
+  newAvailable: number | null,
+  allocated: number,
+): number | null {
+  if (newAvailable === null || newAvailable === undefined) return null;
+  return newAvailable + (allocated || 0);
+}
+
+/**
  * Praça padrão de uma NOVA ativação: cidade de expansão ativa de menor ordem;
  * senão a primeira cidade de expansão. A BASE nunca é default.
  */
@@ -129,3 +146,4 @@ export function defaultActivationMarketId(markets: ExpansionMarket[]): string {
   const active = cities.find((m) => m.status === "active");
   return (active || cities[0])?.id || "";
 }
+

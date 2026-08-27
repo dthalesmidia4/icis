@@ -359,13 +359,21 @@ const ClientHub = () => {
     }
   };
 
-  useEffect(() => {
-    (async () => {
-      await migrateLocalHistoricoToDB();
-      await loadDemandaHistorico();
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClient?.id, tenantId]);
+  /**
+   * HISTÓRICO É SOB DEMANDA.
+   * Migração e leitura do histórico de demanda planejada NÃO acontecem ao
+   * montar o Hub: só quando a pessoa abre o fluxo que usa esses dados.
+   */
+  const historicoLoadedFor = useRef<string | null>(null);
+  const ensureHistoricoLoaded = async () => {
+    if (!selectedClient?.id || !tenantId) return;
+    const key = `${tenantId}:${selectedClient.id}`;
+    if (historicoLoadedFor.current === key) return;
+    historicoLoadedFor.current = key;
+    await migrateLocalHistoricoToDB();
+    await loadDemandaHistorico();
+  };
+
 
   const saveDemandaToHistorico = async (demanda: { titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] }) => {
     if (!selectedClient?.id || !tenantId) return;
@@ -1925,7 +1933,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_historico', title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
     { id: 'client_conteudo_avulso', title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
     
-    { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaHubModalOpen(true) },
+    { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => { void ensureHistoricoLoaded(); setDemandaPlanejadaHubModalOpen(true); } },
   ];
 
   // Ações operacionais do workspace atual: regras de papel já bastam.

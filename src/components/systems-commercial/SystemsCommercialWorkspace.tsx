@@ -31,17 +31,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Check,
   Handshake,
   Loader2,
   Plus,
   Search,
   Users,
+  X,
   AlertTriangle,
   CalendarClock,
   ChevronDown,
   History,
   Megaphone,
 } from "lucide-react";
+
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -52,6 +55,7 @@ import {
   isFinalStage,
   markOpportunityWon,
   normalizeCurrentSystem,
+  reopenOpportunity,
   saveSystemsClient,
   stageLabel,
   updateLastContactResult,
@@ -64,10 +68,13 @@ import {
 } from "@/lib/marketingCampaigns";
 import { patchSystemsClient } from "@/lib/systemsClients";
 import {
+  SITUATION_OPTIONS,
   customerStageBadgeLabel,
   lifecycleSituationLabel,
+  resolveSituationInlineChange,
   resolveStageInlineChange,
 } from "@/lib/commercialInlineStage";
+
 import { marketRowBadge, marketRowClass } from "@/lib/marketRowStyles";
 import {
   InlineDateTimeCell,
@@ -219,6 +226,22 @@ export interface SystemsCommercialWorkspaceProps {
   groupByMarket?: boolean;
 }
 
+/** Lead em criação inline dentro de uma cidade/carteira. */
+interface LeadDraft {
+  marketId: string;
+  city: string;
+  state: string;
+  name: string;
+  stage: CommercialStage;
+  currentSystem: string;
+  lastResult: string;
+  nextAction: string;
+  nextActionAt: string;
+  ownerId: string;
+}
+
+
+
 /**
  * WORKSPACE COMERCIAL DE SISTEMAS — um único CRM.
  *
@@ -250,6 +273,10 @@ export default function SystemsCommercialWorkspace({
   /** Conversão inline (etapa → ganho) precisa de confirmação curta. */
   const [inlineWonTarget, setInlineWonTarget] = useState<SystemsClient | null>(null);
   const [inlineWonSaving, setInlineWonSaving] = useState(false);
+  /** Lead em criação: linha da planilha, viva só em memória até confirmar. */
+  const [leadDraft, setLeadDraft] = useState<LeadDraft | null>(null);
+  const [leadDraftSaving, setLeadDraftSaving] = useState(false);
+
 
   const [loading, setLoading] = useState(true);
   const [companyFilter, setCompanyFilter] = useState<string>(lockedCompanyId || "all");
@@ -667,6 +694,22 @@ export default function SystemsCommercialWorkspace({
     return res;
   };
 
+  /** Move um registro convertido de oportunidades para clientes, sem rede. */
+  const applyWonLocally = (client: SystemsClient) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const updated: SystemsClient = {
+      ...client,
+      lifecycle: "customer",
+      commercial_stage: "ganho",
+      status: "ativo",
+      onboarded_at: client.onboarded_at || today,
+      next_action: null,
+      next_action_at: null,
+    };
+    setRows((prev) => prev.filter((row) => row.client.id !== client.id));
+    setCustomers((prev) => [...prev.filter((c) => c.id !== client.id), updated]);
+  };
+
   /** Conversão real: `ganho` inline nunca é só um patch de coluna. */
   const confirmInlineWon = async () => {
     if (!inlineWonTarget) return;
@@ -678,9 +721,99 @@ export default function SystemsCommercialWorkspace({
       return;
     }
     toast.success("Oportunidade ganha — agora é cliente de Sistemas.");
+    applyWonLocally(inlineWonTarget);
     setInlineWonTarget(null);
-    load();
   };
+
+  /**
+   * Reabertura canônica: o cliente volta ao ciclo comercial preservando
+   * histórico, status e `onboarded_at`. Nunca é patch direto de lifecycle.
+   */
+  const reopenLead = async (client: SystemsClient) => {
+    const res = await reopenOpportunity(client.id);
+    if (!res.success) return res;
+    const updated: SystemsClient = {
+      ...client,
+      lifecycle: "prospect",
+      commercial_stage: "contato",
+    };
+    setCustomers((prev) => prev.filter((c) => c.id !== client.id));
+    setRows((prev) => [
+      ...prev.filter((row) => row.client.id !== client.id),
+      ...buildOpportunityRows([updated], new Map()),
+    ]);
+    toast.success("Cliente reaberto como oportunidade.");
+    return res;
+  };
+
+  /** Novo lead nasce como LINHA da carteira: sem modal, sem reload. */
+  const openLeadDraft = (market: ExpansionMarket) => {
+    setLeadDraft({
+      marketId: market.id,
+      city: market.city || "",
+      state: market.state || "",
+      name: "",
+      stage: "mapeado",
+      currentSystem: "",
+      lastResult: "",
+      nextAction: "",
+      nextActionAt: "",
+      ownerId: user?.id || "",
+    });
+  };
+
+  const saveLeadDraft = async () => {
+    if (!leadDraft || !tenantId) return;
+    const companyId = lockedCompanyId || (companyFilter !== "all" ? companyFilter : null);
+    if (!companyId) {
+      toast.error("Selecione a empresa antes de criar o lead.");
+      return;
+    }
+    if (!leadDraft.name.trim()) {
+      toast.error("Informe o nome do lead.");
+      return;
+    }
+    setLeadDraftSaving(true);
+    try {
+      const res = await saveSystemsClient({
+        tenantId,
+        parentCompanyId: companyId,
+        name: leadDraft.name,
+        city: leadDraft.city || null,
+        state: leadDraft.state || null,
+        lifecycle: "prospect",
+        commercialStage: leadDraft.stage,
+        currentSystem: leadDraft.currentSystem || null,
+        lastContactResult: leadDraft.lastResult || null,
+        nextAction: leadDraft.nextAction || null,
+        nextActionAt: leadDraft.nextActionAt || null,
+        commercialOwnerId: leadDraft.ownerId || null,
+        // Carteira operacional; origem de aquisição NUNCA é inferida.
+        marketId: leadDraft.marketId,
+      });
+      if (!res.success || !res.client) {
+        toast.error(res.message || "Não foi possível criar o lead.");
+        return;
+      }
+      setRows((prev) => [...prev, ...buildOpportunityRows([res.client as SystemsClient], new Map())]);
+      setLeadDraft(null);
+      toast.success("Lead criado na carteira.");
+    } finally {
+      setLeadDraftSaving(false);
+    }
+  };
+
+  const onLeadDraftKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void saveLeadDraft();
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setLeadDraft(null);
+    }
+  };
+
 
   /**
    * Clientes da carteira respeitando empresa/cidade. O filtro de ETAPA de
@@ -1055,23 +1188,26 @@ export default function SystemsCommercialWorkspace({
                       const badge = marketRowBadge(market);
                       return (
                         <Fragment key={market.id}>
+                          {/* FAIXA DA CIDADE = agrupador, não segundo cabeçalho. */}
                           <tr
                             className={cn(
-                              "cursor-pointer border-t align-top transition-colors hover:bg-muted/40",
+                              "cursor-pointer border-t-2 border-border bg-muted/40 align-middle transition-colors hover:bg-muted/60",
                               marketRowClass(market),
                             )}
                             onClick={() => setExpandedMarket(isOpen ? null : market.id)}
                           >
-                            <td className="p-3 font-black tabular-nums">
+                            <td className="py-2 px-3 text-xs font-semibold tabular-nums text-muted-foreground">
                               {marketOrderLabel(market)}
                             </td>
-                            <td className="p-3">
+                            <td className="py-2 px-3">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold">{marketLabel(market)}</span>
+                                <span className="text-sm font-semibold">
+                                  {marketLabel(market)}
+                                </span>
                                 {badge && (
                                   <span
                                     className={cn(
-                                      "rounded-full border px-1.5 py-0.5 text-[9px] font-black tracking-[0.12em]",
+                                      "rounded-full border px-1.5 py-0.5 text-[9px] font-semibold tracking-[0.08em]",
                                       badge.className,
                                     )}
                                   >
@@ -1080,17 +1216,19 @@ export default function SystemsCommercialWorkspace({
                                 )}
                               </div>
                             </td>
-                            <td className="p-3">{marketStatusLabel(market.status)}</td>
-                            <td className="p-3 text-right tabular-nums">
+                            <td className="py-2 px-3 text-xs text-muted-foreground">
+                              {marketStatusLabel(market.status)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-xs tabular-nums text-muted-foreground">
                               {stats?.opportunities ?? 0}
                             </td>
-                            <td className="p-3 text-right font-bold tabular-nums">
+                            <td className="py-2 px-3 text-right text-xs font-semibold tabular-nums">
                               {stats?.customers ?? 0}
                             </td>
-                            <td className="p-3 text-right tabular-nums">
+                            <td className="py-2 px-3 text-right text-xs tabular-nums text-muted-foreground">
                               {stats?.negotiating ?? 0}
                             </td>
-                            <td className="p-3 text-xs text-muted-foreground">
+                            <td className="py-2 px-3 text-[11px] text-muted-foreground">
                               <div>Ligações: {marketDate(market.calls_start_date)}</div>
                               <div>
                                 Visitas:{" "}
@@ -1100,30 +1238,29 @@ export default function SystemsCommercialWorkspace({
                                 )}
                               </div>
                             </td>
-                            <td className="p-3 text-xs text-muted-foreground">
+                            <td className="py-2 px-3 text-[11px] text-muted-foreground">
                               <div className="tabular-nums">
                                 {`${stats?.calls ?? 0} ligações · ${stats?.visits ?? 0} visitas · ${stats?.demos ?? 0} demonstrações`}
                               </div>
                               <div>Último contato: {fmtDate(stats?.lastTouchAt)}</div>
                             </td>
-                            <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                            <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
                               <div className="flex flex-wrap items-center justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-xs"
+                                <button
+                                  type="button"
+                                  className="rounded-sm px-1.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                                   onClick={() => {
                                     setEditingMarket(market);
                                     setMarketModalOpen(true);
                                   }}
                                 >
                                   Editar agenda
-                                </Button>
+                                </button>
                                 <button
                                   type="button"
                                   aria-label={isOpen ? "Recolher carteira" : "Expandir carteira"}
                                   onClick={() => setExpandedMarket(isOpen ? null : market.id)}
-                                  className="inline-flex h-8 w-8 items-center justify-center text-primary"
+                                  className="inline-flex h-7 w-7 items-center justify-center text-primary"
                                 >
                                   <ChevronDown
                                     className={cn(
@@ -1135,18 +1272,15 @@ export default function SystemsCommercialWorkspace({
                               </div>
                             </td>
                           </tr>
+
                           {isOpen && (
-                            <tr className="border-t bg-muted/20">
-                              <td colSpan={9} className="p-3">
-                                {leads.length === 0 ? (
-                                  <p className="text-sm text-muted-foreground">
-                                    Nenhum registro nesta carteira com os filtros atuais.
-                                  </p>
-                                ) : (
+                            <tr className="border-b-2 border-border bg-background">
+                              <td colSpan={9} className="px-3 pb-3 pt-1">
+                                {/* Cabeçalho da PLANILHA interna dos leads. */}
                                   <table className="w-full text-xs">
                                     <thead>
-                                      <tr className="text-left text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-                                        <th className="py-2 pr-3">Nome</th>
+                                      <tr className="border-b bg-muted/70 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                        <th className="py-2 pl-2 pr-3">Nome</th>
                                         <th className="py-2 pr-3">Situação</th>
                                         <th className="py-2 pr-3">Etapa</th>
                                         <th className="py-2 pr-3">Sistema atual</th>
@@ -1158,7 +1292,15 @@ export default function SystemsCommercialWorkspace({
                                       </tr>
                                     </thead>
                                     <tbody>
+                                      {leads.length === 0 && (
+                                        <tr className="border-t">
+                                          <td colSpan={9} className="py-3 text-muted-foreground">
+                                            Nenhum registro nesta carteira com os filtros atuais.
+                                          </td>
+                                        </tr>
+                                      )}
                                       {leads.map(({ client, bucket }) => {
+
                                         const isCustomer = client.lifecycle === "customer";
                                         return (
                                         <tr
@@ -1168,19 +1310,41 @@ export default function SystemsCommercialWorkspace({
                                             isCustomer && "bg-emerald-500/5",
                                           )}
                                         >
-                                          <td className="py-2 pr-3 font-bold">{client.name}</td>
-                                          <td className="py-2 pr-3">
-                                            <span
-                                              className={cn(
-                                                "rounded-full border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]",
-                                                isCustomer
-                                                  ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-                                                  : "text-muted-foreground",
-                                              )}
-                                            >
-                                              {lifecycleSituationLabel(client.lifecycle)}
-                                            </span>
+                                          <td className="py-2 pl-2 pr-3 font-semibold">
+                                            {client.name}
                                           </td>
+                                          {/*
+                                            SITUAÇÃO É LIFECYCLE: virar cliente usa
+                                            a conversão canônica; reabrir usa
+                                            `reopenOpportunity`. Nunca patch direto.
+                                          */}
+                                          <td className="py-1 pr-3">
+                                            <InlineSelectCell
+                                              ariaLabel={`Situação de ${client.name}`}
+                                              value={client.lifecycle}
+                                              options={SITUATION_OPTIONS}
+                                              emptyLabel={lifecycleSituationLabel(client.lifecycle)}
+                                              className={cn(
+                                                isCustomer &&
+                                                  "text-emerald-600 dark:text-emerald-400",
+                                              )}
+                                              onCommit={async (v) => {
+                                                const action = resolveSituationInlineChange(
+                                                  client,
+                                                  v,
+                                                );
+                                                if (action.kind === "convert-won") {
+                                                  setInlineWonTarget(client);
+                                                  return { success: true };
+                                                }
+                                                if (action.kind === "reopen") {
+                                                  return reopenLead(client);
+                                                }
+                                                return { success: true };
+                                              }}
+                                            />
+                                          </td>
+
                                           <td className="py-1 pr-3">
                                             {isCustomer ? (
                                               <span
@@ -1293,12 +1457,170 @@ export default function SystemsCommercialWorkspace({
                                               Abrir
                                             </Button>
                                           </td>
+                                         </tr>
+                                         );
+                                       })}
+
+                                      {/* PLANILHA: novo lead nasce como linha. */}
+                                      {leadDraft?.marketId === market.id ? (
+                                        <tr className="border-t bg-primary/5 align-middle">
+                                          <td className="py-1 pr-3">
+                                            <input
+                                              autoFocus
+                                              aria-label="Nome do novo lead"
+                                              placeholder="Nome do lead"
+                                              value={leadDraft.name}
+                                              onChange={(e) =>
+                                                setLeadDraft({ ...leadDraft, name: e.target.value })
+                                              }
+                                              onKeyDown={onLeadDraftKeyDown}
+                                              className="w-full rounded-sm border border-primary bg-background px-1.5 py-1 text-xs font-bold outline-none"
+                                            />
+                                          </td>
+                                          <td className="py-1 pr-3 text-muted-foreground">
+                                            Oportunidade
+                                          </td>
+                                          <td className="py-1 pr-3">
+                                            <select
+                                              aria-label="Etapa do novo lead"
+                                              value={leadDraft.stage}
+                                              onChange={(e) =>
+                                                setLeadDraft({
+                                                  ...leadDraft,
+                                                  stage: e.target.value as CommercialStage,
+                                                })
+                                              }
+                                              className="rounded-sm border border-primary bg-background px-1 py-1 text-xs outline-none"
+                                            >
+                                              {STAGE_OPTIONS.map((o) => (
+                                                <option key={o.value} value={o.value}>
+                                                  {o.label}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </td>
+                                          <td className="py-1 pr-3">
+                                            <input
+                                              aria-label="Sistema atual do novo lead"
+                                              placeholder="Sistema atual"
+                                              value={leadDraft.currentSystem}
+                                              onChange={(e) =>
+                                                setLeadDraft({
+                                                  ...leadDraft,
+                                                  currentSystem: e.target.value,
+                                                })
+                                              }
+                                              onKeyDown={onLeadDraftKeyDown}
+                                              className="w-[120px] rounded-sm border border-primary bg-background px-1.5 py-1 text-xs outline-none"
+                                            />
+                                          </td>
+                                          <td className="py-1 pr-3">
+                                            <input
+                                              aria-label="Último resultado do novo lead"
+                                              placeholder="Opcional"
+                                              value={leadDraft.lastResult}
+                                              onChange={(e) =>
+                                                setLeadDraft({
+                                                  ...leadDraft,
+                                                  lastResult: e.target.value,
+                                                })
+                                              }
+                                              onKeyDown={onLeadDraftKeyDown}
+                                              className="w-[130px] rounded-sm border border-primary bg-background px-1.5 py-1 text-xs outline-none"
+                                            />
+                                          </td>
+                                          <td className="py-1 pr-3">
+                                            <input
+                                              aria-label="Próxima ação do novo lead"
+                                              placeholder="Próxima ação"
+                                              value={leadDraft.nextAction}
+                                              onChange={(e) =>
+                                                setLeadDraft({
+                                                  ...leadDraft,
+                                                  nextAction: e.target.value,
+                                                })
+                                              }
+                                              onKeyDown={onLeadDraftKeyDown}
+                                              className="w-[130px] rounded-sm border border-primary bg-background px-1.5 py-1 text-xs outline-none"
+                                            />
+                                          </td>
+                                          <td className="py-1 pr-3">
+                                            <input
+                                              type="datetime-local"
+                                              aria-label="Quando do novo lead"
+                                              value={leadDraft.nextActionAt}
+                                              onChange={(e) =>
+                                                setLeadDraft({
+                                                  ...leadDraft,
+                                                  nextActionAt: e.target.value,
+                                                })
+                                              }
+                                              className="rounded-sm border border-primary bg-background px-1 py-1 text-[11px] outline-none"
+                                            />
+                                          </td>
+                                          <td className="py-1 pr-3">
+                                            <select
+                                              aria-label="Responsável do novo lead"
+                                              value={leadDraft.ownerId}
+                                              onChange={(e) =>
+                                                setLeadDraft({
+                                                  ...leadDraft,
+                                                  ownerId: e.target.value,
+                                                })
+                                              }
+                                              className="w-[130px] rounded-sm border border-primary bg-background px-1 py-1 text-xs outline-none"
+                                            >
+                                              <option value="">Sem responsável</option>
+                                              {collaborators.map((c) => (
+                                                <option key={c.userId} value={c.userId}>
+                                                  {c.fullName || "Integrante"}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </td>
+                                          <td className="py-1 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              <button
+                                                type="button"
+                                                aria-label="Salvar novo lead"
+                                                disabled={leadDraftSaving}
+                                                onClick={saveLeadDraft}
+                                                className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-primary hover:bg-primary/10 disabled:opacity-50"
+                                              >
+                                                {leadDraftSaving ? (
+                                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                ) : (
+                                                  <Check className="h-3.5 w-3.5" />
+                                                )}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                aria-label="Cancelar novo lead"
+                                                onClick={() => setLeadDraft(null)}
+                                                className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted"
+                                              >
+                                                <X className="h-3.5 w-3.5" />
+                                              </button>
+                                            </div>
+                                          </td>
                                         </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                )}
+                                      ) : (
+                                        <tr className="border-t">
+                                          <td colSpan={9} className="p-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => openLeadDraft(market)}
+                                              className="flex w-full items-center gap-1.5 px-1 py-1.5 text-left text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                                            >
+                                              <Plus className="h-3 w-3" />
+                                              Adicionar lead
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      )}
+                                     </tbody>
+                                   </table>
+
                               </td>
                             </tr>
                           )}

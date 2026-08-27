@@ -1,5 +1,13 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, ChevronDown, Plus } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  Check,
+  ChevronDown,
+  Loader2,
+  Plus,
+  X,
+} from "lucide-react";
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,13 +22,17 @@ import {
   marketLabel,
   marketOrderLabel,
   marketWindow,
+  nextExpansionSequenceOrder,
   paidMediaMarketStatusLabel,
 
   patchExpansionMarket,
+  saveExpansionMarket,
   undefinedSuffix,
   type ExpansionMarket,
   type PaidMediaStatus,
 } from "@/lib/expansionMarkets";
+import { parseInlineCurrency } from "@/lib/inlineEdit";
+
 import {
   cancelPaidMediaActivation,
   formatActivationBudget,
@@ -30,9 +42,11 @@ import {
   type PaidMediaActivation,
 } from "@/lib/paidMediaActivations";
 import {
+  budgetFromAvailable,
   buildPaidMediaMarketRows,
   summarizePaidMediaPlan,
 } from "@/lib/paidMediaPlanning";
+
 import { InlineCurrencyCell } from "@/components/inline-edit/InlineCells";
 import {
   Select,
@@ -46,11 +60,6 @@ import { paidMediaRowBadge, paidMediaRowClass } from "@/lib/marketRowStyles";
 // MESMO seletor de início/término dos cards da Visão Geral.
 import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
-import PlaceFormModal from "./PlaceFormModal";
-
-
-
-
 
 interface PaidMediaTabProps {
   tenantId: string | null | undefined;
@@ -60,12 +69,24 @@ interface PaidMediaTabProps {
   selectedMarketId?: string | null;
 }
 
+/** Linha em criação: existe só em memória até o check confirmar. */
+interface CityDraft {
+  sequenceOrder: number;
+  city: string;
+  state: string;
+  mediaStatus: PaidMediaStatus;
+  adsStart: string;
+  adsEnd: string;
+  available: string;
+}
+
 interface DemandRow {
   id: string;
   title: string;
   publish_date: string | null;
   period_plan_id: string | null;
 }
+
 
 /**
  * MÍDIA PAGA EM DOIS NÍVEIS:
@@ -90,9 +111,10 @@ export default function PaidMediaTab({
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PaidMediaActivation | null>(null);
   const [initialMarketId, setInitialMarketId] = useState<string | null>(null);
-  // Edição da verba/janela da cidade acontece aqui mesmo, em modo paid-media.
-  const [marketModalOpen, setMarketModalOpen] = useState(false);
-  const [editingMarket, setEditingMarket] = useState<ExpansionMarket | null>(null);
+  // Nova cidade é criada como LINHA da planilha (draft em memória), sem modal.
+  const [cityDraft, setCityDraft] = useState<CityDraft | null>(null);
+  const [cityDraftSaving, setCityDraftSaving] = useState(false);
+
 
   const load = useCallback(async () => {
     if (!tenantId || !companyId) {
@@ -174,10 +196,75 @@ export default function PaidMediaTab({
     return res;
   };
 
-  const openEditMarket = (market: ExpansionMarket) => {
-    setEditingMarket(market);
-    setMarketModalOpen(true);
+  /**
+   * NOVA CIDADE NASCE COMO LINHA, NÃO COMO MODAL.
+   * A sequência é calculada sozinha, `market_type` é sempre `expansion` e o
+   * status de mídia entra explicitamente como `pending`. O status comercial
+   * fica no default de criação (`planning`) e não se mistura com mídia.
+   */
+  const openCityDraft = () => {
+    setCityDraft({
+      sequenceOrder: nextExpansionSequenceOrder(markets),
+      city: "",
+      state: "",
+      mediaStatus: "pending",
+      adsStart: "",
+      adsEnd: "",
+      available: "",
+    });
   };
+
+  const saveCityDraft = async () => {
+    if (!cityDraft || !tenantId || !companyId || !plan) return;
+    if (!cityDraft.city.trim() || !cityDraft.state.trim()) {
+      toast.error("Informe cidade e UF.");
+      return;
+    }
+    const parsedAvailable = parseInlineCurrency(cityDraft.available);
+    if (!parsedAvailable.ok) {
+      toast.error(parsedAvailable.message || "Saldo inválido.");
+      return;
+    }
+    setCityDraftSaving(true);
+    try {
+      const res = await saveExpansionMarket({
+        tenantId,
+        companyId,
+        campaignId: plan.id,
+        marketType: "expansion",
+        sequenceOrder: cityDraft.sequenceOrder,
+        city: cityDraft.city.trim(),
+        state: cityDraft.state.trim().toUpperCase(),
+        status: "planning",
+        paidTrafficBudget: parsedAvailable.value,
+        adsStartDate: cityDraft.adsStart || null,
+        adsEndDate: cityDraft.adsEnd || null,
+        paidMediaStatusOverride: cityDraft.mediaStatus,
+      });
+      if (!res.success || !res.market) {
+        toast.error(res.message || "Não foi possível criar a cidade.");
+        return;
+      }
+      // Estado local: nada de recarregar o plano inteiro.
+      setMarkets((prev) => [...prev, res.market as ExpansionMarket]);
+      setCityDraft(null);
+      toast.success("Cidade adicionada ao plano.");
+    } finally {
+      setCityDraftSaving(false);
+    }
+  };
+
+  const onCityDraftKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void saveCityDraft();
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setCityDraft(null);
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -197,44 +284,36 @@ export default function PaidMediaTab({
         )}
       </div>
 
-      {/* Leitura financeira primeiro: planejado e disponível dominam. */}
-      <div className="grid gap-px border bg-border sm:grid-cols-2 lg:grid-cols-4">
+      {/* Leitura enxuta: saldo, janelas e peças. Verba/alocado ficam na expansão. */}
+      <div className="grid gap-px border bg-border sm:grid-cols-3">
         <Metric
-          label="Investimento planejado"
-          value={`${marketBudgetLabel(totals.plannedKnown)}${undefinedSuffix(totals.plannedUndefined, "valor")}`}
+          label="Disponível para mídia"
+          value={`${marketBudgetLabel(totals.balanceKnown)}${undefinedSuffix(totals.plannedUndefined, "valor")}`}
           strong
         />
-        <Metric label="Saldo disponível" value={marketBudgetLabel(totals.balanceKnown)} strong />
-        <Metric
-          label="Alocado em ativações"
-          value={`${marketBudgetLabel(totals.allocatedKnown)}${undefinedSuffix(totals.allocatedUndefined, "verba")}`}
-        />
-        <Metric
-          label="Cidades com janela definida"
-          value={`${totals.scheduledCities} · ${totals.activations} peças vinculadas`}
-        />
-
+        <Metric label="Cidades com janela definida" value={String(totals.scheduledCities)} />
+        <Metric label="Peças vinculadas" value={String(totals.activations)} />
       </div>
 
+
       <section className="overflow-x-auto border">
-        <table className="w-full min-w-[980px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-b bg-muted/50 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
               <th className="p-3 text-left">#</th>
               <th className="p-3 text-left">Cidade</th>
               <th className="p-3 text-left">Status</th>
               <th className="p-3 text-left">Período dos anúncios</th>
-              <th className="p-3 text-right">Verba planejada</th>
-              <th className="p-3 text-right">Alocado</th>
               <th className="p-3 text-right">Disponível</th>
               <th className="p-3 text-right">Peças vinculadas</th>
               <th className="p-3 text-right">Ações</th>
             </tr>
           </thead>
+
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                <td colSpan={7} className="p-8 text-center text-muted-foreground">
                   {loading
                     ? "Carregando o planejamento de mídia paga…"
                     : "Nenhuma cidade com planejamento de mídia paga neste plano."}
@@ -356,38 +435,30 @@ export default function PaidMediaTab({
                           }
                         />
                       </td>
+                      {/*
+                        A PLANILHA EDITA O SALDO. A contabilidade interna segue
+                        `available = paid_traffic_budget - allocated`, então
+                        gravamos `paid_traffic_budget = saldo + alocado`.
+                      */}
                       <td className="p-2 text-right" onClick={(e) => e.stopPropagation()}>
                         <InlineCurrencyCell
-                          ariaLabel={`Verba planejada em ${marketLabel(market)}`}
-                          value={planned}
-                          className="text-right"
-                          onCommit={(v) => patchMarket(market.id, { paid_traffic_budget: v })}
+                          ariaLabel={`Disponível em ${marketLabel(market)}`}
+                          value={available}
+                          className={cn(
+                            "text-right",
+                            available !== null && available < 0 && "font-bold text-destructive",
+                          )}
+                          onCommit={(v) =>
+                            patchMarket(market.id, {
+                              paid_traffic_budget: budgetFromAvailable(v, allocated),
+                            })
+                          }
                         />
-                      </td>
-                      <td className="p-3 text-right tabular-nums">
-                        {marketBudgetLabel(allocated)}
-                      </td>
-                      <td
-                        className={cn(
-                          "p-3 text-right tabular-nums",
-                          available !== null && available < 0 && "font-bold text-destructive",
-                        )}
-                      >
-                        {available === null
-                          ? "A definir"
-                          : `${marketBudgetLabel(available)}${available < 0 ? " · acima do planejado" : ""}`}
                       </td>
                       <td className="p-3 text-right tabular-nums">{linkedDemands}</td>
                       <td className="p-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-wrap items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => openEditMarket(market)}
-                          >
-                            Editar verba
-                          </Button>
+
                           <Button
                             variant="ghost"
                             size="sm"
@@ -412,12 +483,16 @@ export default function PaidMediaTab({
 
                     {isOpen && (
                       <tr className="border-t bg-muted/20">
-                        <td colSpan={9} className="p-3">
+                        <td colSpan={7} className="p-3">
+                          {/* Verba planejada e alocada só como texto auxiliar aqui. */}
+                          <p className="mb-2 text-[11px] text-muted-foreground">
+                            {`Verba planejada: ${planned === null ? "A definir" : marketBudgetLabel(planned)} · Alocado em ativações: ${marketBudgetLabel(allocated)}`}
+                          </p>
                           {acts.length === 0 ? (
                             <div className="flex flex-wrap items-center gap-3">
                               <p className="text-sm text-muted-foreground">
-                                Nenhuma peça alocada nesta cidade. A janela e a verba já estão
-                                planejadas.
+                                Nenhuma peça alocada nesta cidade. A janela e o saldo já estão
+                                planejados.
                               </p>
                               <Button
                                 variant="outline"
@@ -433,6 +508,7 @@ export default function PaidMediaTab({
                               <p className="mb-2 text-[11px] text-muted-foreground">
                                 {`${linkedDemands} peça(s) vinculada(s) · ${live.length} ativação(ões) ativa(s) nesta cidade`}
                               </p>
+
                               <table className="w-full text-xs">
 
                               <thead>
@@ -513,7 +589,129 @@ export default function PaidMediaTab({
                 );
               })
             )}
+
+            {/* PLANILHA: nova cidade nasce como linha editável, sem modal. */}
+            {plan && !cityDraft && (
+              <tr className="border-t">
+                <td colSpan={7} className="p-0">
+                  <button
+                    type="button"
+                    onClick={openCityDraft}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Adicionar cidade
+                  </button>
+                </td>
+              </tr>
+            )}
+            {plan && cityDraft && (
+              <tr className="border-t bg-primary/5 align-middle">
+                <td className="p-3 font-black tabular-nums text-muted-foreground">
+                  {String(cityDraft.sequenceOrder).padStart(2, "0")}
+                </td>
+                <td className="p-2">
+                  <div className="flex items-center gap-1">
+                    <input
+                      autoFocus
+                      aria-label="Cidade da nova praça"
+                      placeholder="Cidade"
+                      value={cityDraft.city}
+                      onChange={(e) => setCityDraft({ ...cityDraft, city: e.target.value })}
+                      onKeyDown={onCityDraftKeyDown}
+                      className="w-[150px] rounded-sm border border-primary bg-background px-1.5 py-1 text-sm outline-none"
+                    />
+                    <input
+                      aria-label="UF da nova praça"
+                      placeholder="UF"
+                      maxLength={2}
+                      value={cityDraft.state}
+                      onChange={(e) =>
+                        setCityDraft({ ...cityDraft, state: e.target.value.toUpperCase() })
+                      }
+                      onKeyDown={onCityDraftKeyDown}
+                      className="w-[52px] rounded-sm border border-primary bg-background px-1.5 py-1 text-sm uppercase outline-none"
+                    />
+                  </div>
+                </td>
+                <td className="p-2">
+                  <select
+                    aria-label="Status de mídia da nova praça"
+                    value={cityDraft.mediaStatus}
+                    onChange={(e) =>
+                      setCityDraft({
+                        ...cityDraft,
+                        mediaStatus: e.target.value as PaidMediaStatus,
+                      })
+                    }
+                    className="h-8 w-[190px] rounded-sm border border-primary bg-background px-1 text-xs font-semibold outline-none"
+                  >
+                    {PAID_MEDIA_STATUS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="p-2">
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="date"
+                      aria-label="Início dos anúncios da nova praça"
+                      value={cityDraft.adsStart}
+                      onChange={(e) => setCityDraft({ ...cityDraft, adsStart: e.target.value })}
+                      className="rounded-sm border border-primary bg-background px-1 py-1 text-[11px] outline-none"
+                    />
+                    <span className="text-[11px] text-muted-foreground">→</span>
+                    <input
+                      type="date"
+                      aria-label="Fim dos anúncios da nova praça"
+                      value={cityDraft.adsEnd}
+                      onChange={(e) => setCityDraft({ ...cityDraft, adsEnd: e.target.value })}
+                      className="rounded-sm border border-primary bg-background px-1 py-1 text-[11px] outline-none"
+                    />
+                  </div>
+                </td>
+                <td className="p-2 text-right">
+                  <input
+                    aria-label="Disponível da nova praça"
+                    placeholder="A definir"
+                    value={cityDraft.available}
+                    onChange={(e) => setCityDraft({ ...cityDraft, available: e.target.value })}
+                    onKeyDown={onCityDraftKeyDown}
+                    className="w-[120px] rounded-sm border border-primary bg-background px-1.5 py-1 text-right text-sm tabular-nums outline-none"
+                  />
+                </td>
+                <td className="p-3 text-right text-muted-foreground">—</td>
+                <td className="p-2">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      aria-label="Salvar nova cidade"
+                      disabled={cityDraftSaving}
+                      onClick={saveCityDraft}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-primary hover:bg-primary/10 disabled:opacity-50"
+                    >
+                      {cityDraftSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Cancelar nova cidade"
+                      onClick={() => setCityDraft(null)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
+
         </table>
       </section>
 
@@ -533,21 +731,8 @@ export default function PaidMediaTab({
         />
       )}
 
-      {tenantId && companyId && plan && editingMarket && (
-        <PlaceFormModal
-          open={marketModalOpen}
-          onOpenChange={(v) => {
-            setMarketModalOpen(v);
-            if (!v) setEditingMarket(null);
-          }}
-          tenantId={tenantId}
-          companyId={companyId}
-          campaignId={plan.id}
-          market={editingMarket}
-          mode="paid-media"
-          onSaved={load}
-        />
-      )}
+      {/* Verba e janela são editadas na própria planilha: não há modal de verba. */}
+
     </div>
   );
 }
