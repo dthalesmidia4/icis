@@ -1987,7 +1987,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         />
 
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">
             {[
               { value: "estrategia", label: "Estratégia" },
