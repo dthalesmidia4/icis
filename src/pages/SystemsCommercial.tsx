@@ -247,13 +247,19 @@ export default function SystemsCommercial() {
       ]);
       setCompanies(comps);
       setCampaigns(camps);
-      const plan = pickExpansionPlan(camps);
-      const mkts = plan
-        ? await loadExpansionMarkets(tenantId, plan.company_id, plan.id).catch(
+      // Markets de TODAS as empresas de Sistemas: nunca acopla a tela ao plano
+      // da primeira empresa do tenant.
+      const plans = comps
+        .map((c) => pickExpansionPlan(camps.filter((k) => k.company_id === c.id)))
+        .filter((p): p is MarketingCampaign => !!p);
+      const marketLists = await Promise.all(
+        plans.map((p) =>
+          loadExpansionMarkets(tenantId, p.company_id, p.id).catch(
             () => [] as ExpansionMarket[],
-          )
-        : [];
-      setMarkets(mkts);
+          ),
+        ),
+      );
+      setMarkets(marketLists.flat());
       const touches = await loadLastTouchBySubclient(
         tenantId,
         prospects.map((p) => p.id),
@@ -272,13 +278,64 @@ export default function SystemsCommercial() {
     load();
   }, [load]);
 
-  // Contexto vindo da aba Expansão: empresa/produto e cidade/carteira.
+  /** Escreve params sem mutar o objeto atual (evita estado inconsistente). */
+  const writeParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams);
+      Object.entries(patch).forEach(([key, value]) => {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      });
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // Contexto vindo da aba Expansão: valida empresa/produto e cidade/carteira
+  // depois que companies/markets carregam; params inválidos caem em "all".
   useEffect(() => {
     const company = searchParams.get("company");
     const market = searchParams.get("market");
-    if (company) setCompanyFilter(company);
-    if (market) setMarketFilter(market);
-  }, [searchParams]);
+    if (company) {
+      if (companies.length > 0 && !companies.some((c) => c.id === company)) {
+        setCompanyFilter("all");
+        writeParams({ company: null, market: null });
+        return;
+      }
+      setCompanyFilter(company);
+    }
+    if (market) {
+      const found = markets.find((m) => m.id === market);
+      if (markets.length > 0) {
+        if (!found || (company && found.company_id !== company)) {
+          setMarketFilter("all");
+          writeParams({ market: null });
+          return;
+        }
+      }
+      setMarketFilter(market);
+    }
+  }, [searchParams, companies, markets, writeParams]);
+
+  const handleCompanyFilter = (value: string) => {
+    setCompanyFilter(value);
+    const current = markets.find((m) => m.id === marketFilter);
+    const keepsMarket =
+      marketFilter !== "all" &&
+      !!current &&
+      (value === "all" || current.company_id === value);
+    if (!keepsMarket) setMarketFilter("all");
+    writeParams({
+      company: value === "all" ? null : value,
+      market: keepsMarket ? marketFilter : null,
+    });
+  };
+
+  const handleMarketFilter = (value: string) => {
+    setMarketFilter(value);
+    writeParams({ market: value === "all" ? null : value });
+  };
+
 
   const companyName = useMemo(() => {
     const map = new Map<string, string>();
