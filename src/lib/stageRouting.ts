@@ -28,7 +28,7 @@ export type RoutingSource =
   | "automatic_load"
   | "historic_return";
 
-const INTERNAL_ROLES = ["agency_admin", "agency_manager", "agency_user"] as const;
+
 
 interface BaseArgs {
   tenantId: string;
