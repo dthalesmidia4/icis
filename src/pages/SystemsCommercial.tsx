@@ -617,7 +617,7 @@ export default function SystemsCommercial() {
                         type="button"
                         key={market.id}
                         onClick={() =>
-                          setMarketFilter((prev) => (prev === market.id ? "all" : market.id))
+                          handleMarketFilter(marketFilter === market.id ? "all" : market.id)
                         }
                         className={
                           selectedMarket
@@ -634,16 +634,13 @@ export default function SystemsCommercial() {
                   {marketFilter !== "all" && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setMarketFilter("all");
-                        searchParams.delete("market");
-                        setSearchParams(searchParams, { replace: true });
-                      }}
+                      onClick={() => handleMarketFilter("all")}
                       className="rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-wide"
                     >
                       Limpar cidade
                     </button>
                   )}
+
                 </div>
               </div>
             </div>
