@@ -41,6 +41,7 @@ import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
 import PaidMediaTab from "@/components/client-hub/PaidMediaTab";
 import SystemsCommercialWorkspace from "@/components/systems-commercial/SystemsCommercialWorkspace";
+import { HUB_TABS, normalizeHubTab } from "@/lib/clientHubTabs";
 
 const buildFallbackDemandaQuestions = (solicitacaoCliente: string, estrategiaGeral?: string | null) => {
   const normalizedRequest = solicitacaoCliente.toLowerCase();
@@ -1846,32 +1847,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
    * Links antigos (`expansion`, `expansao`, `acquisition`, `aquisicao`) caem em
    * Estratégia preservando `market`.
    */
-  const HUB_TABS = [
-    'estrategia',
-    'midia-paga',
-    'calendario',
-    'demandas',
-    'feed',
-    'cuidados',
-    'comercial',
-  ] as const;
-  const normalizeHubTab = (tab: string | null): string => {
-    const alias: Record<string, string> = {
-      acquisition: 'estrategia',
-      aquisicao: 'estrategia',
-      expansion: 'estrategia',
-      expansao: 'estrategia',
-      strategy: 'estrategia',
-      'paid-media': 'midia-paga',
-      calendar: 'calendario',
-      demands: 'demandas',
-      safeguards: 'cuidados',
-      commercial: 'comercial',
-    };
-    const normalized = alias[tab || ''] || tab || '';
-    return (HUB_TABS as readonly string[]).includes(normalized) ? normalized : 'estrategia';
-  };
-
   // `tab`, `market` e `opportunity` andam juntos: o deep link é a fonte de verdade.
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = normalizeHubTab(searchParams.get('tab'));

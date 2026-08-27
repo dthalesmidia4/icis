@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   baseMarketsOf,
+  buildMarketPatch,
   buildMarketRow,
   expansionMarketsOf,
   isBaseMarket,
