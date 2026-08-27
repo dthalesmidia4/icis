@@ -294,6 +294,53 @@ export function buildMarketRow(input: ExpansionMarketInput): Record<string, unkn
   };
 }
 
+/**
+ * RESPONSABILIDADE POR ÁREA DE TRABALHO.
+ *
+ * A mesma cidade é lida por três áreas, mas cada uma edita SOMENTE o seu grupo
+ * de campos:
+ * - `strategy`  → posicionamento regional (ordem, cidade, status, distância,
+ *   meta, objetivo, canais, abordagem, observações);
+ * - `paid-media`→ verba e janela de anúncios;
+ * - `commercial`→ agenda de ligações e visitas.
+ *
+ * O update NUNCA reconstrói a linha inteira: campos de outra área ficam fora do
+ * patch, então editar mídia não apaga a agenda comercial e vice-versa.
+ */
+export type MarketEditMode = "strategy" | "paid-media" | "commercial" | "full";
+
+export const MARKET_MODE_COLUMNS: Record<Exclude<MarketEditMode, "full">, string[]> = {
+  strategy: [
+    "market_type",
+    "sequence_order",
+    "city",
+    "state",
+    "region_label",
+    "status",
+    "objective",
+    "travel_distance_km",
+    "target_accounts",
+    "channels",
+    "acquisition_strategy",
+    "observations",
+  ],
+  "paid-media": ["paid_traffic_budget", "ads_start_date", "ads_end_date"],
+  commercial: ["calls_start_date", "visits_start_date", "visits_end_date"],
+};
+
+/** Patch restrito ao modo: nenhuma coluna de outra área entra no update. */
+export function buildMarketPatch(
+  mode: MarketEditMode,
+  input: ExpansionMarketInput,
+): Record<string, unknown> {
+  const row = buildMarketRow(input);
+  if (mode === "full") return row;
+  const allowed = new Set(MARKET_MODE_COLUMNS[mode]);
+  return Object.fromEntries(Object.entries(row).filter(([key]) => allowed.has(key)));
+}
+
+
+
 const normalizeMarket = (row: any): ExpansionMarket => ({
   ...row,
   channels: Array.isArray(row?.channels) ? row.channels.map((c: unknown) => String(c)) : [],
