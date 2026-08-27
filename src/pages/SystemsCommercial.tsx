@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { useAuth } from "@/hooks/useAuth";
@@ -161,6 +161,8 @@ interface DrawerForm {
   lastContactResult: string;
   acquisitionCampaignId: string;
   acquisitionMarketId: string;
+  /** Carteira operacional (cidade). Independente da aquisição. */
+  marketId: string;
 }
 
 const formFromClient = (c: SystemsClient): DrawerForm => ({
@@ -183,11 +185,13 @@ const formFromClient = (c: SystemsClient): DrawerForm => ({
   lastContactResult: c.last_contact_result || "",
   acquisitionCampaignId: c.acquisition_campaign_id || "",
   acquisitionMarketId: c.acquisition_market_id || "",
+  marketId: c.market_id || "",
 });
 
 export default function SystemsCommercial() {
   const { tenantId } = useTenant();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Dono comercial é papel de atendimento: lista de integrantes do tenant.
   const { members: collaborators } = useCollaborators(tenantId);
   const { user } = useAuth();
@@ -199,6 +203,8 @@ export default function SystemsCommercial() {
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<QuickFilter>("all");
   const [stageFilter, setStageFilter] = useState<string>("ativos");
+  /** Filtro territorial pela carteira operacional (`market_id`). */
+  const [marketFilter, setMarketFilter] = useState<string>("all");
 
   const [selected, setSelected] = useState<SystemsClient | null>(null);
   const [form, setForm] = useState<DrawerForm | null>(null);
@@ -222,6 +228,7 @@ export default function SystemsCommercial() {
   const [newOpen, setNewOpen] = useState(false);
   const [newCompany, setNewCompany] = useState("");
   const [newMarketId, setNewMarketId] = useState("");
+  const [newOperationalMarketId, setNewOperationalMarketId] = useState("");
   const [newName, setNewName] = useState("");
   const [newContact, setNewContact] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -265,6 +272,14 @@ export default function SystemsCommercial() {
     load();
   }, [load]);
 
+  // Contexto vindo da aba Expansão: empresa/produto e cidade/carteira.
+  useEffect(() => {
+    const company = searchParams.get("company");
+    const market = searchParams.get("market");
+    if (company) setCompanyFilter(company);
+    if (market) setMarketFilter(market);
+  }, [searchParams]);
+
   const companyName = useMemo(() => {
     const map = new Map<string, string>();
     companies.forEach((c) => map.set(c.id, c.fantasy_name || c.name));
@@ -279,8 +294,13 @@ export default function SystemsCommercial() {
 
   /** Empresa/produto sempre respeitado antes de qualquer contador. */
   const scoped = useMemo(
-    () => rows.filter((r) => companyFilter === "all" || r.client.parent_company_id === companyFilter),
-    [rows, companyFilter],
+    () =>
+      rows.filter(
+        (r) =>
+          (companyFilter === "all" || r.client.parent_company_id === companyFilter) &&
+          (marketFilter === "all" || r.client.market_id === marketFilter),
+      ),
+    [rows, companyFilter, marketFilter],
   );
 
   const counters = useMemo(() => countQuickFilters(scoped), [scoped]);
@@ -308,10 +328,11 @@ export default function SystemsCommercial() {
     () =>
       planMarkets
         .filter((m) => !isMarketClosed(m.status))
-        .map((market, index) => ({
+        .map((market) => ({
           market,
-          order: marketOrderLabel(market, index),
-          opportunities: rows.filter((r) => r.client.acquisition_market_id === market.id).length,
+          order: marketOrderLabel(market),
+          // Carteira operacional é a fonte da leitura territorial.
+          opportunities: rows.filter((r) => r.client.market_id === market.id).length,
           isActive: market.status === "active",
         })),
     [planMarkets, rows],
@@ -402,6 +423,7 @@ export default function SystemsCommercial() {
       leadSource: form.leadSource,
       acquisitionCampaignId: form.acquisitionCampaignId || null,
       acquisitionMarketId: form.acquisitionMarketId || null,
+      marketId: form.marketId || null,
     });
     setSaving(false);
     if (!res.success) {
@@ -531,18 +553,40 @@ export default function SystemsCommercial() {
                 </p>
                 <p className="text-sm font-bold">{expansionPlan.name}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {openMarkets.map(({ market, order, opportunities, isActive }) => (
-                    <span
-                      key={market.id}
-                      className={
-                        isActive
-                          ? "rounded-sm bg-primary px-2 py-1 text-[10px] font-black uppercase tracking-wide text-primary-foreground"
-                          : "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground"
-                      }
+                  {openMarkets.map(({ market, order, opportunities, isActive }) => {
+                    const selectedMarket = marketFilter === market.id;
+                    return (
+                      <button
+                        type="button"
+                        key={market.id}
+                        onClick={() =>
+                          setMarketFilter((prev) => (prev === market.id ? "all" : market.id))
+                        }
+                        className={
+                          selectedMarket
+                            ? "rounded-sm bg-foreground px-2 py-1 text-[10px] font-black uppercase tracking-wide text-background"
+                            : isActive
+                              ? "rounded-sm bg-primary px-2 py-1 text-[10px] font-black uppercase tracking-wide text-primary-foreground"
+                              : "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground"
+                        }
+                      >
+                        {`${order} ${marketLabel(market)} · ${marketStatusLabel(market.status)} · ${opportunities} oportunidades`}
+                      </button>
+                    );
+                  })}
+                  {marketFilter !== "all" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMarketFilter("all");
+                        searchParams.delete("market");
+                        setSearchParams(searchParams, { replace: true });
+                      }}
+                      className="rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-wide"
                     >
-                      {`${order} ${marketLabel(market)} · ${marketStatusLabel(market.status)} · ${opportunities} oportunidades`}
-                    </span>
-                  ))}
+                      Limpar cidade
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -885,6 +929,31 @@ export default function SystemsCommercial() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Cidade/carteira operacional
+                  </label>
+                  <Select
+                    value={form.marketId || "none"}
+                    onValueChange={(v) => setForm({ ...form, marketId: v === "none" ? "" : v })}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Sem carteira definida" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[320px]">
+                      <SelectItem value="none">Sem carteira definida</SelectItem>
+                      {planMarkets.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    A carteira operacional é onde o registro é trabalhado hoje. Nunca é derivada da
+                    cidade de origem.
+                  </p>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">
                     Cidade de origem (opcional)
                   </label>
                   <Select
@@ -898,9 +967,9 @@ export default function SystemsCommercial() {
                     </SelectTrigger>
                     <SelectContent className="max-h-[320px]">
                       <SelectItem value="none">Sem cidade de origem</SelectItem>
-                      {planMarkets.map((m, i) => (
+                      {planMarkets.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
-                          {`${marketOrderLabel(m, i)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                          {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1099,6 +1168,27 @@ export default function SystemsCommercial() {
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Cidade/carteira operacional
+              </label>
+              <Select
+                value={newOperationalMarketId || "none"}
+                onValueChange={(v) => setNewOperationalMarketId(v === "none" ? "" : v)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Sem carteira definida" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[320px]">
+                  <SelectItem value="none">Sem carteira definida</SelectItem>
+                  {planMarkets.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
                 Cidade de origem (opcional)
               </label>
               <Select
@@ -1110,9 +1200,9 @@ export default function SystemsCommercial() {
                 </SelectTrigger>
                 <SelectContent className="max-h-[320px]">
                   <SelectItem value="none">Sem cidade de origem</SelectItem>
-                  {planMarkets.map((m, i) => (
+                  {planMarkets.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {`${marketOrderLabel(m, i)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                      {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1148,6 +1238,7 @@ export default function SystemsCommercial() {
                   commercialOwnerId: user?.id || null,
                   // Vínculo de cidade é sempre escolha explícita: nunca automático.
                   acquisitionMarketId: newMarketId || null,
+                  marketId: newOperationalMarketId || null,
                 });
                 setNewSaving(false);
                 if (!res.success) {
@@ -1161,6 +1252,7 @@ export default function SystemsCommercial() {
                 setNewPhone("");
                 setNewCity("");
                 setNewMarketId("");
+                setNewOperationalMarketId("");
                 setNewSystem("");
                 load();
               }}
