@@ -41,7 +41,13 @@ import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
 import PaidMediaTab from "@/components/client-hub/PaidMediaTab";
 import SystemsCommercialWorkspace from "@/components/systems-commercial/SystemsCommercialWorkspace";
-import { HUB_TABS, HUB_TAB_LABELS, normalizeHubTab } from "@/lib/clientHubTabs";
+import {
+  HUB_TABS,
+  HUB_TAB_LABELS,
+  hubTabNeedsPeriodWorkspace,
+  normalizeHubTab,
+} from "@/lib/clientHubTabs";
+
 
 const buildFallbackDemandaQuestions = (solicitacaoCliente: string, estrategiaGeral?: string | null) => {
   const normalizedRequest = solicitacaoCliente.toLowerCase();
