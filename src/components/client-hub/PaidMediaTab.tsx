@@ -274,12 +274,10 @@ export default function PaidMediaTab({
                       </td>
                       <td className="p-2" onClick={(e) => e.stopPropagation()}>
                         <Select
-                          value={market.paid_media_status_override ?? AUTO_STATUS}
+                          value={mediaStatus}
                           onValueChange={async (value) => {
-                            const override =
-                              value === AUTO_STATUS ? null : (value as PaidMediaStatus);
                             const res = await patchMarket(market.id, {
-                              paid_media_status_override: override,
+                              paid_media_status_override: value as PaidMediaStatus,
                             });
                             if (!res.success) {
                               toast.error(res.message || "Não foi possível salvar o status.");
@@ -289,23 +287,22 @@ export default function PaidMediaTab({
                           }}
                         >
                           <SelectTrigger
-                            className="h-8 w-[150px] border-0 bg-muted/60 text-xs font-semibold"
+                            className="h-8 w-[190px] border-0 bg-muted/60 text-xs font-semibold"
                             aria-label={`Status de mídia em ${marketLabel(market)}`}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <SelectValue />
+                            <SelectValue placeholder={paidMediaMarketStatusLabel(mediaStatus)} />
                           </SelectTrigger>
                           <SelectContent onClick={(e) => e.stopPropagation()}>
                             {PAID_MEDIA_STATUS_OPTIONS.map((o) => (
-                              <SelectItem key={o.value ?? AUTO_STATUS} value={o.value ?? AUTO_STATUS}>
-                                {o.value === null
-                                  ? `Automático · ${paidMediaMarketStatusLabel(effectivePaidMediaStatus({ ...market, paid_media_status_override: null }))}`
-                                  : o.label}
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </td>
+
 
                       {/* MESMO popover de início/término da Visão Geral. */}
                       <td className="p-2" onClick={(e) => e.stopPropagation()}>
