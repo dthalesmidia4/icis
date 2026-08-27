@@ -27,6 +27,35 @@ export function resolveStageInlineChange(
   return { kind: "patch", patch: { commercial_stage: (next as CommercialStage) || null } };
 }
 
+/**
+ * SITUAÇÃO É LIFECYCLE, NÃO COLUNA SOLTA.
+ *
+ * Trocar `Oportunidade` → `Cliente` é a conversão canônica
+ * (`markOpportunityWon`): o MESMO registro vira customer com etapa `ganho`.
+ * `Cliente` → `Oportunidade` é a reabertura canônica (`reopenOpportunity`),
+ * que devolve lifecycle `prospect` e etapa `contato` preservando histórico,
+ * status e `onboarded_at`. Nunca é um patch direto de `lifecycle`.
+ */
+export type SituationInlineAction =
+  | { kind: "noop" }
+  | { kind: "convert-won" }
+  | { kind: "reopen" };
+
+export const SITUATION_OPTIONS: { value: SystemsLifecycle; label: string }[] = [
+  { value: "prospect", label: "Oportunidade" },
+  { value: "customer", label: "Cliente" },
+];
+
+export function resolveSituationInlineChange(
+  client: { lifecycle: SystemsLifecycle },
+  next: string | null,
+): SituationInlineAction {
+  if (!next || next === client.lifecycle) return { kind: "noop" };
+  if (next === "customer") return { kind: "convert-won" };
+  if (next === "prospect") return { kind: "reopen" };
+  return { kind: "noop" };
+}
+
 /** Situação apresentada na subtabela da cidade. */
 export function lifecycleSituationLabel(lifecycle: SystemsLifecycle): string {
   return lifecycle === "customer" ? "Cliente" : "Oportunidade";
@@ -36,3 +65,4 @@ export function lifecycleSituationLabel(lifecycle: SystemsLifecycle): string {
 export function customerStageBadgeLabel(stage: CommercialStage | null): string {
   return stage === "ganho" ? "Ganho" : "Cliente";
 }
+

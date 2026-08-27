@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
+import { markClientSelected } from "@/lib/clientHubPerf";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -60,6 +62,7 @@ const ClientList = () => {
     enabled: !!tenantId
   });
   const handleClientSelect = (client: any) => {
+    markClientSelected();
     setSelectedClient({
       id: client.id,
       name: client.name,
@@ -70,6 +73,7 @@ const ClientList = () => {
     toast.success(`Cliente ${client.fantasy_name || client.name} selecionado`);
     navigate('/client-hub');
   };
+
   const handleDelete = async () => {
     if (!deleteId || !tenantId) return;
     setIsDeleting(true);

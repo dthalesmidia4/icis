@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { useTenant } from "@/contexts/TenantContext";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useAvulsoDraft } from "@/hooks/useAvulsoDraft";
 import CostBadge from "@/components/avulso/CostBadge";
 import ReferencePickerModal from "@/components/avulso/ReferencePickerModal";
@@ -30,17 +30,30 @@ import ClientHubHeader from "@/components/client-hub/ClientHubHeader";
 import CycleEditModal from "@/components/client-hub/CycleEditModal";
 import ClientHubActionBar from "@/components/client-hub/ClientHubActionBar";
 import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrandTheme";
+import { measureClientHubShell, measureClientHubTab, perfNow } from "@/lib/clientHubPerf";
+
 
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
 import DemandDrawer from "@/components/client-hub/DemandDrawer";
-import InstagramFeedTab from "@/components/client-hub/InstagramFeedTab";
 import { cn } from "@/lib/utils";
 
 import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
-import PaidMediaTab from "@/components/client-hub/PaidMediaTab";
-import SystemsCommercialWorkspace from "@/components/systems-commercial/SystemsCommercialWorkspace";
+// ABAS PESADAS EM LAZY: o bundle da tela inicial não avalia Mídia paga,
+// Comercial e Feed antes do primeiro paint.
+const InstagramFeedTab = lazy(() => import("@/components/client-hub/InstagramFeedTab"));
+const PaidMediaTab = lazy(() => import("@/components/client-hub/PaidMediaTab"));
+const SystemsCommercialWorkspace = lazy(
+  () => import("@/components/systems-commercial/SystemsCommercialWorkspace"),
+);
+
+/** Fallback pequeno: só dentro do conteúdo da aba, nunca tela cheia. */
+const TabFallback = () => (
+  <div className="p-6 text-xs text-muted-foreground">Carregando…</div>
+);
+
+
 import {
   HUB_TABS,
   HUB_TAB_LABELS,
@@ -358,14 +371,27 @@ const ClientHub = () => {
       console.error('[ClientHub] Falha ao migrar histórico local:', err);
     }
   };
-
+  // Shell utilizável: medimos o caminho real clique → primeiro effect pós-paint.
   useEffect(() => {
-    (async () => {
-      await migrateLocalHistoricoToDB();
-      await loadDemandaHistorico();
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClient?.id, tenantId]);
+    measureClientHubShell();
+  }, []);
+
+
+  /**
+   * HISTÓRICO É SOB DEMANDA.
+   * Migração e leitura do histórico de demanda planejada NÃO acontecem ao
+   * montar o Hub: só quando a pessoa abre o fluxo que usa esses dados.
+   */
+  const historicoLoadedFor = useRef<string | null>(null);
+  const ensureHistoricoLoaded = async () => {
+    if (!selectedClient?.id || !tenantId) return;
+    const key = `${tenantId}:${selectedClient.id}`;
+    if (historicoLoadedFor.current === key) return;
+    historicoLoadedFor.current = key;
+    await migrateLocalHistoricoToDB();
+    await loadDemandaHistorico();
+  };
+
 
   const saveDemandaToHistorico = async (demanda: { titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] }) => {
     if (!selectedClient?.id || !tenantId) return;
@@ -1083,19 +1109,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
   const refetchPresets = async () => {
-    if (!selectedClient?.id) return;
-    // Aguarda tenantId propagar do contexto (evita fetch vazio na primeira montagem).
-    let tid = tenantId;
-    for (let i = 0; i < 5 && !tid; i++) {
-      await new Promise((r) => setTimeout(r, 200));
-      tid = tenantId;
-    }
-    if (!tid) return;
+    // SEM ESPERA ARTIFICIAL: se o tenant ainda não chegou, o effect roda de novo.
+    if (!selectedClient?.id || !tenantId) return;
     const { data } = await supabase
       .from('visual_identity_presets')
       .select('id, name, primary_color, secondary_color')
       .eq('company_id', selectedClient.id)
-      .eq('tenant_id', tid)
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: true });
     if (data) {
       setPresets(data);
@@ -1106,7 +1126,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   };
 
   useEffect(() => {
-    if (!selectedClient?.id) return;
+    if (!selectedClient?.id || !tenantId) return;
     refetchPresets();
     const onFocus = () => refetchPresets();
     window.addEventListener('focus', onFocus);
@@ -1121,19 +1141,25 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     onChange: () => { refetchPresets(); },
   });
 
-  useEffect(() => {
+  /**
+   * MASCOTES SÓ QUANDO O FLUXO DE CRIAÇÃO ABRE.
+   * A galeria de mascote não participa do primeiro paint do Hub.
+   */
+  const mascotsLoadedFor = useRef<string | null>(null);
+  const ensureMascotsLoaded = async () => {
     if (!selectedClient?.id || !tenantId) return;
-    const fetchMascots = async () => {
-      const { data } = await supabase
-        .from('company_mascot_images')
-        .select('id, image_url, file_name')
-        .eq('company_id', selectedClient.id)
-        .eq('tenant_id', tenantId)
-        .order('position', { ascending: true });
-      if (data) setMascotImages(data);
-    };
-    fetchMascots();
-  }, [selectedClient?.id, tenantId]);
+    const key = `${tenantId}:${selectedClient.id}`;
+    if (mascotsLoadedFor.current === key) return;
+    mascotsLoadedFor.current = key;
+    const { data } = await supabase
+      .from('company_mascot_images')
+      .select('id, image_url, file_name')
+      .eq('company_id', selectedClient.id)
+      .eq('tenant_id', tenantId)
+      .order('position', { ascending: true });
+    if (data) setMascotImages(data);
+  };
+
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -1862,6 +1888,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   // `tab`, `market` e `opportunity` andam juntos: o deep link é a fonte de verdade.
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = normalizeHubTab(searchParams.get('tab'));
+  // Carga percebida de cada aba (dev): não cria telemetria no banco.
+  useEffect(() => {
+    const startedAt = perfNow();
+    const id = window.setTimeout(() => measureClientHubTab(activeTab, startedAt), 0);
+    return () => window.clearTimeout(id);
+  }, [activeTab]);
+
   const focusedMarketId = searchParams.get('market');
 
   const patchParams = (patch: Record<string, string | null>) => {
@@ -1917,15 +1950,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
     { id: 'client_anamnese', title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia', title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
-    { id: 'client_identidade_visual', title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
-    { id: 'client_planejar_periodo', title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true), disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
+    { id: 'client_identidade_visual', title: "Identidade Visual", icon: Palette, action: () => { void ensureMascotsLoaded(); setVisualIdentityModalOpen(true); } },
+    { id: 'client_planejar_periodo', title: "Planejar Período", icon: CalendarDays, action: () => { void ensureMascotsLoaded(); setPlanPeriodModalOpen(true); }, disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
     { id: 'client_aprovar_producao', title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (approvedCardsCount + rejectedCardsCount) > 0 ? (approvedCardsCount + rejectedCardsCount) : undefined },
     { id: 'client_cronograma_atual', title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },
     { id: 'client_evolucao', title: "Evolução das Demandas", icon: Activity, action: () => navigate("/client-evolution") },
     { id: 'client_historico', title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
-    { id: 'client_conteudo_avulso', title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
-    
-    { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaHubModalOpen(true) },
+    { id: 'client_conteudo_avulso', title: "Conteúdo Avulso", icon: PenTool, action: () => { void ensureMascotsLoaded(); setContentHubModalOpen(true); } },
+    { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => { void ensureHistoricoLoaded(); void ensureMascotsLoaded(); setDemandaPlanejadaHubModalOpen(true); } },
+
   ];
 
   // Ações operacionais do workspace atual: regras de papel já bastam.
@@ -2020,13 +2053,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               />
             </TabsContent>
             <TabsContent value="midia-paga" className="m-0">
-              <PaidMediaTab
-                tenantId={tenantId}
-                companyId={selectedClient.id}
-                currentPeriodId={workspace.period?.id ?? null}
-                selectedMarketId={focusedMarketId}
-              />
+              <Suspense fallback={<TabFallback />}>
+                <PaidMediaTab
+                  tenantId={tenantId}
+                  companyId={selectedClient.id}
+                  currentPeriodId={workspace.period?.id ?? null}
+                  selectedMarketId={focusedMarketId}
+                />
+              </Suspense>
             </TabsContent>
+
 
             <TabsContent value="calendario" className="m-0">
               <CalendarTab
@@ -2050,15 +2086,18 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               />
             </TabsContent>
             <TabsContent value="feed" className="m-0">
-              <InstagramFeedTab
-                planItems={workspace.planItems}
-                demands={workspace.demands}
-                statusNames={workspace.statusNames}
-                stageNames={workspace.stageNames}
-                onOpenDemand={(id) => setDrawerDemandId(id)}
-                onReload={workspace.reload}
-              />
+              <Suspense fallback={<TabFallback />}>
+                <InstagramFeedTab
+                  planItems={workspace.planItems}
+                  demands={workspace.demands}
+                  statusNames={workspace.statusNames}
+                  stageNames={workspace.stageNames}
+                  onOpenDemand={(id) => setDrawerDemandId(id)}
+                  onReload={workspace.reload}
+                />
+              </Suspense>
             </TabsContent>
+
             <TabsContent value="cuidados" className="m-0">
               <GuidelinesTab
                 requirements={contentRequirements}
@@ -2071,12 +2110,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             </TabsContent>
             <TabsContent value="comercial" className="m-0">
               {/* Mesmo CRM de /comercial-sistemas: nada é duplicado aqui. */}
-              <SystemsCommercialWorkspace
-                lockedCompanyId={selectedClient.id}
-                embedded
-                groupByMarket
-              />
+              <Suspense fallback={<TabFallback />}>
+                <SystemsCommercialWorkspace
+                  lockedCompanyId={selectedClient.id}
+                  embedded
+                  groupByMarket
+                />
+              </Suspense>
             </TabsContent>
+
           </div>
         </Tabs>
 

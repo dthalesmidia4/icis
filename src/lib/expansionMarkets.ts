@@ -288,7 +288,25 @@ export interface ExpansionMarketInput {
   channels?: string[];
   acquisitionStrategy?: string | null;
   observations?: string | null;
+  /**
+   * Estado de execução de mídia gravado no INSERT (criação inline de cidade).
+   * Nunca entra em update parcial por aqui — a coluna é editada pela célula de
+   * status da Mídia paga.
+   */
+  paidMediaStatusOverride?: PaidMediaStatus | null;
 }
+
+/**
+ * Próximo número da sequência de expansão. A BASE nunca ocupa número e o
+ * cálculo nunca pergunta nada ao usuário.
+ */
+export function nextExpansionSequenceOrder(markets: ExpansionMarket[]): number {
+  const max = (markets || [])
+    .filter((m) => !isBaseMarket(m))
+    .reduce((acc, m) => Math.max(acc, m.sequence_order ?? 0), 0);
+  return max + 1;
+}
+
 
 /** Validação pura da CIDADE — usada pela UI e pelos testes. */
 export function validateExpansionMarketInput(input: Partial<ExpansionMarketInput>): string | null {
@@ -502,7 +520,7 @@ export async function loadExpansionMarkets(
 
 export async function saveExpansionMarket(
   input: ExpansionMarketInput & { mode?: MarketEditMode },
-): Promise<{ success: boolean; message?: string; id?: string }> {
+): Promise<{ success: boolean; message?: string; id?: string; market?: ExpansionMarket }> {
   const invalid = validateExpansionMarketInput(input);
   if (invalid) return { success: false, message: invalid };
   const mode: MarketEditMode = input.mode || "full";
@@ -520,14 +538,21 @@ export async function saveExpansionMarket(
   }
 
   const { data: auth } = await supabase.auth.getUser();
+  const insertRow: Record<string, unknown> = { ...row, created_by: auth?.user?.id ?? null };
+  // Criação inline da cidade grava o estado de mídia explicitamente.
+  if (input.paidMediaStatusOverride !== undefined) {
+    insertRow.paid_media_status_override = input.paidMediaStatusOverride;
+  }
+  // Retorna a linha completa: o caller atualiza o estado local sem recarregar.
   const { data, error } = await (supabase as any)
     .from("marketing_campaign_markets")
-    .insert({ ...row, created_by: auth?.user?.id ?? null })
-    .select("id")
-    .maybeSingle();
+    .insert(insertRow)
+    .select("*")
+    .single();
   if (error) return { success: false, message: error.message };
-  return { success: true, id: data?.id };
+  return { success: true, id: data?.id, market: data ? normalizeMarket(data) : undefined };
 }
+
 
 export interface ExpansionPlanConfigInput {
   name: string;
