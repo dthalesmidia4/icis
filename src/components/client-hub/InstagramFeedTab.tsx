@@ -41,6 +41,17 @@ const KIND_LABEL: Record<FeedEntry["kind"], string> = {
   video: "Vídeo",
 };
 
+/**
+ * Ícone de marca d’água para células sem mídia nem referência visual.
+ * Reels (detecção textual em `typeLabel`) usa Clapperboard; demais vídeos, Film.
+ */
+const REELS_RE = /\breels?\b/i;
+const feedPlaceholderIcon = (entry: FeedEntry) => {
+  if (entry.kind === "static") return ImageIcon;
+  if (entry.kind === "carousel") return Layers;
+  return REELS_RE.test(entry.typeLabel) ? Clapperboard : Film;
+};
+
 /** Nome do arquivo: usa o do anexo; senão deriva da URL (para detectar o tipo no modal). */
 const mediaFileName = (item: FeedMediaItem): string => {
   if (item.name) return item.name;
