@@ -95,97 +95,28 @@ export async function resolveFunctionForAssignee(
 ): Promise<string | null> {
   const area: WorkArea = normalizeWorkArea(ctx?.workArea);
   const clientOrigin = isClientOrigin(ctx?.origin);
-  const [{ data: fns }, { data: rules }, { data: allowedRows }] = await Promise.all([
-    (supabase.from("flow_functions") as any)
-      .select("function_key, position, active, requires_client_origin")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .eq("work_area", area)
-      .neq("function_key", "avaliar")
-      .order("position"),
-    demandTypeKey
-      ? (supabase.from("demand_type_flow_rules") as any)
-          .select("function_key, requirement")
-          .eq("tenant_id", tenantId)
-          .eq("work_area", area)
-          .eq("demand_type_key", demandTypeKey)
-      : Promise.resolve({ data: [] as any[] }),
-    supabase
-      .from("collaborator_function_assignments")
-      .select("function_key, allowed")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", assigneeUserId)
-      .eq("work_area", area)
-      .eq("allowed", true)
-      .neq("function_key", "avaliar"),
+  // Mesma carga do lote (aqui com um único user_id): as regras vivem no núcleo
+  // puro `pickFunctionForAssignee`, compartilhado com o dropdown em lote.
+  const context = await loadSharedFlowContext({
+    tenantId,
+    area,
+    clientOrigin,
+    demandTypeKey,
+    demandId,
+    userIds: [assigneeUserId],
+  });
+  if (context.sequence.length === 0) return null;
 
-  ]);
-
-  if (!fns || fns.length === 0) return null;
-
-  const required = new Set(
-    ((rules as any[]) || [])
-      .filter((r) => r.requirement === "required")
-      .map((r) => r.function_key),
-  );
-  const sequence: string[] = (required.size > 0
-    ? (fns as any[]).filter((f) => required.has(f.function_key))
-    : (fns as any[])
-  )
-    .filter((f: any) => (f.requires_client_origin ? clientOrigin : true))
-    .map((f) => f.function_key);
-
-  const allowedKeys = new Set(
-    ((allowedRows as any[]) || []).map((r) => r.function_key),
-  );
-  const allowedSeq = sequence.filter((k) => allowedKeys.has(k));
-  if (allowedSeq.length === 0) return null;
-
-  // Etapas que este usuário já concluiu neste card nunca são reatribuídas a ele.
-  const completions = demandId ? await getStageCompletions(tenantId, demandId) : null;
-  const administrative = ctx?.mode === "administrative_reassign";
-  const usable = (k: string) => {
-    if (!allowedKeys.has(k)) return false;
-    // Reatribuição administrativa nunca AVANÇA/VOLTA o card para etapa de
-    // cliente: só etapas operacionais podem ser escolhidas automaticamente.
-    if (administrative && k !== currentFunctionKey && isClientFacingFunction(k)) return false;
-    if (completions && hasUserCompletedStage(completions, k, assigneeUserId)) return false;
-    // Auto-revisão: ninguém revisa a etapa que ele mesmo executou.
-    if (completions && isReviewFunction(k)) {
-      const prev = sequence[sequence.indexOf(k) - 1];
-      if (prev && hasUserCompletedStage(completions, prev, assigneeUserId)) return false;
-    }
-    return true;
-  };
-
-
-  if (administrative) {
-    // Reatribuição administrativa: nunca atravessa barreira de cliente e nunca
-    // "conserta" silenciosamente uma etapa fora do fluxo do tipo.
-    return pickAdministrativeStage({ sequence, currentKey: currentFunctionKey, usable });
-  }
-
-  if (currentFunctionKey && sequence.includes(currentFunctionKey)) {
-    if (usable(currentFunctionKey)) return currentFunctionKey;
-    const idx = sequence.indexOf(currentFunctionKey);
-    // Preferência: para frente (não regride o fluxo).
-    const next = sequence.slice(idx + 1).find(usable);
-    if (next) return next;
-    // Último recurso: etapa habilitada mais próxima ATRÁS. Trocar de responsável
-    // nunca deve travar — se ele só tem etapas anteriores, o card volta para lá.
-    const prev = sequence.slice(0, idx).reverse().find(usable);
-    if (prev) return prev;
-    // Nenhuma etapa compatível (nem à frente, nem atrás).
-    return null;
-  }
-
-
-  const firstUsable = allowedSeq.find(usable);
-  if (firstUsable) return firstUsable;
-  return allowedSeq[0];
-
-
+  return pickFunctionForAssignee({
+    sequence: context.sequence,
+    allowedKeys: context.allowedByUser.get(assigneeUserId) || new Set<string>(),
+    completions: context.completions,
+    assigneeUserId,
+    currentFunctionKey,
+    administrative: ctx?.mode === "administrative_reassign",
+  });
 }
+
 
 /**
  * Atribui a etapa inicial + responsável ao card recém-criado.
