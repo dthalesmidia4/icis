@@ -1858,6 +1858,34 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       : 'estrategia';
   });
 
+  /** Praça em foco (`?market=`): compartilhada entre Expansão e Mídia paga. */
+  const [focusedMarketId, setFocusedMarketId] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('market'),
+  );
+
+  /**
+   * Troca de aba sem recarregar: escreve `?tab=` preservando `market` para não
+   * perder o contexto territorial ao navegar entre Expansão e Mídia paga.
+   */
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', tab);
+    if (focusedMarketId) params.set('market', focusedMarketId);
+    else params.delete('market');
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  };
+
+  const focusMarketInPaidMedia = (marketId: string) => {
+    setFocusedMarketId(marketId);
+    setActiveTab('midia-paga');
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', 'midia-paga');
+    params.set('market', marketId);
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  };
+
+
   // Demanda aberta em painel lateral (a partir do calendário)
   const [drawerDemandId, setDrawerDemandId] = useState<string | null>(null);
 
