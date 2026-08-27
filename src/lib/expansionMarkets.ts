@@ -395,7 +395,14 @@ export const MARKET_MODE_COLUMNS: Record<Exclude<MarketEditMode, "full">, string
     "acquisition_strategy",
     "observations",
   ],
-  "paid-media": ["paid_traffic_budget", "ads_start_date", "ads_end_date"],
+  // `paid_media_status_override` é decisão de mídia, nunca de `status` da praça.
+  "paid-media": [
+    "paid_traffic_budget",
+    "ads_start_date",
+    "ads_end_date",
+    "paid_media_status_override",
+  ],
+
   commercial: ["calls_start_date", "visits_start_date", "visits_end_date"],
 };
 
