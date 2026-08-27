@@ -519,14 +519,23 @@ function FeedCell({
       )}
 
       {entry.previewKind === "none" && (
-        <div className="flex h-full w-full flex-col justify-between border border-primary/20 bg-primary/[0.05] p-2 text-left">
-          <div className="space-y-1">
+        <div className="relative flex h-full w-full flex-col justify-between border border-primary/20 bg-primary/[0.05] p-2 text-left">
+          {/* Marca d’água discreta do tipo de mídia esperado — pointer-events-none. */}
+          {(() => {
+            const PlaceholderIcon = feedPlaceholderIcon(entry);
+            return (
+              <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center" aria-hidden>
+                <PlaceholderIcon className="h-11 w-11 text-muted-foreground/25 sm:h-12 sm:w-12" strokeWidth={1.5} />
+              </div>
+            );
+          })()}
+          <div className="relative z-10 space-y-1">
             <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-primary">
               {KIND_LABEL[entry.kind]}
             </span>
             <span className="line-clamp-3 text-[11px] font-bold leading-tight text-foreground">{entry.title}</span>
           </div>
-          <div className="space-y-1">
+          <div className="relative z-10 space-y-1">
             <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-primary">
               {entry.stageLabel}
             </span>
