@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { useCollaborators } from "@/hooks/useCollaborators";
@@ -622,6 +622,29 @@ export default function SystemsCommercialWorkspace({
     load();
   };
 
+  /** Estatísticas por carteira operacional, a partir dos MESMOS registros. */
+  const marketStats = useMemo(
+    () => summarizeMarketCommercial(scoped.map((r) => r.client) as any, marketTouchpoints),
+    [scoped, marketTouchpoints],
+  );
+
+  /** Leads visíveis agrupados pela carteira operacional (`market_id`). */
+  const groupedRows = useMemo(() => {
+    const byMarket = new Map<string, typeof visible>();
+    const noMarket: typeof visible = [];
+    visible.forEach((row) => {
+      const id = row.client.market_id;
+      if (!id) {
+        noMarket.push(row);
+        return;
+      }
+      const list = byMarket.get(id) || [];
+      list.push(row);
+      byMarket.set(id, list);
+    });
+    return { byMarket, noMarket };
+  }, [visible]);
+
   const quickChip = (id: QuickFilter, label: string, count: number, icon?: React.ReactNode) => (
     <button
       key={id}
@@ -643,7 +666,8 @@ export default function SystemsCommercialWorkspace({
   );
 
   return (
-    <div className="mt-4 px-3 sm:px-4">
+    <div className={embedded ? "" : "mt-4 px-3 sm:px-4"}>
+      {!embedded && (
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg">
@@ -665,9 +689,10 @@ export default function SystemsCommercialWorkspace({
           </Button>
         </div>
       </div>
+      )}
 
       <div className="space-y-4 pb-8">
-        {expansionPlan && openMarkets.length > 0 && (
+        {!embedded && expansionPlan && openMarkets.length > 0 && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
             <div className="flex items-start gap-2">
               <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -724,6 +749,7 @@ export default function SystemsCommercialWorkspace({
               className="pl-9"
             />
           </div>
+          {!lockedCompanyId && (
           <Select value={companyFilter} onValueChange={handleCompanyFilter}>
             <SelectTrigger className="w-[220px]">
               <SelectValue />
@@ -737,6 +763,7 @@ export default function SystemsCommercialWorkspace({
               ))}
             </SelectContent>
           </Select>
+          )}
           {/* Filtro territorial explícito pela carteira operacional. */}
           <Select value={marketFilter} onValueChange={handleMarketFilter}>
             <SelectTrigger className="w-[220px]" aria-label="Cidade/carteira">
@@ -776,6 +803,7 @@ export default function SystemsCommercialWorkspace({
           {quickChip("negociacao", "Em negociação", counters.negociacao)}
         </div>
 
+        {!groupByMarket && (
         <div className="border rounded-lg overflow-x-auto">
           <table className="w-full text-sm min-w-[980px]">
             <thead className="bg-muted/50">
@@ -897,6 +925,192 @@ export default function SystemsCommercialWorkspace({
             </tbody>
           </table>
         </div>
+        )}
+
+        {groupByMarket && (
+          <div className="border rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[1080px] text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="p-3 text-left text-xs font-semibold uppercase">#</th>
+                  <th className="p-3 text-left text-xs font-semibold uppercase">Cidade/carteira</th>
+                  <th className="p-3 text-left text-xs font-semibold uppercase">Status</th>
+                  <th className="p-3 text-right text-xs font-semibold uppercase">Oportunidades</th>
+                  <th className="p-3 text-right text-xs font-semibold uppercase">Em negociação</th>
+                  <th className="p-3 text-left text-xs font-semibold uppercase">
+                    Agenda planejada
+                  </th>
+                  <th className="p-3 text-left text-xs font-semibold uppercase">
+                    Execução realizada
+                  </th>
+                  <th className="p-3 text-right text-xs font-semibold uppercase">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="p-10 text-center">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {planMarkets.map((market) => {
+                      const leads = groupedRows.byMarket.get(market.id) || [];
+                      const stats = marketStats.get(market.id);
+                      const isOpen = expandedMarket === market.id;
+                      return (
+                        <Fragment key={market.id}>
+                          <tr className="border-t align-top">
+                            <td className="p-3 font-black tabular-nums">
+                              {marketOrderLabel(market)}
+                            </td>
+                            <td className="p-3 font-medium">{marketLabel(market)}</td>
+                            <td className="p-3">{marketStatusLabel(market.status)}</td>
+                            <td className="p-3 text-right tabular-nums">
+                              {stats?.opportunities ?? 0}
+                            </td>
+                            <td className="p-3 text-right tabular-nums">
+                              {stats?.negotiating ?? 0}
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground">
+                              <div>Ligações: {marketDate(market.calls_start_date)}</div>
+                              <div>
+                                Visitas:{" "}
+                                {marketVisitWindow(
+                                  market.visits_start_date,
+                                  market.visits_end_date,
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground">
+                              <div className="tabular-nums">
+                                {`${stats?.calls ?? 0} ligações · ${stats?.visits ?? 0} visitas · ${stats?.demos ?? 0} demonstrações`}
+                              </div>
+                              <div>Último contato: {fmtDate(stats?.lastTouchAt)}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex flex-wrap items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => {
+                                    setEditingMarket(market);
+                                    setMarketModalOpen(true);
+                                  }}
+                                >
+                                  Editar agenda
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs text-muted-foreground"
+                                  onClick={() => setExpandedMarket(isOpen ? null : market.id)}
+                                >
+                                  {isOpen ? "Recolher" : `Ver ${leads.length} leads`}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isOpen && (
+                            <tr className="border-t bg-muted/20">
+                              <td colSpan={8} className="p-3">
+                                {leads.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">
+                                    Nenhuma oportunidade nesta carteira com os filtros atuais.
+                                  </p>
+                                ) : (
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="text-left text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                                        <th className="py-2 pr-3">Nome</th>
+                                        <th className="py-2 pr-3">Etapa</th>
+                                        <th className="py-2 pr-3">Sistema atual</th>
+                                        <th className="py-2 pr-3">Último resultado</th>
+                                        <th className="py-2 pr-3">Próxima ação</th>
+                                        <th className="py-2 text-right">Ações</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {leads.map(({ client, bucket }) => (
+                                        <tr key={client.id} className="border-t align-top">
+                                          <td className="py-2 pr-3 font-bold">{client.name}</td>
+                                          <td className="py-2 pr-3">
+                                            {stageLabel(client.commercial_stage)}
+                                          </td>
+                                          <td className="py-2 pr-3">
+                                            {client.current_system || "Desconhecido"}
+                                          </td>
+                                          <td className="py-2 pr-3 text-muted-foreground">
+                                            {client.last_contact_result || "—"}
+                                          </td>
+                                          <td className="py-2 pr-3">
+                                            <div>{client.next_action || "Sem próxima ação"}</div>
+                                            <div
+                                              className={cn(
+                                                bucket === "atrasado"
+                                                  ? "font-semibold text-destructive"
+                                                  : "text-muted-foreground",
+                                              )}
+                                            >
+                                              {client.next_action_at
+                                                ? fmtDateTime(client.next_action_at)
+                                                : "Sem data"}
+                                            </div>
+                                          </td>
+                                          <td className="py-2 text-right">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="text-xs"
+                                              onClick={() => openDrawer(client)}
+                                            >
+                                              Abrir
+                                            </Button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                    {groupedRows.noMarket.length > 0 && (
+                      <tr className="border-t align-top">
+                        <td className="p-3 font-black">—</td>
+                        <td className="p-3 font-medium">Sem cidade operacional</td>
+                        <td className="p-3">—</td>
+                        <td className="p-3 text-right tabular-nums">
+                          {groupedRows.noMarket.filter((r) => r.client.lifecycle === "prospect").length}
+                        </td>
+                        <td className="p-3 text-right tabular-nums">—</td>
+                        <td className="p-3 text-xs text-muted-foreground" colSpan={2}>
+                          Defina a cidade/carteira operacional no drawer de cada oportunidade. O
+                          vínculo nunca é automático.
+                        </td>
+                        <td className="p-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => openDrawer(groupedRows.noMarket[0].client)}
+                          >
+                            Abrir
+                          </Button>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Drawer de edição */}
@@ -1405,6 +1619,23 @@ export default function SystemsCommercialWorkspace({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Agenda comercial da cidade — grava apenas ligações/visitas. */}
+      {tenantId && expansionPlan && editingMarket && (
+        <PlaceFormModal
+          open={marketModalOpen}
+          onOpenChange={(v) => {
+            setMarketModalOpen(v);
+            if (!v) setEditingMarket(null);
+          }}
+          tenantId={tenantId}
+          companyId={editingMarket.company_id}
+          campaignId={expansionPlan.id}
+          market={editingMarket}
+          mode="commercial"
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
