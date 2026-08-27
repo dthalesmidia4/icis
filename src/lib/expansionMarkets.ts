@@ -249,11 +249,15 @@ const clean = (v?: string | null) => (v && String(v).trim() ? String(v).trim() :
 export function buildMarketRow(input: ExpansionMarketInput): Record<string, unknown> {
   const city = input.city.trim();
   const state = input.state.trim().toUpperCase();
+  const marketType: MarketType = input.marketType === "base" ? "base" : "expansion";
   return {
     tenant_id: input.tenantId,
     company_id: input.companyId,
     campaign_id: input.campaignId,
-    sequence_order: parseNumber(input.sequenceOrder),
+    market_type: marketType,
+    // Base nunca ocupa número na sequência de expansão.
+    sequence_order: marketType === "base" ? null : parseNumber(input.sequenceOrder),
+
     city,
     state,
     region_label: `${city}/${state}`,
