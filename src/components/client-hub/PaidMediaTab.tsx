@@ -243,8 +243,9 @@ export default function PaidMediaTab({
               rows.map(({ market, planned, allocated, available, linkedDemands, activations: acts }) => {
                 const isOpen = expanded === market.id;
                 const live = acts.filter((a) => !isActivationCancelled(a.status));
-                // Status de MÍDIA (janela de anúncios + override), nunca `market.status`.
+                // Status de MÍDIA: decisão humana explícita, nunca derivado de datas.
                 const mediaStatus = effectivePaidMediaStatus(market);
+
                 const badge = paidMediaRowBadge(mediaStatus);
                 return (
                   <Fragment key={market.id}>
