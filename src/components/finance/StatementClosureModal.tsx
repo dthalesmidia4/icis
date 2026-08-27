@@ -22,6 +22,11 @@ import { Label } from "@/components/ui/label";
 import { StatementGroup, cardDisplayLabel, formatBRL } from "@/lib/financeModel";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { buildStatementConference } from "@/lib/financeIof";
+import {
+  interpretStatementCompositionDifference,
+  interpretStatementPayment,
+} from "@/lib/financeStatementDifference";
+
 import { paymentTimestampToDate } from "@/lib/financePaymentDate";
 import {
   CLOSURE_IOF_LABEL,
@@ -76,6 +81,14 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
     iofBrl: nextIof,
     paidBrl: paidAmount,
   });
+  /** Fonte ÚNICA do texto da conferência (mesma em todas as telas). */
+  const reading = interpretStatementCompositionDifference(conference.unclassifiedBrl);
+  const payment = interpretStatementPayment({
+    paid: !!group?.paid,
+    statementBrl: effectiveTotal,
+    paidBrl: paidAmount,
+  });
+
 
   const payload = group ? statementClosurePayload(group, closure) : null;
   const canSubmit = !!payload && closure.state === "ok" && !unchanged;
@@ -107,19 +120,30 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
         <div className="space-y-4">
           {group.paid && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-2">
+              <p className="font-medium">Pagamento da fatura</p>
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Total da fatura</span>
+                <span className="font-medium">{formatBRL(payment.statementBrl)}</span>
+              </p>
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Valor pago</span>
+                <span className="font-medium">{formatBRL(payment.paidBrl)}</span>
+              </p>
               <p className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Pago em</span>
                 <span className="font-medium">{paidAt ? formatDayMonth(paidAt) : "Data não registrada"}</span>
               </p>
               <p className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Valor pago</span>
-                <span className="font-medium">{formatBRL(paidAmount)}</span>
+                <span className="text-muted-foreground">Situação</span>
+                <span className="font-medium">{payment.situationLabel}</span>
               </p>
+              <p className="text-xs text-muted-foreground">{payment.message}</p>
               <p className="text-xs text-muted-foreground">
                 Ajustar o fechamento não altera a data nem o valor já pagos.
               </p>
             </div>
           )}
+
 
           <div className="space-y-2">
             <Label htmlFor="statement-closure-total">{CLOSURE_TOTAL_LABEL}</Label>
@@ -155,23 +179,30 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
 
           <div className="rounded-lg border p-3 text-xs space-y-1">
             <p className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Compras conhecidas/corrigidas</span>
+              <span className="text-muted-foreground">Total da fatura</span>
+              <span className="font-medium">{formatBRL(conference.statementBrl)}</span>
+            </p>
+            <p className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Compras identificadas</span>
               <span className="font-medium">{formatBRL(conference.componentsBrl)}</span>
             </p>
             <p className="flex justify-between gap-3">
-              <span className="text-muted-foreground">IOF incluído na fatura</span>
+              <span className="text-muted-foreground">IOF da fatura</span>
               <span className="font-medium">{formatBRL(conference.iofBrl)}</span>
             </p>
-            <p className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Total classificado</span>
+            <p className="flex justify-between gap-3 border-t pt-1">
+              <span className="text-muted-foreground">Compras + IOF</span>
               <span className="font-semibold">{formatBRL(conference.classifiedBrl)}</span>
             </p>
             <p className="flex justify-between gap-3 border-t pt-1">
-              <span className="text-muted-foreground">Diferença ainda a classificar</span>
-              <span className="font-medium">{formatBRL(conference.unclassifiedBrl)}</span>
+              <span className="text-muted-foreground">{reading.label}</span>
+              <span className="font-medium">{formatBRL(reading.absoluteBrl)}</span>
             </p>
+            <p className="pt-1 font-medium text-foreground">{reading.title}</p>
+            <p className="text-muted-foreground">{reading.description}</p>
           </div>
         </div>
+
 
         <DialogFooter className="flex-wrap gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

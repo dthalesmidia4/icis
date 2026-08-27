@@ -28,6 +28,8 @@ import {
   formatCurrencyValue,
 } from "@/lib/financeModel";
 import { statementIofBrl } from "@/lib/financeIof";
+import { interpretStatementCompositionDifference } from "@/lib/financeStatementDifference";
+
 import { statementClosureButtonLabel } from "@/lib/financeStatementClosure";
 import {
   CARD_CHARGE_DATE_MISSING,
@@ -303,15 +305,20 @@ export default function StatementPanel({
               </div>
             )}
 
-            {!group.configIncomplete && group.difference != null && Math.abs(group.difference) >= 0.01 && (
-              <div className="flex items-center gap-2 px-4 py-3 bg-muted text-sm">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                <span>
-                  Diferença a classificar: <strong>{formatBRL(group.difference)}</strong> entre o valor da
-                  fatura e as cobranças conhecidas.
-                </span>
-              </div>
-            )}
+            {!group.configIncomplete && group.difference != null && Math.abs(group.difference) >= 0.01 && (() => {
+              /* Interpretação do sinal vem do helper central — sem número cru negativo. */
+              const reading = interpretStatementCompositionDifference(group.difference);
+              return (
+                <div className="flex items-start gap-2 px-4 py-3 bg-muted text-sm">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 text-muted-foreground mt-0.5" />
+                  <span>
+                    <strong>{reading.title}</strong>
+                    <span className="block text-muted-foreground text-xs">{reading.description}</span>
+                  </span>
+                </div>
+              );
+            })()}
+
 
             {open && (
               <div className="border-t divide-y">

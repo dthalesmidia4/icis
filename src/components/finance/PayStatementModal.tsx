@@ -38,6 +38,11 @@ import {
   parseIofInput,
 } from "@/lib/financeIof";
 import {
+  interpretStatementCompositionDifference,
+  interpretStatementPayment,
+} from "@/lib/financeStatementDifference";
+
+import {
   CLOSURE_IOF_LABEL,
   CLOSURE_SECTION_LABEL,
   CLOSURE_TOTAL_LABEL,
@@ -144,6 +149,14 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
     iofBrl,
     paidBrl: amountResult.state === "ok" ? amountResult.amountBrl ?? expected : null,
   });
+  /** Mesmo helper das outras telas de conferência — texto nunca divergente. */
+  const reading = interpretStatementCompositionDifference(conference.unclassifiedBrl);
+  const payment = interpretStatementPayment({
+    paid: true,
+    statementBrl: conference.statementBrl,
+    paidBrl: conference.paidBrl,
+  });
+
   const canSubmit =
     dateValid &&
     closure.state === "ok" &&
@@ -324,39 +337,41 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
                 <span className="text-muted-foreground">Total da fatura</span>
                 <span className="font-medium">{formatBRL(conference.statementBrl)}</span>
               </p>
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Compras identificadas</span>
+                <span className="font-medium">{formatBRL(conference.componentsBrl)}</span>
+              </p>
               {usdComponents.length > 0 && (
-                <>
-                  <p className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">Compras em dólar corrigidas</span>
-                    <span className="font-medium">{formatBRL(conference.componentsBrl)}</span>
-                  </p>
-                  <p className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">Ajuste cambial identificado</span>
-                    <span className="font-medium">{formatBRL(reconciliation.drift)}</span>
-                  </p>
-                </>
+                <p className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">Ajuste cambial identificado</span>
+                  <span className="font-medium">{formatBRL(reconciliation.drift)}</span>
+                </p>
               )}
               <p className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Repasse de IOF</span>
+                <span className="text-muted-foreground">IOF da fatura</span>
                 <span className="font-medium">{formatBRL(conference.iofBrl)}</span>
               </p>
               <p className="flex justify-between gap-3 border-t pt-1">
-                <span className="text-muted-foreground">Total classificado</span>
+                <span className="text-muted-foreground">Compras + IOF</span>
                 <span className="font-semibold">{formatBRL(conference.classifiedBrl)}</span>
               </p>
-              <p className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Valor cobrado/pago</span>
-                <span className="font-medium">{formatBRL(conference.paidBrl)}</span>
+              <p className="flex justify-between gap-3 border-t pt-1">
+                <span className="text-muted-foreground">{reading.label}</span>
+                <span className="font-medium">{formatBRL(reading.absoluteBrl)}</span>
               </p>
-              <p className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Diferença ainda a classificar</span>
-                <span className="font-medium">{formatBRL(conference.unclassifiedBrl)}</span>
-              </p>
-              <p className="text-muted-foreground pt-1">
-                O IOF já está classificado acima: só sobra como diferença o que vier de tarifas ou
-                compras ainda não cadastradas.
-              </p>
+              <p className="pt-1 font-medium text-foreground">{reading.title}</p>
+              <p className="text-muted-foreground">{reading.description}</p>
+
+              <div className="border-t pt-2 space-y-1">
+                <p className="font-medium text-foreground">Pagamento da fatura</p>
+                <p className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">Valor pago</span>
+                  <span className="font-medium">{formatBRL(payment.paidBrl)}</span>
+                </p>
+                <p className="text-muted-foreground">{payment.message}</p>
+              </div>
             </div>
+
           )}
         </div>
 
