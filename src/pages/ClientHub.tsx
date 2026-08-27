@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { useTenant } from "@/contexts/TenantContext";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useAvulsoDraft } from "@/hooks/useAvulsoDraft";
 import CostBadge from "@/components/avulso/CostBadge";
 import ReferencePickerModal from "@/components/avulso/ReferencePickerModal";
