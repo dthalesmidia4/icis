@@ -14,6 +14,7 @@ const market = (partial: Partial<ExpansionMarket> & { id: string }): ExpansionMa
   tenant_id: "t",
   company_id: "c",
   campaign_id: "plan",
+  market_type: "expansion",
   sequence_order: null,
   city: "Cidade",
   state: "SP",
@@ -55,7 +56,7 @@ describe("summarizeExpansionPlan", () => {
       market({ id: "2", sequence_order: 2, target_accounts: 20, paid_traffic_budget: 1500 }),
       market({ id: "3", sequence_order: 3, status: "completed", target_accounts: 10, paid_traffic_budget: 500 }),
     ]);
-    expect(s.totalCities).toBe(3);
+    expect(s.totalExpansionCities).toBe(3);
     expect(s.totalTargetAccounts).toBe(30);
     expect(s.targetsUndefined).toBe(1);
     expect(s.totalBudget).toBe(2000);
