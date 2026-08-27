@@ -24,6 +24,8 @@ interface StrategyTabProps {
   strategyText: string | null;
   onOpenStrategy: () => void;
   onOpenPeriodHistory: () => void;
+  /** Cidade em foco pelo deep link (`?market=`). */
+  selectedMarketId?: string | null;
   /** Encaminha a cidade para a aba Mídia paga. */
   onOpenPaidMedia?: (marketId: string) => void;
   /** Encaminha a carteira para a aba Comercial. */
@@ -39,6 +41,7 @@ export default function StrategyTab({
   strategyText,
   onOpenStrategy,
   onOpenPeriodHistory,
+  selectedMarketId,
   onOpenPaidMedia,
   onOpenCommercial,
 }: StrategyTabProps) {

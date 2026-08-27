@@ -24,6 +24,8 @@ import PlanConfigModal from "./PlanConfigModal";
 interface Props {
   tenantId?: string | null;
   companyId?: string | null;
+  /** Cidade em foco pelo deep link (`?market=`). */
+  selectedMarketId?: string | null;
   /** Leva para a aba Mídia paga com a cidade em foco. */
   onOpenPaidMedia?: (marketId: string) => void;
   /** Leva para a aba Comercial com a carteira em foco. */
@@ -41,6 +43,7 @@ interface Props {
 export default function RegionalPlanTable({
   tenantId,
   companyId,
+  selectedMarketId,
   onOpenPaidMedia,
   onOpenCommercial,
 }: Props) {
