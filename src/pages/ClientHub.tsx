@@ -34,13 +34,18 @@ import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrand
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
 import DemandDrawer from "@/components/client-hub/DemandDrawer";
-import InstagramFeedTab from "@/components/client-hub/InstagramFeedTab";
 import { cn } from "@/lib/utils";
 
 import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
-import PaidMediaTab from "@/components/client-hub/PaidMediaTab";
-import SystemsCommercialWorkspace from "@/components/systems-commercial/SystemsCommercialWorkspace";
+// ABAS PESADAS EM LAZY: o bundle da tela inicial não avalia Mídia paga,
+// Comercial e Feed antes do primeiro paint.
+const InstagramFeedTab = lazy(() => import("@/components/client-hub/InstagramFeedTab"));
+const PaidMediaTab = lazy(() => import("@/components/client-hub/PaidMediaTab"));
+const SystemsCommercialWorkspace = lazy(
+  () => import("@/components/systems-commercial/SystemsCommercialWorkspace"),
+);
+
 import {
   HUB_TABS,
   HUB_TAB_LABELS,
