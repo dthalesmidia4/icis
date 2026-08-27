@@ -50,9 +50,6 @@ import {
   STAGE_OPTIONS,
   hasMigrationAvailable,
   isFinalStage,
-  loadSystemsClients,
-  loadSystemsCompanies,
-  loadSystemsProspects,
   markOpportunityWon,
   normalizeCurrentSystem,
   saveSystemsClient,
@@ -63,7 +60,6 @@ import {
   type SystemsCompany,
 } from "@/lib/systemsClients";
 import {
-  loadCampaigns,
   type MarketingCampaign,
 } from "@/lib/marketingCampaigns";
 import { patchSystemsClient } from "@/lib/systemsClients";
@@ -82,7 +78,6 @@ import {
 import {
   isBaseMarket,
   isMarketClosed,
-  loadExpansionMarkets,
   marketDisplayLabel,
   marketLabel,
   marketOrderLabel,
@@ -95,15 +90,14 @@ import {
 } from "@/lib/expansionMarkets";
 
 import {
-  loadMarketTouchpoints,
   summarizeMarketCommercial,
   type MarketTouchpoint,
 } from "@/lib/commercialMarketActivity";
 import PlaceFormModal from "@/components/client-hub/PlaceFormModal";
+import { loadSystemsCommercialWorkspace } from "@/lib/systemsCommercialWorkspaceData";
 import {
   buildOpportunityRows,
   countQuickFilters,
-  loadLastTouchBySubclient,
   type NextActionBucket,
   type OpportunityRow,
 } from "@/lib/systemsCommercial";
