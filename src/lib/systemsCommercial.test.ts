@@ -50,6 +50,7 @@ function client(partial: Partial<SystemsClient> & { name: string }): SystemsClie
     loss_reason: null,
     lead_source: null,
     acquisition_campaign_id: null,
+    acquisition_market_id: null,
     ...partial,
   };
 }

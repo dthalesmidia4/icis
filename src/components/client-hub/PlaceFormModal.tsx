@@ -20,23 +20,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CAMPAIGN_CHANNEL_OPTIONS } from "@/lib/marketingCampaigns";
 import {
-  CAMPAIGN_CHANNEL_OPTIONS,
-  CAMPAIGN_STATUS_OPTIONS,
-  loadCompanyStrategies,
-  placeInternalName,
-  saveCampaign,
-  validatePlaceInput,
-  type CampaignStatus,
-  type MarketingCampaign,
-} from "@/lib/marketingCampaigns";
+  MARKET_STATUS_OPTIONS,
+  saveExpansionMarket,
+  validateExpansionMarketInput,
+  type ExpansionMarket,
+  type MarketStatus,
+} from "@/lib/expansionMarkets";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tenantId: string;
   companyId: string;
-  place?: MarketingCampaign | null;
+  /** Plano único de expansão ao qual a cidade pertence. */
+  campaignId: string;
+  market?: ExpansionMarket | null;
   nextOrder?: number;
   onSaved?: () => void;
 }
@@ -45,7 +45,7 @@ interface FormState {
   sequenceOrder: string;
   city: string;
   state: string;
-  status: CampaignStatus;
+  status: MarketStatus;
   objective: string;
   paidTrafficBudget: string;
   adsStartDate: string;
@@ -79,60 +79,47 @@ const empty = (nextOrder: number): FormState => ({
   observations: "",
 });
 
-const fromPlace = (c: MarketingCampaign): FormState => ({
-  sequenceOrder: c.sequence_order ? String(c.sequence_order) : "",
-  city: c.city || "",
-  state: c.state || "",
-  status: c.status,
-  objective: c.objective || "",
-  paidTrafficBudget: c.paid_traffic_budget !== null ? String(c.paid_traffic_budget) : "",
-  adsStartDate: c.ads_start_date || "",
-  adsEndDate: c.ads_end_date || "",
-  callsStartDate: c.calls_start_date || "",
-  visitsStartDate: c.visits_start_date || "",
-  visitsEndDate: c.visits_end_date || "",
-  travelDistanceKm: c.travel_distance_km !== null ? String(c.travel_distance_km) : "",
-  targetAccounts: c.target_accounts !== null ? String(c.target_accounts) : "",
-  channels: c.channels || [],
-  acquisitionStrategy: c.acquisition_strategy || "",
-  observations: c.observations || "",
+const fromMarket = (m: ExpansionMarket): FormState => ({
+  sequenceOrder: m.sequence_order ? String(m.sequence_order) : "",
+  city: m.city || "",
+  state: m.state || "",
+  status: m.status,
+  objective: m.objective || "",
+  paidTrafficBudget: m.paid_traffic_budget !== null ? String(m.paid_traffic_budget) : "",
+  adsStartDate: m.ads_start_date || "",
+  adsEndDate: m.ads_end_date || "",
+  callsStartDate: m.calls_start_date || "",
+  visitsStartDate: m.visits_start_date || "",
+  visitsEndDate: m.visits_end_date || "",
+  travelDistanceKm: m.travel_distance_km !== null ? String(m.travel_distance_km) : "",
+  targetAccounts: m.target_accounts !== null ? String(m.target_accounts) : "",
+  channels: m.channels || [],
+  acquisitionStrategy: m.acquisition_strategy || "",
+  observations: m.observations || "",
 });
 
 /**
- * Editor local da PRAÇA de expansão. Nunca abre rota nova e nunca pede um
- * campo redundante de nome — o nome interno é derivado da cidade.
+ * Editor da CIDADE/ETAPA do plano único de expansão
+ * (`marketing_campaign_markets`). Nunca cria uma nova campanha/plano e nunca
+ * pede nome de plano — a cidade é subordinada ao plano vigente.
  */
 export default function PlaceFormModal({
   open,
   onOpenChange,
   tenantId,
   companyId,
-  place,
+  campaignId,
+  market,
   nextOrder = 1,
   onSaved,
 }: Props) {
   const [form, setForm] = useState<FormState>(empty(nextOrder));
   const [saving, setSaving] = useState(false);
-  const [strategyId, setStrategyId] = useState<string>("");
 
   useEffect(() => {
     if (!open) return;
-    setForm(place ? fromPlace(place) : empty(nextOrder));
-    setStrategyId(place?.strategy_id || "");
-  }, [open, place, nextOrder]);
-
-  useEffect(() => {
-    if (!open || place?.strategy_id || !tenantId || !companyId) return;
-    let cancelled = false;
-    loadCompanyStrategies(tenantId, companyId)
-      .then((list) => {
-        if (!cancelled && list.length > 0) setStrategyId(list[0].id);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [open, place?.strategy_id, tenantId, companyId]);
+    setForm(market ? fromMarket(market) : empty(nextOrder));
+  }, [open, market, nextOrder]);
 
   const toggleChannel = (channel: string) =>
     setForm((prev) => ({
@@ -143,54 +130,41 @@ export default function PlaceFormModal({
     }));
 
   const handleSave = async () => {
-    const invalid = validatePlaceInput({
+    const payload = {
+      id: market?.id,
+      tenantId,
+      companyId,
+      campaignId,
+      sequenceOrder: form.sequenceOrder,
       city: form.city,
       state: form.state,
-      sequenceOrder: form.sequenceOrder,
-      adsStartDate: form.adsStartDate,
-      adsEndDate: form.adsEndDate,
-      visitsStartDate: form.visitsStartDate,
-      visitsEndDate: form.visitsEndDate,
+      status: form.status,
+      objective: form.objective,
       travelDistanceKm: form.travelDistanceKm,
       targetAccounts: form.targetAccounts,
       paidTrafficBudget: form.paidTrafficBudget,
-      status: form.status,
-    });
+      adsStartDate: form.adsStartDate,
+      adsEndDate: form.adsEndDate,
+      callsStartDate: form.callsStartDate,
+      visitsStartDate: form.visitsStartDate,
+      visitsEndDate: form.visitsEndDate,
+      channels: form.channels,
+      acquisitionStrategy: form.acquisitionStrategy,
+      observations: form.observations,
+    };
+    const invalid = validateExpansionMarketInput(payload);
     if (invalid) {
       toast.error(invalid);
       return;
     }
     setSaving(true);
     try {
-      const result = await saveCampaign({
-        id: place?.id,
-        tenantId,
-        companyId,
-        strategyId: strategyId || null,
-        name: placeInternalName(form.city),
-        objective: form.objective,
-        status: form.status,
-        city: form.city,
-        state: form.state,
-        regionLabel: `${form.city.trim()}/${form.state.trim().toUpperCase()}`,
-        sequenceOrder: form.sequenceOrder,
-        adsStartDate: form.adsStartDate,
-        adsEndDate: form.adsEndDate,
-        callsStartDate: form.callsStartDate,
-        visitsStartDate: form.visitsStartDate,
-        visitsEndDate: form.visitsEndDate,
-        travelDistanceKm: form.travelDistanceKm,
-        targetAccounts: form.targetAccounts,
-        channels: form.channels,
-        paidTrafficBudget: form.paidTrafficBudget,
-        acquisitionStrategy: form.acquisitionStrategy,
-        observations: form.observations,
-      });
+      const result = await saveExpansionMarket(payload);
       if (!result.success) {
-        toast.error(result.message || "Não foi possível salvar a praça.");
+        toast.error(result.message || "Não foi possível salvar a cidade.");
         return;
       }
-      toast.success(place ? "Praça atualizada." : "Praça adicionada.");
+      toast.success(market ? "Cidade atualizada." : "Cidade adicionada ao plano.");
       onOpenChange(false);
       onSaved?.();
     } finally {
@@ -202,10 +176,10 @@ export default function PlaceFormModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{place ? "Editar praça" : "Adicionar praça"}</DialogTitle>
+          <DialogTitle>{market ? "Editar cidade" : "Adicionar cidade"}</DialogTitle>
           <DialogDescription>
-            Cada praça tem sua própria janela comercial. O cronograma de conteúdo do cliente
-            continua único.
+            A cidade é uma etapa do plano único de expansão. O conteúdo continua sendo produzido
+            uma vez e distribuído em todas as etapas.
           </DialogDescription>
         </DialogHeader>
 
@@ -223,13 +197,13 @@ export default function PlaceFormModal({
             <Label>Status</Label>
             <Select
               value={form.status}
-              onValueChange={(v) => setForm({ ...form, status: v as CampaignStatus })}
+              onValueChange={(v) => setForm({ ...form, status: v as MarketStatus })}
             >
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CAMPAIGN_STATUS_OPTIONS.map((o) => (
+                {MARKET_STATUS_OPTIONS.map((o) => (
                   <SelectItem key={o.value} value={o.value}>
                     {o.label}
                   </SelectItem>
@@ -274,19 +248,11 @@ export default function PlaceFormModal({
               className="mt-1"
             />
           </div>
-          <div className="sm:col-span-2">
-            <Label>Objetivo comercial</Label>
-            <Input
-              value={form.objective}
-              onChange={(e) => setForm({ ...form, objective: e.target.value })}
-              className="mt-1"
-            />
-          </div>
           <div>
             <Label>Investimento em tráfego</Label>
             <Input
               value={form.paidTrafficBudget}
-              placeholder="Ex.: 1.500,00"
+              placeholder="Ex.: 200,00"
               onChange={(e) => setForm({ ...form, paidTrafficBudget: e.target.value })}
               className="mt-1"
             />
@@ -319,6 +285,7 @@ export default function PlaceFormModal({
               className="mt-1"
             />
           </div>
+          <div />
           <div>
             <Label>Início das visitas</Label>
             <Input
@@ -328,7 +295,6 @@ export default function PlaceFormModal({
               className="mt-1"
             />
           </div>
-
           <div>
             <Label>Fim das visitas</Label>
             <Input
@@ -338,7 +304,15 @@ export default function PlaceFormModal({
               className="mt-1"
             />
           </div>
-          <div />
+
+          <div className="sm:col-span-2">
+            <Label>Objetivo local</Label>
+            <Input
+              value={form.objective}
+              onChange={(e) => setForm({ ...form, objective: e.target.value })}
+              className="mt-1"
+            />
+          </div>
 
           <div className="sm:col-span-2">
             <Label>Canais</Label>
@@ -356,7 +330,7 @@ export default function PlaceFormModal({
           </div>
 
           <div className="sm:col-span-2">
-            <Label>Estratégia de aquisição / abordagem</Label>
+            <Label>Abordagem local</Label>
             <Textarea
               value={form.acquisitionStrategy}
               onChange={(e) => setForm({ ...form, acquisitionStrategy: e.target.value })}
@@ -378,7 +352,7 @@ export default function PlaceFormModal({
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Salvando…" : "Salvar praça"}
+            {saving ? "Salvando…" : "Salvar cidade"}
           </Button>
         </DialogFooter>
       </DialogContent>

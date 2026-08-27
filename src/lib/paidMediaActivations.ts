@@ -38,6 +38,8 @@ export interface PaidMediaActivation {
   tenant_id: string;
   company_id: string;
   campaign_id: string;
+  /** Cidade/etapa do plano de expansão (`marketing_campaign_markets`). */
+  market_id: string | null;
   demand_id: string;
   platform: string;
   status: PaidMediaStatus;
@@ -67,6 +69,7 @@ export interface PaidMediaActivationInput {
   tenantId: string;
   companyId: string;
   campaignId: string;
+  marketId: string;
   demandId: string;
   platform?: string | null;
   status?: PaidMediaStatus;
@@ -94,7 +97,8 @@ export function validateActivationInput(
   input: Partial<PaidMediaActivationInput>,
 ): string | null {
   if (!input.demandId) return "Selecione o conteúdo que vai rodar.";
-  if (!input.campaignId) return "Selecione a praça da ativação.";
+  if (!input.marketId) return "Selecione a cidade/etapa da ativação.";
+  if (!input.campaignId) return "Plano de expansão não encontrado.";
   if (input.status && !PAID_MEDIA_STATUS_OPTIONS.some((o) => o.value === input.status)) {
     return "Status de ativação inválido.";
   }
@@ -153,7 +157,7 @@ const normalize = (row: any): PaidMediaActivation => ({
 export async function loadPaidMediaActivations(
   tenantId: string,
   companyId: string,
-  options?: { campaignId?: string | null; demandIds?: string[] | null },
+  options?: { campaignId?: string | null; marketId?: string | null; demandIds?: string[] | null },
 ): Promise<PaidMediaActivation[]> {
   let query = supabase
     .from("paid_media_activations")
@@ -163,6 +167,7 @@ export async function loadPaidMediaActivations(
     .order("start_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
   if (options?.campaignId) query = query.eq("campaign_id", options.campaignId);
+  if (options?.marketId) query = query.eq("market_id", options.marketId);
   if (options?.demandIds && options.demandIds.length > 0) {
     query = query.in("demand_id", options.demandIds);
   }
@@ -182,6 +187,7 @@ export async function savePaidMediaActivation(
     tenant_id: input.tenantId,
     company_id: input.companyId,
     campaign_id: input.campaignId,
+    market_id: input.marketId,
     demand_id: input.demandId,
     platform: clean(input.platform) || "Meta",
     status: input.status || "planned",
