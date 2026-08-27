@@ -2183,6 +2183,7 @@ export type Database = {
           market_type: string
           objective: string | null
           observations: string | null
+          paid_media_status_override: string | null
           paid_traffic_budget: number | null
           region_label: string | null
           sequence_order: number | null
@@ -2210,6 +2211,7 @@ export type Database = {
           market_type?: string
           objective?: string | null
           observations?: string | null
+          paid_media_status_override?: string | null
           paid_traffic_budget?: number | null
           region_label?: string | null
           sequence_order?: number | null
@@ -2237,6 +2239,7 @@ export type Database = {
           market_type?: string
           objective?: string | null
           observations?: string | null
+          paid_media_status_override?: string | null
           paid_traffic_budget?: number | null
           region_label?: string | null
           sequence_order?: number | null
