@@ -42,6 +42,8 @@ interface Props {
 }
 
 interface FormState {
+  /** Base existente x etapa de expansão — nunca inferido. */
+  marketType: "base" | "expansion";
   sequenceOrder: string;
   city: string;
   state: string;
@@ -61,6 +63,7 @@ interface FormState {
 }
 
 const empty = (nextOrder: number): FormState => ({
+  marketType: "expansion",
   sequenceOrder: String(nextOrder || 1),
   city: "",
   state: "",
@@ -80,6 +83,7 @@ const empty = (nextOrder: number): FormState => ({
 });
 
 const fromMarket = (m: ExpansionMarket): FormState => ({
+  marketType: m.market_type === "base" ? "base" : "expansion",
   sequenceOrder: m.sequence_order ? String(m.sequence_order) : "",
   city: m.city || "",
   state: m.state || "",
@@ -135,7 +139,8 @@ export default function PlaceFormModal({
       tenantId,
       companyId,
       campaignId,
-      sequenceOrder: form.sequenceOrder,
+      marketType: form.marketType,
+      sequenceOrder: form.marketType === "base" ? null : form.sequenceOrder,
       city: form.city,
       state: form.state,
       status: form.status,
@@ -186,12 +191,18 @@ export default function PlaceFormModal({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label>Ordem</Label>
-            <Input
-              inputMode="numeric"
-              value={form.sequenceOrder}
-              onChange={(e) => setForm({ ...form, sequenceOrder: e.target.value })}
-              className="mt-1"
-            />
+            {form.marketType === "base" ? (
+              <p className="mt-2 text-sm font-bold text-muted-foreground">
+                BASE — praça existente não ocupa número na sequência.
+              </p>
+            ) : (
+              <Input
+                inputMode="numeric"
+                value={form.sequenceOrder}
+                onChange={(e) => setForm({ ...form, sequenceOrder: e.target.value })}
+                className="mt-1"
+              />
+            )}
           </div>
           <div>
             <Label>Status</Label>
