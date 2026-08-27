@@ -76,6 +76,14 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
     iofBrl: nextIof,
     paidBrl: paidAmount,
   });
+  /** Fonte ÚNICA do texto da conferência (mesma em todas as telas). */
+  const reading = interpretStatementCompositionDifference(conference.unclassifiedBrl);
+  const payment = interpretStatementPayment({
+    paid: !!group?.paid,
+    statementBrl: effectiveTotal,
+    paidBrl: paidAmount,
+  });
+
 
   const payload = group ? statementClosurePayload(group, closure) : null;
   const canSubmit = !!payload && closure.state === "ok" && !unchanged;
