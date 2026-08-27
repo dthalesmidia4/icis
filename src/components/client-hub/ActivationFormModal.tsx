@@ -27,12 +27,15 @@ import {
   type PaidMediaActivation,
   type PaidMediaStatus,
 } from "@/lib/paidMediaActivations";
+import { defaultActivationMarketId } from "@/lib/paidMediaPlanning";
 import {
+  marketBudgetLabel,
   marketLabel,
   marketOrderLabel,
   marketStatusLabel,
   type ExpansionMarket,
 } from "@/lib/expansionMarkets";
+
 
 export interface ActivationDemandOption {
   id: string;
@@ -49,10 +52,15 @@ interface Props {
   /** Plano único de expansão do cliente. */
   campaignId: string;
   markets: ExpansionMarket[];
+  /** Ativações já existentes (todas as praças) para calcular o saldo da praça. */
+  activationsByMarket?: PaidMediaActivation[];
   demands: ActivationDemandOption[];
   activation?: PaidMediaActivation | null;
+  /** Praça pré-selecionada ao criar uma nova ativação. */
+  initialMarketId?: string | null;
   onSaved?: () => void;
 }
+
 
 interface FormState {
   demandId: string;
@@ -93,8 +101,10 @@ export default function ActivationFormModal({
   companyId,
   campaignId,
   markets,
+  activationsByMarket,
   demands,
   activation,
+  initialMarketId,
   onSaved,
 }: Props) {
   const [form, setForm] = useState<FormState>(empty);
@@ -102,24 +112,49 @@ export default function ActivationFormModal({
 
   useEffect(() => {
     if (!open) return;
-    setForm(
-      activation
-        ? {
-            demandId: activation.demand_id,
-            marketId: activation.market_id || "",
-            platform: activation.platform || "Meta",
-            status: activation.status,
-            startDate: activation.start_date || "",
-            endDate: activation.end_date || "",
-            budget: activation.budget !== null ? String(activation.budget) : "",
-            objective: activation.objective || "",
-            audience: activation.audience || "",
-            cta: activation.cta || "",
-            notes: activation.notes || "",
-          }
-        : { ...empty, marketId: markets[0]?.id || "" },
-    );
-  }, [open, activation, markets]);
+    if (activation) {
+      setForm({
+        demandId: activation.demand_id,
+        marketId: activation.market_id || "",
+        platform: activation.platform || "Meta",
+        status: activation.status,
+        startDate: activation.start_date || "",
+        endDate: activation.end_date || "",
+        budget: activation.budget !== null ? String(activation.budget) : "",
+        objective: activation.objective || "",
+        audience: activation.audience || "",
+        cta: activation.cta || "",
+        notes: activation.notes || "",
+      });
+      return;
+    }
+    // NOVA ativação: praça vinda do contexto, senão a cidade de expansão ativa
+    // (nunca a base). As datas herdam a janela da praça apenas quando vazias.
+    const marketId =
+      (initialMarketId && markets.some((m) => m.id === initialMarketId)
+        ? initialMarketId
+        : "") || defaultActivationMarketId(markets);
+    const market = markets.find((m) => m.id === marketId) || null;
+    setForm({
+      ...empty,
+      marketId,
+      startDate: market?.ads_start_date || "",
+      endDate: market?.ads_end_date || "",
+    });
+  }, [open, activation, markets, initialMarketId]);
+
+  /** Saldo da praça escolhida: planejado − alocado (sem preencher verba automaticamente). */
+  const selectedMarket = markets.find((m) => m.id === form.marketId) || null;
+  const marketPlanned = selectedMarket?.paid_traffic_budget ?? null;
+  const marketAllocated = (activationsByMarket || [])
+    .filter(
+      (a) =>
+        a.market_id === form.marketId &&
+        a.status !== "cancelled" &&
+        a.id !== activation?.id,
+    )
+    .reduce((s, a) => s + (a.budget ?? 0), 0);
+
 
   const handleSave = async () => {
     const invalid = validateActivationInput({
@@ -264,7 +299,13 @@ export default function ActivationFormModal({
               onChange={(e) => setForm({ ...form, budget: e.target.value })}
               className="mt-1"
             />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {marketPlanned === null
+                ? "Praça sem verba planejada. Informe o valor desta ativação."
+                : `Praça: ${marketBudgetLabel(marketPlanned)} planejados · ${marketBudgetLabel(marketAllocated)} já alocados · ${marketBudgetLabel(marketPlanned - marketAllocated)} disponíveis.`}
+            </p>
           </div>
+
 
           <div>
             <Label>Início</Label>

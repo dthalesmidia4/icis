@@ -1858,6 +1858,34 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       : 'estrategia';
   });
 
+  /** Praça em foco (`?market=`): compartilhada entre Expansão e Mídia paga. */
+  const [focusedMarketId, setFocusedMarketId] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('market'),
+  );
+
+  /**
+   * Troca de aba sem recarregar: escreve `?tab=` preservando `market` para não
+   * perder o contexto territorial ao navegar entre Expansão e Mídia paga.
+   */
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', tab);
+    if (focusedMarketId) params.set('market', focusedMarketId);
+    else params.delete('market');
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  };
+
+  const focusMarketInPaidMedia = (marketId: string) => {
+    setFocusedMarketId(marketId);
+    setActiveTab('midia-paga');
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', 'midia-paga');
+    params.set('market', marketId);
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  };
+
+
   // Demanda aberta em painel lateral (a partir do calendário)
   const [drawerDemandId, setDrawerDemandId] = useState<string | null>(null);
 
@@ -1909,12 +1937,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       <div
         className={cn(
           "container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8",
-          // O calendário precisa de mais largura horizontal que as demais abas.
+          // Cada aba tem uma largura operacional própria.
           activeTab === "calendario"
             ? "max-w-[1800px]"
             : activeTab === "feed"
               ? "max-w-[1500px]"
-              : "max-w-7xl"
+              : activeTab === "expansao" || activeTab === "midia-paga"
+                ? "max-w-[1750px]"
+                : "max-w-7xl"
+
         )}
       >
         <ClientHubHeader
@@ -1956,7 +1987,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         />
 
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">
             {[
               { value: "estrategia", label: "Estratégia" },
@@ -1995,11 +2026,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               <ExpansionTab
                 tenantId={tenantId}
                 companyId={selectedClient.id}
-                onOpenCommercial={(marketId?: string) =>
+                selectedMarketId={focusedMarketId}
+                onOpenPaidMedia={focusMarketInPaidMedia}
+                onOpenCommercial={(marketId?: string, opportunityId?: string) =>
                   navigate(
                     `/comercial-sistemas?company=${selectedClient.id}${
                       marketId ? `&market=${marketId}` : ''
-                    }`,
+                    }${opportunityId ? `&opportunity=${opportunityId}` : ''}`,
                   )
                 }
               />
@@ -2009,8 +2042,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 tenantId={tenantId}
                 companyId={selectedClient.id}
                 currentPeriodId={workspace.period?.id ?? null}
+                selectedMarketId={focusedMarketId}
               />
             </TabsContent>
+
             <TabsContent value="calendario" className="m-0">
               <CalendarTab
                 period={workspace.period}

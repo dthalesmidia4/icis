@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MarketingCampaign } from "@/lib/marketingCampaigns";
 import {
@@ -8,14 +8,8 @@ import {
   loadExpansionMarkets,
   loadExpansionPlan,
   marketBudgetLabel,
-  marketDate,
-  marketDistanceLabel,
   marketLabel,
-  marketOrderLabel,
   marketStatusLabel,
-  marketTargetLabel,
-  marketVisitWindow,
-  marketWindow,
   summarizeExpansionPlan,
   undefinedSuffix,
   type ExpansionMarket,
@@ -29,28 +23,45 @@ import {
   summarizeMarketCommercial,
   type MarketLead,
 } from "@/lib/commercialMarketActivity";
-import { stageLabel, STAGE_OPTIONS } from "@/lib/systemsClients";
+import {
+  isActivationCancelled,
+  loadPaidMediaActivations,
+  type PaidMediaActivation,
+} from "@/lib/paidMediaActivations";
 import PlaceFormModal from "./PlaceFormModal";
 import PlanConfigModal from "./PlanConfigModal";
+import ExpansionMarketRow from "./ExpansionMarketRow";
+import ExpansionMarketDetails from "./ExpansionMarketDetails";
 
 interface ExpansionTabProps {
   tenantId: string | null | undefined;
   companyId: string | null | undefined;
-  /** Abre o Comercial já no contexto da cidade/carteira, sem duplicar leads. */
-  onOpenCommercial: (marketId?: string) => void;
+  /** Abre o Comercial já no contexto da praça e, quando informado, do registro. */
+  onOpenCommercial: (marketId?: string, opportunityId?: string) => void;
+  /** Leva para a aba Mídia paga já com a praça selecionada (sem rota nova). */
+  onOpenPaidMedia?: (marketId: string) => void;
+  /** Praça destacada por deep link (`market=`). */
+  selectedMarketId?: string | null;
 }
 
 /**
- * PLANO DE EXPANSÃO REGIONAL: UM único plano (`marketing_campaigns`) com uma
- * BASE comercial existente e N cidades/etapas numeradas
- * (`marketing_campaign_markets`). Os leads exibidos são os MESMOS registros de
- * `systems_clients` (por `market_id`) — a aba nunca cria ou copia lead. A
- * execução real vem de `client_touchpoints`.
+ * PLANO DE EXPANSÃO REGIONAL: UM plano (`marketing_campaigns`) com uma BASE
+ * comercial existente e N cidades numeradas. Leitura VERTICAL em faixas
+ * operacionais — nunca uma megatabela horizontal. Os leads exibidos são os
+ * MESMOS registros comerciais e a execução real vem dos touchpoints já
+ * registrados no Comercial.
  */
-export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: ExpansionTabProps) {
+export default function ExpansionTab({
+  tenantId,
+  companyId,
+  onOpenCommercial,
+  onOpenPaidMedia,
+  selectedMarketId,
+}: ExpansionTabProps) {
   const [plan, setPlan] = useState<MarketingCampaign | null>(null);
   const [markets, setMarkets] = useState<ExpansionMarket[]>([]);
   const [leads, setLeads] = useState<MarketLead[]>([]);
+  const [activations, setActivations] = useState<PaidMediaActivation[]>([]);
   const [touchpoints, setTouchpoints] = useState<
     { subclient_id: string | null; touchpoint_type: string; occurred_at: string }[]
   >([]);
@@ -59,6 +70,7 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
   const [marketModalOpen, setMarketModalOpen] = useState(false);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editing, setEditing] = useState<ExpansionMarket | null>(null);
+  const autoExpanded = useRef(false);
 
   const load = useCallback(async () => {
     if (!tenantId || !companyId) {
@@ -66,18 +78,23 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
       setMarkets([]);
       setLeads([]);
       setTouchpoints([]);
+      setActivations([]);
       return;
     }
     setLoading(true);
     try {
       const activePlan = await loadExpansionPlan(tenantId, companyId);
       setPlan(activePlan);
-      const [rows, leadRows] = await Promise.all([
+      const [rows, leadRows, acts] = await Promise.all([
         loadExpansionMarkets(tenantId, companyId, activePlan?.id ?? null),
         loadMarketLeads(tenantId, companyId),
+        loadPaidMediaActivations(tenantId, companyId).catch(
+          () => [] as PaidMediaActivation[],
+        ),
       ]);
       setMarkets(rows);
       setLeads(leadRows);
+      setActivations(acts);
       setTouchpoints(await loadMarketTouchpoints(leadRows.map((l) => l.id)));
     } catch (err) {
       console.error("[ExpansionTab]", err);
@@ -88,6 +105,13 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  // A execução real vive no Comercial: ao voltar o foco para a aba, recarrega.
+  useEffect(() => {
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [load]);
 
   const statsByMarket = useMemo(
@@ -101,182 +125,77 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
   const bases = useMemo(() => baseMarketsOf(markets), [markets]);
   const expansionRows = useMemo(() => expansionMarketsOf(markets), [markets]);
 
+  const activationsByMarket = useMemo(() => {
+    const map = new Map<string, PaidMediaActivation[]>();
+    activations
+      .filter((a) => !isActivationCancelled(a.status) && a.market_id)
+      .forEach((a) => {
+        const list = map.get(a.market_id!) || [];
+        list.push(a);
+        map.set(a.market_id!, list);
+      });
+    return map;
+  }, [activations]);
+
   const nextOrder = useMemo(
     () => expansionRows.reduce((max, m) => Math.max(max, m.sequence_order ?? 0), 0) + 1,
     [expansionRows],
   );
 
-  const renderRows = (rows: ExpansionMarket[]) =>
-    rows.map((market) => {
-      const stats = statsByMarket.get(market.id) ?? EMPTY_MARKET_STATS;
-      const marketLeads = leadsByMarket.get(market.id) ?? [];
-      const isOpen = expanded === market.id;
-      const isCurrent = market.status === "active";
-      return (
-        <Fragment key={market.id}>
-          <tr className={isCurrent ? "bg-primary/5 align-top" : "align-top"}>
-            <td className="py-3 pr-3 font-black tabular-nums text-primary">
-              {marketOrderLabel(market)}
-            </td>
-            <td className="py-3 pr-4 font-bold">{marketLabel(market)}</td>
-            <td className="py-3 pr-4">{marketStatusLabel(market.status)}</td>
-            <td className="py-3 pr-4 tabular-nums">
-              {marketDistanceLabel(market.travel_distance_km)}
-            </td>
-            <td className="py-3 pr-4 tabular-nums">{marketTargetLabel(market.target_accounts)}</td>
-            <td className="py-3 pr-4 tabular-nums">
-              {marketBudgetLabel(market.paid_traffic_budget)}
-            </td>
-            <td className="py-3 pr-4 tabular-nums">
-              {marketWindow(market.ads_start_date, market.ads_end_date)}
-            </td>
-            <td className="py-3 pr-4 tabular-nums">{marketDate(market.calls_start_date)}</td>
-            <td className="py-3 pr-4 tabular-nums">
-              {marketVisitWindow(market.visits_start_date, market.visits_end_date)}
-            </td>
-            <td className="py-3 pr-4 tabular-nums">{stats.opportunities}</td>
-            <td className="py-3 pr-4 tabular-nums">{stats.negotiating}</td>
-            <td className="py-3 pr-4 tabular-nums">{`${stats.won}/${stats.customers}`}</td>
-            <td className="py-3 pr-4 tabular-nums text-muted-foreground">
-              {`${stats.calls} lig. · ${stats.visits} vis. · ${stats.demos} demo`}
-            </td>
-            <td className="whitespace-nowrap py-3 text-right">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs"
-                onClick={() => {
-                  setEditing(market);
-                  setMarketModalOpen(true);
-                }}
-              >
-                Editar
-              </Button>
-              <button
-                type="button"
-                onClick={() => setExpanded(isOpen ? null : market.id)}
-                className="ml-1 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
-              >
-                Detalhes
-                <ChevronDown
-                  className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-            </td>
-          </tr>
-          {isOpen && (
-            <tr className="bg-muted/30">
-              <td />
-              <td colSpan={13} className="py-4 pr-4">
-                <div className="grid gap-6 border-l-2 border-primary pl-4 lg:grid-cols-2">
-                  <div className="space-y-3">
-                    {(market.objective || "").trim() && (
-                      <Detail label="Objetivo local" value={market.objective!} />
-                    )}
-                    {market.channels.length > 0 && (
-                      <Detail label="Canais" value={market.channels.join(", ")} />
-                    )}
-                    {(market.acquisition_strategy || "").trim() && (
-                      <Detail label="Abordagem local" value={market.acquisition_strategy!} />
-                    )}
-                    {(market.observations || "").trim() && (
-                      <Detail label="Observações" value={market.observations!} />
-                    )}
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                        Registros comerciais desta cidade
-                      </p>
-                      {marketLeads.length === 0 ? (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          Nenhum registro vinculado a esta cidade ainda. O vínculo é sempre
-                          explícito no Comercial.
-                        </p>
-                      ) : (
-                        <ul className="mt-2 divide-y border-y text-sm">
-                          {marketLeads.map((lead) => (
-                            <li key={lead.id} className="space-y-1 py-2">
-                              <div className="flex flex-wrap items-baseline gap-x-3">
-                                <span className="font-bold">{lead.name}</span>
-                                <span className="text-muted-foreground">
-                                  {lead.lifecycle === "customer"
-                                    ? "Cliente"
-                                    : stageLabel(lead.commercial_stage)}
-                                </span>
-                                {lead.current_system && (
-                                  <span className="text-muted-foreground">
-                                    Sistema atual: {lead.current_system}
-                                  </span>
-                                )}
-                              </div>
-                              {lead.last_contact_result && (
-                                <p className="text-xs text-muted-foreground">
-                                  Último resultado: {lead.last_contact_result}
-                                </p>
-                              )}
-                              {lead.next_action && (
-                                <p className="text-xs text-muted-foreground">
-                                  Próxima ação: {lead.next_action}
-                                  {lead.next_action_at
-                                    ? ` · ${new Date(lead.next_action_at).toLocaleDateString("pt-BR")}`
-                                    : ""}
-                                </p>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => onOpenCommercial(market.id)}
-                                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
-                              >
-                                Abrir no Comercial
-                                <ArrowRight className="h-3 w-3" />
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+  // Base com carteira ativa abre por padrão quando nada foi escolhido.
+  useEffect(() => {
+    if (autoExpanded.current) return;
+    if (markets.length === 0) return;
+    autoExpanded.current = true;
+    if (selectedMarketId && markets.some((m) => m.id === selectedMarketId)) {
+      setExpanded(selectedMarketId);
+      return;
+    }
+    const baseWithLeads = bases.find((b) => (leadsByMarket.get(b.id) ?? []).length > 0);
+    if (baseWithLeads) setExpanded(baseWithLeads.id);
+  }, [markets, bases, leadsByMarket, selectedMarketId]);
 
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                      Distribuição por etapa comercial
-                    </p>
-                    <dl className="mt-3 divide-y border-y text-sm">
-                      {STAGE_OPTIONS.map(({ value, label }) => (
-                        <div key={value} className="flex items-baseline justify-between gap-4 py-2">
-                          <dt className="text-muted-foreground">{label}</dt>
-                          <dd className="font-bold tabular-nums">{stats.stages[value] ?? 0}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      Execução registrada: {stats.calls} ligações, {stats.visits} visitas,{" "}
-                      {stats.demos} demonstrações.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => onOpenCommercial(market.id)}
-                      className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:underline"
-                    >
-                      Abrir Comercial nesta cidade
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          )}
-        </Fragment>
-      );
-    });
+  const renderMarket = (market: ExpansionMarket) => {
+    const stats = statsByMarket.get(market.id) ?? EMPTY_MARKET_STATS;
+    const marketLeads = leadsByMarket.get(market.id) ?? [];
+    const marketActivations = activationsByMarket.get(market.id) ?? [];
+    const allocated = marketActivations.reduce((s, a) => s + (a.budget ?? 0), 0);
+    const isOpen = expanded === market.id;
+    return (
+      <ExpansionMarketRow
+        key={market.id}
+        market={market}
+        stats={stats}
+        open={isOpen}
+        onToggle={() => setExpanded(isOpen ? null : market.id)}
+        onEdit={() => {
+          setEditing(market);
+          setMarketModalOpen(true);
+        }}
+        onOpenPaidMedia={onOpenPaidMedia ? () => onOpenPaidMedia(market.id) : undefined}
+      >
+        <ExpansionMarketDetails
+          market={market}
+          stats={stats}
+          leads={marketLeads}
+          activationsCount={marketActivations.length}
+          allocatedBudget={allocated}
+          onOpenLead={(leadId) => onOpenCommercial(market.id, leadId)}
+          onOpenCommercial={() => onOpenCommercial(market.id)}
+          onOpenPaidMedia={onOpenPaidMedia ? () => onOpenPaidMedia(market.id) : undefined}
+        />
+      </ExpansionMarketRow>
+    );
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-2xl">
+        <div className="max-w-3xl">
           <h2 className="text-2xl font-black leading-tight">Plano de expansão regional</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Um único plano comercial: uma base já existente e a sequência de cidades a conquistar. O
-            conteúdo é produzido uma vez e distribuído em todas as etapas.
+            Um único plano comercial. O conteúdo é produzido uma vez; mídia, ligações e visitas
+            avançam cidade por cidade.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -316,7 +235,7 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
                 label="Base comercial"
                 value={bases.length ? bases.map((b) => marketLabel(b)).join(", ") : "A definir"}
               />
-              <Field label="Cidades a conquistar" value={String(summary.totalExpansionCities)} />
+              <Field label="Cidades na expansão" value={String(summary.totalExpansionCities)} />
               <Field
                 label="Alvos previstos"
                 value={`${summary.totalTargetAccounts}${undefinedSuffix(summary.targetsUndefined, "meta")}`}
@@ -338,49 +257,21 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
               {loading ? "Carregando…" : "Nenhuma cidade cadastrada neste plano."}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1320px] text-sm">
-                <thead>
-                  <tr className="border-b text-left text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                    <th className="py-2 pr-3">#</th>
-                    <th className="py-2 pr-4">Cidade</th>
-                    <th className="py-2 pr-4">Status</th>
-                    <th className="py-2 pr-4">Distância</th>
-                    <th className="py-2 pr-4">Meta</th>
-                    <th className="py-2 pr-4">Investimento</th>
-                    <th className="py-2 pr-4">Anúncios</th>
-                    <th className="py-2 pr-4">Ligações</th>
-                    <th className="py-2 pr-4">Visitas</th>
-                    <th className="py-2 pr-4">Oportunidades</th>
-                    <th className="py-2 pr-4">Avaliação/negociação</th>
-                    <th className="py-2 pr-4">Ganhos/clientes</th>
-                    <th className="py-2 pr-4">Execução real</th>
-                    <th className="py-2" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {bases.length > 0 && (
-                    <tr className="bg-muted/40">
-                      <td
-                        colSpan={14}
-                        className="py-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground"
-                      >
-                        Base comercial existente
-                      </td>
-                    </tr>
-                  )}
-                  {renderRows(bases)}
-                  <tr className="bg-muted/40">
-                    <td
-                      colSpan={14}
-                      className="py-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground"
-                    >
-                      Sequência de expansão
-                    </td>
-                  </tr>
-                  {renderRows(expansionRows)}
-                </tbody>
-              </table>
+            <div className="space-y-8">
+              {bases.length > 0 && (
+                <section>
+                  <p className="border-b pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                    Base comercial existente
+                  </p>
+                  {bases.map(renderMarket)}
+                </section>
+              )}
+              <section>
+                <p className="border-b pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                  Sequência de expansão
+                </p>
+                {expansionRows.map(renderMarket)}
+              </section>
             </div>
           )}
 
@@ -437,16 +328,5 @@ const Field = ({ label, value }: { label: string; value: string }) => (
       {label}
     </p>
     <p className="mt-0.5 text-sm font-bold tabular-nums">{value}</p>
-  </div>
-);
-
-const Detail = ({ label, value }: { label: string; value: string }) => (
-  <div>
-    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-      {label}
-    </p>
-    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-      {value.length > 1200 ? `${value.slice(0, 1200)}…` : value}
-    </p>
   </div>
 );

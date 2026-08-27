@@ -1,41 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import type { MarketingCampaign } from "@/lib/marketingCampaigns";
 import {
   loadExpansionMarkets,
   loadExpansionPlan,
+  marketBudgetLabel,
   marketLabel,
   marketOrderLabel,
+  marketStatusLabel,
   marketWindow,
+  undefinedSuffix,
   type ExpansionMarket,
 } from "@/lib/expansionMarkets";
 import {
-  PAID_MEDIA_PLATFORM_OPTIONS,
-  PAID_MEDIA_STATUS_OPTIONS,
   cancelPaidMediaActivation,
   formatActivationBudget,
   loadPaidMediaActivations,
   paidMediaStatusLabel,
-  summarizePaidMediaActivations,
   type PaidMediaActivation,
 } from "@/lib/paidMediaActivations";
-import { isAdEnabled } from "@/lib/adPlan";
+import {
+  buildPaidMediaMarketRows,
+  summarizePaidMediaPlan,
+} from "@/lib/paidMediaPlanning";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
 
 interface PaidMediaTabProps {
   tenantId: string | null | undefined;
   companyId: string | null | undefined;
   currentPeriodId: string | null | undefined;
+  /** Praça vinda da aba Expansão (`market=`): abre e destaca a cidade. */
+  selectedMarketId?: string | null;
 }
 
 interface DemandRow {
@@ -43,25 +42,31 @@ interface DemandRow {
   title: string;
   publish_date: string | null;
   period_plan_id: string | null;
-  ad_plan: Record<string, any> | null;
 }
 
 /**
- * MÍDIA PAGA: única área dedicada à execução paga. A fonte operacional é
- * `paid_media_activations`; `demands.ad_plan` aparece somente como informação
- * complementar da peça (briefing), nunca como praça ou verba executável.
+ * MÍDIA PAGA EM DOIS NÍVEIS:
+ * 1. planejamento da praça (verba e janela já definidas no plano regional);
+ * 2. alocação de peças naquela praça (ativações).
+ *
+ * A tela nunca mostra "R$ 0,00 planejado" quando as praças já têm verba: o
+ * planejamento aparece mesmo com zero ativações.
  */
-export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: PaidMediaTabProps) {
+export default function PaidMediaTab({
+  tenantId,
+  companyId,
+  currentPeriodId,
+  selectedMarketId,
+}: PaidMediaTabProps) {
   const [plan, setPlan] = useState<MarketingCampaign | null>(null);
   const [markets, setMarkets] = useState<ExpansionMarket[]>([]);
   const [demands, setDemands] = useState<DemandRow[]>([]);
   const [activations, setActivations] = useState<PaidMediaActivation[]>([]);
   const [loading, setLoading] = useState(false);
-  const [placeFilter, setPlaceFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [platformFilter, setPlatformFilter] = useState("all");
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PaidMediaActivation | null>(null);
+  const [initialMarketId, setInitialMarketId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!tenantId || !companyId) {
@@ -80,7 +85,7 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
         loadPaidMediaActivations(tenantId, companyId),
         supabase
           .from("demands")
-          .select("id, title, publish_date, period_plan_id, ad_plan")
+          .select("id, title, publish_date, period_plan_id")
           .eq("tenant_id", tenantId)
           .eq("client_id", companyId)
           .eq("work_area", "midia")
@@ -92,7 +97,7 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
       setDemands((dem.data || []) as unknown as DemandRow[]);
     } catch (err) {
       console.error("[PaidMediaTab]", err);
-      toast.error("Não foi possível carregar as ativações de mídia paga.");
+      toast.error("Não foi possível carregar o planejamento de mídia paga.");
     } finally {
       setLoading(false);
     }
@@ -102,40 +107,18 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (selectedMarketId) setExpanded(selectedMarketId);
+  }, [selectedMarketId]);
+
   const demandById = useMemo(() => {
     const map = new Map<string, DemandRow>();
     demands.forEach((d) => map.set(d.id, d));
     return map;
   }, [demands]);
 
-  const marketById = useMemo(() => {
-    const map = new Map<string, { label: string; order: string }>();
-    markets.forEach((m, index) =>
-      map.set(m.id, { label: marketLabel(m), order: marketOrderLabel(m, index) }),
-    );
-    return map;
-  }, [markets]);
-
-  /** Resumo do PERÍODO ATUAL: só ativações de peças do ciclo em andamento. */
-  const periodSummary = useMemo(() => {
-    const periodDemandIds = new Set(
-      demands.filter((d) => currentPeriodId && d.period_plan_id === currentPeriodId).map((d) => d.id),
-    );
-    return summarizePaidMediaActivations(
-      activations.filter((a) => periodDemandIds.has(a.demand_id)),
-    );
-  }, [activations, demands, currentPeriodId]);
-
-  const visible = useMemo(
-    () =>
-      activations.filter((a) => {
-        if (placeFilter !== "all" && a.market_id !== placeFilter) return false;
-        if (statusFilter !== "all" && a.status !== statusFilter) return false;
-        if (platformFilter !== "all" && a.platform !== platformFilter) return false;
-        return true;
-      }),
-    [activations, placeFilter, statusFilter, platformFilter],
-  );
+  const totals = useMemo(() => summarizePaidMediaPlan(markets, activations), [markets, activations]);
+  const rows = useMemo(() => buildPaidMediaMarketRows(markets, activations), [markets, activations]);
 
   const demandOptions: ActivationDemandOption[] = useMemo(
     () =>
@@ -148,25 +131,24 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
     [demands, currentPeriodId],
   );
 
+  const openNew = (marketId?: string | null) => {
+    setEditing(null);
+    setInitialMarketId(marketId ?? null);
+    setModalOpen(true);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-2xl">
+        <div className="max-w-3xl">
           <h2 className="text-2xl font-black leading-tight">Mídia paga</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Cada linha é uma ativação: uma peça rodando em uma cidade do plano de expansão, com
-            verba e janela próprias. O calendário editorial não muda.
+            Cada praça já tem verba e janela planejadas. Dentro dela, cada peça alocada consome
+            parte dessa verba — o calendário editorial não muda e nenhuma peça é duplicada.
           </p>
         </div>
-        {markets.length > 0 && plan && (
-          <Button
-            size="sm"
-            className="gap-2"
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
-          >
+        {rows.length > 0 && plan && (
+          <Button size="sm" className="gap-2" onClick={() => openNew(null)}>
             <Plus className="h-3.5 w-3.5" />
             Nova ativação
           </Button>
@@ -174,134 +156,170 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
       </div>
 
       <div className="grid gap-px border bg-border sm:grid-cols-3 lg:grid-cols-5">
-        <Metric label="Verba planejada" value={formatActivationBudget(periodSummary.budgetTotal)} />
         <Metric
-          label="Sem verba definida"
-          value={`${periodSummary.budgetUndefinedCount} ativações`}
+          label="Investimento planejado"
+          value={`${marketBudgetLabel(totals.plannedKnown)}${undefinedSuffix(totals.plannedUndefined, "valor")}`}
         />
-        <Metric label="Rodando" value={String(periodSummary.running)} />
-        <Metric label="Planejadas" value={String(periodSummary.planned)} />
-        <Metric label="Concluídas" value={String(periodSummary.completed)} />
+        <Metric
+          label="Alocado em ativações"
+          value={`${marketBudgetLabel(totals.allocatedKnown)}${undefinedSuffix(totals.allocatedUndefined, "verba")}`}
+        />
+        <Metric label="Saldo conhecido" value={marketBudgetLabel(totals.balanceKnown)} />
+        <Metric label="Praças programadas" value={String(totals.scheduledCities)} />
+        <Metric label="Ativações" value={String(totals.activations)} />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <FilterSelect
-          value={placeFilter}
-          onChange={setPlaceFilter}
-          placeholder="Cidade"
-          options={[
-            { value: "all", label: "Todas as cidades" },
-            ...markets.map((m, i) => ({
-              value: m.id,
-              label: `${marketOrderLabel(m, i)} ${marketLabel(m)}`,
-            })),
-          ]}
-        />
-        <FilterSelect
-          value={statusFilter}
-          onChange={setStatusFilter}
-          placeholder="Status"
-          options={[{ value: "all", label: "Todos os status" }, ...PAID_MEDIA_STATUS_OPTIONS]}
-        />
-        <FilterSelect
-          value={platformFilter}
-          onChange={setPlatformFilter}
-          placeholder="Plataforma"
-          options={[
-            { value: "all", label: "Todas as plataformas" },
-            ...PAID_MEDIA_PLATFORM_OPTIONS.map((p) => ({ value: p, label: p })),
-          ]}
-        />
-      </div>
-
-      {visible.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {loading
-            ? "Carregando…"
-            : markets.length === 0
-              ? "Cadastre uma cidade na aba Expansão para criar ativações."
-              : "Nenhuma ativação registrada. Use uma peça existente e escolha a cidade, verba e período."}
+      <section>
+        <p className="border-b pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+          Planejamento por praça
         </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
-            <thead>
-              <tr className="border-b text-left text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                <th className="py-2 pr-4">Conteúdo</th>
-                <th className="py-2 pr-4">Cidade</th>
-                <th className="py-2 pr-4">Plataforma</th>
-                <th className="py-2 pr-4">Período</th>
-                <th className="py-2 pr-4">Verba</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Objetivo</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {visible.map((a) => {
-                const demand = demandById.get(a.demand_id);
-                const market = a.market_id ? marketById.get(a.market_id) : null;
-                const objective = (a.objective || "").trim();
-                return (
-                  <tr key={a.id} className="align-top">
-                    <td className="py-3 pr-4">
-                      <p className="font-bold">{demand?.title || "Conteúdo removido"}</p>
-                      {demand && isAdEnabled(demand.ad_plan) && (
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                          Peça com plano de anúncio
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-3 pr-4">
-                      {market ? `${market.order} ${market.label}` : "—"}
-                    </td>
-                    <td className="py-3 pr-4">{a.platform}</td>
-                    <td className="py-3 pr-4 tabular-nums">
-                      {marketWindow(a.start_date, a.end_date)}
-                    </td>
-                    <td className="py-3 pr-4 tabular-nums">{formatActivationBudget(a.budget)}</td>
-                    <td className="py-3 pr-4">{paidMediaStatusLabel(a.status)}</td>
-                    <td className="max-w-[240px] py-3 pr-4 text-muted-foreground">
-                      {objective ? (objective.length > 90 ? `${objective.slice(0, 90)}…` : objective) : "—"}
-                    </td>
-                    <td className="py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => {
-                          setEditing(a);
-                          setModalOpen(true);
-                        }}
-                      >
-                        Editar
-                      </Button>
-                      {a.status !== "cancelled" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-muted-foreground"
-                          onClick={async () => {
-                            const res = await cancelPaidMediaActivation(a.id);
-                            if (!res.success) {
-                              toast.error(res.message || "Não foi possível cancelar.");
-                              return;
-                            }
-                            toast.success("Ativação cancelada.");
-                            load();
-                          }}
-                        >
-                          Cancelar
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+        {rows.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {loading
+              ? "Carregando…"
+              : "Cadastre uma cidade na aba Expansão para planejar mídia paga."}
+          </p>
+        ) : (
+          rows.map(({ market, planned, allocated, available, activations: acts }) => {
+            const isOpen = expanded === market.id;
+            const live = acts.filter((a) => a.status !== "cancelled");
+            return (
+              <div
+                key={market.id}
+                className={cn(
+                  "border-b",
+                  selectedMarketId === market.id && "bg-primary/5",
+                )}
+              >
+                <div className="flex flex-wrap items-start gap-x-4 gap-y-2 py-3">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="flex flex-wrap items-baseline gap-x-3">
+                      <span className="rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                        {marketOrderLabel(market)}
+                      </span>
+                      <span className="text-sm font-black">{marketLabel(market)}</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                        {marketStatusLabel(market.status)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                      <Chip
+                        label="Anúncios"
+                        value={marketWindow(market.ads_start_date, market.ads_end_date)}
+                      />
+                      <Chip label="Planejado" value={marketBudgetLabel(planned)} />
+                      <Chip label="Alocado" value={marketBudgetLabel(allocated)} />
+                      <Chip
+                        label="Disponível"
+                        value={available === null ? "A definir" : marketBudgetLabel(available)}
+                      />
+                      <Chip label="Ativações" value={String(live.length)} />
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => openNew(market.id)}
+                    >
+                      Adicionar ativação
+                    </Button>
+                    <button
+                      type="button"
+                      aria-label={isOpen ? "Recolher praça" : "Expandir praça"}
+                      onClick={() => setExpanded(isOpen ? null : market.id)}
+                      className="inline-flex h-8 w-8 items-center justify-center text-primary"
+                    >
+                      <ChevronDown
+                        className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {isOpen && (
+                  <div className="border-l-2 border-primary pb-5 pl-4">
+                    {acts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Nenhuma peça alocada ainda. A janela e o orçamento da praça já estão
+                        planejados.
+                      </p>
+                    ) : (
+                      <ul className="divide-y border-y text-sm">
+                        {acts.map((a) => (
+                          <li
+                            key={a.id}
+                            className="flex flex-wrap items-start gap-x-4 gap-y-1 py-2"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold">
+                                {demandById.get(a.demand_id)?.title || "Conteúdo removido"}
+                              </p>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                <span>{a.platform}</span>
+                                <span className="tabular-nums">
+                                  {marketWindow(a.start_date, a.end_date)}
+                                </span>
+                                <span className="tabular-nums">
+                                  {formatActivationBudget(a.budget)}
+                                </span>
+                                <span>{paidMediaStatusLabel(a.status)}</span>
+                                {(a.objective || "").trim() && <span>{a.objective}</span>}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => {
+                                  setEditing(a);
+                                  setInitialMarketId(null);
+                                  setModalOpen(true);
+                                }}
+                              >
+                                Editar
+                              </Button>
+                              {a.status !== "cancelled" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs text-muted-foreground"
+                                  onClick={async () => {
+                                    const res = await cancelPaidMediaActivation(a.id);
+                                    if (!res.success) {
+                                      toast.error(res.message || "Não foi possível cancelar.");
+                                      return;
+                                    }
+                                    toast.success("Ativação cancelada.");
+                                    load();
+                                  }}
+                                >
+                                  Cancelar
+                                </Button>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 gap-2"
+                      onClick={() => openNew(market.id)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Adicionar ativação
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </section>
 
       {tenantId && companyId && plan && (
         <ActivationFormModal
@@ -311,8 +329,10 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
           companyId={companyId}
           campaignId={plan.id}
           markets={markets}
+          activationsByMarket={activations}
           demands={demandOptions}
           activation={editing}
+          initialMarketId={initialMarketId}
           onSaved={load}
         />
       )}
@@ -329,27 +349,9 @@ const Metric = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-const FilterSelect = ({
-  value,
-  onChange,
-  placeholder,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  options: { value: string; label: string }[];
-}) => (
-  <Select value={value} onValueChange={onChange}>
-    <SelectTrigger className="h-9 w-[210px] text-xs">
-      <SelectValue placeholder={placeholder} />
-    </SelectTrigger>
-    <SelectContent>
-      {options.map((o) => (
-        <SelectItem key={o.value} value={o.value}>
-          {o.label}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
+const Chip = ({ label, value }: { label: string; value: string }) => (
+  <span className="whitespace-nowrap">
+    <span className="text-[10px] font-black uppercase tracking-[0.14em]">{label} </span>
+    <span className="tabular-nums text-foreground">{value}</span>
+  </span>
 );

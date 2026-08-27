@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { useCollaborators } from "@/hooks/useCollaborators";
@@ -441,11 +441,27 @@ export default function SystemsCommercial() {
     }
   };
 
+  // Deep link `opportunity=<systems_client.id>` vindo da aba Expansão: abre o
+  // drawer UMA vez, depois que as linhas carregaram. Registro inexistente
+  // apenas limpa o param, sem quebrar a tela.
+  const openedFromUrl = useRef(false);
+  useEffect(() => {
+    const id = searchParams.get("opportunity");
+    if (!id || openedFromUrl.current || loading || rows.length === 0) return;
+    openedFromUrl.current = true;
+    const found = rows.find((r) => r.client.id === id);
+    if (found) openDrawer(found.client);
+    else writeParams({ opportunity: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, rows, loading, writeParams]);
+
   const closeDrawer = () => {
     setSelected(null);
     setForm(null);
     setHistory([]);
+    if (searchParams.get("opportunity")) writeParams({ opportunity: null });
   };
+
 
   const persist = async (overrideStage?: CommercialStage) => {
     if (!selected || !form || !tenantId) return false;
