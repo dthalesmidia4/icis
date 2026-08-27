@@ -27,12 +27,15 @@ import {
   type PaidMediaActivation,
   type PaidMediaStatus,
 } from "@/lib/paidMediaActivations";
+import { defaultActivationMarketId } from "@/lib/paidMediaPlanning";
 import {
+  marketBudgetLabel,
   marketLabel,
   marketOrderLabel,
   marketStatusLabel,
   type ExpansionMarket,
 } from "@/lib/expansionMarkets";
+
 
 export interface ActivationDemandOption {
   id: string;
