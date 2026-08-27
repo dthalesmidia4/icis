@@ -34,7 +34,10 @@ export interface MarketTouchpoint {
 }
 
 export interface MarketCommercialStats {
+  /** Registros vinculados à cidade (prospects + customers). */
   total: number;
+  /** Oportunidades reais: somente `lifecycle = 'prospect'`. */
+  opportunities: number;
   negotiating: number;
   won: number;
   customers: number;
@@ -48,6 +51,7 @@ export interface MarketCommercialStats {
 
 export const EMPTY_MARKET_STATS: MarketCommercialStats = {
   total: 0,
+  opportunities: 0,
   negotiating: 0,
   won: 0,
   customers: 0,
@@ -73,10 +77,15 @@ export function groupLeadsByMarket(leads: MarketLead[]): Map<string, MarketLead[
   return map;
 }
 
-/** Leads sem carteira: nunca atribuídos automaticamente, apenas sinalizados. */
+/**
+ * OPORTUNIDADES sem cidade operacional: apenas `lifecycle = 'prospect'` sem
+ * `market_id`. Customers sem carteira NUNCA inflam este aviso comercial e a
+ * atribuição jamais é automática — apenas sinalizada.
+ */
 export function leadsWithoutMarket(leads: MarketLead[]): MarketLead[] {
-  return (leads || []).filter((l) => !l.market_id);
+  return (leads || []).filter((l) => !l.market_id && l.lifecycle === "prospect");
 }
+
 
 /**
  * Agregação pura por cidade/carteira. Ligações/visitas/demonstrações são
