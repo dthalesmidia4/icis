@@ -223,7 +223,11 @@ export function validateExpansionMarketInput(input: Partial<ExpansionMarketInput
     return "Status da cidade inválido.";
   }
   const seq = parseNumber(input.sequenceOrder);
-  if (seq !== null && seq < 1) return "A ordem da cidade deve ser 1 ou maior.";
+  // Base existente não tem ordem; expansão com ordem preenchida precisa ser >= 1.
+  if (input.marketType !== "base" && seq !== null && seq < 1) {
+    return "A ordem da cidade deve ser 1 ou maior.";
+  }
+
   const distance = parseNumber(input.travelDistanceKm);
   if (distance !== null && distance < 0) return "A distância logística não pode ser negativa.";
   const targets = parseNumber(input.targetAccounts);
