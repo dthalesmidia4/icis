@@ -8,6 +8,8 @@ import {
   summarizePaidMediaActivations,
   type PaidMediaActivation,
 } from "@/lib/paidMediaActivations";
+import RegionalPlanTable from "./RegionalPlanTable";
+
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{children}</h2>
