@@ -62,6 +62,14 @@ interface OfficeProfile {
   leftZonePx: number;
   rightZonePx: number;
   /**
+   * DENSIDADE DO CENÁRIO. O desktop normal nascia "grande" (só ficava correto
+   * com 80% de zoom do navegador): este fator encolhe cenário/gaps SEM tocar
+   * nos monitores (que compensam via `monitorPct`) e sem mexer no ultrawide.
+   */
+  sceneScale: number;
+  /** Escala do respiro entre footprints (acompanha `sceneScale`). */
+  gapScale: number;
+  /**
    * Centros das mesas no modo rico. IMPORTANTE: iguais em `desktop` e
    * `desktopShort` (a altura muda âncoras verticais, nunca a matemática
    * horizontal), para o anti-colisão continuar determinístico.
