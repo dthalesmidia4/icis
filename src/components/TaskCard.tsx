@@ -1421,7 +1421,11 @@ export default function TaskCard({
 
   /* Ações de avanço com auxílio (nunca bloqueio) de alterações pendentes. */
   const handleProceed = (forcedAssigneeId?: string | null) =>
-    runWithPendingChangesGuard("Prosseguir", () => executeProceed(forcedAssigneeId));
+    runWithPendingChangesGuard("Prosseguir", async () => {
+      // Transição muda o contexto de fluxo: cache curto é invalidado.
+      invalidateFlowUiContext(card?.tenant_id as string | undefined, card?.id ?? null);
+      return executeProceed(forcedAssigneeId);
+    });
   const handleDeliverMyPart = (targetUserId?: string) =>
     runWithPendingChangesGuard("Entregar minha parte", () => executeDeliverMyPart(targetUserId));
   const handleDeliver = () => runWithPendingChangesGuard("Entregar", () => executeDeliver());
