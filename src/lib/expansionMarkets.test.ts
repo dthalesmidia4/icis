@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  baseMarketsOf,
   buildMarketRow,
+  expansionMarketsOf,
+  isBaseMarket,
   marketLabel,
   marketOrderLabel,
   sortExpansionMarkets,
@@ -128,5 +131,61 @@ describe("rótulos", () => {
     const m = market({ id: "1", sequence_order: 1, city: "Ribeirão Preto", state: "SP" });
     expect(marketOrderLabel(m, 0)).toBe("01");
     expect(marketLabel(m)).toBe("Ribeirão Preto/SP");
+  });
+});
+
+describe("base x expansão", () => {
+  const bebedouro = market({ id: "base", market_type: "base", city: "Bebedouro", sequence_order: null });
+  const rp = market({ id: "rp", sequence_order: 1, city: "Ribeirão Preto" });
+  const franca = market({ id: "franca", sequence_order: 2, city: "Franca" });
+
+  it("separa a base da sequência numerada", () => {
+    expect(baseMarketsOf([rp, bebedouro, franca]).map((m) => m.id)).toEqual(["base"]);
+    expect(expansionMarketsOf([franca, bebedouro, rp]).map((m) => m.id)).toEqual(["rp", "franca"]);
+    expect(isBaseMarket(bebedouro)).toBe(true);
+  });
+
+  it("rotula a base como BASE e nunca inventa número", () => {
+    expect(marketOrderLabel(bebedouro)).toBe("BASE");
+    expect(marketOrderLabel(rp)).toBe("01");
+    expect(marketOrderLabel(market({ id: "x", sequence_order: null }))).toBe("—");
+  });
+
+  it("conta somente cidades de expansão no resumo do plano", () => {
+    const s = summarizeExpansionPlan([
+      bebedouro,
+      market({ id: "rp", sequence_order: 1, target_accounts: 10, paid_traffic_budget: 100 }),
+      market({ id: "franca", sequence_order: 2, target_accounts: null, paid_traffic_budget: null }),
+    ]);
+    expect(s.totalExpansionCities).toBe(2);
+    expect(s.baseMarkets.map((m) => m.id)).toEqual(["base"]);
+    expect(s.targetsUndefined).toBe(1);
+    expect(s.totalTargetAccounts).toBe(10);
+  });
+
+  it("base salva sem ordem e sem exigir sequência", () => {
+    const row = buildMarketRow({
+      tenantId: "t",
+      companyId: "c",
+      campaignId: "plan",
+      marketType: "base",
+      city: "Bebedouro",
+      state: "SP",
+      sequenceOrder: "5",
+    });
+    expect(row.market_type).toBe("base");
+    expect(row.sequence_order).toBeNull();
+    expect(
+      validateExpansionMarketInput({
+        city: "Bebedouro",
+        state: "SP",
+        campaignId: "plan",
+        marketType: "base",
+      }),
+    ).toBeNull();
+    expect(
+      buildMarketRow({ tenantId: "t", companyId: "c", campaignId: "plan", city: "Franca", state: "SP" })
+        .market_type,
+    ).toBe("expansion");
   });
 });
