@@ -81,10 +81,35 @@ export function isMarketClosed(status?: string | null): boolean {
   return isCampaignClosed(status);
 }
 
-/** `01`, `02`, … usando o índice quando ainda não há sequence_order. */
-export function marketOrderLabel(market: Pick<ExpansionMarket, "sequence_order">, index: number): string {
-  const n = market.sequence_order ?? index + 1;
+/** Base existente → `BASE`. Expansão → `01`, `02`, … (nunca índice fictício). */
+export function marketOrderLabel(
+  market: Pick<ExpansionMarket, "sequence_order" | "market_type">,
+  index?: number,
+): string {
+  if (isBaseMarket(market)) return "BASE";
+  const n = market.sequence_order ?? (typeof index === "number" ? index + 1 : null);
+  if (n === null) return "—";
   return String(n).padStart(2, "0");
+}
+
+export function isBaseMarket(market: Pick<ExpansionMarket, "market_type">): boolean {
+  return market.market_type === "base";
+}
+
+/** Bases existentes, ordem estável por cidade e depois created_at. */
+export function baseMarketsOf(markets: ExpansionMarket[]): ExpansionMarket[] {
+  return (markets || [])
+    .filter(isBaseMarket)
+    .sort(
+      (a, b) =>
+        marketLabel(a).localeCompare(marketLabel(b), "pt-BR") ||
+        (a.created_at || "").localeCompare(b.created_at || ""),
+    );
+}
+
+/** Somente cidades de expansão, numeradas por sequence_order ASC (nulls last). */
+export function expansionMarketsOf(markets: ExpansionMarket[]): ExpansionMarket[] {
+  return sortExpansionMarkets((markets || []).filter((m) => !isBaseMarket(m)));
 }
 
 /** Cidade/UF humanizada. */
@@ -106,9 +131,12 @@ export {
   placeDate as marketDate,
 };
 
-/** Ordem operacional: sequence_order ASC (nulls last), depois created_at. */
+/** Ordem operacional: bases primeiro, depois expansão por sequence_order. */
 export function sortExpansionMarkets(rows: ExpansionMarket[]): ExpansionMarket[] {
   return [...(rows || [])].sort((a, b) => {
+    const ba = isBaseMarket(a) ? 0 : 1;
+    const bb = isBaseMarket(b) ? 0 : 1;
+    if (ba !== bb) return ba - bb;
     const sa = a.sequence_order ?? Number.POSITIVE_INFINITY;
     const sb = b.sequence_order ?? Number.POSITIVE_INFINITY;
     if (sa !== sb) return sa - sb;
@@ -117,23 +145,33 @@ export function sortExpansionMarkets(rows: ExpansionMarket[]): ExpansionMarket[]
 }
 
 export interface ExpansionPlanSummary {
-  totalCities: number;
-  /** Soma das metas conhecidas (null NUNCA vira zero). */
+  /** Praças comerciais já existentes (ex.: Bebedouro/SP). */
+  baseMarkets: ExpansionMarket[];
+  /** Cidades numeradas da sequência de expansão. */
+  expansionMarkets: ExpansionMarket[];
+  totalExpansionCities: number;
+  /** Soma das metas conhecidas de EXPANSÃO (null NUNCA vira zero). */
   totalTargetAccounts: number;
   targetsUndefined: number;
-  /** Soma das verbas conhecidas. */
+  /** Soma das verbas conhecidas de EXPANSÃO. */
   totalBudget: number;
   budgetUndefined: number;
   currentMarket: ExpansionMarket | null;
   completedMarkets: number;
 }
 
-/** Resumo do PLANO (não da cidade). Valores null são sinalizados, não somados. */
+/**
+ * Resumo do PLANO. Base NÃO conta como etapa de expansão e não entra em
+ * nenhuma soma nem em `a definir`. Valores null são sinalizados, não somados.
+ */
 export function summarizeExpansionPlan(markets: ExpansionMarket[]): ExpansionPlanSummary {
-  const list = sortExpansionMarkets(markets || []);
+  const bases = baseMarketsOf(markets || []);
+  const list = expansionMarketsOf(markets || []);
   const known = <T,>(v: T | null | undefined): v is T => v !== null && v !== undefined;
   return {
-    totalCities: list.length,
+    baseMarkets: bases,
+    expansionMarkets: list,
+    totalExpansionCities: list.length,
     totalTargetAccounts: list.reduce((s, m) => s + (known(m.target_accounts) ? m.target_accounts : 0), 0),
     targetsUndefined: list.filter((m) => !known(m.target_accounts)).length,
     totalBudget: list.reduce((s, m) => s + (known(m.paid_traffic_budget) ? m.paid_traffic_budget : 0), 0),
@@ -142,6 +180,7 @@ export function summarizeExpansionPlan(markets: ExpansionMarket[]): ExpansionPla
     completedMarkets: list.filter((m) => m.status === "completed").length,
   };
 }
+
 
 /** `20 + 3 metas a definir` — nunca mascara null como zero. */
 export function undefinedSuffix(count: number, noun: string): string {
