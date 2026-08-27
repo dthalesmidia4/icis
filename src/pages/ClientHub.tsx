@@ -1201,10 +1201,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   }, [selectedClient?.id, tenantId]);
 
   // ===== Workspace do período em andamento (abas do hub) =====
+  // Abas que não leem período/plano/demandas (Comercial, Cuidados) não disparam
+  // nenhuma consulta: o shell do hub aparece na hora.
+  const [workspaceParams] = useSearchParams();
+  const workspaceTab = normalizeHubTab(workspaceParams.get("tab"));
   const workspace = useClientPeriodWorkspace({
     tenantId,
     clientId: selectedClient?.id ?? null,
+    enabled: hubTabNeedsPeriodWorkspace(workspaceTab),
   });
+
 
   const debouncedReloadCounts = useDebouncedCallback(() => {
     reloadReviewCounts();
