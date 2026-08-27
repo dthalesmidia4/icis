@@ -64,11 +64,19 @@ import {
   isCampaignClosed,
   placeLabel,
   placeOrderLabel,
-  sortCampaignsForExpansion,
   loadCampaigns,
-  pickActiveCampaign,
   type MarketingCampaign,
 } from "@/lib/marketingCampaigns";
+import {
+  isMarketClosed,
+  loadExpansionMarkets,
+  marketLabel,
+  marketOrderLabel,
+  marketStatusLabel,
+  pickExpansionPlan,
+  sortExpansionMarkets,
+  type ExpansionMarket,
+} from "@/lib/expansionMarkets";
 import {
   buildOpportunityRows,
   countQuickFilters,
@@ -156,6 +164,7 @@ interface DrawerForm {
   leadSource: string;
   lastContactResult: string;
   acquisitionCampaignId: string;
+  acquisitionMarketId: string;
 }
 
 const formFromClient = (c: SystemsClient): DrawerForm => ({
@@ -177,6 +186,7 @@ const formFromClient = (c: SystemsClient): DrawerForm => ({
   leadSource: c.lead_source || "",
   lastContactResult: c.last_contact_result || "",
   acquisitionCampaignId: c.acquisition_campaign_id || "",
+  acquisitionMarketId: c.acquisition_market_id || "",
 });
 
 export default function SystemsCommercial() {
@@ -202,6 +212,8 @@ export default function SystemsCommercial() {
   const [wonTarget, setWonTarget] = useState<SystemsClient | null>(null);
   // Camada de campanha: o mesmo cadastro de cliente de Mídia alimenta o Comercial.
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  // Cidades/etapas do plano único: fonte de verdade da origem comercial.
+  const [markets, setMarkets] = useState<ExpansionMarket[]>([]);
 
   // Registro de contato
   const [tpType, setTpType] = useState<TouchpointType>("ligacao");
@@ -213,7 +225,7 @@ export default function SystemsCommercial() {
   // Nova oportunidade
   const [newOpen, setNewOpen] = useState(false);
   const [newCompany, setNewCompany] = useState("");
-  const [newCampaignId, setNewCampaignId] = useState("");
+  const [newMarketId, setNewMarketId] = useState("");
   const [newName, setNewName] = useState("");
   const [newContact, setNewContact] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -232,6 +244,13 @@ export default function SystemsCommercial() {
       ]);
       setCompanies(comps);
       setCampaigns(camps);
+      const plan = pickExpansionPlan(camps);
+      const mkts = plan
+        ? await loadExpansionMarkets(tenantId, plan.company_id, plan.id).catch(
+            () => [] as ExpansionMarket[],
+          )
+        : [];
+      setMarkets(mkts);
       const touches = await loadLastTouchBySubclient(
         tenantId,
         prospects.map((p) => p.id),
@@ -270,30 +289,36 @@ export default function SystemsCommercial() {
 
   const counters = useMemo(() => countQuickFilters(scoped), [scoped]);
 
-  /** Praças do recorte atual, na ordem logística da expansão. */
-  const scopedPlaces = useMemo(() => {
+  /** Plano único de expansão (nunca uma campanha por cidade). */
+  const expansionPlan = useMemo(() => {
     const pool =
       companyFilter === "all" ? campaigns : campaigns.filter((c) => c.company_id === companyFilter);
-    return sortCampaignsForExpansion(pool);
+    return pickExpansionPlan(pool);
   }, [campaigns, companyFilter]);
 
-  const activeCampaign = useMemo(() => pickActiveCampaign(scopedPlaces), [scopedPlaces]);
+  const planMarkets = useMemo(
+    () =>
+      sortExpansionMarkets(
+        expansionPlan ? markets.filter((m) => m.campaign_id === expansionPlan.id) : [],
+      ),
+    [markets, expansionPlan],
+  );
 
   /**
-   * Contexto de expansão: várias praças abertas convivem. Nunca há planejamento
-   * aqui — o Client Hub continua sendo a central de Mídia.
+   * Cidades abertas do plano. Nunca há planejamento aqui — o Client Hub segue
+   * sendo a central de Mídia.
    */
-  const openPlaces = useMemo(
+  const openMarkets = useMemo(
     () =>
-      scopedPlaces
-        .filter((p) => !isCampaignClosed(p.status))
-        .map((place, index) => ({
-          place,
-          order: placeOrderLabel(place, index),
-          opportunities: rows.filter((r) => r.client.acquisition_campaign_id === place.id).length,
-          isActive: place.id === activeCampaign?.id,
+      planMarkets
+        .filter((m) => !isMarketClosed(m.status))
+        .map((market, index) => ({
+          market,
+          order: marketOrderLabel(market, index),
+          opportunities: rows.filter((r) => r.client.acquisition_market_id === market.id).length,
+          isActive: market.status === "active",
         })),
-    [scopedPlaces, rows, activeCampaign],
+    [planMarkets, rows],
   );
 
   const visible = useMemo(() => {
@@ -380,6 +405,7 @@ export default function SystemsCommercial() {
       lossReason: form.lossReason,
       leadSource: form.leadSource,
       acquisitionCampaignId: form.acquisitionCampaignId || null,
+      acquisitionMarketId: form.acquisitionMarketId || null,
     });
     setSaving(false);
     if (!res.success) {
@@ -499,7 +525,7 @@ export default function SystemsCommercial() {
       </div>
 
       <div className="space-y-4 pb-8">
-        {openPlaces.length > 0 && (
+        {expansionPlan && openMarkets.length > 0 && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
             <div className="flex items-start gap-2">
               <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -507,17 +533,18 @@ export default function SystemsCommercial() {
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">
                   Expansão
                 </p>
+                <p className="text-sm font-bold">{expansionPlan.name}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {openPlaces.map(({ place, order, opportunities, isActive }) => (
+                  {openMarkets.map(({ market, order, opportunities, isActive }) => (
                     <span
-                      key={place.id}
+                      key={market.id}
                       className={
                         isActive
                           ? "rounded-sm bg-primary px-2 py-1 text-[10px] font-black uppercase tracking-wide text-primary-foreground"
                           : "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground"
                       }
                     >
-                      {`${order} ${placeLabel(place)} · ${campaignStatusLabel(place.status)} · ${opportunities} oportunidades`}
+                      {`${order} ${marketLabel(market)} · ${marketStatusLabel(market.status)} · ${opportunities} oportunidades`}
                     </span>
                   ))}
                 </div>
@@ -862,29 +889,24 @@ export default function SystemsCommercial() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Praça de origem
+                    Cidade de origem (opcional)
                   </label>
                   <Select
-                    value={form.acquisitionCampaignId || "none"}
+                    value={form.acquisitionMarketId || "none"}
                     onValueChange={(v) =>
-                      setForm({ ...form, acquisitionCampaignId: v === "none" ? "" : v })
+                      setForm({ ...form, acquisitionMarketId: v === "none" ? "" : v })
                     }
                   >
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Sem praça" />
+                      <SelectValue placeholder="Sem cidade de origem" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sem praça</SelectItem>
-                      {campaigns
-                        .filter(
-                          (c) =>
-                            !selected || c.company_id === selected.parent_company_id,
-                        )
-                        .map((c, i) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {`${placeOrderLabel(c, i)} ${placeLabel(c)} — ${campaignStatusLabel(c.status)}`}
-                          </SelectItem>
-                        ))}
+                    <SelectContent className="max-h-[320px]">
+                      <SelectItem value="none">Sem cidade de origem</SelectItem>
+                      {planMarkets.map((m, i) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {`${marketOrderLabel(m, i)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1081,28 +1103,26 @@ export default function SystemsCommercial() {
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase text-muted-foreground">
-                Praça de origem (opcional)
+                Cidade de origem (opcional)
               </label>
               <Select
-                value={newCampaignId || "none"}
-                onValueChange={(v) => setNewCampaignId(v === "none" ? "" : v)}
+                value={newMarketId || "none"}
+                onValueChange={(v) => setNewMarketId(v === "none" ? "" : v)}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Sem praça" />
+                  <SelectValue placeholder="Sem cidade de origem" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem praça</SelectItem>
-                  {campaigns
-                    .filter((c) => !newCompany || c.company_id === newCompany)
-                    .map((c, i) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {`${placeOrderLabel(c, i)} ${placeLabel(c)} — ${campaignStatusLabel(c.status)}`}
-                      </SelectItem>
-                    ))}
+                <SelectContent className="max-h-[320px]">
+                  <SelectItem value="none">Sem cidade de origem</SelectItem>
+                  {planMarkets.map((m, i) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {`${marketOrderLabel(m, i)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                A praça de origem nunca é automática — atribua apenas quando a origem for real.
+                A cidade de origem nunca é automática — atribua apenas quando a origem for real.
               </p>
             </div>
           </div>
@@ -1130,8 +1150,8 @@ export default function SystemsCommercial() {
                   lifecycle: "prospect",
                   commercialStage: "mapeado",
                   commercialOwnerId: user?.id || null,
-                  // Vínculo de campanha é sempre escolha explícita: nunca automático.
-                  acquisitionCampaignId: newCampaignId || null,
+                  // Vínculo de cidade é sempre escolha explícita: nunca automático.
+                  acquisitionMarketId: newMarketId || null,
                 });
                 setNewSaving(false);
                 if (!res.success) {
@@ -1144,7 +1164,7 @@ export default function SystemsCommercial() {
                 setNewContact("");
                 setNewPhone("");
                 setNewCity("");
-                setNewCampaignId("");
+                setNewMarketId("");
                 setNewSystem("");
                 load();
               }}
