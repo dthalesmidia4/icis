@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   baseMarketsOf,
+  buildMarketPatch,
   buildMarketRow,
   expansionMarketsOf,
   isBaseMarket,
@@ -187,5 +188,54 @@ describe("base x expansão", () => {
       buildMarketRow({ tenantId: "t", companyId: "c", campaignId: "plan", city: "Franca", state: "SP" })
         .market_type,
     ).toBe("expansion");
+  });
+});
+
+describe("buildMarketPatch — cada área edita só o seu grupo", () => {
+  const input = {
+    tenantId: "t1",
+    companyId: "c1",
+    campaignId: "p1",
+    id: "m1",
+    city: "Ribeirão Preto",
+    state: "SP",
+    sequenceOrder: 1,
+    paidTrafficBudget: "1.000",
+    adsStartDate: "2026-09-01",
+    adsEndDate: "2026-09-30",
+    callsStartDate: "2026-09-02",
+    visitsStartDate: "2026-09-10",
+    visitsEndDate: "2026-09-12",
+  } as any;
+
+  it("mídia paga não toca a agenda comercial", () => {
+    const patch = buildMarketPatch("paid-media", input);
+    expect(Object.keys(patch).sort()).toEqual(
+      ["ads_end_date", "ads_start_date", "paid_traffic_budget"],
+    );
+    expect(patch).not.toHaveProperty("calls_start_date");
+    expect(patch).not.toHaveProperty("city");
+  });
+
+  it("comercial não toca verba nem posicionamento", () => {
+    const patch = buildMarketPatch("commercial", input);
+    expect(Object.keys(patch).sort()).toEqual(
+      ["calls_start_date", "visits_end_date", "visits_start_date"],
+    );
+    expect(patch).not.toHaveProperty("paid_traffic_budget");
+  });
+
+  it("estratégia não toca verba nem agenda", () => {
+    const patch = buildMarketPatch("strategy", input);
+    expect(patch).toHaveProperty("city");
+    expect(patch).not.toHaveProperty("paid_traffic_budget");
+    expect(patch).not.toHaveProperty("visits_start_date");
+  });
+
+  it("full grava a linha completa", () => {
+    const patch = buildMarketPatch("full", input);
+    expect(patch).toHaveProperty("city");
+    expect(patch).toHaveProperty("paid_traffic_budget");
+    expect(patch).toHaveProperty("calls_start_date");
   });
 });

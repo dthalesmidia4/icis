@@ -8,6 +8,8 @@ import {
   summarizePaidMediaActivations,
   type PaidMediaActivation,
 } from "@/lib/paidMediaActivations";
+import RegionalPlanTable from "./RegionalPlanTable";
+
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{children}</h2>
@@ -22,6 +24,12 @@ interface StrategyTabProps {
   strategyText: string | null;
   onOpenStrategy: () => void;
   onOpenPeriodHistory: () => void;
+  /** Cidade em foco pelo deep link (`?market=`). */
+  selectedMarketId?: string | null;
+  /** Encaminha a cidade para a aba Mídia paga. */
+  onOpenPaidMedia?: (marketId: string) => void;
+  /** Encaminha a carteira para a aba Comercial. */
+  onOpenCommercial?: (marketId?: string) => void;
 }
 
 export default function StrategyTab({
@@ -33,7 +41,11 @@ export default function StrategyTab({
   strategyText,
   onOpenStrategy,
   onOpenPeriodHistory,
+  selectedMarketId,
+  onOpenPaidMedia,
+  onOpenCommercial,
 }: StrategyTabProps) {
+
   const channels = [
     ...new Set(
       planItems
@@ -96,9 +108,6 @@ export default function StrategyTab({
               Nenhuma estratégia registrada para este cliente.
             </p>
           )}
-          <p className="mt-4 text-xs text-muted-foreground">
-            Praças e operação regional são geridas na aba Expansão.
-          </p>
           <button
             type="button"
             onClick={onOpenStrategy}
@@ -107,7 +116,17 @@ export default function StrategyTab({
             Abrir estratégia completa
           </button>
         </section>
+
+        {/* Plano regional: posicionamento das cidades, sem verba nem comercial. */}
+        <RegionalPlanTable
+          tenantId={tenantId}
+          companyId={companyId}
+          selectedMarketId={selectedMarketId}
+          onOpenPaidMedia={onOpenPaidMedia}
+          onOpenCommercial={onOpenCommercial}
+        />
       </div>
+
 
       <div className="space-y-10">
         {/* Mídia paga */}
@@ -173,8 +192,9 @@ export default function StrategyTab({
                 <p className="mt-4 text-xs leading-relaxed opacity-85">{periodObjective}</p>
               )}
               <p className="mt-3 text-[11px] leading-relaxed opacity-80">
-                A verba por praça e a verba de cada ativação vivem em Expansão e Mídia paga — esta
-                verba é do ciclo editorial.
+                A verba por cidade e a verba de cada ativação vivem na aba Mídia paga — esta verba
+                é do ciclo editorial.
+
               </p>
             </>
           ) : (
