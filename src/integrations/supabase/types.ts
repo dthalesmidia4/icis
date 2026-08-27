@@ -4042,6 +4042,30 @@ export type Database = {
         }
         Returns: Json
       }
+      get_flow_ui_context_v1: {
+        Args: { p_demand_id: string; p_tenant_id: string; p_work_area: string }
+        Returns: Json
+      }
+      get_stage_routing_candidates_v1: {
+        Args: {
+          p_client_id: string
+          p_exclude_user_ids?: string[]
+          p_function_key: string
+          p_tenant_id: string
+          p_work_area: string
+        }
+        Returns: {
+          full_name: string
+          load_count: number
+          preferred: boolean
+          priority: number
+          user_id: string
+        }[]
+      }
+      get_systems_commercial_workspace_v1: {
+        Args: { p_company_id?: string; p_tenant_id: string }
+        Returns: Json
+      }
       get_tenant_descendants: {
         Args: { _tenant_id: string }
         Returns: {
