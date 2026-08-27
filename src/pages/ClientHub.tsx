@@ -108,6 +108,7 @@ const ClientHub = () => {
   const { role } = useAgencyRole();
   
   const [contentModalOpen, setContentModalOpen] = useState(false);
+  const [cycleModalOpen, setCycleModalOpen] = useState(false);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
   const [approvedCardsCount, setApprovedCardsCount] = useState(0);
@@ -1859,7 +1860,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   // Demanda aberta em painel lateral (a partir do calendário)
   const [drawerDemandId, setDrawerDemandId] = useState<string | null>(null);
-  const [cycleModalOpen, setCycleModalOpen] = useState(false);
 
   const workspacePublications = workspace.demands.length || workspace.planItems.length;
   // Dias do cronograma = dias com PUBLICAÇÃO (datas operacionais não entram aqui).
