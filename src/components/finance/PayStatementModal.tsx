@@ -144,6 +144,14 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
     iofBrl,
     paidBrl: amountResult.state === "ok" ? amountResult.amountBrl ?? expected : null,
   });
+  /** Mesmo helper das outras telas de conferência — texto nunca divergente. */
+  const reading = interpretStatementCompositionDifference(conference.unclassifiedBrl);
+  const payment = interpretStatementPayment({
+    paid: true,
+    statementBrl: conference.statementBrl,
+    paidBrl: conference.paidBrl,
+  });
+
   const canSubmit =
     dateValid &&
     closure.state === "ok" &&
