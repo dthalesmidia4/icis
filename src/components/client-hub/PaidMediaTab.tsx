@@ -6,16 +6,18 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { MarketingCampaign } from "@/lib/marketingCampaigns";
 import {
+  PAID_MEDIA_STATUS_OPTIONS,
+  effectivePaidMediaStatus,
   loadExpansionMarkets,
   loadExpansionPlan,
   marketBudgetLabel,
   marketLabel,
   marketOrderLabel,
-  marketStatusLabel,
-  marketWindow,
+  paidMediaMarketStatusLabel,
   patchExpansionMarket,
   undefinedSuffix,
   type ExpansionMarket,
+  type PaidMediaStatus,
 } from "@/lib/expansionMarkets";
 import {
   cancelPaidMediaActivation,
@@ -30,7 +32,15 @@ import {
   summarizePaidMediaPlan,
 } from "@/lib/paidMediaPlanning";
 import { InlineCurrencyCell } from "@/components/inline-edit/InlineCells";
-import { marketRowBadge, marketRowClass } from "@/lib/marketRowStyles";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { paidMediaRowBadge, paidMediaRowClass } from "@/lib/marketRowStyles";
+
 // MESMO seletor de início/término dos cards da Visão Geral.
 import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
