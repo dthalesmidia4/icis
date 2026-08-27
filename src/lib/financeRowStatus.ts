@@ -24,6 +24,7 @@ import { CARD_CHARGE_DATE_MISSING, cardChargeDateLabel } from "./financeCardLabe
 
 import type { FinanceSettlementContext } from "./financeSettlement";
 import { visibleStatementGroups } from "./financeCardVisibility";
+import { interpretStatementCompositionDifference } from "./financeStatementDifference";
 
 import {
   SafeStatementStatusMap,
