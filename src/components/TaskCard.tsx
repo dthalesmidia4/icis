@@ -632,14 +632,19 @@ export default function TaskCard({
       workArea: ((card as any)?.work_area === "sistemas" ? "sistemas" : "midia") as "midia" | "sistemas",
       origin: ((card as any)?.origin || "interno") as string,
     };
-    isAtLastFlowFunction(card.tenant_id, card.demand_type_key, card.current_function_key, seqOpts)
-      .then((v) => { if (!cancelled) setIsLastFn(v); })
-      .catch(() => { if (!cancelled) setIsLastFn(false); });
+    // UMA leitura da sequência resolve as duas perguntas: ordem das etapas e
+    // se o card já está na última etapa do fluxo.
     getPipelineSequence(card.tenant_id, card.demand_type_key, seqOpts)
-      .then((seq) => { if (!cancelled) setPipelineSequence(seq); })
-      .catch(() => { if (!cancelled) setPipelineSequence([]); });
+      .then((seq) => {
+        if (cancelled) return;
+        setPipelineSequence(seq);
+        const last = seq.length > 0 ? (seq[seq.length - 1] as any)?.function_key ?? null : null;
+        setIsLastFn(!!last && last === (card.current_function_key || null));
+      })
+      .catch(() => { if (!cancelled) { setPipelineSequence([]); setIsLastFn(false); } });
     return () => { cancelled = true; };
   }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key, (card as any)?.work_area, (card as any)?.origin]);
+
 
   /**
    * Prévia do roteamento carregada PROATIVAMENTE: o botão "Prosseguir" precisa
