@@ -1256,7 +1256,7 @@ export default function SystemsCommercial() {
                   <SelectItem value="none">Sem carteira definida</SelectItem>
                   {planMarkets.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                      {`${marketDisplayLabel(m)} — ${marketStatusLabel(m.status)}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1264,27 +1264,29 @@ export default function SystemsCommercial() {
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase text-muted-foreground">
-                Cidade de origem (opcional)
+                Cidade de aquisição (opcional)
               </label>
               <Select
                 value={newMarketId || "none"}
                 onValueChange={(v) => setNewMarketId(v === "none" ? "" : v)}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Sem cidade de origem" />
+                  <SelectValue placeholder="Sem cidade de aquisição" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[320px]">
-                  <SelectItem value="none">Sem cidade de origem</SelectItem>
+                  <SelectItem value="none">Sem cidade de aquisição</SelectItem>
                   {planMarkets.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {`${marketOrderLabel(m)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
+                      {`${marketDisplayLabel(m)} — ${marketStatusLabel(m.status)}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                A cidade de origem nunca é automática — atribua apenas quando a origem for real.
+                Use somente quando souber que a oportunidade foi adquirida por uma ação daquela
+                cidade. A carteira operacional é independente.
               </p>
+
             </div>
           </div>
           <DialogFooter>
