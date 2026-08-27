@@ -41,7 +41,8 @@ describe("buildFlowSequence", () => {
 });
 
 const completionsFor = (key: string, userId: string): Map<string, StageCompletion> =>
-  new Map([[key, { functionKey: key, userIds: new Set([userId]) } as any]]);
+  new Map([[key, { functionKey: key, userIds: [userId] } as any]]);
+
 
 describe("pickFunctionForAssignee", () => {
   const sequence = ["criar_arte", "revisar_arte", "publicar"];
