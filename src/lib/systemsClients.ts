@@ -347,3 +347,40 @@ export async function updateLastContactResult(
   if (error) return { success: false, message: error.message };
   return { success: true };
 }
+
+/**
+ * Colunas do lead liberadas para EDIÇÃO INLINE no CRM.
+ * A gravação é PARCIAL: apenas as colunas informadas vão ao banco, então
+ * nenhum outro campo do registro é sobrescrito.
+ */
+export const INLINE_CLIENT_COLUMNS = [
+  "commercial_stage",
+  "current_system",
+  "next_action",
+  "next_action_at",
+  "last_contact_result",
+  "commercial_owner_id",
+  "market_id",
+] as const;
+
+export type InlineClientColumn = (typeof INLINE_CLIENT_COLUMNS)[number];
+
+export async function patchSystemsClient(
+  id: string,
+  patch: Partial<Record<InlineClientColumn, unknown>>,
+): Promise<{ success: boolean; message?: string }> {
+  const columns = Object.keys(patch || {});
+  if (columns.length === 0) return { success: true };
+  const invalid = columns.filter(
+    (c) => !(INLINE_CLIENT_COLUMNS as readonly string[]).includes(c),
+  );
+  if (invalid.length > 0) {
+    return { success: false, message: `Campo não editável inline: ${invalid.join(", ")}.` };
+  }
+  const { error } = await supabase
+    .from("systems_clients")
+    .update(patch as any)
+    .eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true };
+}

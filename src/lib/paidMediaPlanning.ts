@@ -70,6 +70,8 @@ export interface MarketPaidMediaRow {
   allocatedUndefined: number;
   /** Saldo conhecido; null quando a verba da praça é a definir. */
   available: number | null;
+  /** Peças (demands) DISTINTAS vinculadas à praça, sem contar canceladas. */
+  linkedDemands: number;
   activations: PaidMediaActivation[];
 }
 
@@ -112,6 +114,7 @@ export function buildPaidMediaMarketRows(
       allocated,
       allocatedUndefined: liveRows.filter((a) => !known(a.budget)).length,
       available: planned === null ? null : planned - allocated,
+      linkedDemands: new Set(liveRows.map((a) => a.demand_id)).size,
       activations: all,
     };
   });

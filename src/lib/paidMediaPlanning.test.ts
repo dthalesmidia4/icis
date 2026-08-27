@@ -147,3 +147,18 @@ describe("defaultActivationMarketId", () => {
     expect(defaultActivationMarketId([market({ id: "base", market_type: "base" })])).toBe("");
   });
 });
+
+describe("peças vinculadas por cidade", () => {
+  it("conta demands DISTINTAS e ignora canceladas", () => {
+    const rows = buildPaidMediaMarketRows(smartVetyMarkets, [
+      activation({ id: "a1", market_id: "bar", demand_id: "d1" }),
+      activation({ id: "a2", market_id: "bar", demand_id: "d1", platform: "Google" }),
+      activation({ id: "a3", market_id: "bar", demand_id: "d2" }),
+      activation({ id: "a4", market_id: "bar", demand_id: "d9", status: "cancelled" }),
+    ]);
+    const bar = rows.find((r) => r.market.id === "bar")!;
+    expect(bar.linkedDemands).toBe(2);
+    const rib = rows.find((r) => r.market.id === "rib")!;
+    expect(rib.linkedDemands).toBe(0);
+  });
+});

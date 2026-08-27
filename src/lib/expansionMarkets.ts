@@ -339,6 +339,40 @@ export function buildMarketPatch(
   return Object.fromEntries(Object.entries(row).filter(([key]) => allowed.has(key)));
 }
 
+/**
+ * Colunas liberadas para EDIÇÃO INLINE, agrupadas pela área responsável.
+ * Uma célula grava exatamente uma coluna: nada mais é enviado no update.
+ */
+export const INLINE_MARKET_COLUMNS: Record<Exclude<MarketEditMode, "full">, string[]> =
+  MARKET_MODE_COLUMNS;
+
+export function isInlineMarketColumn(mode: Exclude<MarketEditMode, "full">, column: string) {
+  return INLINE_MARKET_COLUMNS[mode].includes(column);
+}
+
+/**
+ * Update PARCIAL de uma cidade: só as colunas informadas vão ao banco, então
+ * nenhum campo oculto é apagado. A coluna precisa pertencer à área que está
+ * editando.
+ */
+export async function patchExpansionMarket(
+  marketId: string,
+  patch: Record<string, unknown>,
+  mode: Exclude<MarketEditMode, "full"> = "strategy",
+): Promise<{ success: boolean; message?: string }> {
+  const columns = Object.keys(patch || {});
+  if (columns.length === 0) return { success: true };
+  const invalid = columns.filter((c) => !isInlineMarketColumn(mode, c));
+  if (invalid.length > 0) {
+    return { success: false, message: `Campo fora da área de trabalho: ${invalid.join(", ")}.` };
+  }
+  const { error } = await (supabase as any)
+    .from("marketing_campaign_markets")
+    .update(patch)
+    .eq("id", marketId);
+  if (error) return { success: false, message: error.message };
+  return { success: true };
+}
 
 
 const normalizeMarket = (row: any): ExpansionMarket => ({

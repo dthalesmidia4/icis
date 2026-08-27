@@ -13,6 +13,7 @@ import {
   marketOrderLabel,
   marketStatusLabel,
   marketWindow,
+  patchExpansionMarket,
   undefinedSuffix,
   type ExpansionMarket,
 } from "@/lib/expansionMarkets";
@@ -28,6 +29,10 @@ import {
   buildPaidMediaMarketRows,
   summarizePaidMediaPlan,
 } from "@/lib/paidMediaPlanning";
+import {
+  InlineCurrencyCell,
+  InlineDateRangeCell,
+} from "@/components/inline-edit/InlineCells";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
 import PlaceFormModal from "./PlaceFormModal";
 
@@ -142,6 +147,17 @@ export default function PaidMediaTab({
     setModalOpen(true);
   };
 
+  /** Verba/janela da praça editadas na própria célula, sem tocar outras áreas. */
+  const patchMarket = async (marketId: string, patch: Record<string, unknown>) => {
+    const res = await patchExpansionMarket(marketId, patch, "paid-media");
+    if (res.success) {
+      setMarkets((prev) =>
+        prev.map((m) => (m.id === marketId ? ({ ...m, ...patch } as ExpansionMarket) : m)),
+      );
+    }
+    return res;
+  };
+
   const openEditMarket = (market: ExpansionMarket) => {
     setEditingMarket(market);
     setMarketModalOpen(true);
@@ -190,6 +206,7 @@ export default function PaidMediaTab({
               <th className="p-3 text-right">Verba planejada</th>
               <th className="p-3 text-right">Alocado</th>
               <th className="p-3 text-right">Disponível</th>
+              <th className="p-3 text-right">Peças vinculadas</th>
               <th className="p-3 text-right">Ativações</th>
               <th className="p-3 text-right">Ações</th>
             </tr>
@@ -197,14 +214,14 @@ export default function PaidMediaTab({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                <td colSpan={10} className="p-8 text-center text-muted-foreground">
                   {loading
                     ? "Carregando o planejamento de mídia paga…"
                     : "Nenhuma cidade com planejamento de mídia paga neste plano."}
                 </td>
               </tr>
             ) : (
-              rows.map(({ market, planned, allocated, available, activations: acts }) => {
+              rows.map(({ market, planned, allocated, available, linkedDemands, activations: acts }) => {
                 const isOpen = expanded === market.id;
                 const live = acts.filter((a) => !isActivationCancelled(a.status));
                 return (
@@ -218,18 +235,37 @@ export default function PaidMediaTab({
                       <td className="p-3 font-black tabular-nums">{marketOrderLabel(market)}</td>
                       <td className="p-3 font-bold">{marketLabel(market)}</td>
                       <td className="p-3">{marketStatusLabel(market.status)}</td>
-                      <td className="p-3 tabular-nums">
-                        {marketWindow(market.ads_start_date, market.ads_end_date)}
+                      <td className="p-2">
+                        <InlineDateRangeCell
+                          ariaLabel={`Período dos anúncios em ${marketLabel(market)}`}
+                          start={market.ads_start_date}
+                          end={market.ads_end_date}
+                          label="período dos anúncios"
+                          onCommit={({ start, end }) =>
+                            patchMarket(market.id, { ads_start_date: start, ads_end_date: end })
+                          }
+                        />
                       </td>
-                      <td className="p-3 text-right tabular-nums">
-                        {marketBudgetLabel(planned)}
+                      <td className="p-2 text-right">
+                        <InlineCurrencyCell
+                          ariaLabel={`Verba planejada em ${marketLabel(market)}`}
+                          value={planned}
+                          className="text-right"
+                          onCommit={(v) => patchMarket(market.id, { paid_traffic_budget: v })}
+                        />
                       </td>
                       <td className="p-3 text-right tabular-nums">
                         {marketBudgetLabel(allocated)}
                       </td>
-                      <td className="p-3 text-right tabular-nums">
+                      <td
+                        className={cn(
+                          "p-3 text-right tabular-nums",
+                          available !== null && available < 0 && "font-bold text-destructive",
+                        )}
+                      >
                         {available === null ? "A definir" : marketBudgetLabel(available)}
                       </td>
+                      <td className="p-3 text-right tabular-nums">{linkedDemands}</td>
                       <td className="p-3 text-right tabular-nums">{live.length}</td>
                       <td className="p-3">
                         <div className="flex flex-wrap items-center justify-end gap-1">
@@ -264,12 +300,22 @@ export default function PaidMediaTab({
                     </tr>
                     {isOpen && (
                       <tr className="border-t bg-muted/20">
-                        <td colSpan={9} className="p-3">
+                        <td colSpan={10} className="p-3">
                           {acts.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                              Nenhuma peça alocada nesta cidade. A janela e a verba já estão
-                              planejadas.
-                            </p>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <p className="text-sm text-muted-foreground">
+                                Nenhuma peça alocada nesta cidade. A janela e a verba já estão
+                                planejadas.
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => openNew(market.id)}
+                              >
+                                Vincular peça
+                              </Button>
+                            </div>
                           ) : (
                             <table className="w-full text-xs">
                               <thead>
