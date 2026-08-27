@@ -369,6 +369,11 @@ const ClientHub = () => {
       console.error('[ClientHub] Falha ao migrar histórico local:', err);
     }
   };
+  // Shell utilizável: medimos o caminho real clique → primeiro effect pós-paint.
+  useEffect(() => {
+    measureClientHubShell();
+  }, []);
+
 
   /**
    * HISTÓRICO É SOB DEMANDA.
