@@ -49,6 +49,8 @@ export interface SystemsClient {
   acquisition_campaign_id: string | null;
   /** Cidade/etapa do plano de expansão que originou a oportunidade (opcional). */
   acquisition_market_id: string | null;
+  /** Cidade/carteira operacional canônica do registro (nunca derivada da aquisição). */
+  market_id: string | null;
 }
 
 export interface SystemsCompany {
@@ -219,8 +221,10 @@ export interface SaveSystemsClientPayload {
   lossReason?: string | null;
   leadSource?: string | null;
   acquisitionCampaignId?: string | null;
-  /** Cidade/etapa de origem (fonte de verdade dos novos vínculos). */
+  /** Cidade/etapa de origem (atribuição de aquisição, opcional). */
   acquisitionMarketId?: string | null;
+  /** Cidade/carteira operacional; independente da aquisição. */
+  marketId?: string | null;
 }
 
 const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
@@ -256,6 +260,10 @@ export async function saveSystemsClient(
     acquisition_campaign_id: payload.acquisitionCampaignId || null,
     acquisition_market_id: payload.acquisitionMarketId || null,
   };
+
+  // Carteira operacional: NUNCA sincronizada/derivada de acquisition_market_id.
+  if (payload.marketId !== undefined) row.market_id = payload.marketId || null;
+
 
   if (payload.id) {
     // No update, lifecycle só entra quando informado — nunca converte silenciosamente.

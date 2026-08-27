@@ -1995,7 +1995,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               <ExpansionTab
                 tenantId={tenantId}
                 companyId={selectedClient.id}
-                onOpenCommercial={() => navigate('/comercial-sistemas')}
+                onOpenCommercial={(marketId?: string) =>
+                  navigate(
+                    `/comercial-sistemas?company=${selectedClient.id}${
+                      marketId ? `&market=${marketId}` : ''
+                    }`,
+                  )
+                }
               />
             </TabsContent>
             <TabsContent value="midia-paga" className="m-0">

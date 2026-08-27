@@ -30,6 +30,12 @@ import {
 
 export type MarketStatus = CampaignStatus;
 
+/**
+ * `base` = praça comercial JÁ existente (não é etapa de expansão e nunca ocupa
+ * número). `expansion` = cidade numerada da sequência de expansão.
+ */
+export type MarketType = "base" | "expansion";
+
 export const MARKET_STATUS_LABEL = CAMPAIGN_STATUS_LABEL;
 export const MARKET_STATUS_OPTIONS = CAMPAIGN_STATUS_OPTIONS;
 
@@ -38,6 +44,7 @@ export interface ExpansionMarket {
   tenant_id: string;
   company_id: string;
   campaign_id: string;
+  market_type: MarketType;
   sequence_order: number | null;
   city: string;
   state: string;
@@ -62,6 +69,7 @@ export interface ExpansionMarket {
   updated_at: string;
 }
 
+
 export const TBD = "A definir";
 
 export function marketStatusLabel(status?: string | null): string {
@@ -73,10 +81,35 @@ export function isMarketClosed(status?: string | null): boolean {
   return isCampaignClosed(status);
 }
 
-/** `01`, `02`, … usando o índice quando ainda não há sequence_order. */
-export function marketOrderLabel(market: Pick<ExpansionMarket, "sequence_order">, index: number): string {
-  const n = market.sequence_order ?? index + 1;
+/** Base existente → `BASE`. Expansão → `01`, `02`, … (nunca índice fictício). */
+export function marketOrderLabel(
+  market: Pick<ExpansionMarket, "sequence_order" | "market_type">,
+  index?: number,
+): string {
+  if (isBaseMarket(market)) return "BASE";
+  const n = market.sequence_order ?? (typeof index === "number" ? index + 1 : null);
+  if (n === null) return "—";
   return String(n).padStart(2, "0");
+}
+
+export function isBaseMarket(market: Pick<ExpansionMarket, "market_type">): boolean {
+  return market.market_type === "base";
+}
+
+/** Bases existentes, ordem estável por cidade e depois created_at. */
+export function baseMarketsOf(markets: ExpansionMarket[]): ExpansionMarket[] {
+  return (markets || [])
+    .filter(isBaseMarket)
+    .sort(
+      (a, b) =>
+        marketLabel(a).localeCompare(marketLabel(b), "pt-BR") ||
+        (a.created_at || "").localeCompare(b.created_at || ""),
+    );
+}
+
+/** Somente cidades de expansão, numeradas por sequence_order ASC (nulls last). */
+export function expansionMarketsOf(markets: ExpansionMarket[]): ExpansionMarket[] {
+  return sortExpansionMarkets((markets || []).filter((m) => !isBaseMarket(m)));
 }
 
 /** Cidade/UF humanizada. */
@@ -98,9 +131,12 @@ export {
   placeDate as marketDate,
 };
 
-/** Ordem operacional: sequence_order ASC (nulls last), depois created_at. */
+/** Ordem operacional: bases primeiro, depois expansão por sequence_order. */
 export function sortExpansionMarkets(rows: ExpansionMarket[]): ExpansionMarket[] {
   return [...(rows || [])].sort((a, b) => {
+    const ba = isBaseMarket(a) ? 0 : 1;
+    const bb = isBaseMarket(b) ? 0 : 1;
+    if (ba !== bb) return ba - bb;
     const sa = a.sequence_order ?? Number.POSITIVE_INFINITY;
     const sb = b.sequence_order ?? Number.POSITIVE_INFINITY;
     if (sa !== sb) return sa - sb;
@@ -109,23 +145,33 @@ export function sortExpansionMarkets(rows: ExpansionMarket[]): ExpansionMarket[]
 }
 
 export interface ExpansionPlanSummary {
-  totalCities: number;
-  /** Soma das metas conhecidas (null NUNCA vira zero). */
+  /** Praças comerciais já existentes (ex.: Bebedouro/SP). */
+  baseMarkets: ExpansionMarket[];
+  /** Cidades numeradas da sequência de expansão. */
+  expansionMarkets: ExpansionMarket[];
+  totalExpansionCities: number;
+  /** Soma das metas conhecidas de EXPANSÃO (null NUNCA vira zero). */
   totalTargetAccounts: number;
   targetsUndefined: number;
-  /** Soma das verbas conhecidas. */
+  /** Soma das verbas conhecidas de EXPANSÃO. */
   totalBudget: number;
   budgetUndefined: number;
   currentMarket: ExpansionMarket | null;
   completedMarkets: number;
 }
 
-/** Resumo do PLANO (não da cidade). Valores null são sinalizados, não somados. */
+/**
+ * Resumo do PLANO. Base NÃO conta como etapa de expansão e não entra em
+ * nenhuma soma nem em `a definir`. Valores null são sinalizados, não somados.
+ */
 export function summarizeExpansionPlan(markets: ExpansionMarket[]): ExpansionPlanSummary {
-  const list = sortExpansionMarkets(markets || []);
+  const bases = baseMarketsOf(markets || []);
+  const list = expansionMarketsOf(markets || []);
   const known = <T,>(v: T | null | undefined): v is T => v !== null && v !== undefined;
   return {
-    totalCities: list.length,
+    baseMarkets: bases,
+    expansionMarkets: list,
+    totalExpansionCities: list.length,
     totalTargetAccounts: list.reduce((s, m) => s + (known(m.target_accounts) ? m.target_accounts : 0), 0),
     targetsUndefined: list.filter((m) => !known(m.target_accounts)).length,
     totalBudget: list.reduce((s, m) => s + (known(m.paid_traffic_budget) ? m.paid_traffic_budget : 0), 0),
@@ -134,6 +180,7 @@ export function summarizeExpansionPlan(markets: ExpansionMarket[]): ExpansionPla
     completedMarkets: list.filter((m) => m.status === "completed").length,
   };
 }
+
 
 /** `20 + 3 metas a definir` — nunca mascara null como zero. */
 export function undefinedSuffix(count: number, noun: string): string {
@@ -146,7 +193,10 @@ export interface ExpansionMarketInput {
   tenantId: string;
   companyId: string;
   campaignId: string;
+  /** Tipo da praça; a UI cria sempre `expansion`. */
+  marketType?: MarketType;
   sequenceOrder?: string | number | null;
+
   city: string;
   state: string;
   status?: MarketStatus;
@@ -173,7 +223,11 @@ export function validateExpansionMarketInput(input: Partial<ExpansionMarketInput
     return "Status da cidade inválido.";
   }
   const seq = parseNumber(input.sequenceOrder);
-  if (seq !== null && seq < 1) return "A ordem da cidade deve ser 1 ou maior.";
+  // Base existente não tem ordem; expansão com ordem preenchida precisa ser >= 1.
+  if (input.marketType !== "base" && seq !== null && seq < 1) {
+    return "A ordem da cidade deve ser 1 ou maior.";
+  }
+
   const distance = parseNumber(input.travelDistanceKm);
   if (distance !== null && distance < 0) return "A distância logística não pode ser negativa.";
   const targets = parseNumber(input.targetAccounts);
@@ -195,11 +249,15 @@ const clean = (v?: string | null) => (v && String(v).trim() ? String(v).trim() :
 export function buildMarketRow(input: ExpansionMarketInput): Record<string, unknown> {
   const city = input.city.trim();
   const state = input.state.trim().toUpperCase();
+  const marketType: MarketType = input.marketType === "base" ? "base" : "expansion";
   return {
     tenant_id: input.tenantId,
     company_id: input.companyId,
     campaign_id: input.campaignId,
-    sequence_order: parseNumber(input.sequenceOrder),
+    market_type: marketType,
+    // Base nunca ocupa número na sequência de expansão.
+    sequence_order: marketType === "base" ? null : parseNumber(input.sequenceOrder),
+
     city,
     state,
     region_label: `${city}/${state}`,
