@@ -69,7 +69,10 @@ describe("summarizeMarketCommercial", () => {
     ]);
     const rp = stats.get("rp")!;
     expect(rp.total).toBe(3);
+    // Oportunidades = só prospects; o customer entra em Ganhos/clientes.
+    expect(rp.opportunities).toBe(2);
     expect(rp.negotiating).toBe(2);
+
     expect(rp.won).toBe(1);
     expect(rp.customers).toBe(1);
     expect(rp.calls).toBe(1);
