@@ -155,23 +155,30 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
 
           <div className="rounded-lg border p-3 text-xs space-y-1">
             <p className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Compras conhecidas/corrigidas</span>
+              <span className="text-muted-foreground">Total da fatura</span>
+              <span className="font-medium">{formatBRL(conference.statementBrl)}</span>
+            </p>
+            <p className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Compras identificadas</span>
               <span className="font-medium">{formatBRL(conference.componentsBrl)}</span>
             </p>
             <p className="flex justify-between gap-3">
-              <span className="text-muted-foreground">IOF incluído na fatura</span>
+              <span className="text-muted-foreground">IOF da fatura</span>
               <span className="font-medium">{formatBRL(conference.iofBrl)}</span>
             </p>
-            <p className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Total classificado</span>
+            <p className="flex justify-between gap-3 border-t pt-1">
+              <span className="text-muted-foreground">Compras + IOF</span>
               <span className="font-semibold">{formatBRL(conference.classifiedBrl)}</span>
             </p>
             <p className="flex justify-between gap-3 border-t pt-1">
-              <span className="text-muted-foreground">Diferença ainda a classificar</span>
-              <span className="font-medium">{formatBRL(conference.unclassifiedBrl)}</span>
+              <span className="text-muted-foreground">{reading.label}</span>
+              <span className="font-medium">{formatBRL(reading.absoluteBrl)}</span>
             </p>
+            <p className="pt-1 font-medium text-foreground">{reading.title}</p>
+            <p className="text-muted-foreground">{reading.description}</p>
           </div>
         </div>
+
 
         <DialogFooter className="flex-wrap gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
