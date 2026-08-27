@@ -86,17 +86,25 @@ async function avoidScheduleConflict(
   demandId: string,
   assignedTo: string | null,
   targetStage: string | null,
+  /** Card já carregado pela transição — evita reler a MESMA demanda. */
+  preloaded?: any,
 ): Promise<void> {
   if (!tenantId || !assignedTo || !targetStage) return;
   try {
-    const { data } = await supabase
-      .from("demands")
-      .select(
-        "id, title, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
-      )
-      .eq("id", demandId)
-      .maybeSingle();
+    const hasWindow = (c: any) => !!c && "due_date" in c && "delivery_date" in c;
+    let data: any = hasWindow(preloaded) ? preloaded : null;
+    if (!data) {
+      const res = await supabase
+        .from("demands")
+        .select(
+          "id, title, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
+        )
+        .eq("id", demandId)
+        .maybeSingle();
+      data = res.data;
+    }
     if (!data) return;
+
     const probe: any = { ...(data as any), ...payload, current_function_key: targetStage };
     const res = await checkAssignmentConflicts({
       tenantId,
