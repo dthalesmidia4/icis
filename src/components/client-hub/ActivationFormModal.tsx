@@ -299,7 +299,13 @@ export default function ActivationFormModal({
               onChange={(e) => setForm({ ...form, budget: e.target.value })}
               className="mt-1"
             />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {marketPlanned === null
+                ? "Praça sem verba planejada. Informe o valor desta ativação."
+                : `Praça: ${marketBudgetLabel(marketPlanned)} planejados · ${marketBudgetLabel(marketAllocated)} já alocados · ${marketBudgetLabel(marketPlanned - marketAllocated)} disponíveis.`}
+            </p>
           </div>
+
 
           <div>
             <Label>Início</Label>
