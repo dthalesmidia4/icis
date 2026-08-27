@@ -22,6 +22,11 @@ import { Label } from "@/components/ui/label";
 import { StatementGroup, cardDisplayLabel, formatBRL } from "@/lib/financeModel";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { buildStatementConference } from "@/lib/financeIof";
+import {
+  interpretStatementCompositionDifference,
+  interpretStatementPayment,
+} from "@/lib/financeStatementDifference";
+
 import { paymentTimestampToDate } from "@/lib/financePaymentDate";
 import {
   CLOSURE_IOF_LABEL,
