@@ -96,6 +96,9 @@ export default function StrategyTab({
               Nenhuma estratégia registrada para este cliente.
             </p>
           )}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Praças e operação regional são geridas na aba Expansão.
+          </p>
           <button
             type="button"
             onClick={onOpenStrategy}
@@ -118,7 +121,7 @@ export default function StrategyTab({
               <dl className="mt-5 space-y-3 text-sm">
                 {paidBudget && (
                   <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
-                    <dt className="opacity-80">Verba de tráfego pago</dt>
+                    <dt className="opacity-80">Verba do ciclo editorial</dt>
                     <dd className="font-bold">{paidBudget}</dd>
                   </div>
                 )}
@@ -161,14 +164,18 @@ export default function StrategyTab({
                 )}
                 {!paidBudget && !generalBudget && (
                   <div className="flex items-baseline justify-between gap-4 border-b border-primary-foreground/20 pb-2">
-                    <dt className="opacity-80">Verba de tráfego pago</dt>
-                    <dd className="font-bold">Nenhuma verba cadastrada</dd>
+                    <dt className="opacity-80">Verba do ciclo editorial</dt>
+                    <dd className="font-bold">A definir</dd>
                   </div>
                 )}
               </dl>
               {periodObjective && (
                 <p className="mt-4 text-xs leading-relaxed opacity-85">{periodObjective}</p>
               )}
+              <p className="mt-3 text-[11px] leading-relaxed opacity-80">
+                A verba por praça e a verba de cada ativação vivem em Expansão e Mídia paga — esta
+                verba é do ciclo editorial.
+              </p>
             </>
           ) : (
             <>
@@ -204,7 +211,7 @@ export default function StrategyTab({
         </section>
 
         <section>
-          <SectionTitle>Objetivos do ciclo</SectionTitle>
+          <SectionTitle>Objetivo editorial do ciclo</SectionTitle>
           {objectives.length ? (
             <ol className="mt-4 divide-y border-y">
               {objectives.map((o, i) => (

@@ -60,6 +60,14 @@ export interface MarketingCampaign {
   ads_end_date: string | null;
   calls_start_date: string | null;
   visits_start_date: string | null;
+  visits_end_date: string | null;
+  /**
+   * Deslocamento logístico comercial até a praça (km). NÃO confundir com
+   * `radius_km`, que é segmentação geográfica do anúncio.
+   */
+  travel_distance_km: number | null;
+  /** Meta de alvos a mapear na praça. */
+  target_accounts: number | null;
   channels: string[];
   paid_traffic_budget: number | null;
   acquisition_strategy: string | null;
@@ -95,6 +103,11 @@ export interface CampaignFormInput {
   sequenceOrder?: string | number | null;
   adsStartDate?: string | null;
   adsEndDate?: string | null;
+  callsStartDate?: string | null;
+  visitsStartDate?: string | null;
+  visitsEndDate?: string | null;
+  travelDistanceKm?: string | number | null;
+  targetAccounts?: string | number | null;
   status?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -118,6 +131,13 @@ export function validateCampaignInput(input: CampaignFormInput): string | null {
   if (input.adsStartDate && input.adsEndDate && input.adsEndDate < input.adsStartDate) {
     return "O fim dos anúncios deve ser posterior ao início.";
   }
+  if (input.visitsStartDate && input.visitsEndDate && input.visitsEndDate < input.visitsStartDate) {
+    return "O fim das visitas deve ser posterior ao início.";
+  }
+  const distance = parseNumber(input.travelDistanceKm);
+  if (distance !== null && distance < 0) return "A distância logística não pode ser negativa.";
+  const targets = parseNumber(input.targetAccounts);
+  if (targets !== null && targets < 0) return "A meta de alvos não pode ser negativa.";
   const seq = parseNumber(input.sequenceOrder);
   if (seq !== null && seq < 1) return "A ordem da praça deve ser 1 ou maior.";
   return null;
@@ -187,6 +207,25 @@ export function placeWindow(start?: string | null, end?: string | null): string 
 export function placeBudgetLabel(value?: number | null): string {
   if (value === null || value === undefined) return TBD;
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/** Distância logística até a praça; `A definir` quando ainda não decidida. */
+export function placeDistanceLabel(value?: number | null): string {
+  if (value === null || value === undefined) return TBD;
+  return `${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`;
+}
+
+/** Meta de alvos a mapear; `A definir` quando ainda não decidida. */
+export function placeTargetLabel(value?: number | null): string {
+  if (value === null || value === undefined) return TBD;
+  return String(value);
+}
+
+/** Janela de visitas: um único dia aparece uma só vez. */
+export function placeVisitWindow(start?: string | null, end?: string | null): string {
+  if (!start && !end) return TBD;
+  if (start && end && start === end) return placeDate(start);
+  return placeWindow(start, end);
 }
 
 /** Converte texto brasileiro ("1.500,50") ou número em number; vazio → null. */
@@ -280,6 +319,9 @@ export interface SaveCampaignPayload {
   adsEndDate?: string | null;
   callsStartDate?: string | null;
   visitsStartDate?: string | null;
+  visitsEndDate?: string | null;
+  travelDistanceKm?: string | number | null;
+  targetAccounts?: string | number | null;
   channels?: string[];
   paidTrafficBudget?: string | number | null;
   acquisitionStrategy?: string | null;
@@ -301,6 +343,10 @@ export async function saveCampaign(
     sequenceOrder: payload.sequenceOrder,
     adsStartDate: payload.adsStartDate,
     adsEndDate: payload.adsEndDate,
+    visitsStartDate: payload.visitsStartDate,
+    visitsEndDate: payload.visitsEndDate,
+    travelDistanceKm: payload.travelDistanceKm,
+    targetAccounts: payload.targetAccounts,
   });
   if (invalid) return { success: false, message: invalid };
 
@@ -322,6 +368,9 @@ export async function saveCampaign(
     ads_end_date: payload.adsEndDate || null,
     calls_start_date: payload.callsStartDate || null,
     visits_start_date: payload.visitsStartDate || null,
+    visits_end_date: payload.visitsEndDate || null,
+    travel_distance_km: parseNumber(payload.travelDistanceKm),
+    target_accounts: parseNumber(payload.targetAccounts),
     channels: payload.channels ?? [],
     paid_traffic_budget: parseNumber(payload.paidTrafficBudget),
     acquisition_strategy: clean(payload.acquisitionStrategy),

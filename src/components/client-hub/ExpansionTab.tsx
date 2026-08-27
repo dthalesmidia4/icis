@@ -7,8 +7,11 @@ import {
   loadCampaigns,
   placeBudgetLabel,
   placeDate,
+  placeDistanceLabel,
   placeLabel,
   placeOrderLabel,
+  placeTargetLabel,
+  placeVisitWindow,
   placeWindow,
   sortCampaignsForExpansion,
   type MarketingCampaign,
@@ -145,13 +148,18 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
                     </p>
                   </div>
 
+                  <Field label="Distância" value={placeDistanceLabel(place.travel_distance_km)} />
+                  <Field label="Meta" value={placeTargetLabel(place.target_accounts)} />
                   <Field label="Investimento" value={placeBudgetLabel(place.paid_traffic_budget)} />
                   <Field
                     label="Anúncios"
                     value={placeWindow(place.ads_start_date, place.ads_end_date)}
                   />
                   <Field label="Ligações" value={placeDate(place.calls_start_date)} />
-                  <Field label="Visitas" value={placeDate(place.visits_start_date)} />
+                  <Field
+                    label="Visitas"
+                    value={placeVisitWindow(place.visits_start_date, place.visits_end_date)}
+                  />
                   <Field label="Oportunidades" value={String(stats?.total ?? 0)} />
                   <Field
                     label="Avaliação/negociação"

@@ -517,7 +517,7 @@ export default function SystemsCommercial() {
                           : "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground"
                       }
                     >
-                      {`${order} ${placeLabel(place)} · ${campaignStatusLabel(place.status)} · ${opportunities} oport.`}
+                      {`${order} ${placeLabel(place)} · ${campaignStatusLabel(place.status)} · ${opportunities} oportunidades`}
                     </span>
                   ))}
                 </div>

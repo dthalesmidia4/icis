@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClientPeriodWorkspace } from "@/hooks/useClientPeriodWorkspace";
 import ClientHubHeader from "@/components/client-hub/ClientHubHeader";
+import CycleEditModal from "@/components/client-hub/CycleEditModal";
 import ClientHubActionBar from "@/components/client-hub/ClientHubActionBar";
 import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrandTheme";
 
@@ -107,6 +108,7 @@ const ClientHub = () => {
   const { role } = useAgencyRole();
   
   const [contentModalOpen, setContentModalOpen] = useState(false);
+  const [cycleModalOpen, setCycleModalOpen] = useState(false);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
   const [approvedCardsCount, setApprovedCardsCount] = useState(0);
@@ -1928,7 +1930,29 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           planPeriodDisabled={!hasVisualIdentity}
           planPeriodDisabledReason={planPeriodBlockedMessage}
           
-          actionsSlot={<ClientHubActionBar actions={actionCards as any} />}
+          actionsSlot={
+            <div className="flex items-center gap-2">
+              {workspace.period && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setCycleModalOpen(true)}
+                >
+                  Editar ciclo
+                </Button>
+              )}
+              <ClientHubActionBar actions={actionCards as any} />
+            </div>
+          }
+        />
+
+        <CycleEditModal
+          open={cycleModalOpen}
+          onOpenChange={setCycleModalOpen}
+          period={workspace.period}
+          demands={workspace.demands}
+          onSaved={workspace.reload}
         />
 
 

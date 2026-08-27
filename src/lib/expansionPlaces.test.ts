@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   placeBudgetLabel,
   placeDate,
+  placeDistanceLabel,
   placeInternalName,
   placeLabel,
   placeOrderLabel,
+  placeTargetLabel,
+  placeVisitWindow,
   placeWindow,
   sortCampaignsForExpansion,
   validatePlaceInput,
@@ -31,6 +34,9 @@ const place = (over: Partial<MarketingCampaign>): MarketingCampaign =>
     ads_end_date: over.ads_end_date ?? null,
     calls_start_date: over.calls_start_date ?? null,
     visits_start_date: over.visits_start_date ?? null,
+    visits_end_date: over.visits_end_date ?? null,
+    travel_distance_km: over.travel_distance_km ?? null,
+    target_accounts: over.target_accounts ?? null,
     channels: [],
     paid_traffic_budget: over.paid_traffic_budget ?? null,
     acquisition_strategy: null,
@@ -89,5 +95,40 @@ describe("validatePlaceInput", () => {
     expect(validatePlaceInput({ ...base, sequenceOrder: 0 })).toMatch(/ordem/i);
     expect(validatePlaceInput({ ...base, paidTrafficBudget: "-1" })).toMatch(/verba/i);
     expect(validatePlaceInput({ ...base, sequenceOrder: 2, paidTrafficBudget: "900,00" })).toBeNull();
+  });
+});
+
+describe("dimensões operacionais da praça", () => {
+  it("rotula distância logística e meta de alvos com A definir honesto", () => {
+    expect(placeDistanceLabel(null)).toBe("A definir");
+    expect(placeDistanceLabel(70)).toBe("70 km");
+    expect(placeTargetLabel(null)).toBe("A definir");
+    expect(placeTargetLabel(0)).toBe("0");
+    expect(placeTargetLabel(120)).toBe("120");
+  });
+
+  it("mostra visita de um único dia uma só vez", () => {
+    expect(placeVisitWindow(null, null)).toBe("A definir");
+    expect(placeVisitWindow("2026-10-05", "2026-10-05")).toBe("05/10/2026");
+    expect(placeVisitWindow("2026-10-05", "2026-10-07")).toBe("05/10/2026 → 07/10/2026");
+    expect(placeVisitWindow("2026-10-05", null)).toBe("05/10/2026 → A definir");
+  });
+
+  it("valida distância, meta e janela de visitas", () => {
+    const base = { city: "Colina", state: "SP" };
+    expect(validatePlaceInput({ ...base, travelDistanceKm: "-1" })).toMatch(/distância/i);
+    expect(validatePlaceInput({ ...base, targetAccounts: "-2" })).toMatch(/meta/i);
+    expect(
+      validatePlaceInput({ ...base, visitsStartDate: "2026-10-10", visitsEndDate: "2026-10-01" }),
+    ).toMatch(/fim das visitas/i);
+    expect(
+      validatePlaceInput({
+        ...base,
+        travelDistanceKm: "70",
+        targetAccounts: "120",
+        visitsStartDate: "2026-10-01",
+        visitsEndDate: "2026-10-03",
+      }),
+    ).toBeNull();
   });
 });

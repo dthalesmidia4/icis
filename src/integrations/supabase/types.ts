@@ -2191,8 +2191,11 @@ export type Database = {
           state: string | null
           status: string
           strategy_id: string | null
+          target_accounts: number | null
           tenant_id: string
+          travel_distance_km: number | null
           updated_at: string
+          visits_end_date: string | null
           visits_start_date: string | null
         }
         Insert: {
@@ -2218,8 +2221,11 @@ export type Database = {
           state?: string | null
           status?: string
           strategy_id?: string | null
+          target_accounts?: number | null
           tenant_id: string
+          travel_distance_km?: number | null
           updated_at?: string
+          visits_end_date?: string | null
           visits_start_date?: string | null
         }
         Update: {
@@ -2245,8 +2251,11 @@ export type Database = {
           state?: string | null
           status?: string
           strategy_id?: string | null
+          target_accounts?: number | null
           tenant_id?: string
+          travel_distance_km?: number | null
           updated_at?: string
+          visits_end_date?: string | null
           visits_start_date?: string | null
         }
         Relationships: [

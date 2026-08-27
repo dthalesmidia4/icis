@@ -212,7 +212,7 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
             ? "Carregando…"
             : places.length === 0
               ? "Cadastre uma praça na aba Expansão para criar ativações."
-              : "Nenhuma ativação de mídia paga registrada."}
+              : "Nenhuma ativação registrada. Use uma peça existente e escolha a praça, verba e período."}
         </p>
       ) : (
         <div className="overflow-x-auto">
