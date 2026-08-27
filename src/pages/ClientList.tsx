@@ -60,6 +60,7 @@ const ClientList = () => {
     enabled: !!tenantId
   });
   const handleClientSelect = (client: any) => {
+    markClientSelected();
     setSelectedClient({
       id: client.id,
       name: client.name,
@@ -70,6 +71,7 @@ const ClientList = () => {
     toast.success(`Cliente ${client.fantasy_name || client.name} selecionado`);
     navigate('/client-hub');
   };
+
   const handleDelete = async () => {
     if (!deleteId || !tenantId) return;
     setIsDeleting(true);
