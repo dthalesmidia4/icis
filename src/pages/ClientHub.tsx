@@ -2026,11 +2026,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               <ExpansionTab
                 tenantId={tenantId}
                 companyId={selectedClient.id}
-                onOpenCommercial={(marketId?: string) =>
+                selectedMarketId={focusedMarketId}
+                onOpenPaidMedia={focusMarketInPaidMedia}
+                onOpenCommercial={(marketId?: string, opportunityId?: string) =>
                   navigate(
                     `/comercial-sistemas?company=${selectedClient.id}${
                       marketId ? `&market=${marketId}` : ''
-                    }`,
+                    }${opportunityId ? `&opportunity=${opportunityId}` : ''}`,
                   )
                 }
               />
@@ -2040,8 +2042,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 tenantId={tenantId}
                 companyId={selectedClient.id}
                 currentPeriodId={workspace.period?.id ?? null}
+                selectedMarketId={focusedMarketId}
               />
             </TabsContent>
+
             <TabsContent value="calendario" className="m-0">
               <CalendarTab
                 period={workspace.period}
