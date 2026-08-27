@@ -684,9 +684,6 @@ export default function SystemsCommercial() {
               ))}
             </SelectContent>
           </Select>
-
-            </SelectContent>
-          </Select>
           <Select value={stageFilter} onValueChange={setStageFilter}>
             <SelectTrigger className="w-[190px]">
               <SelectValue />
