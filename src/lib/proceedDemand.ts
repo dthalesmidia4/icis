@@ -927,8 +927,17 @@ export async function jumpToFunction({
   }
 
 
-  const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
+  // Uma única leitura do card serve ao responsável anterior E à checagem de
+  // agenda (antes eram duas consultas à MESMA demanda na mesma transição).
+  const { data: cur } = await supabase
+    .from("demands")
+    .select(
+      "id, title, assigned_to, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
+    )
+    .eq("id", demandId)
+    .maybeSingle();
   const prevUser = (cur as any)?.assigned_to || null;
+
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
   const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
   const jumpExecutors = await collectStageExecutors(tenantId, demandId, currentFunctionKey, prevUser, stageExtras);
