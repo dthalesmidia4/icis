@@ -30,6 +30,12 @@ import {
 
 export type MarketStatus = CampaignStatus;
 
+/**
+ * `base` = praça comercial JÁ existente (não é etapa de expansão e nunca ocupa
+ * número). `expansion` = cidade numerada da sequência de expansão.
+ */
+export type MarketType = "base" | "expansion";
+
 export const MARKET_STATUS_LABEL = CAMPAIGN_STATUS_LABEL;
 export const MARKET_STATUS_OPTIONS = CAMPAIGN_STATUS_OPTIONS;
 
@@ -38,6 +44,7 @@ export interface ExpansionMarket {
   tenant_id: string;
   company_id: string;
   campaign_id: string;
+  market_type: MarketType;
   sequence_order: number | null;
   city: string;
   state: string;
@@ -61,6 +68,7 @@ export interface ExpansionMarket {
   created_at: string;
   updated_at: string;
 }
+
 
 export const TBD = "A definir";
 
