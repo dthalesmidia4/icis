@@ -1925,15 +1925,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
     { id: 'client_anamnese', title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia', title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
-    { id: 'client_identidade_visual', title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
-    { id: 'client_planejar_periodo', title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true), disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
+    { id: 'client_identidade_visual', title: "Identidade Visual", icon: Palette, action: () => { void ensureMascotsLoaded(); setVisualIdentityModalOpen(true); } },
+    { id: 'client_planejar_periodo', title: "Planejar Período", icon: CalendarDays, action: () => { void ensureMascotsLoaded(); setPlanPeriodModalOpen(true); }, disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
     { id: 'client_aprovar_producao', title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (approvedCardsCount + rejectedCardsCount) > 0 ? (approvedCardsCount + rejectedCardsCount) : undefined },
     { id: 'client_cronograma_atual', title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },
     { id: 'client_evolucao', title: "Evolução das Demandas", icon: Activity, action: () => navigate("/client-evolution") },
     { id: 'client_historico', title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
-    { id: 'client_conteudo_avulso', title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
-    
-    { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => { void ensureHistoricoLoaded(); setDemandaPlanejadaHubModalOpen(true); } },
+    { id: 'client_conteudo_avulso', title: "Conteúdo Avulso", icon: PenTool, action: () => { void ensureMascotsLoaded(); setContentHubModalOpen(true); } },
+    { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => { void ensureHistoricoLoaded(); void ensureMascotsLoaded(); setDemandaPlanejadaHubModalOpen(true); } },
+
   ];
 
   // Ações operacionais do workspace atual: regras de papel já bastam.
