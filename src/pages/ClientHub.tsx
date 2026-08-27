@@ -1888,6 +1888,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   // `tab`, `market` e `opportunity` andam juntos: o deep link é a fonte de verdade.
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = normalizeHubTab(searchParams.get('tab'));
+  // Carga percebida de cada aba (dev): não cria telemetria no banco.
+  useEffect(() => {
+    const startedAt = perfNow();
+    const id = window.setTimeout(() => measureClientHubTab(activeTab, startedAt), 0);
+    return () => window.clearTimeout(id);
+  }, [activeTab]);
+
   const focusedMarketId = searchParams.get('market');
 
   const patchParams = (patch: Record<string, string | null>) => {
