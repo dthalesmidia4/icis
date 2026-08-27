@@ -41,7 +41,7 @@ import DemandsTab from "@/components/client-hub/DemandsTab";
 import GuidelinesTab from "@/components/client-hub/GuidelinesTab";
 import PaidMediaTab from "@/components/client-hub/PaidMediaTab";
 import SystemsCommercialWorkspace from "@/components/systems-commercial/SystemsCommercialWorkspace";
-import { HUB_TABS, normalizeHubTab } from "@/lib/clientHubTabs";
+import { HUB_TABS, HUB_TAB_LABELS, normalizeHubTab } from "@/lib/clientHubTabs";
 
 const buildFallbackDemandaQuestions = (solicitacaoCliente: string, estrategiaGeral?: string | null) => {
   const normalizedRequest = solicitacaoCliente.toLowerCase();
@@ -1979,15 +1979,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b bg-transparent p-0">
-            {[
-              { value: "estrategia", label: "Estratégia" },
-              { value: "midia-paga", label: "Mídia paga" },
-              { value: "calendario", label: "Calendário" },
-              { value: "demandas", label: "Demandas" },
-              { value: "feed", label: "Feed Simulado" },
-              { value: "cuidados", label: "Cuidados fundamentais" },
-              { value: "comercial", label: "Comercial" },
-            ].map((t) => (
+            {HUB_TABS.map((value) => ({ value, label: HUB_TAB_LABELS[value] })).map((t) => (
               <TabsTrigger
                 key={t.value}
                 value={t.value}

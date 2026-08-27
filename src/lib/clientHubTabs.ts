@@ -16,6 +16,16 @@ export const HUB_TABS = [
 
 export type HubTab = (typeof HUB_TABS)[number];
 
+export const HUB_TAB_LABELS: Record<HubTab, string> = {
+  estrategia: "Estratégia",
+  "midia-paga": "Mídia paga",
+  calendario: "Calendário",
+  demandas: "Demandas",
+  feed: "Feed Simulado",
+  cuidados: "Cuidados fundamentais",
+  comercial: "Comercial",
+};
+
 const ALIASES: Record<string, HubTab> = {
   acquisition: "estrategia",
   aquisicao: "estrategia",
