@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,18 +29,19 @@ import {
   buildPaidMediaMarketRows,
   summarizePaidMediaPlan,
 } from "@/lib/paidMediaPlanning";
-import {
-  InlineCurrencyCell,
-  InlineDateRangeCell,
-} from "@/components/inline-edit/InlineCells";
+import { InlineCurrencyCell } from "@/components/inline-edit/InlineCells";
+import { marketRowBadge, marketRowClass } from "@/lib/marketRowStyles";
+// MESMO seletor de início/término dos cards da Visão Geral.
+import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
 import PlaceFormModal from "./PlaceFormModal";
+
 
 interface PaidMediaTabProps {
   tenantId: string | null | undefined;
   companyId: string | null | undefined;
   currentPeriodId: string | null | undefined;
-  /** Praça vinda da aba Expansão (`market=`): abre e destaca a cidade. */
+  /** Praça vinda do deep link (`market=`): abre e destaca a cidade. */
   selectedMarketId?: string | null;
 }
 
@@ -181,22 +182,26 @@ export default function PaidMediaTab({
         )}
       </div>
 
-      <div className="grid gap-px border bg-border sm:grid-cols-3 lg:grid-cols-5">
+      {/* Leitura financeira primeiro: planejado e disponível dominam. */}
+      <div className="grid gap-px border bg-border sm:grid-cols-2 lg:grid-cols-4">
         <Metric
           label="Investimento planejado"
           value={`${marketBudgetLabel(totals.plannedKnown)}${undefinedSuffix(totals.plannedUndefined, "valor")}`}
+          strong
         />
+        <Metric label="Saldo disponível" value={marketBudgetLabel(totals.balanceKnown)} strong />
         <Metric
           label="Alocado em ativações"
           value={`${marketBudgetLabel(totals.allocatedKnown)}${undefinedSuffix(totals.allocatedUndefined, "verba")}`}
         />
-        <Metric label="Saldo conhecido" value={marketBudgetLabel(totals.balanceKnown)} />
-        <Metric label="Cidades programadas" value={String(totals.scheduledCities)} />
-        <Metric label="Ativações" value={String(totals.activations)} />
+        <Metric
+          label="Cidades programadas"
+          value={`${totals.scheduledCities} · ${totals.activations} peças vinculadas`}
+        />
       </div>
 
       <section className="overflow-x-auto border">
-        <table className="w-full min-w-[1080px] text-sm">
+        <table className="w-full min-w-[980px] text-sm">
           <thead>
             <tr className="border-b bg-muted/50 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
               <th className="p-3 text-left">#</th>
@@ -207,14 +212,13 @@ export default function PaidMediaTab({
               <th className="p-3 text-right">Alocado</th>
               <th className="p-3 text-right">Disponível</th>
               <th className="p-3 text-right">Peças vinculadas</th>
-              <th className="p-3 text-right">Ativações</th>
               <th className="p-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="p-8 text-center text-muted-foreground">
+                <td colSpan={9} className="p-8 text-center text-muted-foreground">
                   {loading
                     ? "Carregando o planejamento de mídia paga…"
                     : "Nenhuma cidade com planejamento de mídia paga neste plano."}
@@ -224,29 +228,93 @@ export default function PaidMediaTab({
               rows.map(({ market, planned, allocated, available, linkedDemands, activations: acts }) => {
                 const isOpen = expanded === market.id;
                 const live = acts.filter((a) => !isActivationCancelled(a.status));
+                const badge = marketRowBadge(market);
                 return (
                   <Fragment key={market.id}>
                     <tr
                       className={cn(
-                        "border-t align-top",
+                        "cursor-pointer border-t align-top transition-colors hover:bg-muted/40",
+                        marketRowClass(market),
                         selectedMarketId === market.id && "bg-primary/5",
                       )}
+                      onClick={() => setExpanded(isOpen ? null : market.id)}
                     >
                       <td className="p-3 font-black tabular-nums">{marketOrderLabel(market)}</td>
-                      <td className="p-3 font-bold">{marketLabel(market)}</td>
-                      <td className="p-3">{marketStatusLabel(market.status)}</td>
-                      <td className="p-2">
-                        <InlineDateRangeCell
-                          ariaLabel={`Período dos anúncios em ${marketLabel(market)}`}
-                          start={market.ads_start_date}
-                          end={market.ads_end_date}
-                          label="período dos anúncios"
-                          onCommit={({ start, end }) =>
-                            patchMarket(market.id, { ads_start_date: start, ads_end_date: end })
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{marketLabel(market)}</span>
+                          {badge && (
+                            <span
+                              className={cn(
+                                "rounded-full border px-1.5 py-0.5 text-[9px] font-black tracking-[0.12em]",
+                                badge.className,
+                              )}
+                            >
+                              {badge.label}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        className={cn(
+                          "p-3",
+                          market.status === "planning" && "text-muted-foreground",
+                          market.status === "cancelled" && "text-muted-foreground line-through",
+                        )}
+                      >
+                        {marketStatusLabel(market.status)}
+                      </td>
+                      {/* MESMO popover de início/término da Visão Geral. */}
+                      <td className="p-2" onClick={(e) => e.stopPropagation()}>
+                        <StartEndDatePopover
+                          dueDate={market.ads_start_date}
+                          deliveryDate={market.ads_end_date}
+                          dueTime={null}
+                          deliveryTime={null}
+                          onSave={async (v) => {
+                            const res = await patchMarket(market.id, {
+                              ads_start_date: v.due_date,
+                              ads_end_date: v.delivery_date,
+                            });
+                            if (!res.success) {
+                              toast.error(res.message || "Não foi possível salvar o período.");
+                              return;
+                            }
+                            toast.success("Período dos anúncios atualizado.");
+                          }}
+                          trigger={
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-3 rounded-md bg-muted/60 px-2 py-1 text-[11px] font-medium leading-tight transition-colors hover:bg-muted"
+                              aria-label={`Período dos anúncios em ${marketLabel(market)}`}
+                            >
+                              <span className="flex items-center gap-1">
+                                <CalendarIcon className="h-3 w-3 shrink-0 text-amber-500" />
+                                <span className="text-muted-foreground">Ini:</span>
+                                {market.ads_start_date ? (
+                                  <span className="font-semibold">
+                                    {shortDate(market.ads_start_date)}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <CalendarIcon className="h-3 w-3 shrink-0 text-emerald-500" />
+                                <span className="text-muted-foreground">Fim:</span>
+                                {market.ads_end_date ? (
+                                  <span className="font-semibold">
+                                    {shortDate(market.ads_end_date)}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </span>
+                            </button>
                           }
                         />
                       </td>
-                      <td className="p-2 text-right">
+                      <td className="p-2 text-right" onClick={(e) => e.stopPropagation()}>
                         <InlineCurrencyCell
                           ariaLabel={`Verba planejada em ${marketLabel(market)}`}
                           value={planned}
@@ -263,11 +331,12 @@ export default function PaidMediaTab({
                           available !== null && available < 0 && "font-bold text-destructive",
                         )}
                       >
-                        {available === null ? "A definir" : marketBudgetLabel(available)}
+                        {available === null
+                          ? "A definir"
+                          : `${marketBudgetLabel(available)}${available < 0 ? " · acima do planejado" : ""}`}
                       </td>
                       <td className="p-3 text-right tabular-nums">{linkedDemands}</td>
-                      <td className="p-3 text-right tabular-nums">{live.length}</td>
-                      <td className="p-3">
+                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-wrap items-center justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -298,9 +367,10 @@ export default function PaidMediaTab({
                         </div>
                       </td>
                     </tr>
+
                     {isOpen && (
                       <tr className="border-t bg-muted/20">
-                        <td colSpan={10} className="p-3">
+                        <td colSpan={9} className="p-3">
                           {acts.length === 0 ? (
                             <div className="flex flex-wrap items-center gap-3">
                               <p className="text-sm text-muted-foreground">
@@ -317,7 +387,12 @@ export default function PaidMediaTab({
                               </Button>
                             </div>
                           ) : (
-                            <table className="w-full text-xs">
+                            <>
+                              <p className="mb-2 text-[11px] text-muted-foreground">
+                                {`${linkedDemands} peça(s) vinculada(s) · ${live.length} ativação(ões) ativa(s) nesta cidade`}
+                              </p>
+                              <table className="w-full text-xs">
+
                               <thead>
                                 <tr className="text-left text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
                                   <th className="py-2 pr-3">Conteúdo</th>
@@ -385,8 +460,10 @@ export default function PaidMediaTab({
                                   </tr>
                                 ))}
                               </tbody>
-                            </table>
+                              </table>
+                            </>
                           )}
+
                         </td>
                       </tr>
                     )}
@@ -433,11 +510,34 @@ export default function PaidMediaTab({
   );
 }
 
-const Metric = ({ label, value }: { label: string; value: string }) => (
-  <div className="bg-background p-4">
+const Metric = ({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) => (
+  <div className={cn("bg-background p-4", strong && "border-l-[3px] border-l-primary")}>
     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
       {label}
     </p>
-    <p className="mt-1 text-lg font-black tabular-nums">{value}</p>
+    <p
+      className={cn(
+        "mt-1 tabular-nums",
+        strong ? "text-xl font-black" : "text-sm font-bold text-muted-foreground",
+      )}
+    >
+      {value}
+    </p>
   </div>
 );
+
+/** Data curta pt-BR sem fuso: o valor é uma data pura (YYYY-MM-DD). */
+const shortDate = (iso: string) => {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}`;
+};
+

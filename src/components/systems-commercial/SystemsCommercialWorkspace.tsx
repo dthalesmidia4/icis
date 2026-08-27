@@ -38,9 +38,11 @@ import {
   Users,
   AlertTriangle,
   CalendarClock,
+  ChevronDown,
   History,
   Megaphone,
 } from "lucide-react";
+
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -48,6 +50,7 @@ import {
   STAGE_OPTIONS,
   hasMigrationAvailable,
   isFinalStage,
+  loadSystemsClients,
   loadSystemsCompanies,
   loadSystemsProspects,
   markOpportunityWon,
@@ -65,11 +68,19 @@ import {
 } from "@/lib/marketingCampaigns";
 import { patchSystemsClient } from "@/lib/systemsClients";
 import {
+  customerStageBadgeLabel,
+  lifecycleSituationLabel,
+  resolveStageInlineChange,
+} from "@/lib/commercialInlineStage";
+import { marketRowBadge, marketRowClass } from "@/lib/marketRowStyles";
+import {
   InlineDateTimeCell,
   InlineSelectCell,
   InlineTextCell,
 } from "@/components/inline-edit/InlineCells";
+
 import {
+  isBaseMarket,
   isMarketClosed,
   loadExpansionMarkets,
   marketDisplayLabel,
@@ -93,6 +104,7 @@ import {
   buildOpportunityRows,
   countQuickFilters,
   loadLastTouchBySubclient,
+  type NextActionBucket,
   type OpportunityRow,
 } from "@/lib/systemsCommercial";
 import {
@@ -235,6 +247,16 @@ export default function SystemsCommercialWorkspace({
 
   const [companies, setCompanies] = useState<SystemsCompany[]>([]);
   const [rows, setRows] = useState<OpportunityRow[]>([]);
+  /**
+   * CARTEIRA COMPLETA: clientes convertidos (`lifecycle='customer'`) vivem aqui,
+   * NUNCA misturados com as oportunidades. Só o agrupamento territorial junta
+   * os dois, sempre com a semântica preservada.
+   */
+  const [customers, setCustomers] = useState<SystemsClient[]>([]);
+  /** Conversão inline (etapa → ganho) precisa de confirmação curta. */
+  const [inlineWonTarget, setInlineWonTarget] = useState<SystemsClient | null>(null);
+  const [inlineWonSaving, setInlineWonSaving] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [companyFilter, setCompanyFilter] = useState<string>(lockedCompanyId || "all");
   const [search, setSearch] = useState("");
@@ -284,13 +306,16 @@ export default function SystemsCommercialWorkspace({
     if (!tenantId) return;
     setLoading(true);
     try {
-      const [comps, prospects, camps] = await Promise.all([
+      const [comps, prospects, custs, camps] = await Promise.all([
         loadSystemsCompanies(tenantId),
         loadSystemsProspects(tenantId),
+        // Clientes convertidos vêm do MESMO cadastro: nada é duplicado.
+        loadSystemsClients(tenantId).catch(() => [] as SystemsClient[]),
         loadCampaigns(tenantId).catch(() => [] as MarketingCampaign[]),
       ]);
       setCompanies(comps);
       setCampaigns(camps);
+      setCustomers(custs);
       // Markets de TODAS as empresas de Sistemas: nunca acopla a tela ao plano
       // da primeira empresa do tenant.
       const plans = comps
@@ -310,12 +335,15 @@ export default function SystemsCommercialWorkspace({
       );
       setRows(buildOpportunityRows(prospects, touches));
       if (groupByMarket) {
+        // Execução real da carteira inteira (prospects + clientes).
         setMarketTouchpoints(
-          await loadMarketTouchpoints(prospects.map((p) => p.id)).catch(
-            () => [] as MarketTouchpoint[],
-          ),
+          await loadMarketTouchpoints([
+            ...prospects.map((p) => p.id),
+            ...custs.map((c) => c.id),
+          ]).catch(() => [] as MarketTouchpoint[]),
         );
       }
+
       if (comps.length === 1) setCompanyFilter((prev) => (prev === "all" ? comps[0].id : prev));
     } catch (err) {
       console.error(err);
@@ -433,6 +461,21 @@ export default function SystemsCommercialWorkspace({
       ),
     [markets, expansionPlan],
   );
+
+  /** A BASE já é a operação em andamento: abre expandida por padrão. */
+  const baseMarketId = useMemo(
+    () => planMarkets.find((m) => isBaseMarket(m))?.id ?? null,
+    [planMarkets],
+  );
+  const baseAutoOpened = useRef(false);
+  useEffect(() => {
+    if (!groupByMarket || baseAutoOpened.current) return;
+    if (marketFilter !== "all") return;
+    if (!baseMarketId) return;
+    baseAutoOpened.current = true;
+    setExpandedMarket((prev) => prev ?? baseMarketId);
+  }, [groupByMarket, baseMarketId, marketFilter]);
+
 
   /**
    * Cidades abertas do plano. Nunca há planejamento aqui — o Client Hub segue
@@ -642,32 +685,85 @@ export default function SystemsCommercialWorkspace({
             : row,
         ),
       );
+      setCustomers((prev) =>
+        prev.map((c) => (c.id === leadId ? ({ ...c, ...patch } as SystemsClient) : c)),
+      );
     }
     return res;
   };
 
+  /** Conversão real: `ganho` inline nunca é só um patch de coluna. */
+  const confirmInlineWon = async () => {
+    if (!inlineWonTarget) return;
+    setInlineWonSaving(true);
+    const res = await markOpportunityWon(inlineWonTarget.id, inlineWonTarget.onboarded_at);
+    setInlineWonSaving(false);
+    if (!res.success) {
+      toast.error(res.message || "Erro ao converter em cliente.");
+      return;
+    }
+    toast.success("Oportunidade ganha — agora é cliente de Sistemas.");
+    setInlineWonTarget(null);
+    load();
+  };
+
+  /**
+   * Clientes da carteira respeitando empresa/cidade. O filtro de ETAPA de
+   * prospect nunca esconde clientes da leitura territorial.
+   */
+  const scopedCustomers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return customers.filter((client) => {
+      if (companyFilter !== "all" && client.parent_company_id !== companyFilter) return false;
+      if (marketFilter !== "all" && client.market_id !== marketFilter) return false;
+      if (!term) return true;
+      return [client.name, client.contact_name, client.city, client.current_system]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(term));
+    });
+  }, [customers, companyFilter, marketFilter, search]);
+
   /** Estatísticas por carteira operacional, a partir dos MESMOS registros. */
   const marketStats = useMemo(
-    () => summarizeMarketCommercial(scoped.map((r) => r.client) as any, marketTouchpoints),
-    [scoped, marketTouchpoints],
+    () =>
+      summarizeMarketCommercial(
+        [...scoped.map((r) => r.client), ...scopedCustomers] as any,
+        marketTouchpoints,
+      ),
+    [scoped, scopedCustomers, marketTouchpoints],
   );
 
-  /** Leads visíveis agrupados pela carteira operacional (`market_id`). */
+  /**
+   * Carteira agrupada pela cidade operacional (`market_id`): oportunidades
+   * filtradas + clientes convertidos, cada registro mantendo seu lifecycle.
+   */
   const groupedRows = useMemo(() => {
-    const byMarket = new Map<string, typeof visible>();
-    const noMarket: typeof visible = [];
-    visible.forEach((row) => {
-      const id = row.client.market_id;
+    type Entry = { client: SystemsClient; bucket: NextActionBucket };
+    const byMarket = new Map<string, Entry[]>();
+    const noMarket: Entry[] = [];
+    const push = (entry: Entry) => {
+      const id = entry.client.market_id;
       if (!id) {
-        noMarket.push(row);
+        if (entry.client.lifecycle === "prospect") noMarket.push(entry);
         return;
       }
       const list = byMarket.get(id) || [];
-      list.push(row);
+      list.push(entry);
       byMarket.set(id, list);
-    });
+    };
+    visible.forEach((row) => push({ client: row.client, bucket: row.bucket }));
+    scopedCustomers.forEach((client) => push({ client, bucket: "final" }));
+    byMarket.forEach((list) =>
+      list.sort((a, b) => {
+        if (a.client.lifecycle !== b.client.lifecycle) {
+          return a.client.lifecycle === "prospect" ? -1 : 1;
+        }
+        return a.client.name.localeCompare(b.client.name, "pt-BR");
+      }),
+    );
     return { byMarket, noMarket };
-  }, [visible]);
+  }, [visible, scopedCustomers]);
+
 
   const quickChip = (id: QuickFilter, label: string, count: number, icon?: React.ReactNode) => (
     <button
@@ -953,27 +1049,25 @@ export default function SystemsCommercialWorkspace({
 
         {groupByMarket && (
           <div className="border rounded-lg overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-sm">
+            {/* UMA tabela única: base e expansão compartilham o mesmo cabeçalho. */}
+            <table className="w-full min-w-[1120px] text-sm">
               <thead className="bg-muted/50">
-                <tr>
-                  <th className="p-3 text-left text-xs font-semibold uppercase">#</th>
-                  <th className="p-3 text-left text-xs font-semibold uppercase">Cidade/carteira</th>
-                  <th className="p-3 text-left text-xs font-semibold uppercase">Status</th>
-                  <th className="p-3 text-right text-xs font-semibold uppercase">Oportunidades</th>
-                  <th className="p-3 text-right text-xs font-semibold uppercase">Em negociação</th>
-                  <th className="p-3 text-left text-xs font-semibold uppercase">
-                    Agenda planejada
-                  </th>
-                  <th className="p-3 text-left text-xs font-semibold uppercase">
-                    Execução realizada
-                  </th>
-                  <th className="p-3 text-right text-xs font-semibold uppercase">Ações</th>
+                <tr className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                  <th className="p-3 text-left">#</th>
+                  <th className="p-3 text-left">Cidade/carteira</th>
+                  <th className="p-3 text-left">Status</th>
+                  <th className="p-3 text-right">Oportunidades</th>
+                  <th className="p-3 text-right">Clientes</th>
+                  <th className="p-3 text-right">Em negociação</th>
+                  <th className="p-3 text-left">Agenda planejada</th>
+                  <th className="p-3 text-left">Execução realizada</th>
+                  <th className="p-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="p-10 text-center">
+                    <td colSpan={9} className="p-10 text-center">
                       <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                     </td>
                   </tr>
@@ -983,16 +1077,40 @@ export default function SystemsCommercialWorkspace({
                       const leads = groupedRows.byMarket.get(market.id) || [];
                       const stats = marketStats.get(market.id);
                       const isOpen = expandedMarket === market.id;
+                      const badge = marketRowBadge(market);
                       return (
                         <Fragment key={market.id}>
-                          <tr className="border-t align-top">
+                          <tr
+                            className={cn(
+                              "cursor-pointer border-t align-top transition-colors hover:bg-muted/40",
+                              marketRowClass(market),
+                            )}
+                            onClick={() => setExpandedMarket(isOpen ? null : market.id)}
+                          >
                             <td className="p-3 font-black tabular-nums">
                               {marketOrderLabel(market)}
                             </td>
-                            <td className="p-3 font-medium">{marketLabel(market)}</td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold">{marketLabel(market)}</span>
+                                {badge && (
+                                  <span
+                                    className={cn(
+                                      "rounded-full border px-1.5 py-0.5 text-[9px] font-black tracking-[0.12em]",
+                                      badge.className,
+                                    )}
+                                  >
+                                    {badge.label}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td className="p-3">{marketStatusLabel(market.status)}</td>
                             <td className="p-3 text-right tabular-nums">
                               {stats?.opportunities ?? 0}
+                            </td>
+                            <td className="p-3 text-right font-bold tabular-nums">
+                              {stats?.customers ?? 0}
                             </td>
                             <td className="p-3 text-right tabular-nums">
                               {stats?.negotiating ?? 0}
@@ -1013,7 +1131,7 @@ export default function SystemsCommercialWorkspace({
                               </div>
                               <div>Último contato: {fmtDate(stats?.lastTouchAt)}</div>
                             </td>
-                            <td className="p-3">
+                            <td className="p-3" onClick={(e) => e.stopPropagation()}>
                               <div className="flex flex-wrap items-center justify-end gap-1">
                                 <Button
                                   variant="ghost"
@@ -1026,52 +1144,101 @@ export default function SystemsCommercialWorkspace({
                                 >
                                   Editar agenda
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-xs text-muted-foreground"
+                                <button
+                                  type="button"
+                                  aria-label={isOpen ? "Recolher carteira" : "Expandir carteira"}
                                   onClick={() => setExpandedMarket(isOpen ? null : market.id)}
+                                  className="inline-flex h-8 w-8 items-center justify-center text-primary"
                                 >
-                                  {isOpen ? "Recolher" : `Ver ${leads.length} leads`}
-                                </Button>
+                                  <ChevronDown
+                                    className={cn(
+                                      "h-4 w-4 transition-transform",
+                                      isOpen && "rotate-180",
+                                    )}
+                                  />
+                                </button>
                               </div>
                             </td>
                           </tr>
                           {isOpen && (
                             <tr className="border-t bg-muted/20">
-                              <td colSpan={8} className="p-3">
+                              <td colSpan={9} className="p-3">
                                 {leads.length === 0 ? (
                                   <p className="text-sm text-muted-foreground">
-                                    Nenhuma oportunidade nesta carteira com os filtros atuais.
+                                    Nenhum registro nesta carteira com os filtros atuais.
                                   </p>
                                 ) : (
                                   <table className="w-full text-xs">
                                     <thead>
                                       <tr className="text-left text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
                                         <th className="py-2 pr-3">Nome</th>
+                                        <th className="py-2 pr-3">Situação</th>
                                         <th className="py-2 pr-3">Etapa</th>
                                         <th className="py-2 pr-3">Sistema atual</th>
                                         <th className="py-2 pr-3">Último resultado</th>
                                         <th className="py-2 pr-3">Próxima ação</th>
-                                        <th className="py-2 text-right">Ações</th>
+                                        <th className="py-2 pr-3">Quando</th>
+                                        <th className="py-2 pr-3">Responsável</th>
+                                        <th className="py-2 text-right">Abrir</th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {leads.map(({ client, bucket }) => (
-                                        <tr key={client.id} className="border-t align-middle">
+                                      {leads.map(({ client, bucket }) => {
+                                        const isCustomer = client.lifecycle === "customer";
+                                        return (
+                                        <tr
+                                          key={client.id}
+                                          className={cn(
+                                            "border-t align-middle",
+                                            isCustomer && "bg-emerald-500/5",
+                                          )}
+                                        >
                                           <td className="py-2 pr-3 font-bold">{client.name}</td>
+                                          <td className="py-2 pr-3">
+                                            <span
+                                              className={cn(
+                                                "rounded-full border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]",
+                                                isCustomer
+                                                  ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                                                  : "text-muted-foreground",
+                                              )}
+                                            >
+                                              {lifecycleSituationLabel(client.lifecycle)}
+                                            </span>
+                                          </td>
                                           <td className="py-1 pr-3">
-                                            <InlineSelectCell
-                                              ariaLabel={`Etapa de ${client.name}`}
-                                              value={client.commercial_stage}
-                                              options={STAGE_OPTIONS}
-                                              emptyLabel={stageLabel(client.commercial_stage)}
-                                              onCommit={(v) =>
-                                                patchLead(client.id, {
-                                                  commercial_stage: (v as CommercialStage) || null,
-                                                })
-                                              }
-                                            />
+                                            {isCustomer ? (
+                                              <span
+                                                className="text-muted-foreground"
+                                                title="Cliente convertido: a etapa comercial não é editada na carteira."
+                                              >
+                                                {customerStageBadgeLabel(client.commercial_stage)}
+                                              </span>
+                                            ) : (
+                                              <InlineSelectCell
+                                                ariaLabel={`Etapa de ${client.name}`}
+                                                value={client.commercial_stage}
+                                                options={STAGE_OPTIONS}
+                                                emptyLabel={stageLabel(client.commercial_stage)}
+                                                onCommit={async (v) => {
+                                                  const action = resolveStageInlineChange(
+                                                    client,
+                                                    (v as CommercialStage) || null,
+                                                  );
+                                                  if (action.kind === "blocked") {
+                                                    return {
+                                                      success: false,
+                                                      message: action.reason,
+                                                    };
+                                                  }
+                                                  if (action.kind === "convert-won") {
+                                                    setInlineWonTarget(client);
+                                                    return { success: true };
+                                                  }
+                                                  return patchLead(client.id, action.patch);
+                                                }}
+                                              />
+                                            )}
                                           </td>
                                           <td className="py-1 pr-3">
                                             <InlineTextCell
@@ -1083,8 +1250,16 @@ export default function SystemsCommercialWorkspace({
                                               }
                                             />
                                           </td>
-                                          <td className="py-2 pr-3 text-muted-foreground">
-                                            {client.last_contact_result || "—"}
+                                          {/* Resumo editável: nunca cria touchpoint. */}
+                                          <td className="py-1 pr-3">
+                                            <InlineTextCell
+                                              ariaLabel={`Último resultado de ${client.name}`}
+                                              value={client.last_contact_result}
+                                              display={client.last_contact_result || "—"}
+                                              onCommit={(v) =>
+                                                patchLead(client.id, { last_contact_result: v })
+                                              }
+                                            />
                                           </td>
                                           <td className="py-1 pr-3">
                                             <InlineTextCell
@@ -1095,26 +1270,43 @@ export default function SystemsCommercialWorkspace({
                                                 patchLead(client.id, { next_action: v })
                                               }
                                             />
-                                            <div
-                                              className={cn(
-                                                bucket === "atrasado"
-                                                  ? "font-semibold text-destructive"
-                                                  : "text-muted-foreground",
-                                              )}
-                                            >
-                                              <InlineDateTimeCell
-                                                ariaLabel={`Data da próxima ação de ${client.name}`}
-                                                value={client.next_action_at}
-                                                display={
-                                                  client.next_action_at
-                                                    ? fmtDateTime(client.next_action_at)
-                                                    : "Sem data"
-                                                }
-                                                onCommit={(v) =>
-                                                  patchLead(client.id, { next_action_at: v })
-                                                }
-                                              />
-                                            </div>
+                                          </td>
+                                          <td
+                                            className={cn(
+                                              "py-1 pr-3",
+                                              bucket === "atrasado"
+                                                ? "font-semibold text-destructive"
+                                                : "text-muted-foreground",
+                                            )}
+                                          >
+                                            <InlineDateTimeCell
+                                              ariaLabel={`Data da próxima ação de ${client.name}`}
+                                              value={client.next_action_at}
+                                              display={
+                                                client.next_action_at
+                                                  ? fmtDateTime(client.next_action_at)
+                                                  : "Sem data"
+                                              }
+                                              onCommit={(v) =>
+                                                patchLead(client.id, { next_action_at: v })
+                                              }
+                                            />
+                                          </td>
+                                          <td className="py-1 pr-3">
+                                            <InlineSelectCell
+                                              ariaLabel={`Responsável de ${client.name}`}
+                                              value={client.commercial_owner_id}
+                                              options={collaborators.map((c) => ({
+                                                value: c.userId,
+                                                label: c.fullName || "Integrante",
+                                              }))}
+                                              emptyLabel="Sem responsável"
+                                              onCommit={(v) =>
+                                                patchLead(client.id, {
+                                                  commercial_owner_id: v || null,
+                                                })
+                                              }
+                                            />
                                           </td>
                                           <td className="py-2 text-right">
                                             <Button
@@ -1127,7 +1319,8 @@ export default function SystemsCommercialWorkspace({
                                             </Button>
                                           </td>
                                         </tr>
-                                      ))}
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 )}
@@ -1143,8 +1336,9 @@ export default function SystemsCommercialWorkspace({
                         <td className="p-3 font-medium">Sem cidade operacional</td>
                         <td className="p-3">—</td>
                         <td className="p-3 text-right tabular-nums">
-                          {groupedRows.noMarket.filter((r) => r.client.lifecycle === "prospect").length}
+                          {groupedRows.noMarket.length}
                         </td>
+                        <td className="p-3 text-right tabular-nums">—</td>
                         <td className="p-3 text-right tabular-nums">—</td>
                         <td className="p-3 text-xs text-muted-foreground" colSpan={2}>
                           Defina a cidade/carteira operacional no drawer de cada oportunidade. O
@@ -1169,6 +1363,7 @@ export default function SystemsCommercialWorkspace({
           </div>
         )}
       </div>
+
 
       {/* Drawer de edição */}
       <Sheet open={!!selected} onOpenChange={(v) => !v && closeDrawer()}>
@@ -1531,6 +1726,33 @@ export default function SystemsCommercialWorkspace({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Conversão inline na carteira: `ganho` converte o registro, não a coluna. */}
+      <Dialog
+        open={!!inlineWonTarget}
+        onOpenChange={(v) => !v && setInlineWonTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Converter em cliente?</DialogTitle>
+            <DialogDescription>
+              {inlineWonTarget?.name} passa a cliente de Sistemas (ativo) no MESMO registro,
+              mantendo cidade, histórico e touchpoints.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setInlineWonTarget(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmInlineWon} disabled={inlineWonSaving}>
+              {inlineWonSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar ganho
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
       {/* Nova oportunidade */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
