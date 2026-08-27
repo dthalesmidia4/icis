@@ -1859,6 +1859,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   // Demanda aberta em painel lateral (a partir do calendário)
   const [drawerDemandId, setDrawerDemandId] = useState<string | null>(null);
+  const [cycleModalOpen, setCycleModalOpen] = useState(false);
 
   const workspacePublications = workspace.demands.length || workspace.planItems.length;
   // Dias do cronograma = dias com PUBLICAÇÃO (datas operacionais não entram aqui).
@@ -1898,8 +1899,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     
     { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaHubModalOpen(true) },
   ];
-
-  const [cycleModalOpen, setCycleModalOpen] = useState(false);
 
   // Ações operacionais do workspace atual: regras de papel já bastam.
   // Permissões legadas `client_*` não filtram mais esta barra.
