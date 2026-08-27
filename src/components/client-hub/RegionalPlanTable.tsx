@@ -154,7 +154,13 @@ export default function RegionalPlanTable({
               rows.map((market) => {
                 const base = isBaseMarket(market);
                 return (
-                  <tr key={market.id} className="border-t align-top">
+                  <tr
+                    key={market.id}
+                    className={cn(
+                      "border-t align-top",
+                      selectedMarketId === market.id && "bg-primary/5",
+                    )}
+                  >
                     <td className="p-3 font-black tabular-nums">{marketOrderLabel(market)}</td>
                     <td className="p-3">
                       <span className="font-bold">{marketLabel(market)}</span>
