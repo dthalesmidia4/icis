@@ -296,6 +296,22 @@ describe("modo rico de zonas (até 4 mesas)", () => {
     );
   });
 
+  it("desktop normal nasce compacto (densidade do antigo zoom 80%)", () => {
+    const desk = { width: 1366, height: 700 };
+    const wide = { width: 2560, height: 1080 };
+    const dp = resolveOfficeProfile(desk);
+    const up = resolveOfficeProfile(wide);
+    // cenário menor no desktop normal…
+    expect(dp.sceneScale).toBeLessThan(up.sceneScale);
+    expect(dp.baseWidth).toBeLessThan(up.baseWidth);
+    expect(dp.panelWidthPx).toBeLessThan(up.panelWidthPx);
+    expect(dp.leftZonePx).toBeLessThan(up.leftZonePx);
+    expect(comfortGapPx(desk)).toBeLessThan(comfortGapPx({ ...wide, width: 1366 }));
+    // …mas o MONITOR não estreita: compensa com percentual maior da estação.
+    expect(deskMonitorWidthPct(desk)).toBeGreaterThan(deskMonitorWidthPct(wide));
+    expect(deskMonitorWidthPct({ width: 1920, height: 1080 })).toBeGreaterThanOrEqual(78);
+  });
+
   it("5+ estações ignoram o modo rico e mantêm a composição genérica", () => {
     expect(richZonesActive(5, { sideZones: true })).toBe(false);
     const rich = computeDeskSlots(6, { width: 1920, height: 1080 }, { sideZones: true });
