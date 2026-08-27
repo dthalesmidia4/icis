@@ -30,6 +30,8 @@ import ClientHubHeader from "@/components/client-hub/ClientHubHeader";
 import CycleEditModal from "@/components/client-hub/CycleEditModal";
 import ClientHubActionBar from "@/components/client-hub/ClientHubActionBar";
 import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrandTheme";
+import { measureClientHubShell, measureClientHubTab, perfNow } from "@/lib/clientHubPerf";
+
 
 import StrategyTab from "@/components/client-hub/StrategyTab";
 import CalendarTab from "@/components/client-hub/CalendarTab";
