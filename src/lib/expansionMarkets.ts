@@ -441,7 +441,7 @@ export async function patchExpansionMarket(
 }
 
 
-const normalizeMarket = (row: any): ExpansionMarket => ({
+export const normalizeMarket = (row: any): ExpansionMarket => ({
   ...row,
   channels: Array.isArray(row?.channels) ? row.channels.map((c: unknown) => String(c)) : [],
   status: (row?.status || "planning") as MarketStatus,
