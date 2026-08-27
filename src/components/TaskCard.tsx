@@ -33,6 +33,7 @@ import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { listEligibleAssignees } from "@/lib/eligibleAssignees";
+import { loadFlowUiContext, invalidateFlowUiContext } from "@/lib/flowUiContext";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { computeDraftMissingFields, draftAreaChangePatch, draftClientChangePatch } from "@/lib/draftDemand";
 import { DailyCardSection } from "@/components/DailyCardSection";
@@ -1853,22 +1854,24 @@ export default function TaskCard({
     [assigneeEligibility, flowFunctionNames],
   );
 
-  /** Nomes das etapas da área atual (chave → rótulo) para textos auxiliares. */
+  /**
+   * Nomes das etapas da área atual (chave → rótulo). Vêm do CONTEXTO ÚNICO da
+   * abertura do card (`get_flow_ui_context_v1`), com cache curto em memória.
+   */
   useEffect(() => {
     if (!open || !card?.tenant_id) { setFlowFunctionNames({}); return; }
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase.from("flow_functions") as any)
-        .select("function_key, name, work_area")
-        .eq("tenant_id", card.tenant_id)
-        .eq("work_area", workAreaForEligibility === "sistemas" ? "sistemas" : "midia");
+      const ctx = await loadFlowUiContext({
+        tenantId: card.tenant_id as string,
+        demandId: card.id ?? null,
+        workArea: workAreaForEligibility,
+      });
       if (cancelled) return;
-      const map: Record<string, string> = {};
-      (data || []).forEach((f: any) => { map[f.function_key] = f.name; });
-      setFlowFunctionNames(map);
+      setFlowFunctionNames(ctx?.functionNames || {});
     })();
     return () => { cancelled = true; };
-  }, [open, card?.tenant_id, workAreaForEligibility]);
+  }, [open, card?.tenant_id, card?.id, workAreaForEligibility]);
 
 
 
