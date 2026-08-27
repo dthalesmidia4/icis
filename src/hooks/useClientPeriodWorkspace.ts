@@ -176,6 +176,14 @@ export function useClientPeriodWorkspace(params: {
         );
         setStrategyText(((strategyRow as any)?.strategy_text as string | null) ?? null);
 
+        // Essencial já está na tela: os nomes dos responsáveis chegam depois.
+        if (!cancelled) setLoading(false);
+        if (import.meta.env.DEV) {
+          console.debug(
+            `[perf] client-period-workspace ${(performance.now() - started).toFixed(1)}ms · ${list.length} demanda(s)`,
+          );
+        }
+
         const userIds = [...new Set(list.map((d) => d.assigned_to).filter(Boolean))] as string[];
         if (userIds.length) {
           const { data: profiles } = await supabase
@@ -200,7 +208,8 @@ export function useClientPeriodWorkspace(params: {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, clientId, refreshKey, localKey]);
+  }, [enabled, tenantId, clientId, refreshKey, localKey]);
+
 
   return {
     loading,
