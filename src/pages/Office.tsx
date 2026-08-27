@@ -13,6 +13,7 @@ import {
   richRightZonePx,
   richZonesActive,
   stageSize,
+  officeSceneScale,
   WALL_HEIGHT_PCT,
   agencyPanelTopPct,
 } from "@/lib/officeLayout";
@@ -330,6 +331,8 @@ export default function Office() {
     [stations.length, worldSize, layoutOptions],
   );
   const monitorPct = useMemo(() => deskMonitorWidthPct(worldSize), [worldSize]);
+  /** Densidade do cenário por perfil (desktop normal nasce compacto). */
+  const sceneScale = useMemo(() => officeSceneScale(worldSize), [worldSize]);
   const baseWidth = useMemo(
     () => deskBaseWidth(stations.length, worldSize, layoutOptions),
     [stations.length, worldSize, layoutOptions],
@@ -411,8 +414,13 @@ export default function Office() {
             {/* FAIXA ESQUERDA (piso): Planejamento + Revisão, com respiro. */}
             {richZones && (
               <div
-                className="pointer-events-none absolute bottom-4 left-2 z-30 hidden flex-col gap-7 sm:flex"
-                style={{ width: richLeftZonePx(worldSize) - 16 }}
+                className="pointer-events-none absolute bottom-4 left-2 z-30 hidden flex-col sm:flex"
+                style={{
+                  width: richLeftZonePx(worldSize) - 16,
+                  // Densidade por perfil: no desktop normal o respiro entre
+                  // Planejamento e Revisão também encolhe (nada de zoom 80%).
+                  gap: `${Math.round(28 * sceneScale)}px`,
+                }}
               >
                 <PlanningZone register={registerPersonAnchor} />
                 <ReviewZone register={registerPersonAnchor} />
