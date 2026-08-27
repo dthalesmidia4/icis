@@ -207,7 +207,7 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
   const ratio = width / Math.max(height, 1);
   // ULTRAWIDE É FORMATO, NÃO SÓ LARGURA. 1920x1080 (ratio 1.78) é monitor
   // NORMAL e caía no perfil ultrawide, nascendo grande demais em 100% de zoom.
-  const ultrawide = ratio >= 2.1 || (width >= 2200 && ratio >= 1.9);
+  const ultrawide = ratio >= 2.1 || (width >= 1900 && ratio >= 1.95);
 
   if (ultrawide) {
     // Ultrawide baixo (ex.: 2560x1080) não pode subir tanto quanto o alto
