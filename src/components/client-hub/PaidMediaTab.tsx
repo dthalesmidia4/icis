@@ -48,8 +48,8 @@ import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
 import PlaceFormModal from "./PlaceFormModal";
 
-/** Valor sentinela do dropdown: o banco guarda `null` para automático. */
-const AUTO_STATUS = "__auto__";
+
+
 
 
 interface PaidMediaTabProps {
