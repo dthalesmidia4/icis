@@ -1997,7 +1997,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 companyId={selectedClient.id}
                 onOpenCommercial={(marketId?: string) =>
                   navigate(
-                    `/comercial-sistemas?company=${selectedCompanyId ?? ''}${
+                    `/comercial-sistemas?company=${selectedClient.id}${
                       marketId ? `&market=${marketId}` : ''
                     }`,
                   )
