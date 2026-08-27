@@ -33,6 +33,7 @@ import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { listEligibleAssignees } from "@/lib/eligibleAssignees";
+import { loadFlowUiContext, invalidateFlowUiContext } from "@/lib/flowUiContext";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { computeDraftMissingFields, draftAreaChangePatch, draftClientChangePatch } from "@/lib/draftDemand";
 import { DailyCardSection } from "@/components/DailyCardSection";
@@ -632,14 +633,19 @@ export default function TaskCard({
       workArea: ((card as any)?.work_area === "sistemas" ? "sistemas" : "midia") as "midia" | "sistemas",
       origin: ((card as any)?.origin || "interno") as string,
     };
-    isAtLastFlowFunction(card.tenant_id, card.demand_type_key, card.current_function_key, seqOpts)
-      .then((v) => { if (!cancelled) setIsLastFn(v); })
-      .catch(() => { if (!cancelled) setIsLastFn(false); });
+    // UMA leitura da sequência resolve as duas perguntas: ordem das etapas e
+    // se o card já está na última etapa do fluxo.
     getPipelineSequence(card.tenant_id, card.demand_type_key, seqOpts)
-      .then((seq) => { if (!cancelled) setPipelineSequence(seq); })
-      .catch(() => { if (!cancelled) setPipelineSequence([]); });
+      .then((seq) => {
+        if (cancelled) return;
+        setPipelineSequence(seq);
+        const last = seq.length > 0 ? (seq[seq.length - 1] as any)?.function_key ?? null : null;
+        setIsLastFn(!!last && last === (card.current_function_key || null));
+      })
+      .catch(() => { if (!cancelled) { setPipelineSequence([]); setIsLastFn(false); } });
     return () => { cancelled = true; };
   }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key, (card as any)?.work_area, (card as any)?.origin]);
+
 
   /**
    * Prévia do roteamento carregada PROATIVAMENTE: o botão "Prosseguir" precisa
@@ -1415,7 +1421,11 @@ export default function TaskCard({
 
   /* Ações de avanço com auxílio (nunca bloqueio) de alterações pendentes. */
   const handleProceed = (forcedAssigneeId?: string | null) =>
-    runWithPendingChangesGuard("Prosseguir", () => executeProceed(forcedAssigneeId));
+    runWithPendingChangesGuard("Prosseguir", async () => {
+      // Transição muda o contexto de fluxo: cache curto é invalidado.
+      invalidateFlowUiContext(card?.tenant_id as string | undefined, card?.id ?? null);
+      return executeProceed(forcedAssigneeId);
+    });
   const handleDeliverMyPart = (targetUserId?: string) =>
     runWithPendingChangesGuard("Entregar minha parte", () => executeDeliverMyPart(targetUserId));
   const handleDeliver = () => runWithPendingChangesGuard("Entregar", () => executeDeliver());
@@ -1766,15 +1776,14 @@ export default function TaskCard({
    * pré-filtrada: só entra quem tem alguma etapa habilitada no fluxo do tipo +
    * área + origem do card. `null` = ainda calculando / sem tipo definido.
    */
-  const [eligibleAssignees, setEligibleAssignees] = useState<Set<string> | null>(null);
   /**
-   * Mapa RICO de elegibilidade: além de sim/não, guarda QUAL etapa a pessoa
-   * assumiria. É isso que permite mostrar "começa em Criar arte" no seletor
-   * do rascunho em vez de apenas esconder/desabilitar sem explicação.
+   * UMA carga de elegibilidade alimenta os dois usos (filtro do seletor e
+   * "começa em X"). O nome da etapa é derivado localmente, então a chegada de
+   * `flowFunctionNames` NUNCA refaz a consulta.
    */
-  const [draftAssigneeResolution, setDraftAssigneeResolution] = useState<
-    Record<string, { eligible: boolean; functionKey: string | null; functionName: string | null }>
-  >({});
+  const [assigneeEligibility, setAssigneeEligibility] = useState<
+    Record<string, { eligible: boolean; functionKey: string | null }> | null
+  >(null);
   const [flowFunctionNames, setFlowFunctionNames] = useState<Record<string, string>>({});
   const demandTypeKeyForEligibility = (card as any)?.demand_type_key ?? null;
   const workAreaForEligibility = (card as any)?.work_area ?? null;
@@ -1783,7 +1792,7 @@ export default function TaskCard({
 
   useEffect(() => {
     if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
-      setEligibleAssignees(null);
+      setAssigneeEligibility(null);
       return;
     }
     let cancelled = false;
@@ -1804,9 +1813,12 @@ export default function TaskCard({
         mode: isDraft ? "draft" : "saved",
       });
       if (cancelled) return;
-      setEligibleAssignees(
-        new Set(
-          Object.keys(map).filter((id) => map[id]?.eligible),
+      setAssigneeEligibility(
+        Object.fromEntries(
+          Object.keys(map).map((id) => [
+            id,
+            { eligible: !!map[id]?.eligible, functionKey: map[id]?.functionKey ?? null },
+          ]),
         ),
       );
     })();
@@ -1823,79 +1835,49 @@ export default function TaskCard({
     collaborators,
   ]);
 
+  const eligibleAssignees = useMemo(
+    () =>
+      assigneeEligibility
+        ? new Set(Object.keys(assigneeEligibility).filter((id) => assigneeEligibility[id]?.eligible))
+        : null,
+    [assigneeEligibility],
+  );
 
-  /** Nomes das etapas da área atual (chave → rótulo) para textos auxiliares. */
+  const draftAssigneeResolution = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(assigneeEligibility || {}).map(([id, value]) => [
+          id,
+          {
+            eligible: value.eligible,
+            functionKey: value.functionKey,
+            functionName: value.functionKey ? flowFunctionNames[value.functionKey] ?? null : null,
+          },
+        ]),
+      ) as Record<string, { eligible: boolean; functionKey: string | null; functionName: string | null }>,
+    [assigneeEligibility, flowFunctionNames],
+  );
+
+  /**
+   * Nomes das etapas da área atual (chave → rótulo). Vêm do CONTEXTO ÚNICO da
+   * abertura do card (`get_flow_ui_context_v1`), com cache curto em memória.
+   */
   useEffect(() => {
     if (!open || !card?.tenant_id) { setFlowFunctionNames({}); return; }
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase.from("flow_functions") as any)
-        .select("function_key, name, work_area")
-        .eq("tenant_id", card.tenant_id)
-        .eq("work_area", workAreaForEligibility === "sistemas" ? "sistemas" : "midia");
-      if (cancelled) return;
-      const map: Record<string, string> = {};
-      (data || []).forEach((f: any) => { map[f.function_key] = f.name; });
-      setFlowFunctionNames(map);
-    })();
-    return () => { cancelled = true; };
-  }, [open, card?.tenant_id, workAreaForEligibility]);
-
-  /**
-   * Etapa que cada colaborador assumiria na configuração atual.
-   * Mesmo contrato do seletor (`listEligibleAssignees`): no card salvo a
-   * pergunta é feita com a etapa atual em modo administrativo.
-   */
-  useEffect(() => {
-    if (!open || !card?.tenant_id || !demandTypeKeyForEligibility || collaborators.length === 0) {
-      setDraftAssigneeResolution({});
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const map = await listEligibleAssignees({
+      const ctx = await loadFlowUiContext({
         tenantId: card.tenant_id as string,
-        card: {
-          id: card.id ?? null,
-          demand_type_key: demandTypeKeyForEligibility,
-          work_area: workAreaForEligibility,
-          origin: originForEligibility,
-          current_function_key: currentFunctionKeyForEligibility,
-        },
-        userIds: collaborators.map((c) => c.id),
-        mode: isDraft ? "draft" : "saved",
+        demandId: card.id ?? null,
+        workArea: workAreaForEligibility,
       });
       if (cancelled) return;
-      setDraftAssigneeResolution(
-        Object.fromEntries(
-          Object.keys(map).map((id) => {
-            const key = map[id]?.functionKey ?? null;
-            return [
-              id,
-              {
-                eligible: !!map[id]?.eligible,
-                functionKey: key,
-                functionName: key ? flowFunctionNames[key] ?? null : null,
-              },
-            ];
-          }),
-        ),
-      );
+      setFlowFunctionNames(ctx?.functionNames || {});
     })();
     return () => { cancelled = true; };
-  }, [
-    open,
-    card?.tenant_id,
-    card?.id,
-    card?.clientId,
-    isDraft,
-    demandTypeKeyForEligibility,
-    workAreaForEligibility,
-    originForEligibility,
-    currentFunctionKeyForEligibility,
-    collaborators,
-    flowFunctionNames,
-  ]);
+  }, [open, card?.tenant_id, card?.id, workAreaForEligibility]);
+
+
 
 
   // Card salvo: TODO colaborador é opção (o remapeamento administrativo resolve
@@ -3508,18 +3490,19 @@ export default function TaskCard({
                                       showRoutingArrow && "rounded-r-none",
                                     )}
                                     onClick={() => handleProceed(directCandidate?.userId)}
-                                    disabled={proceeding || previewPending || !card.demand_type_key}
+                                    disabled={proceeding || !card.demand_type_key}
                                     title={proceedTitle}
                                   >
                                     <span className="max-w-[180px] truncate">
                                       {previewPending ? "Prosseguir" : proceedActionLabel}
                                     </span>
-                                    {proceeding || previewPending ? (
+                                    {proceeding ? (
                                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     ) : (
                                       <ArrowRight className="h-3.5 w-3.5" />
                                     )}
                                   </Button>
+
                                 )}
                                 {showRoutingArrow && !needsManualChoice && (
                                   <PopoverTrigger asChild>

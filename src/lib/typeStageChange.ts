@@ -22,6 +22,7 @@ import {
   loadTypeStageGroups,
   typeStageChoiceError,
   type TypeStageCard,
+  type TypeStageGroup,
 } from "@/lib/typeStageOptions";
 import type { StageDecisionMode } from "@/lib/stageOptions";
 
@@ -38,6 +39,12 @@ export interface TypeStageChangeParams {
    * concluídas pelo responsável continuam disponíveis (só o histórico registra).
    */
   mode?: StageDecisionMode;
+  /**
+   * Grupos JÁ validados pelo popover (a opção clicada veio de `valid=true`).
+   * Quando informados, a validação não é refeita do zero — a gravação continua
+   * protegida por compare-and-set, então nenhuma etapa proibida passa.
+   */
+  validatedGroups?: TypeStageGroup[];
 }
 
 export type TypeStageChangeResult =
@@ -69,14 +76,19 @@ export async function applyTypeStageChange(
     };
   }
 
-  // Validação autoritativa: sempre recalculada contra o banco.
-  const { groups } = await loadTypeStageGroups({
-    tenantId,
-    card,
-    userId: card.assigned_to,
-    administrative: true,
-    mode: params.mode ?? "manual_stage_change",
-  });
+  // Validação: reaproveita os grupos recém-carregados pelo popover quando
+  // existirem; senão recalcula contra o banco.
+  const groups =
+    params.validatedGroups ??
+    (
+      await loadTypeStageGroups({
+        tenantId,
+        card,
+        userId: card.assigned_to,
+        administrative: true,
+        mode: params.mode ?? "manual_stage_change",
+      })
+    ).groups;
   const invalid = typeStageChoiceError(groups, targetType, targetStage);
   if (invalid) return { status: "invalid", message: invalid };
 

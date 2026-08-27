@@ -48,8 +48,8 @@ import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
 import PlaceFormModal from "./PlaceFormModal";
 
-/** Valor sentinela do dropdown: o banco guarda `null` para automático. */
-const AUTO_STATUS = "__auto__";
+
+
 
 
 interface PaidMediaTabProps {
@@ -210,9 +210,10 @@ export default function PaidMediaTab({
           value={`${marketBudgetLabel(totals.allocatedKnown)}${undefinedSuffix(totals.allocatedUndefined, "verba")}`}
         />
         <Metric
-          label="Cidades programadas"
+          label="Cidades com janela definida"
           value={`${totals.scheduledCities} · ${totals.activations} peças vinculadas`}
         />
+
       </div>
 
       <section className="overflow-x-auto border">
@@ -243,8 +244,9 @@ export default function PaidMediaTab({
               rows.map(({ market, planned, allocated, available, linkedDemands, activations: acts }) => {
                 const isOpen = expanded === market.id;
                 const live = acts.filter((a) => !isActivationCancelled(a.status));
-                // Status de MÍDIA (janela de anúncios + override), nunca `market.status`.
+                // Status de MÍDIA: decisão humana explícita, nunca derivado de datas.
                 const mediaStatus = effectivePaidMediaStatus(market);
+
                 const badge = paidMediaRowBadge(mediaStatus);
                 return (
                   <Fragment key={market.id}>
@@ -274,12 +276,10 @@ export default function PaidMediaTab({
                       </td>
                       <td className="p-2" onClick={(e) => e.stopPropagation()}>
                         <Select
-                          value={market.paid_media_status_override ?? AUTO_STATUS}
+                          value={mediaStatus}
                           onValueChange={async (value) => {
-                            const override =
-                              value === AUTO_STATUS ? null : (value as PaidMediaStatus);
                             const res = await patchMarket(market.id, {
-                              paid_media_status_override: override,
+                              paid_media_status_override: value as PaidMediaStatus,
                             });
                             if (!res.success) {
                               toast.error(res.message || "Não foi possível salvar o status.");
@@ -289,23 +289,22 @@ export default function PaidMediaTab({
                           }}
                         >
                           <SelectTrigger
-                            className="h-8 w-[150px] border-0 bg-muted/60 text-xs font-semibold"
+                            className="h-8 w-[190px] border-0 bg-muted/60 text-xs font-semibold"
                             aria-label={`Status de mídia em ${marketLabel(market)}`}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <SelectValue />
+                            <SelectValue placeholder={paidMediaMarketStatusLabel(mediaStatus)} />
                           </SelectTrigger>
                           <SelectContent onClick={(e) => e.stopPropagation()}>
                             {PAID_MEDIA_STATUS_OPTIONS.map((o) => (
-                              <SelectItem key={o.value ?? AUTO_STATUS} value={o.value ?? AUTO_STATUS}>
-                                {o.value === null
-                                  ? `Automático · ${paidMediaMarketStatusLabel(effectivePaidMediaStatus({ ...market, paid_media_status_override: null }))}`
-                                  : o.label}
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </td>
+
 
                       {/* MESMO popover de início/término da Visão Geral. */}
                       <td className="p-2" onClick={(e) => e.stopPropagation()}>

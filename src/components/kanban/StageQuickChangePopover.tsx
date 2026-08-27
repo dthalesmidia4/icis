@@ -147,6 +147,8 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
             targetFunctionKey: functionKey,
             mode: "manual_stage_change",
             source: "overview_stage_long_press",
+            // Grupos já carregados/validados no popover: não revalidar tudo.
+            validatedGroups: groups,
           });
           return res;
         },

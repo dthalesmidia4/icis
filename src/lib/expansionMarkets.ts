@@ -44,30 +44,33 @@ export const MARKET_STATUS_OPTIONS = CAMPAIGN_STATUS_OPTIONS;
 /**
  * STATUS DE MÍDIA PAGA ≠ STATUS DA PRAÇA.
  *
- * `marketing_campaign_markets.status` é o status COMERCIAL da praça (uma cidade
- * pode estar `active` comercialmente muito antes dos anúncios começarem).
- * A execução de mídia é derivada da janela de anúncios e só é sobrescrita
- * quando alguém decide explicitamente (`paid_media_status_override`).
+ * `marketing_campaign_markets.status` é o status COMERCIAL da praça.
+ * A execução de mídia é SEMPRE uma decisão humana explícita: a cidade só sai de
+ * "Pendente de programação" quando alguém configurou a campanha no Gerenciador
+ * de Anúncios e marcou o estado aqui. `ads_start_date`/`ads_end_date` são
+ * APENAS a janela planejada — nunca inferem status.
  */
-export type PaidMediaStatus = "planned" | "running" | "paused" | "completed" | "cancelled";
+export type PaidMediaStatus =
+  | "pending"
+  | "programmed"
+  | "running"
+  | "paused"
+  | "completed"
+  | "cancelled";
 
 export const PAID_MEDIA_STATUS_LABEL: Record<PaidMediaStatus, string> = {
-  planned: "Programada",
+  pending: "Pendente de programação",
+  programmed: "Programada",
   running: "Rodando",
   paused: "Pausada",
   completed: "Concluída",
   cancelled: "Cancelada",
 };
 
-/** Opções do dropdown: `null` = automático (derivado das datas). */
-export const PAID_MEDIA_STATUS_OPTIONS: { value: PaidMediaStatus | null; label: string }[] = [
-  { value: null, label: "Automático" },
-  { value: "planned", label: PAID_MEDIA_STATUS_LABEL.planned },
-  { value: "running", label: PAID_MEDIA_STATUS_LABEL.running },
-  { value: "paused", label: PAID_MEDIA_STATUS_LABEL.paused },
-  { value: "completed", label: PAID_MEDIA_STATUS_LABEL.completed },
-  { value: "cancelled", label: PAID_MEDIA_STATUS_LABEL.cancelled },
-];
+/** Opções do dropdown: sempre um dos seis estados explícitos. */
+export const PAID_MEDIA_STATUS_OPTIONS: { value: PaidMediaStatus; label: string }[] = (
+  ["pending", "programmed", "running", "paused", "completed", "cancelled"] as PaidMediaStatus[]
+).map((value) => ({ value, label: PAID_MEDIA_STATUS_LABEL[value] }));
 
 export function paidMediaMarketStatusLabel(status: PaidMediaStatus): string {
   return PAID_MEDIA_STATUS_LABEL[status] || status;
@@ -83,31 +86,16 @@ export function calendarDateOnly(ref: Date | string): string {
 }
 
 /**
- * Status EFETIVO de mídia paga da cidade.
- *  1. override != null vence sempre;
- *  2. sem janela nenhuma → `planned`;
- *  3. antes do início → `planned`;
- *  4. dentro da janela (ou início sem fim) → `running`;
- *  5. depois do fim → `completed`;
- *  6. só fim, sem início → `planned` até o fim; depois `completed`.
+ * Status EFETIVO de mídia paga da cidade: o estado salvo, quando válido, ou
+ * `pending`. NUNCA olha datas — não existe mais status automático.
  */
 export function effectivePaidMediaStatus(
-  market: Pick<
-    ExpansionMarket,
-    "ads_start_date" | "ads_end_date" | "paid_media_status_override"
-  >,
-  referenceDate: Date | string = new Date(),
+  market: Pick<ExpansionMarket, "paid_media_status_override">,
 ): PaidMediaStatus {
-  if (market.paid_media_status_override) return market.paid_media_status_override;
-  const start = market.ads_start_date ? market.ads_start_date.slice(0, 10) : null;
-  const end = market.ads_end_date ? market.ads_end_date.slice(0, 10) : null;
-  if (!start && !end) return "planned";
-  const today = calendarDateOnly(referenceDate);
-  if (!start && end) return today > end ? "completed" : "planned";
-  if (start && today < start) return "planned";
-  if (end && today > end) return "completed";
-  return "running";
+  const saved = market.paid_media_status_override;
+  return saved && PAID_MEDIA_STATUS_LABEL[saved] ? saved : "pending";
 }
+
 
 export interface ExpansionMarket {
   id: string;
@@ -453,7 +441,7 @@ export async function patchExpansionMarket(
 }
 
 
-const normalizeMarket = (row: any): ExpansionMarket => ({
+export const normalizeMarket = (row: any): ExpansionMarket => ({
   ...row,
   channels: Array.isArray(row?.channels) ? row.channels.map((c: unknown) => String(c)) : [],
   status: (row?.status || "planning") as MarketStatus,

@@ -267,7 +267,7 @@ export function pickActiveCampaign(
   })[0];
 }
 
-const normalizeRow = (row: any): MarketingCampaign => ({
+export const normalizeCampaignRow = (row: any): MarketingCampaign => ({
   ...row,
   channels: Array.isArray(row?.channels) ? row.channels.map((c: unknown) => String(c)) : [],
   status: (row?.status || "planning") as CampaignStatus,
@@ -287,7 +287,7 @@ export async function loadCampaigns(
   if (companyId) query = query.eq("company_id", companyId);
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []).map(normalizeRow);
+  return (data || []).map(normalizeCampaignRow);
 }
 
 export async function loadCampaign(id: string): Promise<MarketingCampaign | null> {
@@ -297,7 +297,7 @@ export async function loadCampaign(id: string): Promise<MarketingCampaign | null
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data ? normalizeRow(data) : null;
+  return data ? normalizeCampaignRow(data) : null;
 }
 
 export interface SaveCampaignPayload {

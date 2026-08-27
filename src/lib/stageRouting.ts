@@ -28,7 +28,7 @@ export type RoutingSource =
   | "automatic_load"
   | "historic_return";
 
-const INTERNAL_ROLES = ["agency_admin", "agency_manager", "agency_user"] as const;
+
 
 interface BaseArgs {
   tenantId: string;
@@ -63,94 +63,45 @@ export async function fetchStagePreferences(args: {
 }
 
 /**
- * Candidatos elegíveis (permissão real) para uma etapa, já ordenados:
+ * Candidatos elegíveis (permissão real) para uma etapa, já ordenados pelo BANCO:
  *  1. preferenciais do cliente por `priority` ASC;
  *  2. demais por carga ASC;
  *  3. nome como desempate.
+ *
+ * UMA única chamada (`get_stage_routing_candidates_v1`) substitui as consultas
+ * separadas de permissões, papéis, perfis, carga e preferências.
  */
 export async function getEligibleStageCandidates(args: BaseArgs): Promise<StageRoutingCandidate[]> {
   const { tenantId, functionKey } = args;
   if (!tenantId || !functionKey) return [];
   const area = normalizeWorkArea(typeof args.workArea === "string" ? args.workArea : undefined);
-
-  const { data: assigns } = await (supabase.from("collaborator_function_assignments") as any)
-    .select("user_id")
-    .eq("tenant_id", tenantId)
-    .eq("function_key", functionKey)
-    .eq("work_area", area)
-    .eq("allowed", true);
-
-  let ids = Array.from(
-    new Set(((assigns || []) as any[]).map((a) => String(a.user_id)).filter(Boolean)),
+  const excludes = Array.from(
+    new Set((args.excludeUserIds || []).filter(Boolean) as string[]),
   );
-  if (ids.length === 0) return [];
 
-  const excluded = new Set((args.excludeUserIds || []).filter(Boolean) as string[]);
-  ids = ids.filter((id) => !excluded.has(id));
-  if (ids.length === 0) return [];
-
-  const { data: roles } = await supabase
-    .from("user_roles")
-    .select("user_id")
-    .eq("tenant_id", tenantId)
-    .in("user_id", ids)
-    .in("role", INTERNAL_ROLES as any);
-  ids = Array.from(new Set(((roles || []) as any[]).map((r) => String(r.user_id)))).filter((id) =>
-    ids.includes(id),
-  );
-  if (ids.length === 0) return [];
-
-  const [{ data: profiles }, { data: demands }, prefs] = await Promise.all([
-    supabase.from("profiles").select("id, full_name").in("id", ids),
-    supabase
-      .from("demands")
-      .select("assigned_to")
-      .eq("tenant_id", tenantId)
-      .is("archived_at", null)
-      .in("assigned_to", ids),
-    args.clientId
-      ? fetchStagePreferences({
-          tenantId,
-          clientId: args.clientId,
-          workArea: area,
-          functionKey,
-        })
-      : Promise.resolve([] as Array<{ userId: string; priority: number }>),
-  ]);
-
-  const nameById = new Map<string, string>();
-  ((profiles || []) as any[]).forEach((p) => nameById.set(p.id, p.full_name || "Colaborador"));
-  const loadById = new Map<string, number>();
-  ((demands || []) as any[]).forEach((d) => {
-    if (d.assigned_to) loadById.set(d.assigned_to, (loadById.get(d.assigned_to) || 0) + 1);
+  const { data, error } = await (supabase as any).rpc("get_stage_routing_candidates_v1", {
+    p_tenant_id: tenantId,
+    p_client_id: args.clientId || null,
+    p_work_area: area,
+    p_function_key: functionKey,
+    p_exclude_user_ids: excludes,
   });
-  const priorityById = new Map<string, number>();
-  prefs.forEach((p) => priorityById.set(p.userId, p.priority));
+  if (error) {
+    console.error("[stageRouting] get_stage_routing_candidates_v1", error);
+    return [];
+  }
 
-  const candidates: StageRoutingCandidate[] = ids.map((id) => ({
-    userId: id,
-    fullName: nameById.get(id) || "Colaborador",
-    preferred: priorityById.has(id),
-    priority: priorityById.has(id) ? (priorityById.get(id) as number) : null,
-    loadCount: loadById.get(id) || 0,
-  }));
-
-  candidates.sort((a, b) => {
-    if (a.preferred !== b.preferred) return a.preferred ? -1 : 1;
-    if (a.preferred && b.preferred) {
-      const pa = a.priority ?? Number.MAX_SAFE_INTEGER;
-      const pb = b.priority ?? Number.MAX_SAFE_INTEGER;
-      if (pa !== pb) return pa - pb;
-    } else {
-      const la = a.loadCount ?? 0;
-      const lb = b.loadCount ?? 0;
-      if (la !== lb) return la - lb;
-    }
-    return a.fullName.localeCompare(b.fullName, "pt-BR");
-  });
-
-  return candidates;
+  return ((data || []) as any[])
+    .map((r) => ({
+      userId: String(r.user_id),
+      fullName: String(r.full_name || "Colaborador"),
+      preferred: !!r.preferred,
+      priority: r.priority === null || r.priority === undefined ? null : Number(r.priority),
+      loadCount: Number(r.load_count) || 0,
+    }))
+    .filter((c) => !!c.userId);
 }
+
 
 /**
  * Preferencial VÁLIDO (com permissão e não excluído) de menor `priority`.

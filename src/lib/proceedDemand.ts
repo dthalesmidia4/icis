@@ -13,7 +13,7 @@ import {
 
 import {
   getEligibleStageCandidates,
-  getPreferredStageAssignee,
+  
   type RoutingSource,
   type StageRoutingCandidate,
 } from "@/lib/stageRouting";
@@ -521,115 +521,77 @@ export async function pickAssigneeForFunction(
   const label = functionName || functionKey;
   const area: "midia" | "sistemas" = opts?.workArea === "sistemas" ? "sistemas" : "midia";
 
-  const { data: assigns, error: aErr } = await (supabase
-    .from("collaborator_function_assignments") as any)
-    .select("user_id")
-    .eq("tenant_id", tenantId)
-    .eq("function_key", functionKey)
-    .eq("work_area", area)
-    .eq("allowed", true);
-  if (aErr) return { success: false, message: "Erro ao buscar colaboradores." };
+  const excluded = Array.from(
+    new Set((opts?.excludeUserIds || []).filter(Boolean) as string[]),
+  );
 
-
-  const candidateIds = Array.from(
-    new Set(((assigns || []) as any[]).map((a: any) => String(a.user_id))),
-  ).filter(Boolean) as string[];
-
-  if (candidateIds.length === 0) {
-    return { success: false, message: `Nenhum colaborador tem a função "${label}" atribuída.` };
-  }
-
-  const { data: roles } = await supabase
-    .from("user_roles")
-    .select("user_id, role")
-    .eq("tenant_id", tenantId)
-    .in("user_id", candidateIds)
-    .in("role", ["agency_admin", "agency_manager", "agency_user"]);
-  let internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
-  if (internalIds.length === 0) {
-    return { success: false, message: `Nenhum colaborador interno com a função "${label}".` };
-  }
-
-  // Exclusão (ex.: etapas de revisão nunca caem em quem executou a etapa anterior).
-  const excluded = new Set((opts?.excludeUserIds || []).filter(Boolean) as string[]);
-  if (excluded.size > 0) {
-    internalIds = internalIds.filter((id) => !excluded.has(id));
-    if (internalIds.length === 0) {
-      return { success: false, message: `Nenhum outro colaborador disponível para "${label}".` };
-    }
-  }
-
-  const [{ data: profiles }, { data: demands }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name").in("id", internalIds),
-    supabase
-      .from("demands")
-      .select("assigned_to")
-      .eq("tenant_id", tenantId)
-      .is("archived_at", null)
-      .in("assigned_to", internalIds),
-  ]);
-
-  const counts = new Map<string, number>();
-  (demands || []).forEach((d: any) => {
-    if (d.assigned_to) counts.set(d.assigned_to, (counts.get(d.assigned_to) || 0) + 1);
+  // UMA leitura: permissão + papel interno + perfil + carga + preferência do
+  // cliente, já ordenada pelo banco (preferencial ASC, carga ASC, nome).
+  const candidates = await getEligibleStageCandidates({
+    tenantId,
+    clientId: opts?.clientId ?? null,
+    workArea: area,
+    functionKey,
+    excludeUserIds: excluded,
   });
-  const profileById = new Map<string, string>();
-  (profiles || []).forEach((p: any) => profileById.set(p.id, p.full_name || "Colaborador"));
 
-  // Preferência do cliente para esta etapa/área — nunca concede função:
-  // só vale se o usuário continuar na lista de elegíveis.
+  if (candidates.length === 0) {
+    return {
+      success: false,
+      message:
+        excluded.length > 0
+          ? `Nenhum outro colaborador disponível para "${label}".`
+          : `Nenhum colaborador tem a função "${label}" atribuída.`,
+    };
+  }
+
+  const byId = new Map(candidates.map((c) => [c.userId, c]));
   const clientPreferenceOrder = opts?.clientPreferenceOrder ?? "before";
-  const clientPreferred = opts?.clientId
-    ? await getPreferredStageAssignee({
-        tenantId,
-        clientId: opts.clientId,
-        workArea: area,
-        functionKey,
-        excludeUserIds: Array.from(excluded),
-      })
+  // Preferência do cliente nunca concede função: só vale entre os elegíveis.
+  const clientPreferredValid = opts?.clientId
+    ? candidates.find((c) => c.preferred) || null
     : null;
-  const clientPreferredValid =
-    clientPreferred && internalIds.includes(clientPreferred.userId) ? clientPreferred : null;
 
   if (clientPreferenceOrder === "before" && clientPreferredValid) {
     return {
       success: true,
       userId: clientPreferredValid.userId,
-      name: profileById.get(clientPreferredValid.userId) || clientPreferredValid.fullName,
+      name: clientPreferredValid.fullName,
       source: "client_preference",
     };
   }
 
-  // Continuidade (sticky): se alguém que já está no card pode exercer a função, fica com ele.
-  const preferred = (opts?.preferUserIds || []).filter(Boolean) as string[];
-  const stickyMatch = preferred.find((id) => internalIds.includes(id));
-  if (stickyMatch) {
-    return { success: true, userId: stickyMatch, name: profileById.get(stickyMatch) || "Colaborador", source: "sticky" };
+  // Continuidade (sticky): se alguém que já está no card pode exercer a função.
+  const sticky = ((opts?.preferUserIds || []).filter(Boolean) as string[]).find((id) =>
+    byId.has(id),
+  );
+  if (sticky) {
+    return {
+      success: true,
+      userId: sticky,
+      name: byId.get(sticky)?.fullName || "Colaborador",
+      source: "sticky",
+    };
   }
 
   if (clientPreferredValid) {
     return {
       success: true,
       userId: clientPreferredValid.userId,
-      name: profileById.get(clientPreferredValid.userId) || clientPreferredValid.fullName,
+      name: clientPreferredValid.fullName,
       source: "client_preference",
     };
   }
 
-  internalIds.sort((a, b) => {
-    const ca = counts.get(a) || 0;
-    const cb = counts.get(b) || 0;
-    if (ca !== cb) return ca - cb;
-    return (profileById.get(a) || "").localeCompare(profileById.get(b) || "", "pt-BR");
-  });
-  const chosen = internalIds[0];
+  const chosen = candidates[0];
   return {
     success: true,
-    userId: chosen,
-    name: profileById.get(chosen) || "Colaborador",
+    userId: chosen.userId,
+    name: chosen.fullName,
     source: "automatic_load",
   };
 }
+
 
 /**
  * Quem fica com o card enquanto ele espera o cliente.
