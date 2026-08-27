@@ -49,10 +49,15 @@ interface Props {
   /** Plano único de expansão do cliente. */
   campaignId: string;
   markets: ExpansionMarket[];
+  /** Ativações já existentes (todas as praças) para calcular o saldo da praça. */
+  activationsByMarket?: PaidMediaActivation[];
   demands: ActivationDemandOption[];
   activation?: PaidMediaActivation | null;
+  /** Praça pré-selecionada ao criar uma nova ativação. */
+  initialMarketId?: string | null;
   onSaved?: () => void;
 }
+
 
 interface FormState {
   demandId: string;
