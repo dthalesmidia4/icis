@@ -38,6 +38,11 @@ import {
   parseIofInput,
 } from "@/lib/financeIof";
 import {
+  interpretStatementCompositionDifference,
+  interpretStatementPayment,
+} from "@/lib/financeStatementDifference";
+
+import {
   CLOSURE_IOF_LABEL,
   CLOSURE_SECTION_LABEL,
   CLOSURE_TOTAL_LABEL,
