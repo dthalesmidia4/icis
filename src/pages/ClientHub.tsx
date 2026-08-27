@@ -1091,19 +1091,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
   const refetchPresets = async () => {
-    if (!selectedClient?.id) return;
-    // Aguarda tenantId propagar do contexto (evita fetch vazio na primeira montagem).
-    let tid = tenantId;
-    for (let i = 0; i < 5 && !tid; i++) {
-      await new Promise((r) => setTimeout(r, 200));
-      tid = tenantId;
-    }
-    if (!tid) return;
+    // SEM ESPERA ARTIFICIAL: se o tenant ainda não chegou, o effect roda de novo.
+    if (!selectedClient?.id || !tenantId) return;
     const { data } = await supabase
       .from('visual_identity_presets')
       .select('id, name, primary_color, secondary_color')
       .eq('company_id', selectedClient.id)
-      .eq('tenant_id', tid)
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: true });
     if (data) {
       setPresets(data);
@@ -1114,7 +1108,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   };
 
   useEffect(() => {
-    if (!selectedClient?.id) return;
+    if (!selectedClient?.id || !tenantId) return;
     refetchPresets();
     const onFocus = () => refetchPresets();
     window.addEventListener('focus', onFocus);
@@ -1129,19 +1123,25 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     onChange: () => { refetchPresets(); },
   });
 
-  useEffect(() => {
+  /**
+   * MASCOTES SÓ QUANDO O FLUXO DE CRIAÇÃO ABRE.
+   * A galeria de mascote não participa do primeiro paint do Hub.
+   */
+  const mascotsLoadedFor = useRef<string | null>(null);
+  const ensureMascotsLoaded = async () => {
     if (!selectedClient?.id || !tenantId) return;
-    const fetchMascots = async () => {
-      const { data } = await supabase
-        .from('company_mascot_images')
-        .select('id, image_url, file_name')
-        .eq('company_id', selectedClient.id)
-        .eq('tenant_id', tenantId)
-        .order('position', { ascending: true });
-      if (data) setMascotImages(data);
-    };
-    fetchMascots();
-  }, [selectedClient?.id, tenantId]);
+    const key = `${tenantId}:${selectedClient.id}`;
+    if (mascotsLoadedFor.current === key) return;
+    mascotsLoadedFor.current = key;
+    const { data } = await supabase
+      .from('company_mascot_images')
+      .select('id, image_url, file_name')
+      .eq('company_id', selectedClient.id)
+      .eq('tenant_id', tenantId)
+      .order('position', { ascending: true });
+    if (data) setMascotImages(data);
+  };
+
 
   useEffect(() => {
     if (!isInitialized) return;
