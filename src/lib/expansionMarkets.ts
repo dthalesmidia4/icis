@@ -193,7 +193,10 @@ export interface ExpansionMarketInput {
   tenantId: string;
   companyId: string;
   campaignId: string;
+  /** Tipo da praça; a UI cria sempre `expansion`. */
+  marketType?: MarketType;
   sequenceOrder?: string | number | null;
+
   city: string;
   state: string;
   status?: MarketStatus;
