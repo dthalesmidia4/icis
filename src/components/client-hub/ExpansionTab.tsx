@@ -134,7 +134,7 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
             <td className="py-3 pr-4 tabular-nums">
               {marketVisitWindow(market.visits_start_date, market.visits_end_date)}
             </td>
-            <td className="py-3 pr-4 tabular-nums">{stats.total}</td>
+            <td className="py-3 pr-4 tabular-nums">{stats.opportunities}</td>
             <td className="py-3 pr-4 tabular-nums">{stats.negotiating}</td>
             <td className="py-3 pr-4 tabular-nums">{`${stats.won}/${stats.customers}`}</td>
             <td className="py-3 pr-4 tabular-nums text-muted-foreground">
