@@ -105,9 +105,6 @@ export default function StrategyTab({
               Nenhuma estratégia registrada para este cliente.
             </p>
           )}
-          <p className="mt-4 text-xs text-muted-foreground">
-            Praças e operação regional são geridas na aba Expansão.
-          </p>
           <button
             type="button"
             onClick={onOpenStrategy}
@@ -116,7 +113,16 @@ export default function StrategyTab({
             Abrir estratégia completa
           </button>
         </section>
+
+        {/* Plano regional: posicionamento das cidades, sem verba nem comercial. */}
+        <RegionalPlanTable
+          tenantId={tenantId}
+          companyId={companyId}
+          onOpenPaidMedia={onOpenPaidMedia}
+          onOpenCommercial={onOpenCommercial}
+        />
       </div>
+
 
       <div className="space-y-10">
         {/* Mídia paga */}
