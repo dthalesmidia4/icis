@@ -26,17 +26,23 @@ describe("Mídia paga · contrato de UI", () => {
     expect(paidMedia).toContain("onClick={(e) => e.stopPropagation()}");
   });
 
-  it("usa a hierarquia visual compartilhada e não menciona a aba Expansão", () => {
-    expect(paidMedia).toContain("marketRowClass(market)");
-    expect(paidMedia).toContain("marketRowBadge(market)");
+  it("status da linha é o de MÍDIA (janela/override), nunca o comercial", () => {
+    expect(paidMedia).toContain("effectivePaidMediaStatus(market)");
+    expect(paidMedia).toContain("paidMediaRowClass(mediaStatus)");
+    expect(paidMedia).toContain("paidMediaRowBadge(mediaStatus)");
+    expect(paidMedia).toContain("paid_media_status_override");
+    expect(paidMedia).not.toContain("marketRowClass(market)");
+    expect(paidMedia).not.toContain("marketStatusLabel(market.status)");
     expect(paidMedia).not.toMatch(/aba Expansão/);
   });
 });
 
 describe("Comercial · contrato de UI", () => {
   it("carrega prospects e clientes do MESMO cadastro", () => {
-    expect(commercial).toContain("loadSystemsProspects(tenantId)");
-    expect(commercial).toContain("loadSystemsClients(tenantId)");
+    // Com empresa travada, as leituras já saem filtradas por empresa.
+    expect(commercial).toContain("loadSystemsProspects(tenantId, lockedCompanyId ?? undefined)");
+    expect(commercial).toContain("loadSystemsClients(tenantId, lockedCompanyId ?? undefined)");
+    expect(commercial).toContain("loadCampaigns(tenantId, lockedCompanyId ?? undefined)");
   });
 
   it("mantém uma tabela única com cabeçalho universal e coluna de clientes", () => {
