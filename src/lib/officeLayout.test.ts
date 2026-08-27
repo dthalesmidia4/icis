@@ -32,6 +32,8 @@ describe("officeLayout responsivo", () => {
     expect(resolveOfficeProfile({ width: 1366, height: 700 }).id).toBe("desktopShort");
     expect(resolveOfficeProfile({ width: 1440, height: 900 }).id).toBe("desktop");
     expect(resolveOfficeProfile({ width: 1680, height: 820 }).id).toBe("large");
+    // 1920x1080 é monitor NORMAL (ratio 1.78), não ultrawide.
+    expect(resolveOfficeProfile({ width: 1920, height: 1080 }).id).toBe("large");
     expect(resolveOfficeProfile({ width: 3440, height: 1250 }).id).toBe("ultrawide");
     expect(resolveOfficeProfile({ width: 2560, height: 900 }).id).toBe("ultrawideShort");
   });
@@ -176,7 +178,8 @@ describe("downscale responsivo do 2x2", () => {
     expect(tight).toBeLessThan(mid);
     expect(mid).toBeLessThanOrEqual(roomy);
     // Nunca além do teto de redução em relação à largura do perfil.
-    expect(tight).toBeGreaterThanOrEqual(Math.round(344 * (1 - MAX_DOWNSCALE)) - 1);
+    const tightProfile = resolveOfficeProfile({ width: 1280, height: 660 });
+    expect(tight).toBeGreaterThanOrEqual(Math.round(tightProfile.baseWidth * (1 - MAX_DOWNSCALE)) - 1);
   });
 
   it("ultrawide não encolhe sem necessidade", () => {
@@ -281,7 +284,7 @@ describe("modo rico de zonas (até 4 mesas)", () => {
     const widths = sizes.map(([w, h]) => {
       const stage = { width: stageWidthPx(w), height: h };
       const pw = agencyPanelWidthPx(stage.width, stage);
-      expect(pw).toBeGreaterThanOrEqual(360);
+      expect(pw).toBeGreaterThanOrEqual(330);
       expect(pw).toBeLessThanOrEqual(520);
       return pw;
     });
@@ -291,6 +294,22 @@ describe("modo rico de zonas (até 4 mesas)", () => {
     expect(characterSizePx(50, "standing")).toBeGreaterThanOrEqual(
       characterSizePx(50, "seated"),
     );
+  });
+
+  it("desktop normal nasce compacto (densidade do antigo zoom 80%)", () => {
+    const desk = { width: 1366, height: 700 };
+    const wide = { width: 2560, height: 1080 };
+    const dp = resolveOfficeProfile(desk);
+    const up = resolveOfficeProfile(wide);
+    // cenário menor no desktop normal…
+    expect(dp.sceneScale).toBeLessThan(up.sceneScale);
+    expect(dp.baseWidth).toBeLessThan(up.baseWidth);
+    expect(dp.panelWidthPx).toBeLessThan(up.panelWidthPx);
+    expect(dp.leftZonePx).toBeLessThan(up.leftZonePx);
+    expect(comfortGapPx(desk)).toBeLessThan(comfortGapPx({ ...wide, width: 1366 }));
+    // …mas o MONITOR não estreita: compensa com percentual maior da estação.
+    expect(deskMonitorWidthPct(desk)).toBeGreaterThan(deskMonitorWidthPct(wide));
+    expect(deskMonitorWidthPct({ width: 1920, height: 1080 })).toBeGreaterThanOrEqual(78);
   });
 
   it("5+ estações ignoram o modo rico e mantêm a composição genérica", () => {

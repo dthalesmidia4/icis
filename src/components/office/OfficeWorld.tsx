@@ -71,37 +71,15 @@ export default function OfficeWorld({
         className="pointer-events-none absolute inset-x-0 top-0 hidden sm:block"
         style={{ height: `${WALL_DECOR_BAND_PCT}%` }}
       >
-        {/* janela única, à direita do quadro de Missões, com uma planta abaixo
-            dela integrando parede e piso (só CSS, sem imagem externa). */}
-        <div className="absolute left-[24%] top-[22%]">
-          <div className="relative h-20 w-28 rounded-sm border-[3px] border-foreground/25 bg-gradient-to-br from-primary/25 to-background/70 shadow-[inset_0_2px_8px_hsl(var(--foreground)/0.12)]">
+        {/* JANELA única, centralizada no vão livre da parede esquerda (entre o
+            quadro de Missões e o Painel da Agência) e um pouco mais VERTICAL,
+            para leitura arquitetônica. A planta vive fora desta faixa: ela é
+            objeto de PISO (ver abaixo), não de parede. */}
+        <div className="absolute left-[31%] top-[18%]">
+          <div className="relative h-24 w-20 rounded-sm border-[3px] border-foreground/25 bg-gradient-to-br from-primary/25 to-background/70 shadow-[inset_0_2px_8px_hsl(var(--foreground)/0.12)]">
             <span className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-foreground/25" />
             <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-foreground/20" />
             <span className="absolute -bottom-[4px] inset-x-[-3px] h-[4px] rounded-sm bg-foreground/25" />
-          </div>
-          {/* PLANTA em vaso, abaixo/ao lado da janela: vaso neutro + 5 folhas
-              verdes bem definidas em SVG (leitura orgânica imediata, sem
-              imagem externa e sem parecer um pino). */}
-          <div className="absolute -right-8 top-[74px] flex flex-col items-center">
-            <svg width="46" height="52" viewBox="0 0 46 52" className="block">
-              {/* folhas */}
-              <g fill="none" strokeLinecap="round">
-                <path d="M23 34 C23 24 23 16 23 9" stroke="hsl(var(--office-leaf))" strokeWidth="2" />
-                <path d="M23 30 C15 27 9 21 7 13" stroke="hsl(var(--office-leaf-soft))" strokeWidth="1.6" />
-                <path d="M23 28 C31 25 37 19 39 12" stroke="hsl(var(--office-leaf-soft))" strokeWidth="1.6" />
-              </g>
-              <g>
-                <ellipse cx="23" cy="8" rx="5.5" ry="9" fill="hsl(var(--office-leaf))" transform="rotate(-4 23 8)" />
-                <ellipse cx="8" cy="13" rx="8.5" ry="5" fill="hsl(var(--office-leaf-soft))" transform="rotate(-32 8 13)" />
-                <ellipse cx="38" cy="12" rx="8.5" ry="5" fill="hsl(var(--office-leaf-deep))" transform="rotate(32 38 12)" />
-                <ellipse cx="12" cy="24" rx="7.5" ry="4.5" fill="hsl(var(--office-leaf-soft))" transform="rotate(-16 12 24)" />
-                <ellipse cx="34" cy="23" rx="7.5" ry="4.5" fill="hsl(var(--office-leaf))" transform="rotate(16 34 23)" />
-              </g>
-              {/* vaso cinza/neutro */}
-              <path d="M14 34 H32 L29.5 50 H16.5 Z" fill="hsl(var(--muted-foreground) / 0.55)" />
-              <rect x="12.5" y="32" width="21" height="4" rx="1.5" fill="hsl(var(--muted-foreground) / 0.7)" />
-            </svg>
-            <span className="mt-[1px] h-1.5 w-9 rounded-[50%] bg-foreground/15 dark:bg-background/60" />
           </div>
         </div>
 
@@ -132,14 +110,35 @@ export default function OfficeWorld({
       </div>
 
 
-      {/* armário e planta encostados na parede */}
-      <div aria-hidden="true" className="pointer-events-none absolute left-[2.5%] top-[19%] hidden sm:block">
-        <div className="h-20 w-14 rounded-sm bg-gradient-to-b from-muted-foreground/40 to-muted-foreground/20 shadow-[0_8px_12px_-10px_hsl(var(--foreground)/0.9)]">
-          <div className="mx-auto mt-3 h-[3px] w-9 bg-foreground/25" />
-          <div className="mx-auto mt-5 h-[3px] w-9 bg-foreground/25" />
-          <div className="mx-auto mt-5 h-[3px] w-9 bg-foreground/25" />
-        </div>
-        <span className="mx-auto block h-1.5 w-12 rounded-[50%] bg-foreground/15 blur-[2px]" />
+      {/* PLANTA DE PISO abaixo/ao lado da janela: a base do vaso é ancorada na
+          junção parede/piso (rodapé), então ela nunca mais "flutua" no meio da
+          parede. Sem imagem externa e sem sombra difusa: só um contato curto.
+          O antigo armário da parede esquerda foi removido — ele disputava a
+          mesma área do quadro de Missões/XP, que agora tem faixa limpa. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-[29%] hidden sm:block"
+        style={{ top: `calc(${WALL_HEIGHT_PCT}% - 50px)` }}
+      >
+        <svg width="46" height="52" viewBox="0 0 46 52" className="block">
+          <g fill="none" strokeLinecap="round">
+            <path d="M23 34 C23 24 23 16 23 9" stroke="hsl(var(--office-leaf))" strokeWidth="2" />
+            <path d="M23 30 C15 27 9 21 7 13" stroke="hsl(var(--office-leaf-soft))" strokeWidth="1.6" />
+            <path d="M23 28 C31 25 37 19 39 12" stroke="hsl(var(--office-leaf-soft))" strokeWidth="1.6" />
+          </g>
+          <g>
+            <ellipse cx="23" cy="8" rx="5.5" ry="9" fill="hsl(var(--office-leaf))" transform="rotate(-4 23 8)" />
+            <ellipse cx="8" cy="13" rx="8.5" ry="5" fill="hsl(var(--office-leaf-soft))" transform="rotate(-32 8 13)" />
+            <ellipse cx="38" cy="12" rx="8.5" ry="5" fill="hsl(var(--office-leaf-deep))" transform="rotate(32 38 12)" />
+            <ellipse cx="12" cy="24" rx="7.5" ry="4.5" fill="hsl(var(--office-leaf-soft))" transform="rotate(-16 12 24)" />
+            <ellipse cx="34" cy="23" rx="7.5" ry="4.5" fill="hsl(var(--office-leaf))" transform="rotate(16 34 23)" />
+          </g>
+          {/* vaso neutro apoiado no piso */}
+          <path d="M14 34 H32 L29.5 50 H16.5 Z" fill="hsl(var(--muted-foreground) / 0.55)" />
+          <rect x="12.5" y="32" width="21" height="4" rx="1.5" fill="hsl(var(--muted-foreground) / 0.7)" />
+          {/* contato com o chão: elipse curta e nítida, sem blur */}
+          <ellipse cx="23" cy="50.5" rx="10" ry="1.8" fill="hsl(var(--foreground) / 0.18)" />
+        </svg>
       </div>
       <div aria-hidden="true" className="pointer-events-none absolute right-[2.5%] top-[18%] hidden flex-col items-center sm:flex">
         <span className="h-9 w-1.5 rounded bg-foreground/35" />

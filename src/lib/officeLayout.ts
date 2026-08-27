@@ -62,6 +62,14 @@ interface OfficeProfile {
   leftZonePx: number;
   rightZonePx: number;
   /**
+   * DENSIDADE DO CENÁRIO. O desktop normal nascia "grande" (só ficava correto
+   * com 80% de zoom do navegador): este fator encolhe cenário/gaps SEM tocar
+   * nos monitores (que compensam via `monitorPct`) e sem mexer no ultrawide.
+   */
+  sceneScale: number;
+  /** Escala do respiro entre footprints (acompanha `sceneScale`). */
+  gapScale: number;
+  /**
    * Centros das mesas no modo rico. IMPORTANTE: iguais em `desktop` e
    * `desktopShort` (a altura muda âncoras verticais, nunca a matemática
    * horizontal), para o anti-colisão continuar determinístico.
@@ -74,7 +82,7 @@ interface OfficeProfile {
 /** Margem lateral de segurança (px) entre footprints de duas estações. */
 const SAFE_GUTTER_PX = 28;
 /** Largura mínima aceitável de estação antes de aproximar mesas. */
-const MIN_BASE_WIDTH = 196;
+const MIN_BASE_WIDTH = 178;
 
 /**
  * ZONA RESERVADA DA CAFETERIA (canto superior direito da sala).
@@ -119,7 +127,7 @@ export function stageSize(world: WorldSize): WorldSize {
  * ~20% para o card ficar HORIZONTAL, sem retomar o monitor gigante original —
  * mesa/cadeira/pilha continuam com faixas laterais reservadas.
  */
-export const MONITOR_MAX_PCT = 76;
+export const MONITOR_MAX_PCT = 82;
 export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
   // Por PERFIL: desktop normal precisa de card claramente HORIZONTAL;
   // ultrawide já tem estação larga e cresce menos em proporção.
@@ -182,8 +190,8 @@ const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
 
 /** Faixas laterais e centros do modo rico no DESKTOP NORMAL (1366–1599). */
 const DESKTOP_RICH = {
-  leftZonePx: 208,
-  rightZonePx: 214,
+  leftZonePx: 176,
+  rightZonePx: 182,
   richCentersBack: [32, 68] as [number, number],
   richCentersFront: [32, 68] as [number, number],
 };
@@ -197,7 +205,11 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
   const width = size.width || DEFAULT_SIZE.width;
   const height = size.height || DEFAULT_SIZE.height;
   const ratio = width / Math.max(height, 1);
-  const ultrawide = width >= 1900 || ratio >= 2.1;
+  // ULTRAWIDE É FORMATO, NÃO SÓ LARGURA. 1920x1080 (ratio 1.78) é monitor
+  // NORMAL e caía no perfil ultrawide, nascendo grande demais em 100% de zoom.
+  // `width >= 1980` cobre o caso do PALCO LÓGICO saturado (só sala ultrawide
+  // chega ao teto de palco), onde a altura da sala distorce o aspect.
+  const ultrawide = ratio >= 2.1 || width >= 1980;
 
   if (ultrawide) {
     // Ultrawide baixo (ex.: 2560x1080) não pode subir tanto quanto o alto
@@ -219,6 +231,8 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
           monitorPct: 68,
           leftZonePx: 300,
           rightZonePx: 312,
+          sceneScale: 1,
+          gapScale: 1,
           ...ULTRAWIDE_RICH,
         }
       : {
@@ -236,48 +250,56 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
           monitorPct: 68,
           leftZonePx: 312,
           rightZonePx: 330,
+          sceneScale: 1,
+          gapScale: 1,
           ...ULTRAWIDE_RICH,
         };
   }
 
   if (width >= 1600) {
+    // 1920x1080 cai aqui: densidade de DESKTOP NORMAL (cenário mais compacto,
+    // monitor mais largo) — não a densidade do ultrawide.
     return {
       id: "large",
-      topAnchorPct: 51,
-      bottomAnchorPct: 88,
+      topAnchorPct: 50,
+      bottomAnchorPct: 86,
       centersBack: [28, 72],
       centersFront: [25.5, 74.5],
-      baseWidth: 416,
+      baseWidth: 358,
       jitterPct: 0.5,
       scaleBack: 0.95,
       scaleFront: 1.06,
-      panelWidthPx: 436,
-      panelTopPct: 12,
-      monitorPct: 73,
-      leftZonePx: 238,
-      rightZonePx: 244,
+      panelWidthPx: 356,
+      panelTopPct: 10.5,
+      monitorPct: 80,
+      leftZonePx: 192,
+      rightZonePx: 198,
+      sceneScale: 0.86,
+      gapScale: 0.88,
       richCentersBack: [33, 67],
       richCentersFront: [33, 67],
     };
   }
 
   if (width >= 1200) {
-    // DESKTOP NORMAL: painel mais estreito e alto na parede, mesas maiores.
+    // DESKTOP NORMAL: painel mais estreito e alto na parede, cenário compacto.
     // `desktopShort` (ex.: 1366x768) só muda âncoras/verticalidade.
     const short = height < 800;
     return {
       id: short ? "desktopShort" : "desktop",
-      topAnchorPct: short ? 53 : 52,
-      bottomAnchorPct: short ? 89 : 88,
+      topAnchorPct: short ? 51 : 50,
+      bottomAnchorPct: short ? 87 : 86,
       centersBack: [28, 72],
       centersFront: [26, 74],
-      baseWidth: short ? 392 : 404,
+      baseWidth: short ? 336 : 348,
       jitterPct: 0.8,
       scaleBack: 0.94,
       scaleFront: 1.05,
-      panelWidthPx: short ? 380 : 400,
-      panelTopPct: short ? 10.5 : 11.5,
-      monitorPct: 74,
+      panelWidthPx: short ? 336 : 348,
+      panelTopPct: short ? 9 : 10,
+      monitorPct: 80,
+      sceneScale: short ? 0.82 : 0.84,
+      gapScale: short ? 0.84 : 0.86,
       ...DESKTOP_RICH,
     };
   }
@@ -295,11 +317,22 @@ export function resolveOfficeProfile(size: WorldSize = DEFAULT_SIZE): OfficeProf
     panelWidthPx: 340,
     panelTopPct: 13,
     monitorPct: 72,
-    leftZonePx: 206,
-    rightZonePx: 212,
+    leftZonePx: 200,
+    rightZonePx: 206,
+    sceneScale: 0.92,
+    gapScale: 0.92,
     richCentersBack: [33, 67],
     richCentersFront: [33, 67],
   };
+}
+
+/**
+ * ESCALA DE CENÁRIO por perfil, para os componentes decorativos/ambientais
+ * (Missões, Planejamento, Café, Reunião, Espera) nascerem já compactos no
+ * desktop normal — sem `scale()` global e sem depender do zoom do navegador.
+ */
+export function officeSceneScale(size: WorldSize = DEFAULT_SIZE): number {
+  return resolveOfficeProfile(size).sceneScale;
 }
 
 
@@ -326,7 +359,11 @@ const COMFORT_GAP_MIN_PX = 56;
 const COMFORT_GAP_MAX_PX = 120;
 export function comfortGapPx(size: WorldSize = DEFAULT_SIZE): number {
   const width = size.width || DEFAULT_SIZE.width;
-  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.044)));
+  // `gapScale`: no desktop normal o respiro também encolhe (densidade do 80%).
+  const scale = resolveOfficeProfile(size).gapScale;
+  return Math.round(
+    scale * Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.044)),
+  );
 }
 
 /**
@@ -446,8 +483,8 @@ const GENERIC_MIN_ROW_GAP_PCT = 22;
  * Café/Reunião/Espera à direita) e por isso são reservadas em px: as mesas
  * ficam concentradas na faixa central, nunca invadindo as zonas.
  */
-export const RICH_LEFT_ZONE_PX = 208;
-export const RICH_RIGHT_ZONE_PX = 214;
+export const RICH_LEFT_ZONE_PX = 168;
+export const RICH_RIGHT_ZONE_PX = 174;
 /** Tetos das faixas: em palco largo elas crescem, mas não indefinidamente. */
 export const RICH_LEFT_ZONE_MAX_PX = 312;
 export const RICH_RIGHT_ZONE_MAX_PX = 336;
