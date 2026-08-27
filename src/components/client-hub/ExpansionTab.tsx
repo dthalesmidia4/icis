@@ -387,12 +387,13 @@ export default function ExpansionTab({ tenantId, companyId, onOpenCommercial }: 
           {orphanLeads.length > 0 && (
             <div className="border-t pt-3">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                Sem cidade definida
+                Oportunidades sem cidade operacional
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {orphanLeads.length} registro(s) comercial(is) ainda sem carteira territorial. A
+                {orphanLeads.length} oportunidade(s) comercial(is) ainda sem carteira operacional. A
                 atribuição nunca é automática — defina a cidade no Comercial.
               </p>
+
               <button
                 type="button"
                 onClick={() => onOpenCommercial()}
