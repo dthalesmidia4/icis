@@ -105,9 +105,14 @@ export function summarizeMarketCommercial(
     STAGE_OPTIONS.forEach(({ value }) => {
       stages[value] = list.filter((l) => l.commercial_stage === value).length;
     });
+    const prospects = list.filter((l) => l.lifecycle === "prospect");
     stats.set(marketId, {
       total: list.length,
-      negotiating: (stages.avaliacao || 0) + (stages.negociacao || 0),
+      // "Oportunidades" nunca soma clientes: clientes vivem em Ganhos/clientes.
+      opportunities: prospects.length,
+      negotiating: prospects.filter(
+        (l) => l.commercial_stage === "avaliacao" || l.commercial_stage === "negociacao",
+      ).length,
       won: stages.ganho || 0,
       customers: list.filter((l) => l.lifecycle === "customer").length,
       stages,
@@ -116,6 +121,7 @@ export function summarizeMarketCommercial(
       demos: 0,
       lastTouchAt: null,
     });
+
   });
 
   (touchpoints || []).forEach((tp) => {
