@@ -121,6 +121,7 @@ export default function StrategyTab({
         <RegionalPlanTable
           tenantId={tenantId}
           companyId={companyId}
+          selectedMarketId={selectedMarketId}
           onOpenPaidMedia={onOpenPaidMedia}
           onOpenCommercial={onOpenCommercial}
         />
