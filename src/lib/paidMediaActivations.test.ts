@@ -8,13 +8,14 @@ import {
 } from "./paidMediaActivations";
 
 describe("validateActivationInput", () => {
-  it("exige conteúdo e praça", () => {
+  it("exige conteúdo, cidade do plano e plano", () => {
     expect(validateActivationInput({})).toMatch(/conteúdo/i);
-    expect(validateActivationInput({ demandId: "d1" })).toMatch(/praça/i);
+    expect(validateActivationInput({ demandId: "d1" })).toMatch(/cidade/i);
+    expect(validateActivationInput({ demandId: "d1", marketId: "m1" })).toMatch(/plano/i);
   });
 
   it("rejeita janela invertida, status inválido e verba negativa", () => {
-    const base = { demandId: "d1", campaignId: "c1" };
+    const base = { demandId: "d1", campaignId: "c1", marketId: "m1" };
     expect(
       validateActivationInput({ ...base, startDate: "2026-09-10", endDate: "2026-09-01" }),
     ).toMatch(/posterior/i);
@@ -27,6 +28,7 @@ describe("validateActivationInput", () => {
       validateActivationInput({
         demandId: "d1",
         campaignId: "c1",
+        marketId: "m1",
         status: "running",
         startDate: "2026-09-01",
         endDate: "2026-09-30",
@@ -69,7 +71,7 @@ describe("summarizePaidMediaActivations", () => {
     expect(s.total).toBe(4);
   });
 
-  it("permite a MESMA demanda em várias praças sem duplicar o conteúdo", () => {
+  it("permite a MESMA demanda em várias cidades sem duplicar o conteúdo", () => {
     const s = summarizePaidMediaActivations([
       { status: "running", budget: 100, demand_id: "d1" },
       { status: "running", budget: 200, demand_id: "d1" },

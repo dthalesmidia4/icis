@@ -28,11 +28,11 @@ import {
   type PaidMediaStatus,
 } from "@/lib/paidMediaActivations";
 import {
-  placeLabel,
-  placeOrderLabel,
-  campaignStatusLabel,
-  type MarketingCampaign,
-} from "@/lib/marketingCampaigns";
+  marketLabel,
+  marketOrderLabel,
+  marketStatusLabel,
+  type ExpansionMarket,
+} from "@/lib/expansionMarkets";
 
 export interface ActivationDemandOption {
   id: string;
@@ -46,7 +46,9 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   tenantId: string;
   companyId: string;
-  places: MarketingCampaign[];
+  /** Plano único de expansão do cliente. */
+  campaignId: string;
+  markets: ExpansionMarket[];
   demands: ActivationDemandOption[];
   activation?: PaidMediaActivation | null;
   onSaved?: () => void;
@@ -54,7 +56,7 @@ interface Props {
 
 interface FormState {
   demandId: string;
-  campaignId: string;
+  marketId: string;
   platform: string;
   status: PaidMediaStatus;
   startDate: string;
@@ -68,7 +70,7 @@ interface FormState {
 
 const empty: FormState = {
   demandId: "",
-  campaignId: "",
+  marketId: "",
   platform: "Meta",
   status: "planned",
   startDate: "",
@@ -81,7 +83,7 @@ const empty: FormState = {
 };
 
 /**
- * Ativação = UMA peça rodando em UMA praça. Nunca duplica nem move a demanda:
+ * Ativação = UMA peça rodando em UMA cidade/etapa do plano único. Nunca duplica nem move a demanda:
  * `period_plan_id` da demanda permanece intocado.
  */
 export default function ActivationFormModal({
@@ -89,7 +91,8 @@ export default function ActivationFormModal({
   onOpenChange,
   tenantId,
   companyId,
-  places,
+  campaignId,
+  markets,
   demands,
   activation,
   onSaved,
@@ -103,7 +106,7 @@ export default function ActivationFormModal({
       activation
         ? {
             demandId: activation.demand_id,
-            campaignId: activation.campaign_id,
+            marketId: activation.market_id || "",
             platform: activation.platform || "Meta",
             status: activation.status,
             startDate: activation.start_date || "",
@@ -114,14 +117,15 @@ export default function ActivationFormModal({
             cta: activation.cta || "",
             notes: activation.notes || "",
           }
-        : { ...empty, campaignId: places[0]?.id || "" },
+        : { ...empty, marketId: markets[0]?.id || "" },
     );
-  }, [open, activation, places]);
+  }, [open, activation, markets]);
 
   const handleSave = async () => {
     const invalid = validateActivationInput({
       demandId: form.demandId,
-      campaignId: form.campaignId,
+      campaignId,
+      marketId: form.marketId,
       status: form.status,
       startDate: form.startDate,
       endDate: form.endDate,
@@ -137,7 +141,8 @@ export default function ActivationFormModal({
         id: activation?.id,
         tenantId,
         companyId,
-        campaignId: form.campaignId,
+        campaignId,
+        marketId: form.marketId,
         demandId: form.demandId,
         platform: form.platform,
         status: form.status,
@@ -170,7 +175,7 @@ export default function ActivationFormModal({
         <DialogHeader>
           <DialogTitle>{activation ? "Editar ativação" : "Nova ativação"}</DialogTitle>
           <DialogDescription>
-            A mesma peça pode rodar em várias praças. Nenhuma demanda é duplicada.
+            A mesma peça pode rodar em várias cidades do plano. Nenhuma demanda é duplicada.
           </DialogDescription>
         </DialogHeader>
 
@@ -201,18 +206,15 @@ export default function ActivationFormModal({
           </div>
 
           <div>
-            <Label>Praça *</Label>
-            <Select
-              value={form.campaignId}
-              onValueChange={(v) => setForm({ ...form, campaignId: v })}
-            >
+            <Label>Cidade/etapa *</Label>
+            <Select value={form.marketId} onValueChange={(v) => setForm({ ...form, marketId: v })}>
               <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Selecione a praça" />
+                <SelectValue placeholder="Selecione a cidade" />
               </SelectTrigger>
-              <SelectContent>
-                {places.map((p, index) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {`${placeOrderLabel(p, index)} ${placeLabel(p)} — ${campaignStatusLabel(p.status)}`}
+              <SelectContent className="max-h-[320px]">
+                {markets.map((m, index) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {`${marketOrderLabel(m, index)} ${marketLabel(m)} — ${marketStatusLabel(m.status)}`}
                   </SelectItem>
                 ))}
               </SelectContent>

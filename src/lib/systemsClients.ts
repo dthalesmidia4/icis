@@ -45,8 +45,10 @@ export interface SystemsClient {
   last_contact_result: string | null;
   loss_reason: string | null;
   lead_source: string | null;
-  /** Campanha de marketing que originou a oportunidade (opcional). */
+  /** Campanha de marketing legada (retrocompatibilidade — não é fonte de verdade). */
   acquisition_campaign_id: string | null;
+  /** Cidade/etapa do plano de expansão que originou a oportunidade (opcional). */
+  acquisition_market_id: string | null;
 }
 
 export interface SystemsCompany {
@@ -217,6 +219,8 @@ export interface SaveSystemsClientPayload {
   lossReason?: string | null;
   leadSource?: string | null;
   acquisitionCampaignId?: string | null;
+  /** Cidade/etapa de origem (fonte de verdade dos novos vínculos). */
+  acquisitionMarketId?: string | null;
 }
 
 const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
@@ -250,6 +254,7 @@ export async function saveSystemsClient(
     loss_reason: clean(payload.lossReason),
     lead_source: clean(payload.leadSource),
     acquisition_campaign_id: payload.acquisitionCampaignId || null,
+    acquisition_market_id: payload.acquisitionMarketId || null,
   };
 
   if (payload.id) {

@@ -2167,6 +2167,102 @@ export type Database = {
           },
         ]
       }
+      marketing_campaign_markets: {
+        Row: {
+          acquisition_strategy: string | null
+          ads_end_date: string | null
+          ads_start_date: string | null
+          calls_start_date: string | null
+          campaign_id: string
+          channels: Json
+          city: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          objective: string | null
+          observations: string | null
+          paid_traffic_budget: number | null
+          region_label: string | null
+          sequence_order: number | null
+          state: string
+          status: string
+          target_accounts: number | null
+          tenant_id: string
+          travel_distance_km: number | null
+          updated_at: string
+          visits_end_date: string | null
+          visits_start_date: string | null
+        }
+        Insert: {
+          acquisition_strategy?: string | null
+          ads_end_date?: string | null
+          ads_start_date?: string | null
+          calls_start_date?: string | null
+          campaign_id: string
+          channels?: Json
+          city: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          objective?: string | null
+          observations?: string | null
+          paid_traffic_budget?: number | null
+          region_label?: string | null
+          sequence_order?: number | null
+          state: string
+          status?: string
+          target_accounts?: number | null
+          tenant_id: string
+          travel_distance_km?: number | null
+          updated_at?: string
+          visits_end_date?: string | null
+          visits_start_date?: string | null
+        }
+        Update: {
+          acquisition_strategy?: string | null
+          ads_end_date?: string | null
+          ads_start_date?: string | null
+          calls_start_date?: string | null
+          campaign_id?: string
+          channels?: Json
+          city?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          objective?: string | null
+          observations?: string | null
+          paid_traffic_budget?: number | null
+          region_label?: string | null
+          sequence_order?: number | null
+          state?: string
+          status?: string
+          target_accounts?: number | null
+          tenant_id?: string
+          travel_distance_km?: number | null
+          updated_at?: string
+          visits_end_date?: string | null
+          visits_start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaign_markets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaign_markets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_campaigns: {
         Row: {
           acquisition_strategy: string | null
@@ -2322,6 +2418,7 @@ export type Database = {
           demand_id: string
           end_date: string | null
           id: string
+          market_id: string | null
           notes: string | null
           objective: string | null
           platform: string
@@ -2341,6 +2438,7 @@ export type Database = {
           demand_id: string
           end_date?: string | null
           id?: string
+          market_id?: string | null
           notes?: string | null
           objective?: string | null
           platform?: string
@@ -2360,6 +2458,7 @@ export type Database = {
           demand_id?: string
           end_date?: string | null
           id?: string
+          market_id?: string | null
           notes?: string | null
           objective?: string | null
           platform?: string
@@ -2396,6 +2495,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_demand_stage_misalignment"
             referencedColumns: ["demand_id"]
+          },
+          {
+            foreignKeyName: "paid_media_activations_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaign_markets"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3009,6 +3115,7 @@ export type Database = {
       systems_clients: {
         Row: {
           acquisition_campaign_id: string | null
+          acquisition_market_id: string | null
           address: string | null
           city: string | null
           commercial_owner_id: string | null
@@ -3040,6 +3147,7 @@ export type Database = {
         }
         Insert: {
           acquisition_campaign_id?: string | null
+          acquisition_market_id?: string | null
           address?: string | null
           city?: string | null
           commercial_owner_id?: string | null
@@ -3071,6 +3179,7 @@ export type Database = {
         }
         Update: {
           acquisition_campaign_id?: string | null
+          acquisition_market_id?: string | null
           address?: string | null
           city?: string | null
           commercial_owner_id?: string | null
@@ -3106,6 +3215,13 @@ export type Database = {
             columns: ["acquisition_campaign_id"]
             isOneToOne: false
             referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "systems_clients_acquisition_market_id_fkey"
+            columns: ["acquisition_market_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaign_markets"
             referencedColumns: ["id"]
           },
           {

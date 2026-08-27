@@ -10,13 +10,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { MarketingCampaign } from "@/lib/marketingCampaigns";
 import {
-  loadCampaigns,
-  placeLabel,
-  placeOrderLabel,
-  sortCampaignsForExpansion,
-  type MarketingCampaign,
-} from "@/lib/marketingCampaigns";
+  loadExpansionMarkets,
+  loadExpansionPlan,
+  marketLabel,
+  marketOrderLabel,
+  marketWindow,
+  type ExpansionMarket,
+} from "@/lib/expansionMarkets";
 import {
   PAID_MEDIA_PLATFORM_OPTIONS,
   PAID_MEDIA_STATUS_OPTIONS,
@@ -28,7 +30,6 @@ import {
   type PaidMediaActivation,
 } from "@/lib/paidMediaActivations";
 import { isAdEnabled } from "@/lib/adPlan";
-import { placeWindow } from "@/lib/marketingCampaigns";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
 
 interface PaidMediaTabProps {
@@ -51,7 +52,8 @@ interface DemandRow {
  * complementar da peça (briefing), nunca como praça ou verba executável.
  */
 export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: PaidMediaTabProps) {
-  const [places, setPlaces] = useState<MarketingCampaign[]>([]);
+  const [plan, setPlan] = useState<MarketingCampaign | null>(null);
+  const [markets, setMarkets] = useState<ExpansionMarket[]>([]);
   const [demands, setDemands] = useState<DemandRow[]>([]);
   const [activations, setActivations] = useState<PaidMediaActivation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,15 +65,18 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
 
   const load = useCallback(async () => {
     if (!tenantId || !companyId) {
-      setPlaces([]);
+      setPlan(null);
+      setMarkets([]);
       setDemands([]);
       setActivations([]);
       return;
     }
     setLoading(true);
     try {
-      const [camps, acts, dem] = await Promise.all([
-        loadCampaigns(tenantId, companyId),
+      const activePlan = await loadExpansionPlan(tenantId, companyId);
+      setPlan(activePlan);
+      const [mkts, acts, dem] = await Promise.all([
+        loadExpansionMarkets(tenantId, companyId, activePlan?.id ?? null),
         loadPaidMediaActivations(tenantId, companyId),
         supabase
           .from("demands")
@@ -82,7 +87,7 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
           .eq("is_draft", false)
           .order("publish_date", { ascending: true, nullsFirst: false }),
       ]);
-      setPlaces(sortCampaignsForExpansion(camps));
+      setMarkets(mkts);
       setActivations(acts);
       setDemands((dem.data || []) as unknown as DemandRow[]);
     } catch (err) {
@@ -103,13 +108,13 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
     return map;
   }, [demands]);
 
-  const placeById = useMemo(() => {
+  const marketById = useMemo(() => {
     const map = new Map<string, { label: string; order: string }>();
-    places.forEach((p, index) =>
-      map.set(p.id, { label: placeLabel(p), order: placeOrderLabel(p, index) }),
+    markets.forEach((m, index) =>
+      map.set(m.id, { label: marketLabel(m), order: marketOrderLabel(m, index) }),
     );
     return map;
-  }, [places]);
+  }, [markets]);
 
   /** Resumo do PERÍODO ATUAL: só ativações de peças do ciclo em andamento. */
   const periodSummary = useMemo(() => {
@@ -124,7 +129,7 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
   const visible = useMemo(
     () =>
       activations.filter((a) => {
-        if (placeFilter !== "all" && a.campaign_id !== placeFilter) return false;
+        if (placeFilter !== "all" && a.market_id !== placeFilter) return false;
         if (statusFilter !== "all" && a.status !== statusFilter) return false;
         if (platformFilter !== "all" && a.platform !== platformFilter) return false;
         return true;
@@ -149,11 +154,11 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
         <div className="max-w-2xl">
           <h2 className="text-2xl font-black leading-tight">Mídia paga</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Cada linha é uma ativação: uma peça rodando em uma praça, com verba e janela próprias. O
-            calendário editorial não muda.
+            Cada linha é uma ativação: uma peça rodando em uma cidade do plano de expansão, com
+            verba e janela próprias. O calendário editorial não muda.
           </p>
         </div>
-        {places.length > 0 && (
+        {markets.length > 0 && plan && (
           <Button
             size="sm"
             className="gap-2"
@@ -183,10 +188,13 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
         <FilterSelect
           value={placeFilter}
           onChange={setPlaceFilter}
-          placeholder="Praça"
+          placeholder="Cidade"
           options={[
-            { value: "all", label: "Todas as praças" },
-            ...places.map((p, i) => ({ value: p.id, label: `${placeOrderLabel(p, i)} ${placeLabel(p)}` })),
+            { value: "all", label: "Todas as cidades" },
+            ...markets.map((m, i) => ({
+              value: m.id,
+              label: `${marketOrderLabel(m, i)} ${marketLabel(m)}`,
+            })),
           ]}
         />
         <FilterSelect
@@ -210,9 +218,9 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
         <p className="text-sm text-muted-foreground">
           {loading
             ? "Carregando…"
-            : places.length === 0
-              ? "Cadastre uma praça na aba Expansão para criar ativações."
-              : "Nenhuma ativação registrada. Use uma peça existente e escolha a praça, verba e período."}
+            : markets.length === 0
+              ? "Cadastre uma cidade na aba Expansão para criar ativações."
+              : "Nenhuma ativação registrada. Use uma peça existente e escolha a cidade, verba e período."}
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -220,7 +228,7 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
             <thead>
               <tr className="border-b text-left text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
                 <th className="py-2 pr-4">Conteúdo</th>
-                <th className="py-2 pr-4">Praça</th>
+                <th className="py-2 pr-4">Cidade</th>
                 <th className="py-2 pr-4">Plataforma</th>
                 <th className="py-2 pr-4">Período</th>
                 <th className="py-2 pr-4">Verba</th>
@@ -232,7 +240,7 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
             <tbody className="divide-y">
               {visible.map((a) => {
                 const demand = demandById.get(a.demand_id);
-                const place = placeById.get(a.campaign_id);
+                const market = a.market_id ? marketById.get(a.market_id) : null;
                 const objective = (a.objective || "").trim();
                 return (
                   <tr key={a.id} className="align-top">
@@ -245,11 +253,11 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
                       )}
                     </td>
                     <td className="py-3 pr-4">
-                      {place ? `${place.order} ${place.label}` : "—"}
+                      {market ? `${market.order} ${market.label}` : "—"}
                     </td>
                     <td className="py-3 pr-4">{a.platform}</td>
                     <td className="py-3 pr-4 tabular-nums">
-                      {placeWindow(a.start_date, a.end_date)}
+                      {marketWindow(a.start_date, a.end_date)}
                     </td>
                     <td className="py-3 pr-4 tabular-nums">{formatActivationBudget(a.budget)}</td>
                     <td className="py-3 pr-4">{paidMediaStatusLabel(a.status)}</td>
@@ -295,13 +303,14 @@ export default function PaidMediaTab({ tenantId, companyId, currentPeriodId }: P
         </div>
       )}
 
-      {tenantId && companyId && (
+      {tenantId && companyId && plan && (
         <ActivationFormModal
           open={modalOpen}
           onOpenChange={setModalOpen}
           tenantId={tenantId}
           companyId={companyId}
-          places={places}
+          campaignId={plan.id}
+          markets={markets}
           demands={demandOptions}
           activation={editing}
           onSaved={load}
