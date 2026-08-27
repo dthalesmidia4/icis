@@ -82,7 +82,7 @@ interface OfficeProfile {
 /** Margem lateral de segurança (px) entre footprints de duas estações. */
 const SAFE_GUTTER_PX = 28;
 /** Largura mínima aceitável de estação antes de aproximar mesas. */
-const MIN_BASE_WIDTH = 196;
+const MIN_BASE_WIDTH = 178;
 
 /**
  * ZONA RESERVADA DA CAFETERIA (canto superior direito da sala).
@@ -127,7 +127,7 @@ export function stageSize(world: WorldSize): WorldSize {
  * ~20% para o card ficar HORIZONTAL, sem retomar o monitor gigante original —
  * mesa/cadeira/pilha continuam com faixas laterais reservadas.
  */
-export const MONITOR_MAX_PCT = 76;
+export const MONITOR_MAX_PCT = 82;
 export function deskMonitorWidthPct(size: WorldSize = DEFAULT_SIZE): number {
   // Por PERFIL: desktop normal precisa de card claramente HORIZONTAL;
   // ultrawide já tem estação larga e cresce menos em proporção.
@@ -190,8 +190,8 @@ const DEFAULT_SIZE: WorldSize = { width: 1440, height: 860 };
 
 /** Faixas laterais e centros do modo rico no DESKTOP NORMAL (1366–1599). */
 const DESKTOP_RICH = {
-  leftZonePx: 208,
-  rightZonePx: 214,
+  leftZonePx: 176,
+  rightZonePx: 182,
   richCentersBack: [32, 68] as [number, number],
   richCentersFront: [32, 68] as [number, number],
 };
@@ -357,7 +357,11 @@ const COMFORT_GAP_MIN_PX = 56;
 const COMFORT_GAP_MAX_PX = 120;
 export function comfortGapPx(size: WorldSize = DEFAULT_SIZE): number {
   const width = size.width || DEFAULT_SIZE.width;
-  return Math.round(Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.044)));
+  // `gapScale`: no desktop normal o respiro também encolhe (densidade do 80%).
+  const scale = resolveOfficeProfile(size).gapScale;
+  return Math.round(
+    scale * Math.min(COMFORT_GAP_MAX_PX, Math.max(COMFORT_GAP_MIN_PX, width * 0.044)),
+  );
 }
 
 /**
@@ -477,8 +481,8 @@ const GENERIC_MIN_ROW_GAP_PCT = 22;
  * Café/Reunião/Espera à direita) e por isso são reservadas em px: as mesas
  * ficam concentradas na faixa central, nunca invadindo as zonas.
  */
-export const RICH_LEFT_ZONE_PX = 208;
-export const RICH_RIGHT_ZONE_PX = 214;
+export const RICH_LEFT_ZONE_PX = 168;
+export const RICH_RIGHT_ZONE_PX = 174;
 /** Tetos das faixas: em palco largo elas crescem, mas não indefinidamente. */
 export const RICH_LEFT_ZONE_MAX_PX = 312;
 export const RICH_RIGHT_ZONE_MAX_PX = 336;
