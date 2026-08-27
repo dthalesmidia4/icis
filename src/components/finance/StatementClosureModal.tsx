@@ -120,19 +120,30 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
         <div className="space-y-4">
           {group.paid && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-2">
+              <p className="font-medium">Pagamento da fatura</p>
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Total da fatura</span>
+                <span className="font-medium">{formatBRL(payment.statementBrl)}</span>
+              </p>
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Valor pago</span>
+                <span className="font-medium">{formatBRL(payment.paidBrl)}</span>
+              </p>
               <p className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Pago em</span>
                 <span className="font-medium">{paidAt ? formatDayMonth(paidAt) : "Data não registrada"}</span>
               </p>
               <p className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Valor pago</span>
-                <span className="font-medium">{formatBRL(paidAmount)}</span>
+                <span className="text-muted-foreground">Situação</span>
+                <span className="font-medium">{payment.situationLabel}</span>
               </p>
+              <p className="text-xs text-muted-foreground">{payment.message}</p>
               <p className="text-xs text-muted-foreground">
                 Ajustar o fechamento não altera a data nem o valor já pagos.
               </p>
             </div>
           )}
+
 
           <div className="space-y-2">
             <Label htmlFor="statement-closure-total">{CLOSURE_TOTAL_LABEL}</Label>
