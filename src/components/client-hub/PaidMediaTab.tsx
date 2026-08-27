@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,7 @@ import {
 import {
   cancelPaidMediaActivation,
   formatActivationBudget,
+  isActivationCancelled,
   loadPaidMediaActivations,
   paidMediaStatusLabel,
   type PaidMediaActivation,
@@ -28,6 +29,7 @@ import {
   summarizePaidMediaPlan,
 } from "@/lib/paidMediaPlanning";
 import ActivationFormModal, { type ActivationDemandOption } from "./ActivationFormModal";
+import PlaceFormModal from "./PlaceFormModal";
 
 interface PaidMediaTabProps {
   tenantId: string | null | undefined;
@@ -67,6 +69,9 @@ export default function PaidMediaTab({
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PaidMediaActivation | null>(null);
   const [initialMarketId, setInitialMarketId] = useState<string | null>(null);
+  // Edição da verba/janela da cidade acontece aqui mesmo, em modo paid-media.
+  const [marketModalOpen, setMarketModalOpen] = useState(false);
+  const [editingMarket, setEditingMarket] = useState<ExpansionMarket | null>(null);
 
   const load = useCallback(async () => {
     if (!tenantId || !companyId) {
@@ -203,9 +208,8 @@ export default function PaidMediaTab({
                 const isOpen = expanded === market.id;
                 const live = acts.filter((a) => !isActivationCancelled(a.status));
                 return (
-                  <>
+                  <Fragment key={market.id}>
                     <tr
-                      key={market.id}
                       className={cn(
                         "border-t align-top",
                         selectedMarketId === market.id && "bg-primary/5",
@@ -259,7 +263,7 @@ export default function PaidMediaTab({
                       </td>
                     </tr>
                     {isOpen && (
-                      <tr key={`${market.id}-detail`} className="border-t bg-muted/20">
+                      <tr className="border-t bg-muted/20">
                         <td colSpan={9} className="p-3">
                           {acts.length === 0 ? (
                             <p className="text-sm text-muted-foreground">
@@ -340,7 +344,7 @@ export default function PaidMediaTab({
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })
             )}
