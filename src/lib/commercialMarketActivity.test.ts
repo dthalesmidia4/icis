@@ -40,7 +40,17 @@ describe("groupLeadsByMarket", () => {
     expect(grouped.get("franca")?.map((l) => l.id)).toEqual(["b"]);
     expect(leadsWithoutMarket(leads).map((l) => l.id)).toEqual(["c"]);
   });
+
+  it("aviso de órfãos conta só oportunidades: customer sem carteira não infla", () => {
+    const leads = [
+      lead({ id: "vivapet" }),
+      lead({ id: "bellotti", lifecycle: "customer" }),
+      lead({ id: "leal", lifecycle: "customer" }),
+    ];
+    expect(leadsWithoutMarket(leads).map((l) => l.id)).toEqual(["vivapet"]);
+  });
 });
+
 
 describe("summarizeMarketCommercial", () => {
   it("conta etapas, clientes e execução real por cidade", () => {
