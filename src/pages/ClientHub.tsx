@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClientPeriodWorkspace } from "@/hooks/useClientPeriodWorkspace";
 import ClientHubHeader from "@/components/client-hub/ClientHubHeader";
+import CycleEditModal from "@/components/client-hub/CycleEditModal";
 import ClientHubActionBar from "@/components/client-hub/ClientHubActionBar";
 import { buildClientBrandStyle, type ClientBrandColors } from "@/lib/clientBrandTheme";
 
@@ -1898,6 +1899,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_demanda_planejada', title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaHubModalOpen(true) },
   ];
 
+  const [cycleModalOpen, setCycleModalOpen] = useState(false);
+
   // Ações operacionais do workspace atual: regras de papel já bastam.
   // Permissões legadas `client_*` não filtram mais esta barra.
   const actionCards = allActionCards;
@@ -1928,7 +1931,29 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           planPeriodDisabled={!hasVisualIdentity}
           planPeriodDisabledReason={planPeriodBlockedMessage}
           
-          actionsSlot={<ClientHubActionBar actions={actionCards as any} />}
+          actionsSlot={
+            <div className="flex items-center gap-2">
+              {workspace.period && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setCycleModalOpen(true)}
+                >
+                  Editar ciclo
+                </Button>
+              )}
+              <ClientHubActionBar actions={actionCards as any} />
+            </div>
+          }
+        />
+
+        <CycleEditModal
+          open={cycleModalOpen}
+          onOpenChange={setCycleModalOpen}
+          period={workspace.period}
+          demands={workspace.demands}
+          onSaved={workspace.reload}
         />
 
 
