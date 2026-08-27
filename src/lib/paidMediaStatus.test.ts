@@ -7,74 +7,41 @@ import {
 } from "@/lib/expansionMarkets";
 import { paidMediaRowBadge, paidMediaRowClass } from "@/lib/marketRowStyles";
 
-/** Ribeirão Preto: anúncios de 28/08 a 30/08/2026. */
+/** Janela planejada de Ribeirão Preto — NUNCA define status. */
 const RIBEIRAO = {
   ads_start_date: "2026-08-28",
   ads_end_date: "2026-08-30",
-  paid_media_status_override: null as null | "planned",
+  paid_media_status_override: null as null | "programmed",
 };
 
 describe("effectivePaidMediaStatus", () => {
-  it("antes da janela (27/08) a cidade está PROGRAMADA", () => {
-    expect(effectivePaidMediaStatus(RIBEIRAO, "2026-08-27")).toBe("planned");
+  it("sem marcação humana é sempre Pendente de programação, mesmo dentro da janela", () => {
+    expect(effectivePaidMediaStatus(RIBEIRAO)).toBe("pending");
+    expect(effectivePaidMediaStatus({ ...RIBEIRAO, ads_start_date: "2020-01-01" } as any)).toBe(
+      "pending",
+    );
   });
 
-  it("depois da janela (31/08) a cidade está CONCLUÍDA", () => {
-    expect(effectivePaidMediaStatus(RIBEIRAO, "2026-08-31")).toBe("completed");
-  });
-
-  it("dentro da janela está RODANDO (inclusive nas bordas)", () => {
-    expect(effectivePaidMediaStatus(RIBEIRAO, "2026-08-28")).toBe("running");
-    expect(effectivePaidMediaStatus(RIBEIRAO, "2026-08-29")).toBe("running");
-    expect(effectivePaidMediaStatus(RIBEIRAO, "2026-08-30")).toBe("running");
-  });
-
-  it("override explícito vence a janela", () => {
+  it("respeita o estado salvo pelo usuário", () => {
     expect(
-      effectivePaidMediaStatus(
-        { ...RIBEIRAO, paid_media_status_override: "paused" as any },
-        "2026-08-29",
-      ),
-    ).toBe("paused");
+      effectivePaidMediaStatus({ ...RIBEIRAO, paid_media_status_override: "programmed" }),
+    ).toBe("programmed");
     expect(
-      effectivePaidMediaStatus(
-        { ...RIBEIRAO, paid_media_status_override: "running" as any },
-        "2026-08-31",
-      ),
+      effectivePaidMediaStatus({ ...RIBEIRAO, paid_media_status_override: "running" as any }),
     ).toBe("running");
-  });
-
-  it("override nulo volta ao automático", () => {
-    expect(effectivePaidMediaStatus({ ...RIBEIRAO, paid_media_status_override: null }, "2026-08-31"))
-      .toBe("completed");
-  });
-
-  it("sem janela nenhuma é PROGRAMADA", () => {
     expect(
-      effectivePaidMediaStatus(
-        { ads_start_date: null, ads_end_date: null, paid_media_status_override: null },
-        "2026-08-29",
-      ),
-    ).toBe("planned");
+      effectivePaidMediaStatus({ ...RIBEIRAO, paid_media_status_override: "paused" as any }),
+    ).toBe("paused");
   });
 
-  it("só fim: programada até o fim, concluída depois", () => {
-    const onlyEnd = { ads_start_date: null, ads_end_date: "2026-08-30", paid_media_status_override: null };
-    expect(effectivePaidMediaStatus(onlyEnd, "2026-08-30")).toBe("planned");
-    expect(effectivePaidMediaStatus(onlyEnd, "2026-08-31")).toBe("completed");
+  it("valor inválido no banco degrada para pendente", () => {
+    expect(
+      effectivePaidMediaStatus({ paid_media_status_override: "planned" as any }),
+    ).toBe("pending");
   });
 
-  it("só início: roda a partir do início", () => {
-    const onlyStart = { ads_start_date: "2026-08-28", ads_end_date: null, paid_media_status_override: null };
-    expect(effectivePaidMediaStatus(onlyStart, "2026-08-27")).toBe("planned");
-    expect(effectivePaidMediaStatus(onlyStart, "2026-09-20")).toBe("running");
-  });
-
-  it("nunca lê nem altera o status COMERCIAL da praça", () => {
-    const market = { ...RIBEIRAO, status: "active" } as any;
-    const before = market.status;
-    expect(effectivePaidMediaStatus(market, "2026-08-27")).toBe("planned");
-    expect(market.status).toBe(before);
+  it("cidade sem janela nenhuma também é pendente", () => {
+    expect(effectivePaidMediaStatus({ paid_media_status_override: null })).toBe("pending");
   });
 });
 
@@ -86,14 +53,15 @@ describe("calendarDateOnly", () => {
 });
 
 describe("dropdown de status de mídia", () => {
-  it("primeira opção é Automático (null no banco)", () => {
-    expect(PAID_MEDIA_STATUS_OPTIONS[0]).toEqual({ value: null, label: "Automático" });
+  it("não existe mais a opção Automático", () => {
+    expect(PAID_MEDIA_STATUS_OPTIONS.some((o) => o.value === null)).toBe(false);
+    expect(PAID_MEDIA_STATUS_OPTIONS.map((o) => o.label).join("|")).not.toContain("Automático");
   });
 
-  it("cobre os cinco status permitidos", () => {
+  it("cobre exatamente os seis estados explícitos", () => {
     expect(PAID_MEDIA_STATUS_OPTIONS.map((o) => o.value)).toEqual([
-      null,
-      "planned",
+      "pending",
+      "programmed",
       "running",
       "paused",
       "completed",
@@ -102,20 +70,24 @@ describe("dropdown de status de mídia", () => {
   });
 
   it("rótulos em português", () => {
+    expect(paidMediaMarketStatusLabel("pending")).toBe("Pendente de programação");
+    expect(paidMediaMarketStatusLabel("programmed")).toBe("Programada");
     expect(paidMediaMarketStatusLabel("running")).toBe("Rodando");
     expect(paidMediaMarketStatusLabel("completed")).toBe("Concluída");
   });
 });
 
 describe("hierarquia visual da linha de mídia", () => {
-  it("rodando ganha destaque; programada é neutra", () => {
+  it("rodando ganha destaque; pendente e programada são neutras", () => {
     expect(paidMediaRowClass("running")).toContain("border-l-primary");
-    expect(paidMediaRowClass("planned")).toBe("");
+    expect(paidMediaRowClass("pending")).toBe("");
+    expect(paidMediaRowClass("programmed")).toBe("");
   });
 
   it("selo nunca usa o conceito comercial ATUAL", () => {
-    const labels = (["planned", "running", "paused", "completed", "cancelled"] as const)
-      .map((s) => paidMediaRowBadge(s)?.label ?? "");
+    const labels = (
+      ["pending", "programmed", "running", "paused", "completed", "cancelled"] as const
+    ).map((s) => paidMediaRowBadge(s)?.label ?? "");
     expect(labels.join("|")).not.toContain("ATUAL");
     expect(paidMediaRowBadge("running")?.label).toBe("RODANDO");
     expect(paidMediaRowBadge("completed")).toBeNull();
