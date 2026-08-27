@@ -1208,10 +1208,13 @@ export async function proceedDemand({
 
   const { data: currentDemand } = await supabase
     .from("demands")
-    .select("assigned_to")
+    .select(
+      "id, title, assigned_to, work_area, due_date, due_time, delivery_date, delivery_time, publish_date, publish_time, demand_type, demand_type_key, is_daily_card, current_function_key",
+    )
     .eq("id", demandId)
     .maybeSingle();
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
+
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
   const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
   const executors = await collectStageExecutors(
