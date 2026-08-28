@@ -4,6 +4,8 @@ import { getCurrentPeriodForClient, type CurrentPeriodInfo } from "@/lib/periodC
 
 
 export interface WorkspacePlanItem {
+  /** UUID da demand materializada a partir deste item (fonte de verdade do vínculo). */
+  demand_id: string | null;
   titulo: string;
   tipo: string | null;
   canal: string | null;
@@ -48,6 +50,7 @@ export interface WorkspaceDemand {
 }
 
 const normalizePlanItem = (raw: any, source: "normal" | "ultra"): WorkspacePlanItem => ({
+  demand_id: typeof raw?.demand_id === "string" && raw.demand_id ? raw.demand_id : null,
   titulo: String(raw?.titulo ?? raw?.title ?? "").trim(),
   tipo: raw?.tipo ?? raw?.type ?? null,
   canal: raw?.canal ?? null,

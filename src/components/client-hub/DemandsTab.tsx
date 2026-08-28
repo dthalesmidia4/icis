@@ -45,15 +45,13 @@ export default function DemandsTab({
   const rows = useMemo(() => {
     // Dedupe por código estável (DF-XXX) + título normalizado: o snapshot chega
     // completo do hook e nunca deve duplicar a demand viva do mesmo conteúdo.
-    const pendingPlanItems = dedupeSnapshotAgainstLive(
-      planItems,
-      demands.map((d) => d.title)
-    );
+    const pendingPlanItems = dedupeSnapshotAgainstLive(planItems, demands);
     const list = demands.map((d, idx) => {
       const status = d.status_id ? statusNames[d.status_id] : undefined;
       const done = !!status?.isFinal || !!d.archived_at;
       return {
         key: d.id,
+        demandId: d.id,
         code: `DF-${String(idx + 1).padStart(3, "0")}`,
         title: d.title,
         type: d.demand_type,
@@ -68,7 +66,8 @@ export default function DemandsTab({
 
     pendingPlanItems.forEach((i, idx) => {
       list.push({
-        key: `plan-${i.titulo}-${idx}`,
+        key: `plan-${i.demand_id || i.titulo}-${idx}`,
+        demandId: null as string | null,
         code: `PL-${String(idx + 1).padStart(3, "0")}`,
         title: i.titulo,
         type: i.tipo,

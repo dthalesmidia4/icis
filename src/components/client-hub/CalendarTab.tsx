@@ -111,7 +111,7 @@ export default function CalendarTab({ period, planItems, demands, stageNames, on
 
     // Snapshot histórico do período: só entra se NÃO existir demand viva com o
     // mesmo código estável (DF-XXX). Título/tipo podem divergir após edição.
-    dedupeSnapshotAgainstLive(planItems, demands.map((d) => d.title)).forEach((i) => {
+    dedupeSnapshotAgainstLive(planItems, demands).forEach((i) => {
       if (!i.data) return;
       entries.push({
         date: i.data,
