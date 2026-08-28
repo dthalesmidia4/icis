@@ -28,6 +28,8 @@ interface DemandsTabProps {
   memberNames: Record<string, string>;
   onOpenEvolution: () => void;
   onOpenOverview: () => void;
+  /** Abre a demand real pelo UUID (apenas linhas vivas são clicáveis). */
+  onOpenDemand?: (demandId: string) => void;
 }
 
 export default function DemandsTab({
@@ -38,6 +40,7 @@ export default function DemandsTab({
   memberNames,
   onOpenEvolution,
   onOpenOverview,
+  onOpenDemand,
 }: DemandsTabProps) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterId>("all");
@@ -167,11 +170,27 @@ export default function DemandsTab({
 
       {filtered.length ? (
         <div className="divide-y border-y">
-          {filtered.map((r) => (
+          {filtered.map((r) => {
+            const clickable = !!r.demandId && !!onOpenDemand;
+            return (
             <div
               key={r.key}
+              role={clickable ? "button" : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={clickable ? () => onOpenDemand!(r.demandId!) : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onOpenDemand!(r.demandId!);
+                      }
+                    }
+                  : undefined
+              }
               className={cn(
                 "group flex items-center gap-5 py-4 transition-colors hover:bg-muted/40",
+                clickable && "cursor-pointer",
                 r.done && "opacity-55"
               )}
             >
@@ -207,9 +226,15 @@ export default function DemandsTab({
               >
                 {r.status}
               </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              <ArrowRight
+                className={cn(
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-opacity",
+                  clickable ? "opacity-0 group-hover:opacity-100" : "opacity-0"
+                )}
+              />
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="border-y py-12 text-center text-sm text-muted-foreground">
