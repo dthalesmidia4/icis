@@ -2083,6 +2083,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 memberNames={workspace.memberNames}
                 onOpenEvolution={() => navigate('/client-evolution')}
                 onOpenOverview={() => navigate('/kanban-central')}
+                onOpenDemand={(id) => setDrawerDemandId(id)}
               />
             </TabsContent>
             <TabsContent value="feed" className="m-0">

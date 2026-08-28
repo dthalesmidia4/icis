@@ -42,6 +42,8 @@ export interface FeedDemandInput {
 
 
 export interface FeedPlanItemInput {
+  /** UUID da demand materializada (quando existe): dedupe prioritário. */
+  demand_id?: string | null;
   titulo: string;
   tipo?: string | null;
   canal?: string | null;
@@ -310,10 +312,7 @@ export function buildInstagramFeed({
 
 
   // Snapshot histórico entra somente sem demand viva equivalente.
-  dedupeSnapshotAgainstLive(
-    planItems,
-    demands.map((d) => d.title)
-  ).forEach((item, index) => {
+  dedupeSnapshotAgainstLive(planItems, demands).forEach((item, index) => {
     if (!item.data) return;
     if (!channelAllowsInstagram(item.canal)) return;
     const kind = resolveFeedKind({ typeKey: item.typeKey, typeLabel: item.tipo });

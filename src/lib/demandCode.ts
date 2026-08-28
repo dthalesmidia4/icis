@@ -42,25 +42,40 @@ export const normalizeDemandTitle = (title?: string | null): string =>
     .trim()
     .toLowerCase();
 
+/** Referência a uma demand viva: UUID é a fonte de verdade; título é fallback. */
+export type LiveDemandRef = string | null | undefined | { id?: string | null; title?: string | null };
+
+const liveRefParts = (ref: LiveDemandRef): { id: string | null; title: string | null } => {
+  if (ref && typeof ref === "object") return { id: ref.id ?? null, title: ref.title ?? null };
+  return { id: null, title: (ref as string | null | undefined) ?? null };
+};
+
 /**
- * Remove itens de snapshot que já existem como demand viva
- * (precedência por código; fallback por título normalizado).
+ * Remove itens de snapshot que já existem como demand viva.
+ *
+ * Precedência: `demand_id` (UUID real, imune a edição de título) → código
+ * estável (DF-XXX) → título normalizado (snapshots legados sem UUID).
  */
-export function dedupeSnapshotAgainstLive<T extends { titulo?: string | null }>(
-  snapshotItems: T[],
-  liveTitles: (string | null | undefined)[]
-): T[] {
+export function dedupeSnapshotAgainstLive<
+  T extends { titulo?: string | null; demand_id?: string | null },
+>(snapshotItems: T[], live: LiveDemandRef[]): T[] {
+  const liveIds = new Set<string>();
   const liveCodes = new Set<string>();
   const liveNormalized = new Set<string>();
-  liveTitles.forEach((t) => {
-    const code = extractDemandCode(t);
+  live.forEach((ref) => {
+    const { id, title } = liveRefParts(ref);
+    if (id) liveIds.add(id);
+    const code = extractDemandCode(title);
     if (code) liveCodes.add(code);
-    liveNormalized.add(normalizeDemandTitle(t));
+    liveNormalized.add(normalizeDemandTitle(title));
   });
 
   return snapshotItems.filter((item) => {
+    // UUID real: nunca cair em título/código quando o vínculo existe.
+    if (item.demand_id) return !liveIds.has(item.demand_id);
     const code = extractDemandCode(item.titulo);
     if (code) return !liveCodes.has(code);
     return !liveNormalized.has(normalizeDemandTitle(item.titulo));
   });
 }
+
