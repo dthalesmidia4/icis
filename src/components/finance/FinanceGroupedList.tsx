@@ -85,6 +85,61 @@ export function FinanceStatusBadge({ status }: { status: RowStatus }) {
 
 const defaultCountLabel = (count: number) => (count === 1 ? "1 despesa" : `${count} despesas`);
 
+/** Data financeira usada para ordenação, com a mesma semântica visual da tela. */
+function financeSortDate(row: MonthRow): string | null {
+  return row.cardItemId ? row.chargeDate ?? row.dueDate : row.dueDate ?? row.chargeDate;
+}
+
+function compareFinanceDates(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b);
+}
+
+/**
+ * Ordena as entradas de um grupo para que:
+ * 1) fatos do mesmo cadastro fiquem adjacentes;
+ * 2) cadastros sejam ordenados pela primeira data financeira;
+ * 3) ocorrências do mesmo cadastro fiquem em ordem cronológica;
+ * 4) ocorrências/cadastros sem data fiquem por último;
+ * 5) empate de primeira data entre cadastros seja resolvido pelo nome (pt-BR);
+ * 6) empate dentro do mesmo cadastro preserve a ordem original para estabilidade.
+ */
+function sortGroupedEntries<E extends FinanceGroupedEntry>(entries: E[]): E[] {
+  const indexed = entries.map((entry, originalIndex) => ({ entry, originalIndex }));
+  const byItem = new Map<string, typeof indexed>();
+
+  for (const item of indexed) {
+    const list = byItem.get(item.entry.row.item.id);
+    if (list) list.push(item);
+    else byItem.set(item.entry.row.item.id, [item]);
+  }
+
+  const blocks: { items: typeof indexed; firstDate: string | null; name: string }[] = [];
+  for (const block of byItem.values()) {
+    block.sort((a, b) => {
+      const dateA = financeSortDate(a.entry.row);
+      const dateB = financeSortDate(b.entry.row);
+      return compareFinanceDates(dateA, dateB) || a.originalIndex - b.originalIndex;
+    });
+    blocks.push({
+      items: block,
+      firstDate: financeSortDate(block[0].entry.row),
+      name: block[0].entry.row.item.name,
+    });
+  }
+
+  blocks.sort((a, b) => {
+    const dateCmp = compareFinanceDates(a.firstDate, b.firstDate);
+    if (dateCmp) return dateCmp;
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+
+  return blocks.flatMap((block) => block.items.map((item) => item.entry));
+}
+
+
 export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
   entries,
   groupBy,
@@ -176,7 +231,7 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
                   </TableRow>
 
                   {open &&
-                    group.entries.map((entry) => {
+                    sortGroupedEntries(group.entries).map((entry) => {
                       const row = entry.row;
                       const rowStatus = status(entry);
                       const isLocked = locked(row);
@@ -269,7 +324,7 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
               </Card>
 
               {open &&
-                group.entries.map((entry) => {
+                sortGroupedEntries(group.entries).map((entry) => {
                   const row = entry.row;
                   const rowStatus = status(entry);
                   const isLocked = locked(row);
