@@ -91,7 +91,14 @@ export function useFinance(competence: Competence) {
   const { agencyId } = useAgency();
   const { user } = useAuth();
   const [items, setItems] = useState<FinanceItem[]>([]);
+  /**
+   * VERSÃO DO CADASTRO VÁLIDA NA COMPETÊNCIA (histórico versionado no banco).
+   * `items` segue sendo o catálogo ATUAL (edição, criação, cartões/pacotes);
+   * `monthItems` é o que explica o passado e nunca é reescrito pelo presente.
+   */
+  const [monthItems, setMonthItems] = useState<FinanceItem[]>([]);
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
+
   /** Versões da regra de recorrência (histórico por cadastro). */
   const [rules, setRules] = useState<FinanceRecurrenceRule[]>([]);
   /**
