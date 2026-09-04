@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type TransitionIntent =
   | "reassign"
+  | "unassign"
   | "jump_stage"
   | "proceed"
   | "move_back"
@@ -26,6 +27,9 @@ export type TransitionIntent =
   | "change_origin"
   | "auto_return"
   | "publication_review"
+  | "schedule_publication"
+  | "deliver"
+  | "partial_deliver"
   | "reconcile_context";
 
 export type TransitionCode =
@@ -34,6 +38,11 @@ export type TransitionCode =
   | "INVALID_STAGE_FOR_FLOW"
   | "NO_VALID_STAGE"
   | "NO_ASSIGNEE"
+  | "END_OF_FLOW"
+  | "FIRST_OF_FLOW"
+  | "SCHEDULE_CONFLICT"
+  | "NO_FINAL_STATUS"
+  | "INVARIANT_VIOLATION"
   | "STALE_STATE"
   | "FORBIDDEN"
   | "NOT_FOUND"
@@ -46,17 +55,38 @@ export interface TransitionFinalState {
   type_key: string | null;
   work_area: string | null;
   origin: string | null;
+  status_id?: string | null;
+  archived_at?: string | null;
   updated_at?: string | null;
   additional_assignees?: string[] | null;
+  due_date?: string | null;
+  due_time?: string | null;
+  delivery_date?: string | null;
+  delivery_time?: string | null;
+  client_wait_started_at?: string | null;
+  client_resend_count?: number | null;
+  client_last_resend_at?: string | null;
+}
+
+/** Agenda gravada DENTRO da mesma transição (nunca em um segundo update). */
+export interface TransitionSchedule {
+  due_date?: string | null;
+  due_time?: string | null;
+  delivery_date?: string | null;
+  delivery_time?: string | null;
 }
 
 export interface TransitionResult {
-  status: "applied" | "nothing" | "blocked" | "stale" | "error";
+  status: "applied" | "nothing" | "blocked" | "stale" | "end" | "error";
   code: TransitionCode;
   message: string;
   previous?: { assigned_to: string | null; function_key: string | null };
   final?: TransitionFinalState;
+  /** Etapas de revisão dispensadas pelo kernel. */
+  skipped?: string[];
+  conflict?: { demand_id: string; title: string | null } | null;
 }
+
 
 export interface TransitionRequest {
   demandId: string;
