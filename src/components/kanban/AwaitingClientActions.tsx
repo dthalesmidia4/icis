@@ -3,7 +3,7 @@ import { ArrowRight, CalendarClock, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { proceedDemand, getPipelineSequence, recordStageDeliveries } from "@/lib/proceedDemand";
-import { recordFlowHistory } from "@/lib/flowHistory";
+import { transitionDemand } from "@/lib/demandTransition";
 import { createOrUpdateScheduleDispatch } from "@/lib/createScheduleDispatch";
 import { cn } from "@/lib/utils";
 
