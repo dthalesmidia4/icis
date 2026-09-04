@@ -61,8 +61,10 @@ export interface TransitionResult {
 export interface TransitionRequest {
   demandId: string;
   intent: TransitionIntent;
-  /** Responsável desejado. Ausente = o banco mantém/resolve. */
+  /** Responsável desejado (alvo duro). Ausente = o banco mantém/resolve. */
   targetUserId?: string | null;
+  /** Preferência de responsável: o banco troca se ele não puder a etapa. */
+  preferredUserId?: string | null;
   /** Etapa desejada. Ausente = o banco resolve a etapa válida. */
   targetFunctionKey?: string | null;
   targetTypeKey?: string | null;
