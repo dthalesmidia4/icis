@@ -9,14 +9,13 @@
  *
  * Conflito duro NUNCA é gravado: a decisão volta para a UI.
  */
-import { supabase } from "@/integrations/supabase/client";
 import {
   loadFlowSequenceKeys,
   previewStageForAssignee,
   transitionDemand,
   type StagePreviewCard,
 } from "@/lib/demandTransition";
-import { applyFlowReactivation } from "@/lib/reactivateDemand";
+
 
 import {
   checkAssignmentConflicts,
