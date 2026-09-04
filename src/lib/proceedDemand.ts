@@ -1731,48 +1731,27 @@ export async function deliverDemand(
     ? ((currentDemand as any).additional_assignees.filter(Boolean) as string[])
     : [];
 
-  const { error: uErr } = await supabase
-    .from("demands")
-    .update({
-      status_id: done.id,
-      current_function_key: null,
-      assigned_to: null,
-      additional_assignees: [],
-      archived_at: new Date().toISOString(),
-    } as any)
-    .eq("id", demandId);
-  if (uErr) return { success: false, message: "Erro ao entregar a demanda." };
+  // AUTORIDADE ÚNICA: status final, limpeza de responsáveis, arquivamento e
+  // histórico `delivered` são gravados de uma só vez pelo kernel.
+  const outcome = await kernelCommit({
+    demandId,
+    intent: "deliver",
+    targetStatusId: done.id,
+    administrative: false,
+    expectedFunctionKey: (currentDemand as any)?.current_function_key ?? null,
+    expectedAssignee: (currentDemand as any)?.assigned_to ?? null,
+    source: "deliver",
+  });
+  if (outcome.status === "stale") return { success: false, message: STALE_TRANSITION_MESSAGE };
+  if (outcome.status !== "ok") return { success: false, message: outcome.message };
 
+  // Entregas por etapa continuam sendo métrica do app (o kernel não as agrega).
   if (currentDemand?.tenant_id) {
-    const primary = (currentDemand as any).assigned_to ?? null;
-    if (extras.length > 0) {
-      await recordFlowHistoryForUsers(
-        {
-          tenantId: currentDemand.tenant_id as string,
-          demandId,
-          action: "delivered",
-          toUserId: null,
-          fromFunctionKey: (currentDemand as any).current_function_key ?? null,
-          toFunctionKey: null,
-        },
-        [primary, ...extras],
-      );
-    } else {
-      await recordFlowHistory({
-        tenantId: currentDemand.tenant_id as string,
-        demandId,
-        action: "delivered",
-        fromUserId: primary,
-        toUserId: null,
-        fromFunctionKey: (currentDemand as any).current_function_key ?? null,
-        toFunctionKey: null,
-      });
-    }
     await recordStageDeliveries(
       currentDemand.tenant_id as string,
       demandId,
       (currentDemand as any).current_function_key ?? null,
-      [primary, ...extras],
+      [(currentDemand as any).assigned_to ?? null, ...extras],
     );
   }
   return {
