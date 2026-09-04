@@ -45,7 +45,7 @@ import SkippedEntriesPanel from "@/components/finance/SkippedEntriesPanel";
 
 import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
 import MonthCompositionList from "@/components/finance/MonthCompositionList";
-import FinanceGroupingControl from "@/components/finance/FinanceGroupingControl";
+import FinanceGroupedViewToolbar from "@/components/finance/FinanceGroupedViewToolbar";
 
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
