@@ -27,6 +27,7 @@ import { visibleStatementGroups } from "./financeCardVisibility";
 import { interpretStatementCompositionDifference } from "./financeStatementDifference";
 
 import type { GroupedPayment } from "./financePaymentSchedule";
+import { type OccurrenceLabel, occurrenceDisplayName } from "./financeOccurrenceLabels";
 
 import {
   SafeStatementStatusMap,
@@ -702,6 +703,8 @@ export interface PaymentQueueParams {
   cardsById: Map<string, FinanceItem>;
   /** `false` (padrão) exclui atrasados: eles vivem em "Precisa da sua atenção". */
   includeOverdue?: boolean;
+  /** Mapa canônico já calculado pela tela para nomear fatos repetidos. */
+  labels?: Map<string, OccurrenceLabel> | null;
 }
 
 /**
@@ -729,7 +732,7 @@ export function buildPaymentQueue(params: PaymentQueueParams): PaymentQueueEntry
     entries.push({
       id: `direct:${row.key}`,
       type: "direct",
-      name: row.item.name,
+      name: occurrenceDisplayName(row, params.labels),
       dueDate: due,
       amount: row.amountBrl ?? 0,
       label: "Conta",

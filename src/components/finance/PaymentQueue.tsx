@@ -10,7 +10,7 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatBRL, installmentRowLabel } from "@/lib/financeModel";
+import { formatBRL } from "@/lib/financeModel";
 import { PaymentQueueEntry, queueDateLabel } from "@/lib/financeRowStatus";
 import { describePaymentRule } from "@/lib/financePaymentSchedule";
 
@@ -29,8 +29,7 @@ function entryContextLabel(entry: PaymentQueueEntry): string {
     const count = entry.group.rows.length;
     return `${count} ocorrências · ${describePaymentRule(entry.group.rule)}`;
   }
-  const installment = entry.row ? installmentRowLabel(entry.row) : null;
-  return installment ?? "Conta direta";
+  return "Conta direta";
 }
 
 

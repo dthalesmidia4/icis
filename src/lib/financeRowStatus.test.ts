@@ -13,6 +13,7 @@ import {
   buildPaidComposition,
   queueDateLabel,
 } from "./financeRowStatus";
+import { buildOccurrenceLabels } from "./financeOccurrenceLabels";
 
 const TODAY = "2026-08-24";
 
@@ -278,6 +279,18 @@ describe("fila de próximos pagamentos", () => {
       { card: itau, statementRow: null, components: [], projectedTotal: 100, actualTotal: 100, difference: 0, configIncomplete: false, incompleteReason: null, dueDate: "2026-08-28", closingDate: null, paid: true },
     ];
     expect(buildPaymentQueue({ rows: [], statements, today: TODAY, cardsById })).toHaveLength(0);
+  });
+
+  it("reutiliza o rótulo completo das ocorrências diretas repetidas", () => {
+    const faxina = item({ id: "faxina", kind: "expense", name: "FAXINA", payment_method: "Pix" });
+    const first = row({ key: "faxina-1", item: faxina, dueDate: "2026-08-25", scheduledDate: "2026-08-25" });
+    const second = row({ key: "faxina-2", item: faxina, dueDate: "2026-08-26", scheduledDate: "2026-08-26" });
+    const rows = [first, second];
+    const labels = buildOccurrenceLabels(rows);
+
+    const queue = buildPaymentQueue({ rows, statements: [], today: TODAY, cardsById, labels });
+
+    expect(queue.map((entry) => entry.name)).toEqual(["FAXINA 1/2", "FAXINA 2/2"]);
   });
 });
 

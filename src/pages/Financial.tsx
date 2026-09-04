@@ -170,9 +170,9 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
 type MainView = "to_pay" | "paid" | "all";
 
 const MAIN_VIEWS: { value: MainView; label: string }[] = [
+  { value: "all", label: "Todas" },
   { value: "to_pay", label: "A pagar" },
   { value: "paid", label: "Pagas" },
-  { value: "all", label: "Todas" },
 ];
 
 type AdvancedFilter = "none" | "today" | "tomorrow" | "overdue" | "next7" | "recurring";
@@ -334,8 +334,8 @@ function FinancialCockpit() {
 
   /** Fila de próximos pagamentos (hoje/futuro). Atrasos ficam nas exceções. */
   const directPaymentQueue = useMemo(
-    () => buildPaymentQueue({ rows, statements, today, cardsById }),
-    [rows, statements, today, cardsById],
+    () => buildPaymentQueue({ rows, statements, today, cardsById, labels: occurrenceLabels }),
+    [rows, statements, today, cardsById, occurrenceLabels],
   );
 
   /**
