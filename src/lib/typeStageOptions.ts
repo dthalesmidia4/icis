@@ -1,26 +1,17 @@
 /**
- * ETAPAS DE TODOS OS TIPOS DE ATIVIDADE DA MESMA ÁREA.
+ * ETAPAS DE TODOS OS TIPOS DE ATIVIDADE DA MESMA ÁREA (fluxo canônico).
  *
- * `src/lib/stageOptions.ts` responde "quais etapas do TIPO ATUAL este
- * colaborador pode executar". Este módulo estende a pergunta para "quais
- * etapas de QUALQUER tipo da mesma área ele pode executar", preservando
- * exatamente as mesmas regras de validade (função habilitada, etapa já
- * concluída, anti-autorrevisão, etapa client-facing em decisão administrativa).
+ * As opções vêm do kernel no banco (`get_area_type_stage_options_v1`), que já
+ * aplica: funções ativas, exclusão de `avaliar`, regras `requirement`
+ * (incluindo `disabled`) e dependência de origem do cliente.
  *
- * Serve ao long-press do chip de etapa na Visão Geral: mostrar o tipo atual em
- * primeiro lugar e, abaixo, os outros tipos disponíveis — nunca esconder uma
- * etapa sem explicar o motivo.
+ * IMPORTANTE: a seleção NÃO é bloqueada pelas funções do responsável atual.
+ * Quem decide responsável é `transition_demand_v2`: mantém o atual quando
+ * elegível, senão escolhe outro automaticamente (`preferred_user_id` é apenas
+ * preferência). Cards sem responsável também podem trocar de etapa/tipo.
  */
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
-import { isClientOrigin } from "@/lib/proceedDemand";
-import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
-import {
-  computeStageOptions,
-  type StageDecisionMode,
-  type StageOption,
-  type StageSequenceItem,
-} from "@/lib/stageOptions";
 
 export interface TypeStageCard {
   id: string;
@@ -31,17 +22,19 @@ export interface TypeStageCard {
   current_function_key?: string | null;
 }
 
-export interface AreaDemandType {
-  demandTypeKey: string;
-  demandTypeLabel: string;
-  sequence: StageSequenceItem[];
-}
-
-export interface TypeStageOption extends StageOption {
+export interface TypeStageOption {
+  functionKey: string;
+  name: string;
+  position: number;
+  clientFacing: boolean;
+  review: boolean;
   demandTypeKey: string;
   demandTypeLabel: string;
   isCurrentType: boolean;
   isCurrentStage: boolean;
+  /** O fluxo aceita esta etapa. O responsável é resolvido pelo servidor. */
+  valid: boolean;
+  reasonLabel: string | null;
 }
 
 export interface TypeStageGroup {
@@ -49,7 +42,6 @@ export interface TypeStageGroup {
   demandTypeLabel: string;
   isCurrentType: boolean;
   stages: TypeStageOption[];
-  /** Alguma etapa executável neste tipo pelo responsável atual? */
   hasValidStage: boolean;
 }
 
@@ -62,64 +54,71 @@ export function humanizeTypeKey(key: string): string {
 
 /* ============================== LÓGICA PURA ============================== */
 
-export interface ComputeTypeStageGroupsParams {
-  types: AreaDemandType[];
-  currentTypeKey?: string | null;
-  currentFunctionKey?: string | null;
-  allowedKeys: Set<string> | string[];
-  completedByUser?: Set<string> | string[];
-  administrative?: boolean;
-  /** Contexto da decisão (manual libera etapas já concluídas). */
-  mode?: StageDecisionMode;
-  /** Nome do responsável — usado nos motivos de bloqueio. */
-  assigneeName?: string | null;
+export interface RawTypeStageOptions {
+  types?: Array<{
+    demand_type_key?: string | null;
+    demand_type_label?: string | null;
+    is_current?: boolean | null;
+    stages?: Array<{
+      function_key?: string | null;
+      name?: string | null;
+      position?: number | null;
+      client_facing?: boolean | null;
+      review?: boolean | null;
+    }> | null;
+  }> | null;
 }
 
 /**
- * Grupos por tipo: o tipo atual primeiro, os demais em ordem alfabética.
- * Tipos sem nenhuma etapa configurada são descartados (não há para onde ir).
+ * Traduz a resposta do kernel em grupos de UI. O tipo atual vem primeiro;
+ * nenhuma etapa é escondida ou bloqueada localmente.
  */
-export function computeTypeStageGroups(
-  params: ComputeTypeStageGroupsParams,
+export function mapTypeStageOptions(
+  raw: RawTypeStageOptions | null | undefined,
+  card: Pick<TypeStageCard, "demand_type_key" | "current_function_key">,
 ): TypeStageGroup[] {
-  const currentType = norm(params.currentTypeKey);
-  const currentStage = norm(params.currentFunctionKey);
-  const who = (params.assigneeName ?? "").trim();
+  const currentType = norm(card.demand_type_key);
+  const currentStage = norm(card.current_function_key);
 
-  const groups = params.types
-    .filter((t) => t.sequence.length > 0)
-    .map<TypeStageGroup>((t) => {
-      const isCurrentType = norm(t.demandTypeKey) === currentType && !!currentType;
-      const options = computeStageOptions({
-        sequence: t.sequence,
-        allowedKeys: params.allowedKeys,
-        completedByUser: params.completedByUser,
-        // Só o tipo ATUAL tem "etapa atual": em outro tipo, tudo é destino novo.
-        currentKey: isCurrentType ? currentStage || null : null,
-        administrative: params.administrative !== false,
-        mode: params.mode,
-      });
+  const groups = (raw?.types || [])
+    .map<TypeStageGroup | null>((t) => {
+      const typeKey = norm(t.demand_type_key);
+      if (!typeKey) return null;
+      const label = norm(t.demand_type_label) || humanizeTypeKey(typeKey);
+      const isCurrentType = !!currentType && typeKey === currentType;
 
-      const stages = options.map<TypeStageOption>((o) => ({
-        ...o,
-        reasonLabel:
-          o.reason === "not_allowed" && who
-            ? `${who} não possui esta etapa habilitada`
-            : o.reasonLabel,
-        demandTypeKey: t.demandTypeKey,
-        demandTypeLabel: t.demandTypeLabel,
-        isCurrentType,
-        isCurrentStage: isCurrentType && o.functionKey === currentStage,
-      }));
+      const stages = (t.stages || [])
+        .map<TypeStageOption | null>((s, index) => {
+          const functionKey = norm(s.function_key);
+          if (!functionKey) return null;
+          return {
+            functionKey,
+            name: norm(s.name) || humanizeTypeKey(functionKey),
+            position: typeof s.position === "number" ? s.position : index,
+            clientFacing: !!s.client_facing,
+            review: !!s.review,
+            demandTypeKey: typeKey,
+            demandTypeLabel: label,
+            isCurrentType,
+            isCurrentStage: isCurrentType && functionKey === currentStage,
+            valid: true,
+            reasonLabel: null,
+          };
+        })
+        .filter((s): s is TypeStageOption => !!s)
+        .sort((a, b) => a.position - b.position);
+
+      if (stages.length === 0) return null;
 
       return {
-        demandTypeKey: t.demandTypeKey,
-        demandTypeLabel: t.demandTypeLabel,
+        demandTypeKey: typeKey,
+        demandTypeLabel: label,
         isCurrentType,
         stages,
-        hasValidStage: stages.some((s) => s.valid),
+        hasValidStage: true,
       };
-    });
+    })
+    .filter((g): g is TypeStageGroup => !!g);
 
   return groups.sort((a, b) => {
     if (a.isCurrentType !== b.isCurrentType) return a.isCurrentType ? -1 : 1;
@@ -127,7 +126,7 @@ export function computeTypeStageGroups(
   });
 }
 
-/** Encontra uma opção específica dentro dos grupos (validação pontual). */
+/** Encontra uma opção específica dentro dos grupos. */
 export function findTypeStageOption(
   groups: TypeStageGroup[],
   demandTypeKey: string,
@@ -141,7 +140,7 @@ export function findTypeStageOption(
   return null;
 }
 
-/** Erro legível quando a escolha não é aceitável. */
+/** Erro legível apenas quando a etapa não pertence a nenhum fluxo da área. */
 export function typeStageChoiceError(
   groups: TypeStageGroup[],
   demandTypeKey: string,
@@ -149,139 +148,43 @@ export function typeStageChoiceError(
 ): string | null {
   const found = findTypeStageOption(groups, demandTypeKey, functionKey);
   if (!found) return "Etapa fora dos fluxos configurados para esta área";
-  return found.valid ? null : found.reasonLabel || "Etapa inválida para este colaborador";
+  return null;
 }
 
 /* ============================== CARREGAMENTO ============================== */
 
-interface FlowFunctionRow {
-  function_key: string;
-  name: string | null;
-  requires_client_origin: boolean | null;
-}
-
-/**
- * Todos os tipos de atividade configurados na área, cada um com sua sequência
- * real de etapas. O tipo atual do card entra mesmo sem regras próprias
- * (nesse caso usa a sequência completa da área).
- */
-export async function loadAreaDemandTypes(
-  tenantId: string,
-  card: TypeStageCard,
-): Promise<AreaDemandType[]> {
-  const area: WorkArea = normalizeWorkArea(card.work_area ?? undefined);
-  const clientOrigin = isClientOrigin(card.origin ?? undefined);
-
-  const [{ data: fnRows }, { data: ruleRows }] = await Promise.all([
-    (supabase.from("flow_functions") as any)
-      .select("function_key, name, position, active, requires_client_origin")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .eq("work_area", area)
-      .neq("function_key", "avaliar")
-      .order("position"),
-    (supabase.from("demand_type_flow_rules") as any)
-      .select("demand_type_key, demand_type_name, function_key, requirement")
-      .eq("tenant_id", tenantId)
-      .eq("work_area", area),
-  ]);
-
-  const fns = (((fnRows as any[]) || []) as FlowFunctionRow[]).filter((f) =>
-    f.requires_client_origin ? clientOrigin : true,
-  );
-  const fullSequence: StageSequenceItem[] = fns.map((f) => ({
-    functionKey: f.function_key,
-    name: f.name || humanizeTypeKey(f.function_key),
-  }));
-
-  const byType = new Map<string, { label: string; required: Set<string> }>();
-  for (const row of ((ruleRows as any[]) || [])) {
-    const key = norm(row.demand_type_key);
-    if (!key) continue;
-    const entry =
-      byType.get(key) ??
-      { label: norm(row.demand_type_name) || humanizeTypeKey(key), required: new Set<string>() };
-    if (row.requirement === "required" && row.function_key !== "avaliar") {
-      entry.required.add(row.function_key as string);
-    }
-    byType.set(key, entry);
-  }
-
-  const types: AreaDemandType[] = [];
-  for (const [key, entry] of byType) {
-    const sequence =
-      entry.required.size > 0
-        ? fullSequence.filter((s) => entry.required.has(s.functionKey))
-        : fullSequence;
-    types.push({ demandTypeKey: key, demandTypeLabel: entry.label, sequence });
-  }
-
-  const currentKey = norm(card.demand_type_key);
-  if (currentKey && !byType.has(currentKey)) {
-    types.push({
-      demandTypeKey: currentKey,
-      demandTypeLabel: norm(card.demand_type) || humanizeTypeKey(currentKey),
-      sequence: fullSequence,
-    });
-  }
-
-  return types;
-}
-
 export interface LoadTypeStageGroupsResult {
   groups: TypeStageGroup[];
-  types: AreaDemandType[];
 }
 
 /**
- * Grupos (tipo → etapas) para o par (demanda, responsável atual).
- * Nada é gravado aqui.
+ * Grupos (tipo → etapas) do fluxo canônico para o card.
+ * Nada é gravado aqui e nenhuma decisão de responsável acontece aqui.
  */
 export async function loadTypeStageGroups(params: {
   tenantId: string;
   card: TypeStageCard;
-  userId: string;
-  administrative?: boolean;
-  mode?: StageDecisionMode;
-  assigneeName?: string | null;
 }): Promise<LoadTypeStageGroupsResult> {
-  const { tenantId, card, userId } = params;
-  const area = normalizeWorkArea(card.work_area ?? undefined);
+  const { tenantId, card } = params;
+  const area: WorkArea = normalizeWorkArea(card.work_area ?? undefined);
 
-  const [types, allowedRows, completions] = await Promise.all([
-    loadAreaDemandTypes(tenantId, card),
-    (supabase.from("collaborator_function_assignments") as any)
-      .select("function_key")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", userId)
-      .eq("work_area", area)
-      .eq("allowed", true)
-      .neq("function_key", "avaliar"),
-    getStageCompletions(tenantId, card.id),
-  ]);
-
-  const allowedKeys = new Set(
-    (((allowedRows as any)?.data as any[]) || []).map((r) => r.function_key as string),
-  );
-
-  const allStageKeys = new Set<string>();
-  for (const t of types) for (const s of t.sequence) allStageKeys.add(s.functionKey);
-
-  const completedByUser = new Set<string>();
-  for (const key of allStageKeys) {
-    if (hasUserCompletedStage(completions as any, key, userId)) completedByUser.add(key);
+  let data: any = null;
+  let error: any = null;
+  try {
+    ({ data, error } = await (supabase as any).rpc("get_area_type_stage_options_v1", {
+      _tenant_id: tenantId,
+      _work_area: area,
+      _origin: card.origin ?? null,
+      _current_type_key: norm(card.demand_type_key) || null,
+      _current_type_label: norm(card.demand_type) || null,
+    }));
+  } catch (e) {
+    error = e;
+  }
+  if (error) {
+    console.error("[typeStageOptions] load error", error);
+    throw error;
   }
 
-  const groups = computeTypeStageGroups({
-    types,
-    currentTypeKey: card.demand_type_key,
-    currentFunctionKey: card.current_function_key,
-    allowedKeys,
-    completedByUser,
-    administrative: params.administrative !== false,
-    mode: params.mode,
-    assigneeName: params.assigneeName ?? null,
-  });
-
-  return { groups, types };
+  return { groups: mapTypeStageOptions(data as RawTypeStageOptions, card) };
 }
