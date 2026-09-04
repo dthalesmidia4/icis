@@ -1321,21 +1321,15 @@ function FinancialCockpit() {
                 </PopoverContent>
               </Popover>
 
-              <Select
-                value={accountsGroupBy}
-                onValueChange={(v) => setAccountsGroupBy(v as CompositionGroupBy)}
-              >
-                <SelectTrigger className="h-10 w-[190px]" aria-label="Agrupar por">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
-                    <SelectItem key={key} value={key}>
-                      Agrupar por: {COMPOSITION_GROUP_BY_LABELS[key]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FinanceGroupingControl
+                groupBy={accountsGroupBy}
+                onGroupByChange={(value) => {
+                  setAccountsGroupBy(value);
+                  setAccountsExpanded({});
+                }}
+                allOpen={accountsAllOpen}
+                onToggleAll={toggleAllAccountsGroups}
+              />
             </div>
 
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1362,7 +1356,10 @@ function FinancialCockpit() {
               onTogglePaid={togglePaid}
               onEditItem={(item) => openItemModal(item)}
               groupBy={accountsGroupBy}
+              expanded={accountsExpanded}
+              onToggleGroup={toggleAccountsGroup}
             />
+
 
             {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
             <SkippedEntriesPanel entries={skipped} onRestore={restoreOccurrence} />
