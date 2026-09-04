@@ -14,8 +14,12 @@ vi.mock("@/integrations/supabase/client", () => ({
     from: () => {
       throw new Error("Supabase não deve ser tocado nos testes de alocação em massa");
     },
+    rpc: () => {
+      throw new Error("Supabase não deve ser tocado nos testes de alocação em massa");
+    },
   },
 }));
+
 
 import {
   applyBulkAllocation,

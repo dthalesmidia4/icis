@@ -1106,3 +1106,49 @@ Para contribuir com este projeto:
 ## 📧 Suporte
 
 Para dúvidas técnicas, consulte esta documentação ou entre em contato com a equipe de desenvolvimento.
+
+## Contrato canônico de transição de demandas (fluxo)
+
+**Autoridade única:** `public.transition_demand_v2(p_payload jsonb)` no Supabase.
+Toda intenção de alterar RESPONSÁVEL, ETAPA, TIPO, ÁREA ou ORIGEM passa por ela.
+
+Kernel de validade (as ÚNICAS definições de "etapa válida"):
+
+| Função SQL | Papel |
+| --- | --- |
+| `demand_flow_sequence(tenant, tipo, área, origem)` | sequência real: função ativa, nunca `avaliar`, **nunca `requirement='disabled'`**, só `required` quando existir, `requires_client_origin` só em origem de cliente |
+| `demand_stage_is_valid(...)` | a etapa pertence a esse fluxo? |
+| `resolve_valid_stage_for_assignee(...)` | etapa do responsável (mantém atual → frente → trás; `administrative` nunca atravessa barreira de cliente; anti-autorrevisão) |
+| `resolve_valid_assignee_for_stage(...)` | responsável da etapa (preferido → último executor do card → menor carga → determinístico) |
+| `demand_stages_done_by_user(demanda, usuário)` | etapas já concluídas por ele nesse card |
+
+Garantias da RPC: `SELECT ... FOR UPDATE` na demanda, checagem de tenant,
+compare-and-set (`expected_assigned_to` / `expected_function_key` /
+`expected_updated_at`), gravação atômica de etapa+responsável+tipo+área+origem,
+limpeza de `additional_assignees` fora de `captar` e registro em
+`demand_flow_history`. Retorno estruturado:
+`OK`, `NO_CHANGE`, `INVALID_STAGE_FOR_FLOW`, `NO_VALID_STAGE`, `NO_ASSIGNEE`,
+`STALE_STATE`, `FORBIDDEN`, `NOT_FOUND`, `BAD_REQUEST`, `ERROR`.
+
+**Trigger = invariant guard.** `validate_demand_stage_assignment` não remapeia
+mais nada silenciosamente: apenas recusa (a) etapa fora do fluxo real e (b)
+responsável sem a função da etapa na área.
+
+**Frontend.** `src/lib/demandTransition.ts` é o único adapter (`transitionDemand`,
+`previewStageForAssignee`, `loadFlowSequenceKeys`). Preview e commit usam as
+MESMAS funções SQL — não existe cópia de regra no cliente.
+`reassignDemand`/`smartReassign` (o fallback local `pickNearestAllowedStage` foi
+REMOVIDO), `typeStageChange`, `stageOptions.loadStageSequence` (base do popover
+de etapa e da alocação em massa) e `eligibleAssignees` já consomem o kernel.
+A UI não pré-bloqueia colaborador por "não possui a etapa atual": `eligible`
+é sempre `true` e a etapa exibida é apenas uma dica; quem bloqueia é o banco.
+
+**Auditoria/saneamento** (sem IDs hardcoded): `audit_demand_flow_states(tenant)` e
+`repair_demand_flow_states(tenant, dry_run)` — reparo card por card com o mesmo
+resolvedor e trilha `source='structural_flow_repair'` no histórico.
+
+**Risco residual conhecido:** `proceedDemand.ts` mantém a semântica de PROCESSO
+(publicação, cliente, entrega parcial, fila de liberação) e ainda grava via
+`commitFlowTransition`; a validade dessas gravações passou a ser garantida pelo
+invariant guard, então uma escolha inválida agora falha com mensagem em vez de
+ser remapeada em silêncio.

@@ -22,7 +22,7 @@ import {
   normalizeWorkArea,
   type WorkArea,
 } from "@/lib/flowFunctions";
-import { isClientOrigin } from "@/lib/proceedDemand";
+import { loadFlowSequenceKeys } from "@/lib/demandTransition";
 import {
   isStageOutsideFlow,
   pickAdministrativeStage,
@@ -216,37 +216,33 @@ export async function loadStageSequence(
   card: StageOptionsCard,
 ): Promise<StageSequenceItem[]> {
   const area: WorkArea = normalizeWorkArea(card.work_area ?? undefined);
-  const clientOrigin = isClientOrigin(card.origin ?? undefined);
-  const typeKey = (card.demand_type_key || "").trim();
 
-  const [{ data: fns }, { data: rules }] = await Promise.all([
+  // A SEQUÊNCIA VEM DO KERNEL (`demand_flow_sequence`): mesma verdade usada na
+  // gravação, já sem etapas `disabled`, inativas ou fora da origem. Aqui só
+  // buscamos os nomes legíveis.
+  const [keys, { data: fns }] = await Promise.all([
+    loadFlowSequenceKeys({
+      tenantId,
+      card: {
+        id: card.id,
+        demand_type_key: card.demand_type_key ?? null,
+        work_area: area,
+        origin: card.origin ?? null,
+        current_function_key: card.current_function_key ?? null,
+      },
+    }),
     (supabase.from("flow_functions") as any)
-      .select("function_key, name, position, active, requires_client_origin")
+      .select("function_key, name")
       .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .eq("work_area", area)
-      .neq("function_key", "avaliar")
-      .order("position"),
-    typeKey
-      ? (supabase.from("demand_type_flow_rules") as any)
-          .select("function_key, requirement")
-          .eq("tenant_id", tenantId)
-          .eq("work_area", area)
-          .eq("demand_type_key", typeKey)
-      : Promise.resolve({ data: [] as any[] }),
+      .eq("work_area", area),
   ]);
 
-  const required = new Set(
-    ((rules as any[]) || [])
-      .filter((r) => r.requirement === "required" && r.function_key !== "avaliar")
-      .map((r) => r.function_key),
+  const nameOf = new Map<string, string>(
+    ((fns as any[]) || []).map((f) => [f.function_key as string, (f.name as string) || f.function_key]),
   );
-
-  const list = (fns as any[]) || [];
-  return (required.size > 0 ? list.filter((f) => required.has(f.function_key)) : list)
-    .filter((f) => (f.requires_client_origin ? clientOrigin : true))
-    .map((f) => ({ functionKey: f.function_key as string, name: (f.name as string) || f.function_key }));
+  return keys.map((key) => ({ functionKey: key, name: nameOf.get(key) || key }));
 }
+
 
 /** Funções permitidas de um colaborador na área do card. */
 export async function loadAllowedFunctionKeys(
