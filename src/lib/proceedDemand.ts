@@ -1058,39 +1058,37 @@ export async function jumpToFunction({
   };
 
 
-  const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
+  const updatePayload: any = {};
   if (currentFunctionKey === "aguardando_cliente" && target.function_key !== "enviar_cliente") {
-    updatePayload.client_wait_started_at = null;
-    updatePayload.client_resend_count = 0;
-    updatePayload.client_last_resend_at = null;
     await applyReturnFromClientSchedule(updatePayload, tenantId, demandId, target.function_key, demandTypeKey);
   }
-  if (currentFunctionKey === "captar") {
-    updatePayload.additional_assignees = [];
-  }
   await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key, cur);
-  await applyFlowReactivation(updatePayload, demandId, picked.userId);
-  const jumpCommit = await commitFlowTransition({
+  const jumpCommit = await kernelCommit({
     demandId,
-    payload: updatePayload,
+    intent: isBackward ? "move_back" : "proceed",
+    targetFunctionKey: target.function_key,
+    targetUserId: picked.userId,
+    administrative: false,
+    schedule: scheduleFromPayload(updatePayload),
     expectedFunctionKey: currentFunctionKey || null,
     expectedAssignee: prevUser,
+    source: "jump_to_function",
+    metadata: jumpMetaOut,
   });
   if (jumpCommit.status === "stale") return staleResult(demandId);
-  if (jumpCommit.status === "error") return { success: false, message: "Erro ao atualizar etapa." };
+  if (jumpCommit.status !== "ok") return { success: false, message: jumpCommit.message };
 
+  // O kernel já registrou a transição do responsável principal; aqui só os extras.
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
       { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpMetaOut as any },
-      [prevUser, ...captarExtras],
+      captarExtras,
     );
-  } else {
-    // Se este é o último captador de uma captação que teve entregas parciais, registra sua entrega também.
-    if (!isBackward && currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
-      await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
-    }
-    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpMetaOut as any });
+  } else if (!isBackward && currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
+    // Último captador de uma captação com entregas parciais: registra sua entrega.
+    await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
   }
+
   // Regressão não conclui a etapa atual: só avanços registram entrega.
   if (!isBackward) {
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [prevUser, ...stageExtras]);
