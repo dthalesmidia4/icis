@@ -86,9 +86,9 @@ export function buildOccurrencePatch(input: OccurrencePatchInput): Partial<Finan
       };
 
   return {
-    currency: row.currency,
-    amount_original: input.amountOriginal,
-    exchange_rate: row.currency === "USD" ? input.exchangeRate : null,
+    currency,
+    amount_original: currency === "USD" ? input.amountOriginal : null,
+    exchange_rate: currency === "USD" ? input.exchangeRate : null,
     amount_brl: input.amountBrl,
     is_estimated: false,
     observations: input.observations.trim() || null,
