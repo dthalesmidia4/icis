@@ -1583,52 +1583,46 @@ export async function regressDemand({
     stage_reconfigured: reconfigured,
   };
 
-  const regressPayload: any = { assigned_to: picked.userId, current_function_key: prevFn.function_key };
+  const regressPayload: any = {};
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key !== "enviar_cliente") {
-    regressPayload.client_wait_started_at = null;
-    regressPayload.client_resend_count = 0;
-    regressPayload.client_last_resend_at = null;
     await applyReturnFromClientSchedule(regressPayload, tenantId, demandId, prevFn.function_key, typeKey);
   }
-  if (currentFunctionKey === "captar") {
-    regressPayload.additional_assignees = [];
-  }
-  await applyFlowReactivation(regressPayload, demandId, picked.userId);
-  const regressCommit = await commitFlowTransition({
+  const explicitUser = !!targetUserId;
+  const regressCommit = await kernelCommit({
     demandId,
-    payload: regressPayload,
+    intent: "move_back",
+    targetFunctionKey: prevFn.function_key,
+    ...(explicitUser ? { targetUserId: picked.userId } : { preferredUserId: picked.userId }),
+    administrative: false,
+    schedule: scheduleFromPayload(regressPayload),
     expectedFunctionKey: currentFunctionKey || null,
     expectedAssignee: previousAssignee,
+    source: "regress_demand",
+    metadata: regressRoutingMeta,
   });
   if (regressCommit.status === "stale") return staleResult(demandId);
-  if (regressCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+  if (regressCommit.status !== "ok") return { success: false, message: regressCommit.message };
 
+  const regressAssignee = regressCommit.result.final?.assigned_to || picked.userId;
+  const regressName = await resolveAssigneeName(regressAssignee, picked.userId, picked.name);
+
+  // O kernel já registrou a volta do responsável principal; aqui só os extras.
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: regressRoutingMeta as any },
-      [previousAssignee, ...captarExtras],
+      { tenantId, demandId, action: "moved_back", toUserId: regressAssignee, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: regressRoutingMeta as any },
+      captarExtras,
     );
-  } else {
-    await recordFlowHistory({
-      tenantId,
-      demandId,
-      action: "moved_back",
-      fromUserId: previousAssignee,
-      toUserId: picked.userId,
-      fromFunctionKey: currentFunctionKey || null,
-      toFunctionKey: prevFn.function_key,
-      metadata: regressRoutingMeta as any,
-    });
   }
   return {
     success: true,
-    assignedTo: picked.userId,
-    assignedName: picked.name,
+    assignedTo: regressAssignee,
+    assignedName: regressName,
     functionKey: prevFn.function_key,
     functionName: prevFn.name,
-    message: `Demanda devolvida para ${picked.name} na função ${prevFn.name}.`,
+    message: `Demanda devolvida para ${regressName} na função ${prevFn.name}.`,
     flowState: regressCommit.flowState,
   };
+
 
 }
 
