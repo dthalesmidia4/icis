@@ -112,6 +112,7 @@ export function buildTransitionPayload(req: TransitionRequest): Record<string, u
   };
 
   if (req.targetUserId !== undefined) payload.target_user_id = req.targetUserId ?? null;
+  if (req.preferredUserId !== undefined) payload.preferred_user_id = req.preferredUserId ?? null;
   if (req.targetFunctionKey !== undefined) payload.target_function_key = norm(req.targetFunctionKey);
   if (req.targetTypeKey !== undefined) payload.target_type_key = norm(req.targetTypeKey);
   if (req.targetTypeLabel !== undefined) payload.target_type_label = norm(req.targetTypeLabel);
