@@ -54,7 +54,7 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
   const { requestExit, dialog: executionExitDialog } = useExecutionExitGuard();
 
   const load = useCallback(async () => {
-    if (!tenantId || !card.assigned_to) {
+    if (!tenantId) {
       setGroups([]);
       return;
     }
@@ -70,10 +70,6 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
           origin: card.origin ?? null,
           current_function_key: card.current_function_key ?? null,
         },
-        userId: card.assigned_to,
-        administrative: true,
-        // Escolha manual explícita: etapa já concluída não é bloqueio.
-        mode: "manual_stage_change",
       });
       setGroups(res.groups);
       setExpanded(
@@ -88,7 +84,6 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
   }, [
     tenantId,
     card.id,
-    card.assigned_to,
     card.demand_type_key,
     card.demand_type,
     card.work_area,
@@ -186,12 +181,11 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
           <button
             key={busyKey}
             type="button"
-            disabled={!o.valid || !!saving}
+            disabled={!!saving}
             onClick={() => void choose(group, o.functionKey)}
-            title={o.reasonLabel || undefined}
             className={cn(
               "flex w-full items-center justify-between gap-2 rounded px-1.5 py-1.5 text-left text-xs font-semibold transition-colors",
-              o.valid ? "text-foreground hover:bg-primary/10" : "cursor-not-allowed text-muted-foreground/60",
+              "text-foreground hover:bg-primary/10",
               o.isCurrentStage && "bg-primary/10",
             )}
           >
@@ -200,8 +194,6 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
               <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
             ) : o.isCurrentStage ? (
               <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.1em] text-primary">atual</span>
-            ) : !o.valid ? (
-              <span className="shrink-0 text-[9px] uppercase tracking-[0.08em]">bloqueada</span>
             ) : null}
           </button>
         );
@@ -267,9 +259,7 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
 
         {!loading && groups.length === 0 && (
           <p className="px-1.5 py-2 text-xs text-muted-foreground">
-            {card.assigned_to
-              ? "Nenhuma etapa disponível para o responsável atual."
-              : "Defina um responsável para trocar a etapa deste card."}
+            Nenhuma etapa configurada no fluxo desta área.
           </p>
         )}
 

@@ -4070,6 +4070,16 @@ export type Database = {
         Returns: string
       }
       generate_invitation_code: { Args: never; Returns: string }
+      get_area_type_stage_options_v1: {
+        Args: {
+          _current_type_key?: string
+          _current_type_label?: string
+          _origin?: string
+          _tenant_id: string
+          _work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: Json
+      }
       get_client_demand_suggestions: {
         Args: { p_client_id: string; p_limit?: number }
         Returns: Json

@@ -61,8 +61,10 @@ export interface TransitionResult {
 export interface TransitionRequest {
   demandId: string;
   intent: TransitionIntent;
-  /** Responsável desejado. Ausente = o banco mantém/resolve. */
+  /** Responsável desejado (alvo duro). Ausente = o banco mantém/resolve. */
   targetUserId?: string | null;
+  /** Preferência de responsável: o banco troca se ele não puder a etapa. */
+  preferredUserId?: string | null;
   /** Etapa desejada. Ausente = o banco resolve a etapa válida. */
   targetFunctionKey?: string | null;
   targetTypeKey?: string | null;
@@ -110,6 +112,7 @@ export function buildTransitionPayload(req: TransitionRequest): Record<string, u
   };
 
   if (req.targetUserId !== undefined) payload.target_user_id = req.targetUserId ?? null;
+  if (req.preferredUserId !== undefined) payload.preferred_user_id = req.preferredUserId ?? null;
   if (req.targetFunctionKey !== undefined) payload.target_function_key = norm(req.targetFunctionKey);
   if (req.targetTypeKey !== undefined) payload.target_type_key = norm(req.targetTypeKey);
   if (req.targetTypeLabel !== undefined) payload.target_type_label = norm(req.targetTypeLabel);
