@@ -237,6 +237,10 @@ function FinancialCockpit() {
   const [compositionGroupBy, setCompositionGroupBy] = useState<CompositionGroupBy>("category");
   /** Organização de `Contas e despesas` — mesma inteligência, tela própria. */
   const [accountsGroupBy, setAccountsGroupBy] = useState<CompositionGroupBy>("category");
+  const [accountsExpanded, setAccountsExpanded] = useState<Record<string, boolean>>({});
+  const toggleAccountsGroup = (key: string) =>
+    setAccountsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   /**
    * Expansão dos grupos da composição: vive AQUI porque `Agrupar por` e
