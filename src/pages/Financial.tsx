@@ -235,6 +235,8 @@ function FinancialCockpit() {
   const [compositionCategory, setCompositionCategory] = useState("all");
   /** Dimensão de agrupamento da composição (categoria x centro de custo). */
   const [compositionGroupBy, setCompositionGroupBy] = useState<CompositionGroupBy>("category");
+  /** Organização de `Contas e despesas` — mesma inteligência, tela própria. */
+  const [accountsGroupBy, setAccountsGroupBy] = useState<CompositionGroupBy>("category");
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   /**
    * Expansão dos grupos da composição: vive AQUI porque `Agrupar por` e
@@ -382,10 +384,6 @@ function FinancialCockpit() {
     });
   };
 
-  const handleGroupedUndo = async (group: GroupedPayment) => {
-    if (!group.batch) return;
-    await finance.unpayPaymentBatch(group.batch.id);
-  };
 
 
   /** Relação pago x em aberto — derivada apenas dos totais, nunca persistida. */
@@ -1293,6 +1291,22 @@ function FinancialCockpit() {
                   </Button>
                 </PopoverContent>
               </Popover>
+
+              <Select
+                value={accountsGroupBy}
+                onValueChange={(v) => setAccountsGroupBy(v as CompositionGroupBy)}
+              >
+                <SelectTrigger className="h-10 w-[190px]" aria-label="Agrupar por">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      Agrupar por: {COMPOSITION_GROUP_BY_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1318,6 +1332,7 @@ function FinancialCockpit() {
               labels={occurrenceLabels}
               onTogglePaid={togglePaid}
               onEditItem={(item) => openItemModal(item)}
+              groupBy={accountsGroupBy}
             />
 
             {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
