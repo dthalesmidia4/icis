@@ -9,14 +9,13 @@
  *
  * Conflito duro NUNCA é gravado: a decisão volta para a UI.
  */
-import { supabase } from "@/integrations/supabase/client";
 import {
   loadFlowSequenceKeys,
   previewStageForAssignee,
   transitionDemand,
   type StagePreviewCard,
 } from "@/lib/demandTransition";
-import { applyFlowReactivation } from "@/lib/reactivateDemand";
+
 
 import {
   checkAssignmentConflicts,
@@ -269,33 +268,29 @@ export async function applyReassign(input: ApplyReassignInput): Promise<ApplyRea
     }
   }
 
-  // Campos que NÃO são autoridade de fluxo (datas + reativação de coluna).
-  const sideEffects: Record<string, any> = {};
-  if (reschedule) {
-    sideEffects.due_date = reschedule.due_date;
-    sideEffects.due_time = reschedule.due_time;
-    sideEffects.delivery_date = reschedule.delivery_date;
-    sideEffects.delivery_time = reschedule.delivery_time;
-  }
-  await applyFlowReactivation(sideEffects, card.id, newAssignedTo);
-
-  // DESATRIBUIR não é resolução de fluxo: apenas limpa o responsável.
-  if (!newAssignedTo) {
-    const { error } = await (supabase.from("demands") as any)
-      .update({ ...sideEffects, assigned_to: null, updated_at: new Date().toISOString() })
-      .eq("id", card.id)
-      .eq("assigned_to", card.assigned_to ?? "");
-    if (error) return { status: "error", error };
-    return { status: "ok", error: null };
-  }
+  // Agenda vai DENTRO da transição: o kernel grava tuple + datas de uma vez
+  // (e também desarquiva / sai de status final quando o card volta ao fluxo).
+  const schedule = reschedule
+    ? {
+        due_date: reschedule.due_date,
+        due_time: reschedule.due_time,
+        delivery_date: reschedule.delivery_date,
+        delivery_time: reschedule.delivery_time,
+      }
+    : undefined;
 
   // AUTORIDADE ÚNICA: o banco decide/valida etapa, responsável e histórico.
   const result = await transitionDemand({
     demandId: card.id,
-    intent: input.direction === "backward" ? "move_back" : "reassign",
+    intent: !newAssignedTo
+      ? "unassign"
+      : input.direction === "backward"
+        ? "move_back"
+        : "reassign",
     targetUserId: newAssignedTo,
-    targetFunctionKey: nextFunctionKey ?? undefined,
+    targetFunctionKey: newAssignedTo ? (nextFunctionKey ?? undefined) : undefined,
     administrative: true,
+    schedule,
     expected: {
       assignedTo: card.assigned_to ?? null,
       functionKey: card.current_function_key ?? null,
@@ -305,16 +300,14 @@ export async function applyReassign(input: ApplyReassignInput): Promise<ApplyRea
   });
 
   if (result.status === "stale") return { status: "stale", error: null };
-  if (result.status === "blocked") {
+  if (result.status === "blocked" || result.status === "end") {
     return { status: "conflict", error: null, hard: [], message: result.message };
   }
   if (result.status === "error") return { status: "error", error: result.message };
 
-  if (Object.keys(sideEffects).length > 0) {
-    await (supabase.from("demands") as any).update(sideEffects).eq("id", card.id);
-  }
   return { status: "ok", error: null };
 }
+
 
 
 

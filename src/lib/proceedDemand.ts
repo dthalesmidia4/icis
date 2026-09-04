@@ -21,11 +21,17 @@ import {
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
 import {
-  commitFlowTransition,
+  transitionDemand,
+  type TransitionIntent,
+  type TransitionResult,
+  type TransitionSchedule,
+} from "@/lib/demandTransition";
+import {
   fetchFlowState,
   STALE_TRANSITION_MESSAGE,
   type FlowState,
 } from "@/lib/flowTransition";
+
 
 
 
@@ -128,6 +134,93 @@ async function avoidScheduleConflict(
     /* silencioso: nunca bloquear o fluxo por causa da checagem */
   }
 }
+
+/**
+ * Nome de quem realmente ficou com o card. Quando o kernel troca o responsável
+ * (a preferência não podia a etapa), a mensagem precisa refletir a decisão real.
+ */
+async function resolveAssigneeName(
+  finalUserId: string | null,
+  expectedUserId: string | null,
+  expectedName?: string,
+): Promise<string> {
+  if (!finalUserId) return "sem responsável";
+  if (finalUserId === expectedUserId && expectedName) return expectedName;
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", finalUserId)
+      .maybeSingle();
+    return ((data as any)?.full_name as string) || expectedName || "Colaborador";
+  } catch {
+    return expectedName || "Colaborador";
+  }
+}
+
+
+/** Extrai só a agenda de um payload legado, para enviá-la DENTRO da transição. */
+function scheduleFromPayload(payload: any): TransitionSchedule | undefined {
+  const out: Record<string, any> = {};
+  for (const k of ["due_date", "due_time", "delivery_date", "delivery_time"] as const) {
+    if (payload && payload[k] !== undefined) out[k] = payload[k];
+  }
+  return Object.keys(out).length > 0 ? (out as TransitionSchedule) : undefined;
+}
+
+type KernelCommitOutcome =
+  | { status: "ok"; flowState?: FlowState; result: TransitionResult }
+  | { status: "stale" }
+  | { status: "blocked"; message: string }
+  | { status: "error"; message: string };
+
+/**
+ * AUTORIDADE ÚNICA: toda gravação de etapa/responsável/agenda deste módulo
+ * passa por `transition_demand_v2`. O kernel trava a linha, confere o estado
+ * esperado (compare-and-set), resolve etapa/responsável válidos, aplica agenda,
+ * reativação de coluna, contadores de cliente e grava o histórico.
+ */
+async function kernelCommit(params: {
+  demandId: string;
+  intent: TransitionIntent;
+  targetFunctionKey?: string | null;
+  targetUserId?: string | null;
+  preferredUserId?: string | null;
+  targetStatusId?: string | null;
+  actorUserId?: string | null;
+  administrative?: boolean;
+  schedule?: TransitionSchedule | null;
+  expectedFunctionKey?: string | null;
+  expectedAssignee?: string | null;
+  source: string;
+  metadata?: Record<string, unknown>;
+}): Promise<KernelCommitOutcome> {
+  const result = await transitionDemand({
+    demandId: params.demandId,
+    intent: params.intent,
+    ...(params.targetFunctionKey !== undefined ? { targetFunctionKey: params.targetFunctionKey } : {}),
+    ...(params.targetUserId !== undefined ? { targetUserId: params.targetUserId } : {}),
+    ...(params.preferredUserId !== undefined ? { preferredUserId: params.preferredUserId } : {}),
+    ...(params.targetStatusId !== undefined ? { targetStatusId: params.targetStatusId } : {}),
+    ...(params.actorUserId !== undefined ? { actorUserId: params.actorUserId } : {}),
+    ...(params.administrative !== undefined ? { administrative: params.administrative } : {}),
+    ...(params.schedule ? { schedule: params.schedule } : {}),
+    expected: {
+      assignedTo: params.expectedAssignee ?? null,
+      functionKey: params.expectedFunctionKey ?? null,
+    },
+    source: params.source,
+    metadata: params.metadata,
+  });
+  if (result.status === "stale") return { status: "stale" };
+  if (result.status === "blocked" || result.status === "end") {
+    return { status: "blocked", message: result.message };
+  }
+  if (result.status === "error") return { status: "error", message: result.message };
+  return { status: "ok", flowState: await fetchFlowState(params.demandId), result };
+}
+
+
 
 
 
@@ -862,21 +955,19 @@ export async function jumpToFunction({
     const keep = keepOwner?.userId || null;
 
     if (!keep) return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
-    const updateWait: any = {
-      assigned_to: keep,
-      current_function_key: target.function_key,
-      client_wait_started_at: new Date().toISOString(),
-    };
-    await applyFlowReactivation(updateWait, demandId, keep);
-    const commit = await commitFlowTransition({
+    const commit = await kernelCommit({
       demandId,
-      payload: updateWait,
+      intent: "proceed",
+      targetFunctionKey: target.function_key,
+      targetUserId: keep,
+      administrative: false,
       expectedFunctionKey: currentFunctionKey || null,
       expectedAssignee: previous,
+      source: "jump_to_function",
+      metadata: jumpHistoryMeta,
     });
     if (commit.status === "stale") return staleResult(demandId);
-    if (commit.status === "error") return { success: false, message: "Erro ao atualizar etapa." };
-    await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: previous, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta });
+    if (commit.status !== "ok") return { success: false, message: commit.message };
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
     await recordStageTouchpoint(tenantId, demandId, target.function_key);
     // A etapa que enviou ao cliente foi concluída: registra a entrega (trava regressão).
@@ -885,6 +976,7 @@ export async function jumpToFunction({
       ...(await fetchExtraAssignees(demandId)),
     ]);
     return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.`, flowState: commit.flowState };
+
 
   }
 
@@ -990,39 +1082,37 @@ export async function jumpToFunction({
   };
 
 
-  const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
+  const updatePayload: any = {};
   if (currentFunctionKey === "aguardando_cliente" && target.function_key !== "enviar_cliente") {
-    updatePayload.client_wait_started_at = null;
-    updatePayload.client_resend_count = 0;
-    updatePayload.client_last_resend_at = null;
     await applyReturnFromClientSchedule(updatePayload, tenantId, demandId, target.function_key, demandTypeKey);
   }
-  if (currentFunctionKey === "captar") {
-    updatePayload.additional_assignees = [];
-  }
   await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key, cur);
-  await applyFlowReactivation(updatePayload, demandId, picked.userId);
-  const jumpCommit = await commitFlowTransition({
+  const jumpCommit = await kernelCommit({
     demandId,
-    payload: updatePayload,
+    intent: isBackward ? "move_back" : "proceed",
+    targetFunctionKey: target.function_key,
+    targetUserId: picked.userId,
+    administrative: false,
+    schedule: scheduleFromPayload(updatePayload),
     expectedFunctionKey: currentFunctionKey || null,
     expectedAssignee: prevUser,
+    source: "jump_to_function",
+    metadata: jumpMetaOut,
   });
   if (jumpCommit.status === "stale") return staleResult(demandId);
-  if (jumpCommit.status === "error") return { success: false, message: "Erro ao atualizar etapa." };
+  if (jumpCommit.status !== "ok") return { success: false, message: jumpCommit.message };
 
+  // O kernel já registrou a transição do responsável principal; aqui só os extras.
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
       { tenantId, demandId, action: jumpAction, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpMetaOut as any },
-      [prevUser, ...captarExtras],
+      captarExtras,
     );
-  } else {
-    // Se este é o último captador de uma captação que teve entregas parciais, registra sua entrega também.
-    if (!isBackward && currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
-      await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
-    }
-    await recordFlowHistory({ tenantId, demandId, action: jumpAction, fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpMetaOut as any });
+  } else if (!isBackward && currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
+    // Último captador de uma captação com entregas parciais: registra sua entrega.
+    await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
   }
+
   // Regressão não conclui a etapa atual: só avanços registram entrega.
   if (!isBackward) {
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [prevUser, ...stageExtras]);
@@ -1211,31 +1301,21 @@ export async function proceedDemand({
     if (!keepAssignee) {
       return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
     }
-    const waitPayload: any = {
-      assigned_to: keepAssignee,
-      current_function_key: nextFn.function_key,
-      client_wait_started_at: new Date().toISOString(),
-    };
-    await applyFlowReactivation(waitPayload, demandId, keepAssignee);
-    const waitCommit = await commitFlowTransition({
+    const waitCommit = await kernelCommit({
       demandId,
-      payload: waitPayload,
+      intent: "proceed",
+      targetFunctionKey: nextFn.function_key,
+      targetUserId: keepAssignee,
+      administrative: false,
       expectedFunctionKey: currentFunctionKey || null,
       expectedAssignee: previousAssignee,
+      source: "proceed_demand",
+      metadata: { ...(skipMeta || {}), routing: waitOwner?.source || "automatic_load" },
     });
     if (waitCommit.status === "stale") return staleResult(demandId);
-    if (waitCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+    if (waitCommit.status !== "ok") return { success: false, message: waitCommit.message };
 
-    await recordFlowHistory({
-      tenantId,
-      demandId,
-      action: "proceeded",
-      fromUserId: previousAssignee,
-      toUserId: keepAssignee,
-      fromFunctionKey: currentFunctionKey || null,
-      toFunctionKey: nextFn.function_key,
-      metadata: { ...(skipMeta || {}), routing: waitOwner?.source || "automatic_load" } as any,
-    });
+
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
     await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
     // Registra a entrega da etapa que enviou ao cliente (impede regressão para ela).
@@ -1286,75 +1366,68 @@ export async function proceedDemand({
   const routingMeta = { routing: picked.source || "automatic_load" };
   const proceedMeta: Record<string, unknown> = { ...(skipMeta || {}), ...routingMeta };
 
-  const proceedPayload: any = { assigned_to: picked.userId, current_function_key: nextFn.function_key };
+  const proceedPayload: any = {};
 
   if (currentFunctionKey === "aguardando_cliente" && nextFn.function_key !== "enviar_cliente") {
-    proceedPayload.client_wait_started_at = null;
-    proceedPayload.client_resend_count = 0;
-    proceedPayload.client_last_resend_at = null;
     await applyReturnFromClientSchedule(proceedPayload, tenantId, demandId, nextFn.function_key, typeKey);
   }
-  if (currentFunctionKey === "captar") {
-    proceedPayload.additional_assignees = [];
-  }
   await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key, currentDemand);
-  await applyFlowReactivation(proceedPayload, demandId, picked.userId);
-  const proceedCommit = await commitFlowTransition({
+  const manualChoice = picked.source === "manual_choice";
+  const proceedCommit = await kernelCommit({
     demandId,
-    payload: proceedPayload,
+    intent: "proceed",
+    targetFunctionKey: nextFn.function_key,
+    ...(manualChoice ? { targetUserId: picked.userId } : { preferredUserId: picked.userId }),
+    administrative: false,
+    schedule: scheduleFromPayload(proceedPayload),
     expectedFunctionKey: currentFunctionKey || null,
     expectedAssignee: previousAssignee,
+    source: "proceed_demand",
+    metadata: proceedMeta,
   });
   if (proceedCommit.status === "stale") return staleResult(demandId);
-  if (proceedCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+  if (proceedCommit.status !== "ok") return { success: false, message: proceedCommit.message };
 
+  const finalAssignee = proceedCommit.result.final?.assigned_to || picked.userId;
+  const finalName = await resolveAssigneeName(finalAssignee, picked.userId, picked.name);
 
+  // O kernel já registrou a passagem do responsável principal; aqui só os extras.
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: proceedMeta as any },
-      [previousAssignee, ...captarExtras],
+      { tenantId, demandId, action: "proceeded", toUserId: finalAssignee, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: proceedMeta as any },
+      captarExtras,
     );
-  } else {
-    // Último captador de uma captação com entregas parciais anteriores: registra também sua entrega.
-    if (currentFunctionKey === "captar" && previousAssignee && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
-      await recordFlowHistory({
-        tenantId,
-        demandId,
-        action: "partial_delivered",
-        fromUserId: previousAssignee,
-        toUserId: previousAssignee,
-        fromFunctionKey: "captar",
-        toFunctionKey: "captar",
-        metadata: { final_of_capture: true } as any,
-      });
-    }
+  } else if (currentFunctionKey === "captar" && previousAssignee && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
+    // Último captador de uma captação com entregas parciais anteriores: registra sua entrega.
     await recordFlowHistory({
       tenantId,
       demandId,
-      action: "proceeded",
+      action: "partial_delivered",
       fromUserId: previousAssignee,
-      toUserId: picked.userId,
-      fromFunctionKey: currentFunctionKey || null,
-      toFunctionKey: nextFn.function_key,
-      metadata: proceedMeta as any,
+      toUserId: previousAssignee,
+      fromFunctionKey: "captar",
+      toFunctionKey: "captar",
+      metadata: { final_of_capture: true } as any,
     });
   }
+
 
   await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [previousAssignee, ...stageExtras]);
   await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
 
-  const samePerson = picked.userId === previousAssignee;
+  const samePerson = finalAssignee === previousAssignee;
   return {
     success: true,
-    assignedTo: picked.userId,
-    assignedName: picked.name,
+    assignedTo: finalAssignee,
+    assignedName: finalName,
     functionKey: nextFn.function_key,
     functionName: nextFn.name,
     message: samePerson
-      ? `Demanda avançou para ${nextFn.name} e continua com ${picked.name}.${skipNote}`
-      : `Demanda enviada para ${picked.name} na função ${nextFn.name}.${skipNote}`,
+      ? `Demanda avançou para ${nextFn.name} e continua com ${finalName}.${skipNote}`
+      : `Demanda enviada para ${finalName} na função ${nextFn.name}.${skipNote}`,
     flowState: proceedCommit.flowState,
   };
+
 
 
 }
@@ -1423,33 +1496,21 @@ export async function regressDemand({
     if (!picked.success || !picked.userId) {
       return { success: false, message: picked.message || 'Nenhum colaborador possui a função "Enviar cliente" habilitada.' };
     }
-    const prevCount = (current as any)?.client_resend_count || 0;
-    const resendPayload: any = {
-      assigned_to: picked.userId,
-      current_function_key: prevFn.function_key,
-      client_resend_count: prevCount + 1,
-      client_last_resend_at: new Date().toISOString(),
-      client_wait_started_at: null,
-    };
-    await applyFlowReactivation(resendPayload, demandId, picked.userId);
-    const resendCommit = await commitFlowTransition({
+    // O kernel incrementa o contador de reenvio nesta transição.
+    const resendCommit = await kernelCommit({
       demandId,
-      payload: resendPayload,
+      intent: "move_back",
+      targetFunctionKey: prevFn.function_key,
+      targetUserId: picked.userId,
+      administrative: false,
       expectedFunctionKey: currentFunctionKey || null,
       expectedAssignee: waitAssignee,
+      source: "regress_demand",
+      metadata: { routing: picked.source || "automatic_load" },
     });
     if (resendCommit.status === "stale") return staleResult(demandId);
-    if (resendCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
-    await recordFlowHistory({
-      tenantId,
-      demandId,
-      action: "moved_back",
-      fromUserId: waitAssignee,
-      toUserId: picked.userId,
-      fromFunctionKey: currentFunctionKey || null,
-      toFunctionKey: prevFn.function_key,
-      metadata: { routing: picked.source || "automatic_load" } as any,
-    });
+    if (resendCommit.status !== "ok") return { success: false, message: resendCommit.message };
+
     return {
       success: true,
       assignedTo: picked.userId,
@@ -1522,52 +1583,46 @@ export async function regressDemand({
     stage_reconfigured: reconfigured,
   };
 
-  const regressPayload: any = { assigned_to: picked.userId, current_function_key: prevFn.function_key };
+  const regressPayload: any = {};
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key !== "enviar_cliente") {
-    regressPayload.client_wait_started_at = null;
-    regressPayload.client_resend_count = 0;
-    regressPayload.client_last_resend_at = null;
     await applyReturnFromClientSchedule(regressPayload, tenantId, demandId, prevFn.function_key, typeKey);
   }
-  if (currentFunctionKey === "captar") {
-    regressPayload.additional_assignees = [];
-  }
-  await applyFlowReactivation(regressPayload, demandId, picked.userId);
-  const regressCommit = await commitFlowTransition({
+  const explicitUser = !!targetUserId;
+  const regressCommit = await kernelCommit({
     demandId,
-    payload: regressPayload,
+    intent: "move_back",
+    targetFunctionKey: prevFn.function_key,
+    ...(explicitUser ? { targetUserId: picked.userId } : { preferredUserId: picked.userId }),
+    administrative: false,
+    schedule: scheduleFromPayload(regressPayload),
     expectedFunctionKey: currentFunctionKey || null,
     expectedAssignee: previousAssignee,
+    source: "regress_demand",
+    metadata: regressRoutingMeta,
   });
   if (regressCommit.status === "stale") return staleResult(demandId);
-  if (regressCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+  if (regressCommit.status !== "ok") return { success: false, message: regressCommit.message };
 
+  const regressAssignee = regressCommit.result.final?.assigned_to || picked.userId;
+  const regressName = await resolveAssigneeName(regressAssignee, picked.userId, picked.name);
+
+  // O kernel já registrou a volta do responsável principal; aqui só os extras.
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "moved_back", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: regressRoutingMeta as any },
-      [previousAssignee, ...captarExtras],
+      { tenantId, demandId, action: "moved_back", toUserId: regressAssignee, fromFunctionKey: currentFunctionKey || null, toFunctionKey: prevFn.function_key, metadata: regressRoutingMeta as any },
+      captarExtras,
     );
-  } else {
-    await recordFlowHistory({
-      tenantId,
-      demandId,
-      action: "moved_back",
-      fromUserId: previousAssignee,
-      toUserId: picked.userId,
-      fromFunctionKey: currentFunctionKey || null,
-      toFunctionKey: prevFn.function_key,
-      metadata: regressRoutingMeta as any,
-    });
   }
   return {
     success: true,
-    assignedTo: picked.userId,
-    assignedName: picked.name,
+    assignedTo: regressAssignee,
+    assignedName: regressName,
     functionKey: prevFn.function_key,
     functionName: prevFn.name,
-    message: `Demanda devolvida para ${picked.name} na função ${prevFn.name}.`,
+    message: `Demanda devolvida para ${regressName} na função ${prevFn.name}.`,
     flowState: regressCommit.flowState,
   };
+
 
 }
 

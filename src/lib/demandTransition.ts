@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type TransitionIntent =
   | "reassign"
+  | "unassign"
   | "jump_stage"
   | "proceed"
   | "move_back"
@@ -26,6 +27,9 @@ export type TransitionIntent =
   | "change_origin"
   | "auto_return"
   | "publication_review"
+  | "schedule_publication"
+  | "deliver"
+  | "partial_deliver"
   | "reconcile_context";
 
 export type TransitionCode =
@@ -34,6 +38,11 @@ export type TransitionCode =
   | "INVALID_STAGE_FOR_FLOW"
   | "NO_VALID_STAGE"
   | "NO_ASSIGNEE"
+  | "END_OF_FLOW"
+  | "FIRST_OF_FLOW"
+  | "SCHEDULE_CONFLICT"
+  | "NO_FINAL_STATUS"
+  | "INVARIANT_VIOLATION"
   | "STALE_STATE"
   | "FORBIDDEN"
   | "NOT_FOUND"
@@ -46,17 +55,38 @@ export interface TransitionFinalState {
   type_key: string | null;
   work_area: string | null;
   origin: string | null;
+  status_id?: string | null;
+  archived_at?: string | null;
   updated_at?: string | null;
   additional_assignees?: string[] | null;
+  due_date?: string | null;
+  due_time?: string | null;
+  delivery_date?: string | null;
+  delivery_time?: string | null;
+  client_wait_started_at?: string | null;
+  client_resend_count?: number | null;
+  client_last_resend_at?: string | null;
+}
+
+/** Agenda gravada DENTRO da mesma transição (nunca em um segundo update). */
+export interface TransitionSchedule {
+  due_date?: string | null;
+  due_time?: string | null;
+  delivery_date?: string | null;
+  delivery_time?: string | null;
 }
 
 export interface TransitionResult {
-  status: "applied" | "nothing" | "blocked" | "stale" | "error";
+  status: "applied" | "nothing" | "blocked" | "stale" | "end" | "error";
   code: TransitionCode;
   message: string;
   previous?: { assigned_to: string | null; function_key: string | null };
   final?: TransitionFinalState;
+  /** Etapas de revisão dispensadas pelo kernel. */
+  skipped?: string[];
+  conflict?: { demand_id: string; title: string | null } | null;
 }
+
 
 export interface TransitionRequest {
   demandId: string;
@@ -75,6 +105,12 @@ export interface TransitionRequest {
   direction?: "auto" | "forward" | "backward";
   /** `false` = transição real de processo (pode assumir etapa de cliente). */
   administrative?: boolean;
+  /** Agenda aplicada na MESMA transição (nunca em segundo update). */
+  schedule?: TransitionSchedule | null;
+  /** Status de destino explícito (entrega, agendamento de publicação). */
+  targetStatusId?: string | null;
+  /** Participante da ação (entrega parcial). Ausente = auth.uid(). */
+  actorUserId?: string | null;
   expected?: {
     assignedTo?: string | null;
     functionKey?: string | null;
@@ -91,6 +127,11 @@ export const TRANSITION_MESSAGE: Record<TransitionCode, string> = {
   INVALID_STAGE_FOR_FLOW: "Esta etapa não faz parte do fluxo atual desta demanda.",
   NO_VALID_STAGE: "Não há etapa válida deste fluxo para o colaborador escolhido.",
   NO_ASSIGNEE: "Não há colaborador habilitado para esta etapa neste fluxo.",
+  END_OF_FLOW: "Essa demanda já chegou ao final do fluxo.",
+  FIRST_OF_FLOW: "Esta demanda já está na primeira etapa do fluxo.",
+  SCHEDULE_CONFLICT: "O responsável já tem outra demanda ocupando este horário.",
+  NO_FINAL_STATUS: 'Não foi encontrado um status final "Feito" neste pipeline.',
+  INVARIANT_VIOLATION: "O estado resultante violaria uma regra do fluxo.",
   STALE_STATE:
     "A demanda foi alterada por outra ação enquanto você decidia. Nada foi alterado — recarregue e tente novamente.",
   FORBIDDEN: "Você não tem acesso a esta demanda.",
@@ -98,6 +139,7 @@ export const TRANSITION_MESSAGE: Record<TransitionCode, string> = {
   BAD_REQUEST: "Requisição inválida de transição.",
   ERROR: "Não foi possível aplicar a transição.",
 };
+
 
 /** Payload enviado à RPC — puro, para poder ser testado sem rede. */
 export function buildTransitionPayload(req: TransitionRequest): Record<string, unknown> {
@@ -120,6 +162,16 @@ export function buildTransitionPayload(req: TransitionRequest): Record<string, u
   if (req.targetOrigin !== undefined) payload.target_origin = norm(req.targetOrigin);
   if (req.direction) payload.direction = req.direction;
   if (req.administrative !== undefined) payload.administrative = req.administrative;
+  if (req.targetStatusId !== undefined) payload.target_status_id = req.targetStatusId ?? null;
+  if (req.actorUserId !== undefined) payload.actor_user_id = req.actorUserId ?? null;
+  if (req.schedule) {
+    const s: Record<string, unknown> = {};
+    if (req.schedule.due_date !== undefined) s.due_date = req.schedule.due_date ?? "";
+    if (req.schedule.due_time !== undefined) s.due_time = req.schedule.due_time ?? "";
+    if (req.schedule.delivery_date !== undefined) s.delivery_date = req.schedule.delivery_date ?? "";
+    if (req.schedule.delivery_time !== undefined) s.delivery_time = req.schedule.delivery_time ?? "";
+    if (Object.keys(s).length > 0) payload.schedule = s;
+  }
   if (req.expected) {
     if (req.expected.assignedTo !== undefined)
       payload.expected_assigned_to = req.expected.assignedTo ?? "";
@@ -135,14 +187,18 @@ export function buildTransitionPayload(req: TransitionRequest): Record<string, u
 export function parseTransitionResponse(raw: any): TransitionResult {
   const code = (raw?.code as TransitionCode) || "ERROR";
   const status = (raw?.status as TransitionResult["status"]) || "error";
+  const skipped = raw?.warnings ?? raw?.skipped;
   return {
     status,
     code,
     message: (raw?.message as string) || TRANSITION_MESSAGE[code] || TRANSITION_MESSAGE.ERROR,
     previous: raw?.previous ?? undefined,
     final: raw?.final ?? undefined,
+    skipped: Array.isArray(skipped) ? (skipped.filter(Boolean) as string[]) : undefined,
+    conflict: raw?.conflict ?? undefined,
   };
 }
+
 
 /** Executa a transição. Único caminho de escrita de responsável/etapa. */
 export async function transitionDemand(req: TransitionRequest): Promise<TransitionResult> {

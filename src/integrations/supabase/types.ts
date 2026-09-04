@@ -4219,6 +4219,10 @@ export type Database = {
         Args: { _dry_run?: boolean; _tenant_id: string }
         Returns: Json
       }
+      request_can_access_tenant_v1: {
+        Args: { _tenant_id: string }
+        Returns: boolean
+      }
       resolve_function_for_assignee:
         | {
             Args: {
@@ -4269,6 +4273,10 @@ export type Database = {
           _tenant_id: string
           _work_area?: Database["public"]["Enums"]["work_area"]
         }
+        Returns: string
+      }
+      resolve_operational_status_for_transition_v1: {
+        Args: { _assignee_id?: string; _pipeline_id: string }
         Returns: string
       }
       resolve_valid_assignee_for_stage: {
