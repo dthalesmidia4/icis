@@ -91,7 +91,14 @@ export function useFinance(competence: Competence) {
   const { agencyId } = useAgency();
   const { user } = useAuth();
   const [items, setItems] = useState<FinanceItem[]>([]);
+  /**
+   * VERSÃO DO CADASTRO VÁLIDA NA COMPETÊNCIA (histórico versionado no banco).
+   * `items` segue sendo o catálogo ATUAL (edição, criação, cartões/pacotes);
+   * `monthItems` é o que explica o passado e nunca é reescrito pelo presente.
+   */
+  const [monthItems, setMonthItems] = useState<FinanceItem[]>([]);
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
+
   /** Versões da regra de recorrência (histórico por cadastro). */
   const [rules, setRules] = useState<FinanceRecurrenceRule[]>([]);
   /**
@@ -127,6 +134,7 @@ export function useFinance(competence: Competence) {
     try {
       const [
         itemsRes,
+        monthItemsRes,
         occRes,
         rulesRes,
         payRulesRes,
@@ -141,6 +149,14 @@ export function useFinance(competence: Competence) {
           .select(FINANCE_ITEM_METADATA_COLUMNS)
           .eq("tenant_id", agencyId)
           .order("name", { ascending: true }),
+        /**
+         * Versão do cadastro válida NA COMPETÊNCIA, já descriptografada pelo
+         * servidor. Não passa por `mergeItemValues`: os valores já vêm seguros.
+         */
+        (supabase as any).rpc("finance_read_items_for_competence", {
+          _tenant_id: agencyId,
+          _competence: competenceToISO(normalized),
+        }),
         supabase
           .from("finance_occurrences")
           .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
@@ -180,12 +196,19 @@ export function useFinance(competence: Competence) {
         fetchSecureTenantValues(agencyId),
       ]);
 
-      if (itemsRes.error || occRes.error) {
+      /**
+       * A leitura por competência não tem fallback para o cadastro atual: usar
+       * o presente para desenhar o passado reescreveria o histórico na tela.
+       */
+      if (itemsRes.error || occRes.error || monthItemsRes?.error) {
         const message = itemsRes.error
           ? "Erro ao carregar cadastros financeiros"
-          : "Erro ao carregar movimentação do mês";
+          : monthItemsRes?.error
+            ? "Erro ao carregar o cadastro vigente nesta competência"
+            : "Erro ao carregar movimentação do mês";
         toast.error(message);
         setItems([]);
+        setMonthItems([]);
         setOccurrences([]);
         setRules([]);
         setPaymentRules([]);
@@ -196,6 +219,7 @@ export function useFinance(competence: Competence) {
       }
 
       setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
+      setMonthItems(((monthItemsRes?.data as any[]) ?? []) as FinanceItem[]);
       setOccurrences(
         mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
       );
@@ -217,6 +241,7 @@ export function useFinance(competence: Competence) {
       toast.error(message);
       // Nunca deixar dados parciais no ar: zeros virariam “informação”.
       setItems([]);
+      setMonthItems([]);
       setOccurrences([]);
       setRules([]);
       setPaymentRules([]);
@@ -228,6 +253,7 @@ export function useFinance(competence: Competence) {
       setLoading(false);
     }
   }, [agencyId, normalized.year, normalized.month]);
+
 
   useEffect(() => {
     fetchAll();
@@ -287,7 +313,7 @@ export function useFinance(competence: Competence) {
       tracked
         ? operationalMonthRows(
             buildMonthRows({
-              items,
+              items: monthItems,
               occurrences,
               competence: normalized,
               fallbackRate: settings.defaultUsdRate,
@@ -295,28 +321,29 @@ export function useFinance(competence: Competence) {
             }),
           )
         : [],
-    [items, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
+    [monthItems, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
 
   const statements = useMemo(
     () =>
       tracked
         ? buildStatementGroups({
-            items,
+            items: monthItems,
             occurrences,
             competence: normalized,
             fallbackRate: settings.defaultUsdRate,
             rules,
           })
         : [],
-    [items, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
+    [monthItems, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
 
   /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
   const skipped = useMemo(
-    () => (tracked ? skippedEntriesInMonth({ items, occurrences, competence: normalized }) : []),
-    [items, occurrences, normalized.year, normalized.month, tracked],
+    () => (tracked ? skippedEntriesInMonth({ items: monthItems, occurrences, competence: normalized }) : []),
+    [monthItems, occurrences, normalized.year, normalized.month, tracked],
   );
+
 
 
 
