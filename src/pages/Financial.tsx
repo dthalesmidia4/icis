@@ -13,12 +13,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ChevronRight,
-  ChevronsDown,
-  ChevronsUp,
   CreditCard,
-  Eye,
-  EyeOff,
-
   Plus,
   Receipt,
   Repeat,
