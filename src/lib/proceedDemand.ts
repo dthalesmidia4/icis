@@ -1496,33 +1496,21 @@ export async function regressDemand({
     if (!picked.success || !picked.userId) {
       return { success: false, message: picked.message || 'Nenhum colaborador possui a função "Enviar cliente" habilitada.' };
     }
-    const prevCount = (current as any)?.client_resend_count || 0;
-    const resendPayload: any = {
-      assigned_to: picked.userId,
-      current_function_key: prevFn.function_key,
-      client_resend_count: prevCount + 1,
-      client_last_resend_at: new Date().toISOString(),
-      client_wait_started_at: null,
-    };
-    await applyFlowReactivation(resendPayload, demandId, picked.userId);
-    const resendCommit = await commitFlowTransition({
+    // O kernel incrementa o contador de reenvio nesta transição.
+    const resendCommit = await kernelCommit({
       demandId,
-      payload: resendPayload,
+      intent: "move_back",
+      targetFunctionKey: prevFn.function_key,
+      targetUserId: picked.userId,
+      administrative: false,
       expectedFunctionKey: currentFunctionKey || null,
       expectedAssignee: waitAssignee,
+      source: "regress_demand",
+      metadata: { routing: picked.source || "automatic_load" },
     });
     if (resendCommit.status === "stale") return staleResult(demandId);
-    if (resendCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
-    await recordFlowHistory({
-      tenantId,
-      demandId,
-      action: "moved_back",
-      fromUserId: waitAssignee,
-      toUserId: picked.userId,
-      fromFunctionKey: currentFunctionKey || null,
-      toFunctionKey: prevFn.function_key,
-      metadata: { routing: picked.source || "automatic_load" } as any,
-    });
+    if (resendCommit.status !== "ok") return { success: false, message: resendCommit.message };
+
     return {
       success: true,
       assignedTo: picked.userId,
