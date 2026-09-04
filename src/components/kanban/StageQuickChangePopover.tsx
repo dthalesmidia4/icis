@@ -181,12 +181,11 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
           <button
             key={busyKey}
             type="button"
-            disabled={!o.valid || !!saving}
+            disabled={!!saving}
             onClick={() => void choose(group, o.functionKey)}
-            title={o.reasonLabel || undefined}
             className={cn(
               "flex w-full items-center justify-between gap-2 rounded px-1.5 py-1.5 text-left text-xs font-semibold transition-colors",
-              o.valid ? "text-foreground hover:bg-primary/10" : "cursor-not-allowed text-muted-foreground/60",
+              "text-foreground hover:bg-primary/10",
               o.isCurrentStage && "bg-primary/10",
             )}
           >
@@ -195,8 +194,6 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
               <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
             ) : o.isCurrentStage ? (
               <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.1em] text-primary">atual</span>
-            ) : !o.valid ? (
-              <span className="shrink-0 text-[9px] uppercase tracking-[0.08em]">bloqueada</span>
             ) : null}
           </button>
         );
