@@ -1391,18 +1391,19 @@ export async function proceedDemand({
   await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [previousAssignee, ...stageExtras]);
   await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
 
-  const samePerson = picked.userId === previousAssignee;
+  const samePerson = finalAssignee === previousAssignee;
   return {
     success: true,
-    assignedTo: picked.userId,
-    assignedName: picked.name,
+    assignedTo: finalAssignee,
+    assignedName: finalName,
     functionKey: nextFn.function_key,
     functionName: nextFn.name,
     message: samePerson
-      ? `Demanda avançou para ${nextFn.name} e continua com ${picked.name}.${skipNote}`
-      : `Demanda enviada para ${picked.name} na função ${nextFn.name}.${skipNote}`,
+      ? `Demanda avançou para ${nextFn.name} e continua com ${finalName}.${skipNote}`
+      : `Demanda enviada para ${finalName} na função ${nextFn.name}.${skipNote}`,
     flowState: proceedCommit.flowState,
   };
+
 
 
 }
