@@ -129,6 +129,69 @@ async function avoidScheduleConflict(
   }
 }
 
+/** Extrai só a agenda de um payload legado, para enviá-la DENTRO da transição. */
+function scheduleFromPayload(payload: any): TransitionSchedule | undefined {
+  const out: Record<string, any> = {};
+  for (const k of ["due_date", "due_time", "delivery_date", "delivery_time"] as const) {
+    if (payload && payload[k] !== undefined) out[k] = payload[k];
+  }
+  return Object.keys(out).length > 0 ? (out as TransitionSchedule) : undefined;
+}
+
+type KernelCommitOutcome =
+  | { status: "ok"; flowState?: FlowState; result: TransitionResult }
+  | { status: "stale" }
+  | { status: "blocked"; message: string }
+  | { status: "error"; message: string };
+
+/**
+ * AUTORIDADE ÚNICA: toda gravação de etapa/responsável/agenda deste módulo
+ * passa por `transition_demand_v2`. O kernel trava a linha, confere o estado
+ * esperado (compare-and-set), resolve etapa/responsável válidos, aplica agenda,
+ * reativação de coluna, contadores de cliente e grava o histórico.
+ */
+async function kernelCommit(params: {
+  demandId: string;
+  intent: TransitionIntent;
+  targetFunctionKey?: string | null;
+  targetUserId?: string | null;
+  preferredUserId?: string | null;
+  targetStatusId?: string | null;
+  actorUserId?: string | null;
+  administrative?: boolean;
+  schedule?: TransitionSchedule | null;
+  expectedFunctionKey?: string | null;
+  expectedAssignee?: string | null;
+  source: string;
+  metadata?: Record<string, unknown>;
+}): Promise<KernelCommitOutcome> {
+  const result = await transitionDemand({
+    demandId: params.demandId,
+    intent: params.intent,
+    ...(params.targetFunctionKey !== undefined ? { targetFunctionKey: params.targetFunctionKey } : {}),
+    ...(params.targetUserId !== undefined ? { targetUserId: params.targetUserId } : {}),
+    ...(params.preferredUserId !== undefined ? { preferredUserId: params.preferredUserId } : {}),
+    ...(params.targetStatusId !== undefined ? { targetStatusId: params.targetStatusId } : {}),
+    ...(params.actorUserId !== undefined ? { actorUserId: params.actorUserId } : {}),
+    ...(params.administrative !== undefined ? { administrative: params.administrative } : {}),
+    ...(params.schedule ? { schedule: params.schedule } : {}),
+    expected: {
+      assignedTo: params.expectedAssignee ?? null,
+      functionKey: params.expectedFunctionKey ?? null,
+    },
+    source: params.source,
+    metadata: params.metadata,
+  });
+  if (result.status === "stale") return { status: "stale" };
+  if (result.status === "blocked" || result.status === "end") {
+    return { status: "blocked", message: result.message };
+  }
+  if (result.status === "error") return { status: "error", message: result.message };
+  return { status: "ok", flowState: await fetchFlowState(params.demandId), result };
+}
+
+
+
 
 
 /**
