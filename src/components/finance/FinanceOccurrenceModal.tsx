@@ -428,7 +428,7 @@ export default function FinanceOccurrenceModal({
     }
     const patch = buildFactCorrectionPatch({
       cardRow: cardRow || convertFirst,
-      currency: row.currency,
+      currency,
       amountOriginal: amountNumber,
       amountBrl: brl,
       exchangeRate: rateNumber,
