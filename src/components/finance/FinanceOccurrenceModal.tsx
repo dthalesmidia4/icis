@@ -288,12 +288,41 @@ export default function FinanceOccurrenceModal({
     if (occ?.card_item_id_snapshot) setOrigin(`card:${occ.card_item_id_snapshot}`);
     else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
     else setOrigin(FOLLOW_ITEM);
+    setCurrency(row.currency === "USD" ? "USD" : "BRL");
     // Nada de modo de correção: os campos factuais já abrem digitáveis.
 
   }, [open, row, defaultUsdRate, today]);
 
 
-  const isUsd = row?.currency === "USD";
+  const isUsd = currency === "USD";
+
+  /**
+   * Troca de moeda DESTE mês: nunca perde o número já digitado.
+   *  - BRL → USD: o valor digitado passa a ser o valor em dólar e o câmbio
+   *    disponível (efetivo/cadastro/referência) semeia a conversão;
+   *  - USD → BRL: o valor principal passa a ser o real já calculado.
+   */
+  const changeCurrency = (next: "BRL" | "USD") => {
+    if (next === currency) return;
+    if (next === "USD") {
+      const seedRate =
+        parseLocalizedNumber(rate) ?? persistedRate ?? row?.exchangeRate ?? defaultUsdRate ?? null;
+      const seeded = seedUsdConversion({
+        original: parseLocalizedNumber(amount),
+        rate: seedRate,
+        brl: null,
+      });
+      setAmount(seeded.original);
+      setRate(seeded.rate);
+      setBrlCharged(seeded.brl);
+    } else {
+      const brlValue = resolveUsdNumbers({ original: amount, rate, brl: brlCharged }).amountBrl;
+      if (brlValue != null) setAmount(String(brlValue));
+      setBrlCharged("");
+    }
+    setCurrency(next);
+  };
+
   const usdState: UsdConversionState = { original: amount, rate, brl: brlCharged };
   /** Edição bidirecional: câmbio ↔ valor cobrado em reais. */
   const editUsd = (field: UsdConversionField, value: string) => {
