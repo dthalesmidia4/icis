@@ -134,6 +134,7 @@ export function useFinance(competence: Competence) {
     try {
       const [
         itemsRes,
+        monthItemsRes,
         occRes,
         rulesRes,
         payRulesRes,
@@ -148,6 +149,14 @@ export function useFinance(competence: Competence) {
           .select(FINANCE_ITEM_METADATA_COLUMNS)
           .eq("tenant_id", agencyId)
           .order("name", { ascending: true }),
+        /**
+         * Versão do cadastro válida NA COMPETÊNCIA, já descriptografada pelo
+         * servidor. Não passa por `mergeItemValues`: os valores já vêm seguros.
+         */
+        (supabase as any).rpc("finance_read_items_for_competence", {
+          _tenant_id: agencyId,
+          _competence: competenceToISO(normalized),
+        }),
         supabase
           .from("finance_occurrences")
           .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
@@ -187,12 +196,19 @@ export function useFinance(competence: Competence) {
         fetchSecureTenantValues(agencyId),
       ]);
 
-      if (itemsRes.error || occRes.error) {
+      /**
+       * A leitura por competência não tem fallback para o cadastro atual: usar
+       * o presente para desenhar o passado reescreveria o histórico na tela.
+       */
+      if (itemsRes.error || occRes.error || monthItemsRes?.error) {
         const message = itemsRes.error
           ? "Erro ao carregar cadastros financeiros"
-          : "Erro ao carregar movimentação do mês";
+          : monthItemsRes?.error
+            ? "Erro ao carregar o cadastro vigente nesta competência"
+            : "Erro ao carregar movimentação do mês";
         toast.error(message);
         setItems([]);
+        setMonthItems([]);
         setOccurrences([]);
         setRules([]);
         setPaymentRules([]);
@@ -203,6 +219,7 @@ export function useFinance(competence: Competence) {
       }
 
       setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
+      setMonthItems(((monthItemsRes?.data as any[]) ?? []) as FinanceItem[]);
       setOccurrences(
         mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
       );
@@ -224,6 +241,7 @@ export function useFinance(competence: Competence) {
       toast.error(message);
       // Nunca deixar dados parciais no ar: zeros virariam “informação”.
       setItems([]);
+      setMonthItems([]);
       setOccurrences([]);
       setRules([]);
       setPaymentRules([]);
@@ -235,6 +253,7 @@ export function useFinance(competence: Competence) {
       setLoading(false);
     }
   }, [agencyId, normalized.year, normalized.month]);
+
 
   useEffect(() => {
     fetchAll();
