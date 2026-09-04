@@ -148,8 +148,19 @@ export default function MonthAccountsList({
   const readOnly = (row: MonthRow) => isIofRow(row);
 
   const groups = grouped
-    ? buildAccountGroups(rows)
-    : [{ key: "__flat__", label: "", total: 0, rows, categories: [{ key: "__flat__", label: "", rows, total: 0 }] }];
+    ? buildAccountGroups(rows, groupBy)
+    : [
+        {
+          key: "__flat__",
+          label: "",
+          total: 0,
+          rows,
+          items: [
+            { key: "__flat__", label: "", rows, total: 0, multiple: false },
+          ],
+        },
+      ];
+
 
   const desktopRow = (row: MonthRow) => {
     const status = resolveRowStatus(row, statusContext);
