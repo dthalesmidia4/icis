@@ -1158,127 +1158,94 @@ function FinancialCockpit() {
 
         {/* ====================== PAGAMENTOS DIRETOS ====================== */}
         {view === "accounts" && (
-          <section className="space-y-4">
-            {/* Resumo agregado: é o único bloco desta view sujeito ao olho. */}
-            <Card className="p-4 flex flex-wrap items-start gap-x-8 gap-y-2">
-              <div>
-                <p className="text-sm text-muted-foreground">A pagar em {monthLabel}</p>
-                <p className="text-xl font-bold">{money(accountsSummary.open)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Pagamentos pendentes</p>
-                <p className="text-xl font-bold">{accountsSummary.pending}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Atrasadas</p>
-                <p className={`text-xl font-bold ${accountsSummary.overdue > 0 ? "text-destructive" : ""}`}>
-                  {accountsSummary.overdue}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="ml-auto -mt-1"
-                onClick={toggleValuesVisible}
-                aria-label={showKpis ? "Ocultar valores do resumo" : "Exibir valores do resumo"}
-                aria-pressed={showKpis}
-              >
-                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </Button>
-            </Card>
-
-            <p className="text-sm text-muted-foreground">
-              Cobranças feitas no cartão não aparecem aqui como conta atrasada: elas vencem junto com a
-              fatura, em <button className="underline" onClick={() => goTo("cards")}>Cartões e faturas</button>.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {MAIN_VIEWS.map((v) => (
-                <Button
-                  key={v.value}
-                  size="sm"
-                  className="min-h-10"
-                  variant={mainView === v.value ? "default" : "outline"}
-                  onClick={() => setMainView(v.value)}
-                >
-                  {v.label}
-                </Button>
-              ))}
-
-              <Input
-                placeholder="Buscar despesa..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-10 w-full sm:w-56"
-              />
-
-              <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="min-h-10">
-                    <SlidersHorizontal className="w-4 h-4 mr-2" />
-                    Filtros
-                    {advancedActiveCount > 0 && (
-                      <Badge className="ml-2 bg-primary/10 text-primary border-primary/30" variant="outline">
-                        {advancedActiveCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-[280px] space-y-4">
-                  <div>
-                    <Label className="text-sm">Data</Label>
-                    <Select value={advanced} onValueChange={(v) => setAdvanced(v as AdvancedFilter)}>
-                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ADVANCED_FILTERS.map((f) => (
-                          <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-sm">Centro de custo</Label>
-                    <Select value={costCenter} onValueChange={setCostCenter}>
-                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {Object.entries(COST_CENTER_LABELS).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full min-h-10"
-                    onClick={() => {
-                      setAdvanced("none");
-                      setCostCenter("all");
-                    }}
-                  >
-                    Limpar filtros
-                  </Button>
-                </PopoverContent>
-              </Popover>
-
-              <FinanceGroupingControl
-                groupBy={accountsGroupBy}
-                onGroupByChange={(value) => {
-                  setAccountsGroupBy(value);
-                  setAccountsExpanded({});
-                }}
-                allOpen={accountsAllOpen}
-                onToggleAll={toggleAllAccountsGroups}
-              />
-            </div>
+          <section className="space-y-3">
+            <FinanceGroupedViewToolbar
+              periodBar={periodBar}
+              segments={MAIN_VIEWS.map((v) => ({
+                value: v.value,
+                label: v.label,
+                active: mainView === v.value,
+                onClick: () => setMainView(v.value),
+                amount:
+                  v.value === "all"
+                    ? accountsTotal
+                    : v.value === "to_pay"
+                      ? accountsSummary.open
+                      : accountsPaidTotal,
+              }))}
+              hint={
+                accountsSummary.overdue > 0
+                  ? `${accountsSummary.overdue} atrasada(s) · Cobranças no cartão vencem junto com a fatura.`
+                  : "Cobranças no cartão vencem junto com a fatura."
+              }
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Buscar despesa..."
+              filterSlot={
+                <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="min-h-10">
+                      <SlidersHorizontal className="w-4 h-4 mr-2" />
+                      Filtros
+                      {advancedActiveCount > 0 && (
+                        <Badge className="ml-2 bg-primary/10 text-primary border-primary/30" variant="outline">
+                          {advancedActiveCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-[280px] space-y-4">
+                    <div>
+                      <Label className="text-sm">Data</Label>
+                      <Select value={advanced} onValueChange={(v) => setAdvanced(v as AdvancedFilter)}>
+                        <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {ADVANCED_FILTERS.map((f) => (
+                            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm">Centro de custo</Label>
+                      <Select value={costCenter} onValueChange={setCostCenter}>
+                        <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {Object.entries(COST_CENTER_LABELS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full min-h-10"
+                      onClick={() => {
+                        setAdvanced("none");
+                        setCostCenter("all");
+                      }}
+                    >
+                      Limpar filtros
+                    </Button>
+                  </PopoverContent>
+                </Popover>
+              }
+              groupBy={accountsGroupBy}
+              onGroupByChange={(value) => {
+                setAccountsGroupBy(value);
+                setAccountsExpanded({});
+              }}
+              allOpen={accountsAllOpen}
+              onToggleAll={toggleAllAccountsGroups}
+            />
 
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-sm text-muted-foreground">
                 {visibleRows.length === 1 ? "1 linha" : `${visibleRows.length} linhas`} neste recorte
               </p>
-              <p className="text-sm font-semibold">Total: {formatBRL(visibleRowsTotal)}</p>
+              <p className="text-sm font-semibold">Total: {money(visibleRowsTotal)}</p>
             </div>
 
             <MonthAccountsList
@@ -1302,11 +1269,9 @@ function FinancialCockpit() {
               onToggleGroup={toggleAccountsGroup}
             />
 
-
             {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
             <SkippedEntriesPanel entries={skipped} onRestore={restoreOccurrence} />
           </section>
-
         )}
 
         {/* ====================== CARTÕES E FATURAS ====================== */}
