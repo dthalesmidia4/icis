@@ -648,9 +648,10 @@ export default function FinanceOccurrenceModal({
                   <SelectItem value={FOLLOW_ITEM}>
                     Seguir o cadastro{row.item.payment_method ? ` (${row.item.payment_method})` : ""}
                   </SelectItem>
-                  {cards.map((card) => (
+                  {selectableCards.map((card) => (
                     <SelectItem key={card.id} value={`card:${card.id}`}>
                       {cardDisplayLabel(card)}
+                      {card.active ? "" : " (inativo)"}
                     </SelectItem>
                   ))}
                   {PAYMENT_METHODS.filter((m) => m !== CARD_PAYMENT_METHOD).map((m) => (
