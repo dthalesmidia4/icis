@@ -162,6 +162,16 @@ export function buildTransitionPayload(req: TransitionRequest): Record<string, u
   if (req.targetOrigin !== undefined) payload.target_origin = norm(req.targetOrigin);
   if (req.direction) payload.direction = req.direction;
   if (req.administrative !== undefined) payload.administrative = req.administrative;
+  if (req.targetStatusId !== undefined) payload.target_status_id = req.targetStatusId ?? null;
+  if (req.actorUserId !== undefined) payload.actor_user_id = req.actorUserId ?? null;
+  if (req.schedule) {
+    const s: Record<string, unknown> = {};
+    if (req.schedule.due_date !== undefined) s.due_date = req.schedule.due_date ?? "";
+    if (req.schedule.due_time !== undefined) s.due_time = req.schedule.due_time ?? "";
+    if (req.schedule.delivery_date !== undefined) s.delivery_date = req.schedule.delivery_date ?? "";
+    if (req.schedule.delivery_time !== undefined) s.delivery_time = req.schedule.delivery_time ?? "";
+    if (Object.keys(s).length > 0) payload.schedule = s;
+  }
   if (req.expected) {
     if (req.expected.assignedTo !== undefined)
       payload.expected_assigned_to = req.expected.assignedTo ?? "";
@@ -177,14 +187,18 @@ export function buildTransitionPayload(req: TransitionRequest): Record<string, u
 export function parseTransitionResponse(raw: any): TransitionResult {
   const code = (raw?.code as TransitionCode) || "ERROR";
   const status = (raw?.status as TransitionResult["status"]) || "error";
+  const skipped = raw?.warnings ?? raw?.skipped;
   return {
     status,
     code,
     message: (raw?.message as string) || TRANSITION_MESSAGE[code] || TRANSITION_MESSAGE.ERROR,
     previous: raw?.previous ?? undefined,
     final: raw?.final ?? undefined,
+    skipped: Array.isArray(skipped) ? (skipped.filter(Boolean) as string[]) : undefined,
+    conflict: raw?.conflict ?? undefined,
   };
 }
+
 
 /** Executa a transição. Único caminho de escrita de responsável/etapa. */
 export async function transitionDemand(req: TransitionRequest): Promise<TransitionResult> {
