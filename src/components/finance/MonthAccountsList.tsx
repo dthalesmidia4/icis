@@ -11,7 +11,7 @@
  * de `Composição do mês`, para que "Administrativo", "Encargos trabalhistas"
  * etc. sejam rastreáveis aqui, sem tela paralela nem outra fonte de dados.
  */
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -38,7 +38,6 @@ import {
   MonthRow,
   formatBRL,
   formatCurrencyValue,
-  installmentRowLabel,
 } from "@/lib/financeModel";
 import { RowStatus, RowStatusContext, StatusTone, resolveRowStatus, whenLabel } from "@/lib/financeRowStatus";
 import { buildAccountGroups } from "@/lib/financeAccountGrouping";
@@ -48,7 +47,6 @@ import { isIofRow } from "@/lib/financeIof";
 import {
   type OccurrenceLabel,
   occurrenceDisplayName,
-  occurrenceDisplaySuffix,
 } from "@/lib/financeOccurrenceLabels";
 
 interface Props {
@@ -110,23 +108,25 @@ export default function MonthAccountsList({
   grouped = true,
   groupBy = "category",
 }: Props) {
-  /** Recolher é só apresentação: nada é persistido. */
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  /** Expandir é só apresentação: vazio significa que todos iniciam fechados. */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  useEffect(() => setExpanded(new Set()), [groupBy]);
   const toggleGroup = (key: string) =>
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
-  const metaFor = (row: MonthRow) => {
+  const purposeLine = (row: MonthRow) => {
     const center = COST_CENTER_LABELS[row.item.cost_center] ?? row.item.cost_center;
-    const payment = row.cardItemId
+    const purpose = (row.item.purpose ?? row.item.category ?? "").trim();
+    return [purpose || null, center].filter(Boolean).join(" · ");
+  };
+  const originLabel = (row: MonthRow) =>
+    row.cardItemId
       ? cards.find((c) => c.id === row.cardItemId)?.name ?? "Cartão de crédito"
       : row.paymentMethod ?? "Forma de pagamento não definida";
-    const installment = installmentRowLabel(row);
-    return [installment, center, payment].filter(Boolean).join(" · ");
-  };
 
   if (loading) {
     return (
@@ -162,10 +162,9 @@ export default function MonthAccountsList({
       ];
 
 
-  const desktopRow = (row: MonthRow, nameOverride?: string) => {
+  const desktopRow = (row: MonthRow) => {
     const status = resolveRowStatus(row, statusContext);
     const locked = readOnly(row);
-    const displayName = nameOverride ?? occurrenceDisplayName(row, labels);
     return (
       <TableRow
         key={row.key}
@@ -174,7 +173,7 @@ export default function MonthAccountsList({
       >
         <TableCell className="py-3">
           <div className="flex items-center gap-2">
-            <span className="text-[15px] font-semibold text-foreground">{displayName}</span>
+            <span className="text-[15px] font-semibold text-foreground">{occurrenceDisplayName(row, labels)}</span>
             {overlaps.has(row.item.id) && (
               <Badge variant="outline" className="text-destructive border-destructive/40">
                 Duplicidade
@@ -191,12 +190,15 @@ export default function MonthAccountsList({
             )}
           </div>
 
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            {row.cardItemId && <CreditCard className="w-3.5 h-3.5" />}
-            {locked ? row.item.purpose : metaFor(row)}
-          </p>
+          <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
         </TableCell>
         <TableCell className="whitespace-nowrap text-sm">{whenLabel(row, today)}</TableCell>
+        <TableCell className="text-sm">
+          <span className="flex items-center gap-1.5">
+            {row.cardItemId && <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />}
+            {originLabel(row)}
+          </span>
+        </TableCell>
         <TableCell className="text-right whitespace-nowrap">
           <span className="text-[15px] font-semibold">{formatBRL(row.amountBrl)}</span>
           {row.currency === "USD" && (
@@ -251,10 +253,9 @@ export default function MonthAccountsList({
     );
   };
 
-  const mobileRow = (row: MonthRow, nameOverride?: string) => {
+  const mobileRow = (row: MonthRow) => {
     const status = resolveRowStatus(row, statusContext);
     const locked = readOnly(row);
-    const displayName = nameOverride ?? occurrenceDisplayName(row, labels);
     return (
       <Card
         key={row.key}
@@ -263,8 +264,8 @@ export default function MonthAccountsList({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold text-foreground">{displayName}</p>
-            <p className="text-sm text-muted-foreground">{locked ? row.item.purpose : metaFor(row)}</p>
+            <p className="text-[15px] font-semibold text-foreground">{occurrenceDisplayName(row, labels)}</p>
+            <p className="text-sm text-muted-foreground">{purposeLine(row)}</p>
             {!row.item.active && !locked && (
               <p className="text-xs text-muted-foreground">Cadastro inativo</p>
             )}
@@ -274,6 +275,10 @@ export default function MonthAccountsList({
             {formatBRL(row.amountBrl)}
           </span>
         </div>
+        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+          {row.cardItemId && <CreditCard className="w-3.5 h-3.5" />}
+          {originLabel(row)}
+        </p>
         <div className="flex flex-wrap items-center gap-2 justify-between">
           <span className="text-sm text-muted-foreground">{whenLabel(row, today)}</span>
           <StatusBadge status={status} />
@@ -317,30 +322,31 @@ export default function MonthAccountsList({
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="text-xs uppercase tracking-wider font-bold">Conta</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-bold">Quando</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-bold">Despesa</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-bold">Data</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-bold">Origem</TableHead>
               <TableHead className="text-xs uppercase tracking-wider font-bold text-right">Valor</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-bold">Status</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-bold">Situação</TableHead>
               <TableHead className="text-xs uppercase tracking-wider font-bold text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {groups.map((group) => {
-              const isCollapsed = grouped && collapsed.has(group.key);
+              const isExpanded = !grouped || expanded.has(group.key);
               return (
                 <Fragment key={`g-${group.key}`}>
                   {grouped && (
                     <TableRow key={`gh-${group.key}`} className="bg-muted/40 hover:bg-muted/40">
-                      <TableCell colSpan={4} className="py-2">
+                      <TableCell colSpan={3} className="py-2">
                         <button
                           type="button"
                           className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
                           onClick={() => toggleGroup(group.key)}
                         >
-                          {isCollapsed ? (
-                            <ChevronRight className="w-4 h-4" />
-                          ) : (
+                          {isExpanded ? (
                             <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
                           )}
                           {group.label}
                           <span className="font-normal normal-case text-muted-foreground">
@@ -351,9 +357,10 @@ export default function MonthAccountsList({
                       <TableCell className="py-2 text-right text-sm font-semibold whitespace-nowrap">
                         {formatBRL(group.total)}
                       </TableCell>
+                      <TableCell colSpan={2} />
                     </TableRow>
                   )}
-                  {!isCollapsed &&
+                  {isExpanded &&
                     group.items.map((item) => (
                       <Fragment key={`i-${group.key}-${item.key}`}>
                         {grouped && item.multiple && (
@@ -361,7 +368,7 @@ export default function MonthAccountsList({
                             key={`ih-${group.key}-${item.key}`}
                             className="hover:bg-transparent"
                           >
-                            <TableCell colSpan={4} className="py-1.5 pl-6 text-sm text-muted-foreground">
+                            <TableCell colSpan={3} className="py-1.5 pl-6 text-sm text-muted-foreground">
                               {item.label}
                               {" · "}
                               {item.rows.length} lançamentos no mês
@@ -369,16 +376,10 @@ export default function MonthAccountsList({
                             <TableCell className="py-1.5 text-right text-sm text-muted-foreground whitespace-nowrap">
                               {formatBRL(item.total)}
                             </TableCell>
+                            <TableCell colSpan={2} />
                           </TableRow>
                         )}
-                        {item.rows.map((row) =>
-                          desktopRow(
-                            row,
-                            grouped && item.multiple
-                              ? occurrenceDisplaySuffix(row, labels)
-                              : undefined,
-                          ),
-                        )}
+                        {item.rows.map((row) => desktopRow(row))}
                       </Fragment>
                     ))}
                 </Fragment>
@@ -391,7 +392,7 @@ export default function MonthAccountsList({
       {/* ------------------------------- MOBILE ------------------------------ */}
       <div className="md:hidden space-y-4">
         {groups.map((group) => {
-          const isCollapsed = grouped && collapsed.has(group.key);
+          const isExpanded = !grouped || expanded.has(group.key);
           return (
             <div key={`m-${group.key}`} className="space-y-3">
               {grouped && (
@@ -401,17 +402,17 @@ export default function MonthAccountsList({
                   onClick={() => toggleGroup(group.key)}
                 >
                   <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-                    {isCollapsed ? (
-                      <ChevronRight className="w-4 h-4" />
-                    ) : (
+                    {isExpanded ? (
                       <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
                     )}
                     {group.label}
                   </span>
                   <span className="text-sm font-semibold">{formatBRL(group.total)}</span>
                 </button>
               )}
-              {!isCollapsed &&
+              {isExpanded &&
                 group.items.map((item) => (
                   <div key={`m-${group.key}-${item.key}`} className="space-y-2">
                     {grouped && item.multiple && (
@@ -422,14 +423,7 @@ export default function MonthAccountsList({
                         <p className="text-sm text-muted-foreground">{formatBRL(item.total)}</p>
                       </div>
                     )}
-                    {item.rows.map((row) =>
-                      mobileRow(
-                        row,
-                        grouped && item.multiple
-                          ? occurrenceDisplaySuffix(row, labels)
-                          : undefined,
-                      ),
-                    )}
+                    {item.rows.map((row) => mobileRow(row))}
                   </div>
                 ))}
             </div>
