@@ -52,7 +52,7 @@ import {
   installmentHeaderLine,
   installmentProjectedNote,
   isInstallmentRow,
-  occurrenceAmountLabel,
+  
   occurrencePaidHelp,
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
