@@ -1802,31 +1802,25 @@ export async function deliverMyPart(
     return { success: false, message: "Apenas um responsável — use Prosseguir para entregar o card." };
   }
 
-  let newPrimary = primary;
-  let newExtras = [...extras];
-  if (primary === userId) {
-    // promove o primeiro extra a responsável principal
-    newPrimary = newExtras.shift() || null;
-  } else {
-    newExtras = newExtras.filter((u) => u !== userId);
-  }
-
-  const { error } = await supabase
-    .from("demands")
-    .update({ assigned_to: newPrimary, additional_assignees: newExtras } as any)
-    .eq("id", demandId);
-  if (error) return { success: false, message: "Erro ao remover você do card." };
-
-  await recordFlowHistory({
-    tenantId: cur.tenant_id as string,
+  // AUTORIDADE ÚNICA: promoção/remoção de responsáveis e histórico
+  // `partial_delivered` acontecem juntos, dentro da mesma transição.
+  const outcome = await kernelCommit({
     demandId,
-    action: "partial_delivered",
-    fromUserId: userId,
-    toUserId: newPrimary,
-    fromFunctionKey: "captar",
-    toFunctionKey: "captar",
-    metadata: { remaining_count: (newPrimary ? 1 : 0) + newExtras.length },
+    intent: "partial_deliver",
+    actorUserId: userId,
+    administrative: false,
+    expectedFunctionKey: "captar",
+    expectedAssignee: primary,
+    source: "partial_deliver",
   });
+  if (outcome.status === "stale") return { success: false, message: STALE_TRANSITION_MESSAGE };
+  if (outcome.status !== "ok") return { success: false, message: outcome.message };
+
+  const final = outcome.result.final;
+  const newPrimary = final?.assigned_to ?? null;
+  const newExtras = Array.isArray(final?.additional_assignees)
+    ? (final!.additional_assignees!.filter(Boolean) as string[])
+    : [];
 
   return {
     success: true,
