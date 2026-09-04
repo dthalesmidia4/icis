@@ -50,6 +50,8 @@ import SkippedEntriesPanel from "@/components/finance/SkippedEntriesPanel";
 
 import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
 import MonthCompositionList from "@/components/finance/MonthCompositionList";
+import FinanceGroupingControl from "@/components/finance/FinanceGroupingControl";
+
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
 import {
@@ -237,6 +239,10 @@ function FinancialCockpit() {
   const [compositionGroupBy, setCompositionGroupBy] = useState<CompositionGroupBy>("category");
   /** Organização de `Contas e despesas` — mesma inteligência, tela própria. */
   const [accountsGroupBy, setAccountsGroupBy] = useState<CompositionGroupBy>("category");
+  const [accountsExpanded, setAccountsExpanded] = useState<Record<string, boolean>>({});
+  const toggleAccountsGroup = (key: string) =>
+    setAccountsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   /**
    * Expansão dos grupos da composição: vive AQUI porque `Agrupar por` e
@@ -521,6 +527,31 @@ function FinancialCockpit() {
 
   /** Total das linhas visíveis (inclui os repasses de IOF exibidos). */
   const visibleRowsTotal = useMemo(() => sumRowsBrl(visibleRows), [visibleRows]);
+
+  /**
+   * Expansão dos grupos de `Contas e despesas` — mesma mecânica da composição:
+   * vazio = todos fechados, e trocar `Agrupar por` fecha tudo de novo.
+   */
+  const accountsEntries = useMemo(
+    () => visibleRows.map((row) => ({ row, value: row.amountBrl ?? 0 })),
+    [visibleRows],
+  );
+  const accountsGroups = useMemo(
+    () => buildCompositionGroups(accountsEntries, accountsGroupBy),
+    [accountsEntries, accountsGroupBy],
+  );
+  const accountsAllOpen =
+    accountsGroups.length > 0 && accountsGroups.every((g) => !!accountsExpanded[g.key]);
+  const toggleAllAccountsGroups = () => {
+    if (accountsAllOpen) {
+      setAccountsExpanded({});
+      return;
+    }
+    const next: Record<string, boolean> = {};
+    for (const group of accountsGroups) next[group.key] = true;
+    setAccountsExpanded(next);
+  };
+
 
   /* ------------------------- Números por domínio ------------------------- */
 
@@ -1128,40 +1159,16 @@ function FinancialCockpit() {
                 </PopoverContent>
               </Popover>
 
-              <Select
-                value={compositionGroupBy}
-                onValueChange={(v) => setCompositionGroupBy(v as CompositionGroupBy)}
-              >
-                <SelectTrigger className="h-10 w-[190px]" aria-label="Agrupar por">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
-                    <SelectItem key={key} value={key}>
-                      Agrupar por: {COMPOSITION_GROUP_BY_LABELS[key]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FinanceGroupingControl
+                groupBy={compositionGroupBy}
+                onGroupByChange={(value) => {
+                  setCompositionGroupBy(value);
+                  setCompositionExpanded({});
+                }}
+                allOpen={compositionAllOpen}
+                onToggleAll={toggleAllCompositionGroups}
+              />
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-10"
-                aria-pressed={compositionAllOpen}
-                onClick={toggleAllCompositionGroups}
-              >
-                {compositionAllOpen ? (
-                  <>
-                    <ChevronsUp className="w-4 h-4 mr-1.5" /> Recolher tudo
-                  </>
-                ) : (
-                  <>
-                    <ChevronsDown className="w-4 h-4 mr-1.5" /> Expandir tudo
-                  </>
-                )}
-              </Button>
 
               {compositionNarrowed && (
                 <span className="w-full text-sm text-muted-foreground">
@@ -1292,21 +1299,15 @@ function FinancialCockpit() {
                 </PopoverContent>
               </Popover>
 
-              <Select
-                value={accountsGroupBy}
-                onValueChange={(v) => setAccountsGroupBy(v as CompositionGroupBy)}
-              >
-                <SelectTrigger className="h-10 w-[190px]" aria-label="Agrupar por">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
-                    <SelectItem key={key} value={key}>
-                      Agrupar por: {COMPOSITION_GROUP_BY_LABELS[key]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FinanceGroupingControl
+                groupBy={accountsGroupBy}
+                onGroupByChange={(value) => {
+                  setAccountsGroupBy(value);
+                  setAccountsExpanded({});
+                }}
+                allOpen={accountsAllOpen}
+                onToggleAll={toggleAllAccountsGroups}
+              />
             </div>
 
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1333,7 +1334,10 @@ function FinancialCockpit() {
               onTogglePaid={togglePaid}
               onEditItem={(item) => openItemModal(item)}
               groupBy={accountsGroupBy}
+              expanded={accountsExpanded}
+              onToggleGroup={toggleAccountsGroup}
             />
+
 
             {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
             <SkippedEntriesPanel entries={skipped} onRestore={restoreOccurrence} />
