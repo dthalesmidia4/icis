@@ -1731,48 +1731,27 @@ export async function deliverDemand(
     ? ((currentDemand as any).additional_assignees.filter(Boolean) as string[])
     : [];
 
-  const { error: uErr } = await supabase
-    .from("demands")
-    .update({
-      status_id: done.id,
-      current_function_key: null,
-      assigned_to: null,
-      additional_assignees: [],
-      archived_at: new Date().toISOString(),
-    } as any)
-    .eq("id", demandId);
-  if (uErr) return { success: false, message: "Erro ao entregar a demanda." };
+  // AUTORIDADE ÚNICA: status final, limpeza de responsáveis, arquivamento e
+  // histórico `delivered` são gravados de uma só vez pelo kernel.
+  const outcome = await kernelCommit({
+    demandId,
+    intent: "deliver",
+    targetStatusId: done.id,
+    administrative: false,
+    expectedFunctionKey: (currentDemand as any)?.current_function_key ?? null,
+    expectedAssignee: (currentDemand as any)?.assigned_to ?? null,
+    source: "deliver",
+  });
+  if (outcome.status === "stale") return { success: false, message: STALE_TRANSITION_MESSAGE };
+  if (outcome.status !== "ok") return { success: false, message: outcome.message };
 
+  // Entregas por etapa continuam sendo métrica do app (o kernel não as agrega).
   if (currentDemand?.tenant_id) {
-    const primary = (currentDemand as any).assigned_to ?? null;
-    if (extras.length > 0) {
-      await recordFlowHistoryForUsers(
-        {
-          tenantId: currentDemand.tenant_id as string,
-          demandId,
-          action: "delivered",
-          toUserId: null,
-          fromFunctionKey: (currentDemand as any).current_function_key ?? null,
-          toFunctionKey: null,
-        },
-        [primary, ...extras],
-      );
-    } else {
-      await recordFlowHistory({
-        tenantId: currentDemand.tenant_id as string,
-        demandId,
-        action: "delivered",
-        fromUserId: primary,
-        toUserId: null,
-        fromFunctionKey: (currentDemand as any).current_function_key ?? null,
-        toFunctionKey: null,
-      });
-    }
     await recordStageDeliveries(
       currentDemand.tenant_id as string,
       demandId,
       (currentDemand as any).current_function_key ?? null,
-      [primary, ...extras],
+      [(currentDemand as any).assigned_to ?? null, ...extras],
     );
   }
   return {
@@ -1823,31 +1802,25 @@ export async function deliverMyPart(
     return { success: false, message: "Apenas um responsável — use Prosseguir para entregar o card." };
   }
 
-  let newPrimary = primary;
-  let newExtras = [...extras];
-  if (primary === userId) {
-    // promove o primeiro extra a responsável principal
-    newPrimary = newExtras.shift() || null;
-  } else {
-    newExtras = newExtras.filter((u) => u !== userId);
-  }
-
-  const { error } = await supabase
-    .from("demands")
-    .update({ assigned_to: newPrimary, additional_assignees: newExtras } as any)
-    .eq("id", demandId);
-  if (error) return { success: false, message: "Erro ao remover você do card." };
-
-  await recordFlowHistory({
-    tenantId: cur.tenant_id as string,
+  // AUTORIDADE ÚNICA: promoção/remoção de responsáveis e histórico
+  // `partial_delivered` acontecem juntos, dentro da mesma transição.
+  const outcome = await kernelCommit({
     demandId,
-    action: "partial_delivered",
-    fromUserId: userId,
-    toUserId: newPrimary,
-    fromFunctionKey: "captar",
-    toFunctionKey: "captar",
-    metadata: { remaining_count: (newPrimary ? 1 : 0) + newExtras.length },
+    intent: "partial_deliver",
+    actorUserId: userId,
+    administrative: false,
+    expectedFunctionKey: "captar",
+    expectedAssignee: primary,
+    source: "partial_deliver",
   });
+  if (outcome.status === "stale") return { success: false, message: STALE_TRANSITION_MESSAGE };
+  if (outcome.status !== "ok") return { success: false, message: outcome.message };
+
+  const final = outcome.result.final;
+  const newPrimary = final?.assigned_to ?? null;
+  const newExtras = Array.isArray(final?.additional_assignees)
+    ? (final!.additional_assignees!.filter(Boolean) as string[])
+    : [];
 
   return {
     success: true,

@@ -3,7 +3,7 @@ import { ArrowRight, CalendarClock, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { proceedDemand, getPipelineSequence, recordStageDeliveries } from "@/lib/proceedDemand";
-import { recordFlowHistory } from "@/lib/flowHistory";
+import { transitionDemand } from "@/lib/demandTransition";
 import { createOrUpdateScheduleDispatch } from "@/lib/createScheduleDispatch";
 import { cn } from "@/lib/utils";
 
@@ -159,35 +159,26 @@ export default function AwaitingClientActions({
 
       const previousAssignee = (demand as any)?.assigned_to || null;
 
-      const payload: any = {
-        current_function_key: "publicar",
-        assigned_to: null,
-        client_wait_started_at: null,
-        client_resend_count: 0,
-        client_last_resend_at: null,
-        updated_at: new Date().toISOString(),
-      };
-      if (scheduleStatusId) payload.status_id = scheduleStatusId;
-
-      const { error } = await supabase.from("demands").update(payload).eq("id", demandId);
-      if (error) {
-        console.error("[awaitingClient] schedule demand update error", error);
-        toast.error("Publicação agendada, mas houve erro ao atualizar o card.");
+      // AUTORIDADE ÚNICA: o kernel move para "publicar", desaloca, zera a espera
+      // do cliente e grava o histórico — nada disso é gravado aqui.
+      const result = await transitionDemand({
+        demandId,
+        intent: "schedule_publication",
+        targetFunctionKey: "publicar",
+        targetStatusId: scheduleStatusId,
+        administrative: false,
+        expected: { functionKey: currentFunctionKey || null, assignedTo: previousAssignee },
+        source: "cliente_aprovou_agendar",
+        metadata: { scheduled_at: `${publishDate} ${publishTime}`, via: "cliente_aprovou_agendar" },
+      });
+      if (result.status !== "applied" && result.status !== "nothing") {
+        console.error("[awaitingClient] schedule transition failed", result);
+        toast.error(result.message || "Publicação agendada, mas houve erro ao atualizar o card.");
         onDone?.();
         return;
       }
 
       await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [previousAssignee]);
-      await recordFlowHistory({
-        tenantId,
-        demandId,
-        action: "proceeded",
-        fromUserId: previousAssignee,
-        toUserId: null,
-        fromFunctionKey: currentFunctionKey || null,
-        toFunctionKey: "publicar",
-        metadata: { scheduled_at: `${publishDate} ${publishTime}`, via: "cliente_aprovou_agendar" },
-      } as any);
     } catch (e) {
       console.error("[awaitingClient] schedule post-update error", e);
     }
