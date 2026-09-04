@@ -569,7 +569,25 @@ export default function FinanceOccurrenceModal({
                 )}
               </div>
 
-              {row.currency === "USD" && (
+              {/* Moeda DESTE fato: correção do mês, nunca do cadastro. */}
+              <div className="min-w-0">
+                <Label>Moeda</Label>
+                <Select
+                  value={currency}
+                  onValueChange={(v) => changeCurrency(v === "USD" ? "USD" : "BRL")}
+                  disabled={readOnlyMoney}
+                >
+                  <SelectTrigger className="mt-1 w-full min-w-0 max-w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BRL">Real (BRL)</SelectItem>
+                    <SelectItem value="USD">Dólar (USD)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isUsd && (
                 <>
                   <div className="min-w-0">
                     <Label>{rateLabel}</Label>
