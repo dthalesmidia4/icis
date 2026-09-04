@@ -1277,31 +1277,21 @@ export async function proceedDemand({
     if (!keepAssignee) {
       return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
     }
-    const waitPayload: any = {
-      assigned_to: keepAssignee,
-      current_function_key: nextFn.function_key,
-      client_wait_started_at: new Date().toISOString(),
-    };
-    await applyFlowReactivation(waitPayload, demandId, keepAssignee);
-    const waitCommit = await commitFlowTransition({
+    const waitCommit = await kernelCommit({
       demandId,
-      payload: waitPayload,
+      intent: "proceed",
+      targetFunctionKey: nextFn.function_key,
+      targetUserId: keepAssignee,
+      administrative: false,
       expectedFunctionKey: currentFunctionKey || null,
       expectedAssignee: previousAssignee,
+      source: "proceed_demand",
+      metadata: { ...(skipMeta || {}), routing: waitOwner?.source || "automatic_load" },
     });
     if (waitCommit.status === "stale") return staleResult(demandId);
-    if (waitCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+    if (waitCommit.status !== "ok") return { success: false, message: waitCommit.message };
 
-    await recordFlowHistory({
-      tenantId,
-      demandId,
-      action: "proceeded",
-      fromUserId: previousAssignee,
-      toUserId: keepAssignee,
-      fromFunctionKey: currentFunctionKey || null,
-      toFunctionKey: nextFn.function_key,
-      metadata: { ...(skipMeta || {}), routing: waitOwner?.source || "automatic_load" } as any,
-    });
+
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
     await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
     // Registra a entrega da etapa que enviou ao cliente (impede regressão para ela).
