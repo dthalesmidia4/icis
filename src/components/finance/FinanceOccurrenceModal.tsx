@@ -491,6 +491,13 @@ export default function FinanceOccurrenceModal({
 
   const dateLabel = cardRow ? cardChargeDateFieldLabel(row.projected) : "Vencimento";
   const rateLabel = persistedRate != null ? "Câmbio efetivo" : "Câmbio de referência";
+  /**
+   * Rótulo do valor segue a moeda ESCOLHIDA no mês (o helper global continua
+   * lendo `row.currency`, que é do cadastro).
+   */
+  const amountLabel = isInstallmentRow(row)
+    ? `Valor desta parcela (${currency})`
+    : `Valor real (${currency})`;
   const whenText = cardRow
     ? `${row.projected ? "cobrança prevista no cartão" : "cobrado no cartão"} em ${formatDateBR(row.chargeDate)}`
     : `vencimento ${row.projected ? "previsto" : ""} ${formatDateBR(row.dueDate ?? row.chargeDate)}`.replace("  ", " ");
