@@ -385,6 +385,16 @@ export default function FinanceOccurrenceModal({
   };
 
   /**
+   * Cartão inativo não é oferecido como NOVA escolha. A única exceção é o
+   * cartão já gravado no snapshot deste mês: ele continua visível apenas para
+   * representar a seleção existente.
+   */
+  const selectableCards = useMemo(() => {
+    const current = row?.occurrence?.card_item_id_snapshot ?? null;
+    return cards.filter((card) => card.active || card.id === current);
+  }, [cards, row?.occurrence?.card_item_id_snapshot]);
+
+  /**
    * Snapshot da origem: só este mês muda. O cadastro permanente fica intacto,
    * então o histórico dos meses anteriores nunca é reescrito.
    */
