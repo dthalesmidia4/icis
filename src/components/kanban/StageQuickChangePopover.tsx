@@ -259,9 +259,7 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
 
         {!loading && groups.length === 0 && (
           <p className="px-1.5 py-2 text-xs text-muted-foreground">
-            {card.assigned_to
-              ? "Nenhuma etapa disponível para o responsável atual."
-              : "Defina um responsável para trocar a etapa deste card."}
+            Nenhuma etapa configurada no fluxo desta área.
           </p>
         )}
 
