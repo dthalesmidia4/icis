@@ -1157,40 +1157,16 @@ function FinancialCockpit() {
                 </PopoverContent>
               </Popover>
 
-              <Select
-                value={compositionGroupBy}
-                onValueChange={(v) => setCompositionGroupBy(v as CompositionGroupBy)}
-              >
-                <SelectTrigger className="h-10 w-[190px]" aria-label="Agrupar por">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
-                    <SelectItem key={key} value={key}>
-                      Agrupar por: {COMPOSITION_GROUP_BY_LABELS[key]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FinanceGroupingControl
+                groupBy={compositionGroupBy}
+                onGroupByChange={(value) => {
+                  setCompositionGroupBy(value);
+                  setCompositionExpanded({});
+                }}
+                allOpen={compositionAllOpen}
+                onToggleAll={toggleAllCompositionGroups}
+              />
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-10"
-                aria-pressed={compositionAllOpen}
-                onClick={toggleAllCompositionGroups}
-              >
-                {compositionAllOpen ? (
-                  <>
-                    <ChevronsUp className="w-4 h-4 mr-1.5" /> Recolher tudo
-                  </>
-                ) : (
-                  <>
-                    <ChevronsDown className="w-4 h-4 mr-1.5" /> Expandir tudo
-                  </>
-                )}
-              </Button>
 
               {compositionNarrowed && (
                 <span className="w-full text-sm text-muted-foreground">
