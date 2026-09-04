@@ -1028,158 +1028,112 @@ function FinancialCockpit() {
         {/* ====================== COMPOSIÇÃO DO MÊS ====================== */}
         {view === "composition" && (
           <section className="space-y-3">
-            {/* LINHA 1 — contexto + recorte: período, os três totais canônicos
-                em segmented control compacto e o olho colado ao resumo. */}
-            <div className="flex flex-wrap items-center gap-2">
-              {periodBar}
-              <div
-                role="tablist"
-                aria-label="Recorte da composição"
-                className="flex flex-wrap items-stretch gap-1 rounded-lg border bg-muted/30 p-1 min-h-10"
-              >
-                {COMPOSITION_STATUSES.map((status) => {
-                  const active = compositionStatus === status;
-                  return (
-                    <button
-                      key={status}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => goToComposition(status)}
-                      className={`inline-flex items-baseline gap-1.5 rounded-md px-3 min-h-8 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                        active
-                          ? "border border-primary bg-primary/10 text-foreground"
-                          : "border border-transparent hover:bg-muted/60"
-                      }`}
+            <FinanceGroupedViewToolbar
+              periodBar={periodBar}
+              segments={COMPOSITION_STATUSES.map((status) => ({
+                value: status,
+                label: COMPOSITION_TAB_LABELS[status],
+                active: compositionStatus === status,
+                onClick: () => goToComposition(status),
+                amount: compositionTotals[status],
+              }))}
+              hint={COMPOSITION_HINTS[compositionStatus]}
+              searchValue={compositionSearch}
+              onSearchChange={setCompositionSearch}
+              searchPlaceholder="Buscar despesa..."
+              filterSlot={
+                <Popover open={compositionFiltersOpen} onOpenChange={setCompositionFiltersOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="min-h-10">
+                      <SlidersHorizontal className="w-4 h-4 mr-2" />
+                      Filtros
+                      {compositionFilterCount > 0 && (
+                        <Badge className="ml-2 bg-primary/10 text-primary border-primary/30" variant="outline">
+                          {compositionFilterCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-[280px] space-y-4">
+                    <div>
+                      <Label className="text-sm">Centro de custo</Label>
+                      <Select value={costCenter} onValueChange={setCostCenter}>
+                        <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {Object.entries(COST_CENTER_LABELS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm">Origem de pagamento</Label>
+                      <Select value={compositionOrigin} onValueChange={setCompositionOrigin}>
+                        <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas</SelectItem>
+                          {compositionOrigins.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm">Tipo</Label>
+                      <Select value={compositionKind} onValueChange={setCompositionKind}>
+                        <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {COMPOSITION_KINDS.map((k) => (
+                            <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm">Categoria</Label>
+                      <Select value={compositionCategory} onValueChange={setCompositionCategory}>
+                        <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas</SelectItem>
+                          {compositionCategories.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full min-h-10"
+                      onClick={() => {
+                        setCostCenter("all");
+                        setCompositionOrigin("all");
+                        setCompositionKind("all");
+                        setCompositionCategory("all");
+                      }}
                     >
-                      <span className="text-muted-foreground">{COMPOSITION_TAB_LABELS[status]}</span>
-                      <span className="font-semibold whitespace-nowrap">
-                        {money(compositionTotals[status])}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10"
-                onClick={toggleValuesVisible}
-                aria-label={showKpis ? "Ocultar valores do resumo" : "Exibir valores do resumo"}
-                aria-pressed={showKpis}
-              >
-                {showKpis ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </Button>
-            </div>
+                      Limpar filtros
+                    </Button>
+                  </PopoverContent>
+                </Popover>
+              }
+              groupBy={compositionGroupBy}
+              onGroupByChange={(value) => {
+                setCompositionGroupBy(value);
+                setCompositionExpanded({});
+              }}
+              allOpen={compositionAllOpen}
+              onToggleAll={toggleAllCompositionGroups}
+            />
 
-            {/* LINHA 2 — exploração: hint flexível à esquerda, controles à direita. */}
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="flex-1 min-w-[180px] text-sm text-muted-foreground">
-                {COMPOSITION_HINTS[compositionStatus]}
-              </p>
-              <Input
-                placeholder="Buscar despesa..."
-                value={compositionSearch}
-                onChange={(e) => setCompositionSearch(e.target.value)}
-                className="h-10 w-full sm:w-52"
-              />
-
-              <Popover open={compositionFiltersOpen} onOpenChange={setCompositionFiltersOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="min-h-10">
-                    <SlidersHorizontal className="w-4 h-4 mr-2" />
-                    Filtros
-                    {compositionFilterCount > 0 && (
-                      <Badge className="ml-2 bg-primary/10 text-primary border-primary/30" variant="outline">
-                        {compositionFilterCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-[280px] space-y-4">
-                  <div>
-                    <Label className="text-sm">Centro de custo</Label>
-                    <Select value={costCenter} onValueChange={setCostCenter}>
-                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {Object.entries(COST_CENTER_LABELS).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-sm">Origem de pagamento</Label>
-                    <Select value={compositionOrigin} onValueChange={setCompositionOrigin}>
-                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas</SelectItem>
-                        {compositionOrigins.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-sm">Tipo</Label>
-                    <Select value={compositionKind} onValueChange={setCompositionKind}>
-                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {COMPOSITION_KINDS.map((k) => (
-                          <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-sm">Categoria</Label>
-                    <Select value={compositionCategory} onValueChange={setCompositionCategory}>
-                      <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas</SelectItem>
-                        {compositionCategories.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full min-h-10"
-                    onClick={() => {
-                      setCostCenter("all");
-                      setCompositionOrigin("all");
-                      setCompositionKind("all");
-                      setCompositionCategory("all");
-                    }}
-                  >
-                    Limpar filtros
-                  </Button>
-                </PopoverContent>
-              </Popover>
-
-              <FinanceGroupingControl
-                groupBy={compositionGroupBy}
-                onGroupByChange={(value) => {
-                  setCompositionGroupBy(value);
-                  setCompositionExpanded({});
-                }}
-                allOpen={compositionAllOpen}
-                onToggleAll={toggleAllCompositionGroups}
-              />
-
-
-              {compositionNarrowed && (
-                <span className="w-full text-sm text-muted-foreground">
-                  Exibindo {money(compositionVisibleTotal)} de{" "}
-                  {money(compositionTotals[compositionStatus])} deste recorte
-                </span>
-              )}
-            </div>
+            {compositionNarrowed && (
+              <span className="text-sm text-muted-foreground">
+                Exibindo {money(compositionVisibleTotal)} de{" "}
+                {money(compositionTotals[compositionStatus])} deste recorte
+              </span>
+            )}
 
             <MonthCompositionList
               entries={compositionVisible}
