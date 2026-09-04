@@ -543,7 +543,7 @@ export default function FinanceOccurrenceModal({
           <Block title="Dados deste mês">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="min-w-0">
-                <Label>{occurrenceAmountLabel(row)}</Label>
+                <Label>{amountLabel}</Label>
                 <Input
                   className="w-full min-w-0 max-w-full"
                   value={amount}
