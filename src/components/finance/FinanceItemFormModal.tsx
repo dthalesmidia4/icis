@@ -619,7 +619,7 @@ export default function FinanceItemFormModal({
           </div>
 
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <Label>Para que serve</Label>
               <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="Ex: Copy e roteiros" />
