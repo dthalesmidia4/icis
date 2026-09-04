@@ -522,6 +522,31 @@ function FinancialCockpit() {
   /** Total das linhas visíveis (inclui os repasses de IOF exibidos). */
   const visibleRowsTotal = useMemo(() => sumRowsBrl(visibleRows), [visibleRows]);
 
+  /**
+   * Expansão dos grupos de `Contas e despesas` — mesma mecânica da composição:
+   * vazio = todos fechados, e trocar `Agrupar por` fecha tudo de novo.
+   */
+  const accountsEntries = useMemo(
+    () => visibleRows.map((row) => ({ row, value: row.amountBrl ?? 0 })),
+    [visibleRows],
+  );
+  const accountsGroups = useMemo(
+    () => buildCompositionGroups(accountsEntries, accountsGroupBy),
+    [accountsEntries, accountsGroupBy],
+  );
+  const accountsAllOpen =
+    accountsGroups.length > 0 && accountsGroups.every((g) => !!accountsExpanded[g.key]);
+  const toggleAllAccountsGroups = () => {
+    if (accountsAllOpen) {
+      setAccountsExpanded({});
+      return;
+    }
+    const next: Record<string, boolean> = {};
+    for (const group of accountsGroups) next[group.key] = true;
+    setAccountsExpanded(next);
+  };
+
+
   /* ------------------------- Números por domínio ------------------------- */
 
   const accountsSummary = useMemo(() => {
