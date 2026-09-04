@@ -52,7 +52,6 @@ import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
 import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
-import GroupedPaymentsPanel from "@/components/finance/GroupedPaymentsPanel";
 import {
   GroupedPayment,
   buildGroupedPayments,
@@ -126,6 +125,7 @@ import {
   buildAttentionInsights,
   buildPaidComposition,
   buildPaymentQueue,
+  mergeGroupedPaymentsIntoQueue,
   formatDayMonth,
   isDirectPayableRow,
   isSubscriptionsDomainItem,
@@ -235,6 +235,8 @@ function FinancialCockpit() {
   const [compositionCategory, setCompositionCategory] = useState("all");
   /** Dimensão de agrupamento da composição (categoria x centro de custo). */
   const [compositionGroupBy, setCompositionGroupBy] = useState<CompositionGroupBy>("category");
+  /** Organização de `Contas e despesas` — mesma inteligência, tela própria. */
+  const [accountsGroupBy, setAccountsGroupBy] = useState<CompositionGroupBy>("category");
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   /**
    * Expansão dos grupos da composição: vive AQUI porque `Agrupar por` e
@@ -331,7 +333,7 @@ function FinancialCockpit() {
   );
 
   /** Fila de próximos pagamentos (hoje/futuro). Atrasos ficam nas exceções. */
-  const paymentQueue = useMemo(
+  const directPaymentQueue = useMemo(
     () => buildPaymentQueue({ rows, statements, today, cardsById }),
     [rows, statements, today, cardsById],
   );
@@ -352,6 +354,20 @@ function FinancialCockpit() {
     [operationalRows, finance.paymentRules, finance.batches, finance.batchEntries, competence],
   );
 
+  /**
+   * A fila mostra o LOTE quando ele agrupa de fato (2+ ocorrências) e some com
+   * as ocorrências absorvidas — nunca as duas coisas ao mesmo tempo.
+   */
+  const paymentQueue = useMemo(
+    () =>
+      mergeGroupedPaymentsIntoQueue({
+        entries: directPaymentQueue,
+        groups: groupedPayments,
+        today,
+      }),
+    [directPaymentQueue, groupedPayments, today],
+  );
+
   const handleGroupedPay = async (group: GroupedPayment) => {
     if (group.batch) {
       await finance.payPaymentBatch(group.batch.id, group.paymentDate ?? today);
@@ -368,10 +384,6 @@ function FinancialCockpit() {
     });
   };
 
-  const handleGroupedUndo = async (group: GroupedPayment) => {
-    if (!group.batch) return;
-    await finance.unpayPaymentBatch(group.batch.id);
-  };
 
 
   /** Relação pago x em aberto — derivada apenas dos totais, nunca persistida. */
@@ -691,6 +703,10 @@ function FinancialCockpit() {
   ];
 
   const handleQueueSelect = (entry: PaymentQueueEntry) => {
+    if (entry.type === "grouped" && entry.group) {
+      void handleGroupedPay(entry.group);
+      return;
+    }
     if (entry.type === "statement") {
       goTo("cards");
       setHighlightIncomplete(false);
@@ -932,12 +948,6 @@ function FinancialCockpit() {
 
             {/* D. Próximos pagamentos — centro operacional */}
             <PaymentQueue entries={paymentQueue} today={today} onSelect={handleQueueSelect} />
-
-            <GroupedPaymentsPanel
-              groups={groupedPayments}
-              onPay={handleGroupedPay}
-              onUndo={handleGroupedUndo}
-            />
 
             {/* E. Exceções */}
             <AttentionPanel insights={insights} onAction={handleInsightAction} />
@@ -1281,6 +1291,22 @@ function FinancialCockpit() {
                   </Button>
                 </PopoverContent>
               </Popover>
+
+              <Select
+                value={accountsGroupBy}
+                onValueChange={(v) => setAccountsGroupBy(v as CompositionGroupBy)}
+              >
+                <SelectTrigger className="h-10 w-[190px]" aria-label="Agrupar por">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(COMPOSITION_GROUP_BY_LABELS) as CompositionGroupBy[]).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      Agrupar por: {COMPOSITION_GROUP_BY_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1306,6 +1332,7 @@ function FinancialCockpit() {
               labels={occurrenceLabels}
               onTogglePaid={togglePaid}
               onEditItem={(item) => openItemModal(item)}
+              groupBy={accountsGroupBy}
             />
 
             {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
