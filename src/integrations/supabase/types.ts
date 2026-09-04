@@ -1414,6 +1414,152 @@ export type Database = {
           },
         ]
       }
+      finance_item_versions: {
+        Row: {
+          active: boolean
+          amount_mode: string | null
+          bank_name: string | null
+          card_item_id: string | null
+          card_last4: string | null
+          card_limit_brl_enc: string | null
+          category: string | null
+          charge_day: number | null
+          cost_center: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          default_amount_brl_enc: string | null
+          default_amount_original_enc: string | null
+          default_exchange_rate_enc: string | null
+          due_day: number | null
+          effective_from: string
+          id: string
+          installment_count: number | null
+          installment_start_date: string | null
+          item_id: string
+          kind: string
+          link: string | null
+          name: string
+          notes: string | null
+          parent_item_id: string | null
+          payment_method: string | null
+          purpose: string | null
+          recurrence_anchor_date: string | null
+          recurrence_day_of_month: number | null
+          recurrence_interval: number | null
+          recurrence_interval_months: number | null
+          recurrence_start_date: string | null
+          recurrence_type: string
+          recurrence_weekday: number | null
+          source_updated_at: string | null
+          statement_closing_day: number | null
+          statement_due_day: number | null
+          subscription_date: string | null
+          supplemental_entry_kind: string | null
+          supports_supplemental_entries: boolean | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active: boolean
+          amount_mode?: string | null
+          bank_name?: string | null
+          card_item_id?: string | null
+          card_last4?: string | null
+          card_limit_brl_enc?: string | null
+          category?: string | null
+          charge_day?: number | null
+          cost_center: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          default_amount_brl_enc?: string | null
+          default_amount_original_enc?: string | null
+          default_exchange_rate_enc?: string | null
+          due_day?: number | null
+          effective_from: string
+          id?: string
+          installment_count?: number | null
+          installment_start_date?: string | null
+          item_id: string
+          kind: string
+          link?: string | null
+          name: string
+          notes?: string | null
+          parent_item_id?: string | null
+          payment_method?: string | null
+          purpose?: string | null
+          recurrence_anchor_date?: string | null
+          recurrence_day_of_month?: number | null
+          recurrence_interval?: number | null
+          recurrence_interval_months?: number | null
+          recurrence_start_date?: string | null
+          recurrence_type: string
+          recurrence_weekday?: number | null
+          source_updated_at?: string | null
+          statement_closing_day?: number | null
+          statement_due_day?: number | null
+          subscription_date?: string | null
+          supplemental_entry_kind?: string | null
+          supports_supplemental_entries?: boolean | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          amount_mode?: string | null
+          bank_name?: string | null
+          card_item_id?: string | null
+          card_last4?: string | null
+          card_limit_brl_enc?: string | null
+          category?: string | null
+          charge_day?: number | null
+          cost_center?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          default_amount_brl_enc?: string | null
+          default_amount_original_enc?: string | null
+          default_exchange_rate_enc?: string | null
+          due_day?: number | null
+          effective_from?: string
+          id?: string
+          installment_count?: number | null
+          installment_start_date?: string | null
+          item_id?: string
+          kind?: string
+          link?: string | null
+          name?: string
+          notes?: string | null
+          parent_item_id?: string | null
+          payment_method?: string | null
+          purpose?: string | null
+          recurrence_anchor_date?: string | null
+          recurrence_day_of_month?: number | null
+          recurrence_interval?: number | null
+          recurrence_interval_months?: number | null
+          recurrence_start_date?: string | null
+          recurrence_type?: string
+          recurrence_weekday?: number | null
+          source_updated_at?: string | null
+          statement_closing_day?: number | null
+          statement_due_day?: number | null
+          subscription_date?: string | null
+          supplemental_entry_kind?: string | null
+          supports_supplemental_entries?: boolean | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_item_versions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "finance_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_items: {
         Row: {
           active: boolean
@@ -4009,6 +4155,93 @@ export type Database = {
           default_amount_original: number
           default_exchange_rate: number
           id: string
+        }[]
+      }
+      finance_read_item_versions: {
+        Args: { _tenant_id: string }
+        Returns: {
+          active: boolean
+          amount_mode: string
+          bank_name: string
+          card_item_id: string
+          card_last4: string
+          card_limit_brl: number
+          category: string
+          charge_day: number
+          cost_center: string
+          currency: string
+          default_amount_brl: number
+          default_amount_original: number
+          default_exchange_rate: number
+          due_day: number
+          effective_from: string
+          installment_count: number
+          installment_start_date: string
+          item_id: string
+          kind: string
+          link: string
+          name: string
+          notes: string
+          parent_item_id: string
+          payment_method: string
+          purpose: string
+          recurrence_anchor_date: string
+          recurrence_day_of_month: number
+          recurrence_interval: number
+          recurrence_interval_months: number
+          recurrence_start_date: string
+          recurrence_type: string
+          recurrence_weekday: number
+          statement_closing_day: number
+          statement_due_day: number
+          subscription_date: string
+          supplemental_entry_kind: string
+          supports_supplemental_entries: boolean
+          version_id: string
+        }[]
+      }
+      finance_read_items_for_competence: {
+        Args: { _competence: string; _tenant_id: string }
+        Returns: {
+          active: boolean
+          amount_mode: string
+          bank_name: string
+          card_item_id: string
+          card_last4: string
+          card_limit_brl: number
+          category: string
+          charge_day: number
+          cost_center: string
+          created_at: string
+          currency: string
+          default_amount_brl: number
+          default_amount_original: number
+          default_exchange_rate: number
+          due_day: number
+          id: string
+          installment_count: number
+          installment_start_date: string
+          kind: string
+          link: string
+          name: string
+          notes: string
+          parent_item_id: string
+          payment_method: string
+          purpose: string
+          recurrence_anchor_date: string
+          recurrence_day_of_month: number
+          recurrence_interval: number
+          recurrence_interval_months: number
+          recurrence_start_date: string
+          recurrence_type: string
+          recurrence_weekday: number
+          statement_closing_day: number
+          statement_due_day: number
+          subscription_date: string
+          supplemental_entry_kind: string
+          supports_supplemental_entries: boolean
+          tenant_id: string
+          updated_at: string
         }[]
       }
       finance_read_occurrence_values: {
