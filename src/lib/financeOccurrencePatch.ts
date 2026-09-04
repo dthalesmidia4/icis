@@ -17,6 +17,11 @@ export interface OccurrencePatchInput {
   row: MonthRow;
   /** `isCardCharge(row)` — decidido pelo chamador. */
   cardRow: boolean;
+  /**
+   * Moeda DESTE fato. A correção de moeda vale só para a ocorrência do mês;
+   * quando ausente, segue a moeda da linha (cadastro).
+   */
+  currency?: "BRL" | "USD";
   /** Data do fato digitada (`YYYY-MM-DD`). */
   factDate: string;
   amountOriginal: number | null;
