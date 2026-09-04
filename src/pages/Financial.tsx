@@ -98,7 +98,6 @@ import {
   applyQuickFilter,
   cardDisplayLabel,
   filterByCostCenter,
-  formatBRL,
   isStatementRow,
 } from "@/lib/financeModel";
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
