@@ -10,11 +10,14 @@
  * Conflito duro NUNCA é gravado: a decisão volta para a UI.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { userHasFunction, fetchUserAllowedFunctionKeys } from "@/lib/clientStageAssignments";
-import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
-import { recordFlowHistory } from "@/lib/flowHistory";
+import {
+  loadFlowSequenceKeys,
+  previewStageForAssignee,
+  transitionDemand,
+  type StagePreviewCard,
+} from "@/lib/demandTransition";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
-import { commitFlowTransition } from "@/lib/flowTransition";
+
 import {
   checkAssignmentConflicts,
   suggestFreeSlot,
@@ -105,82 +108,42 @@ export async function evaluateReassign(params: {
   let remapMessage: string | undefined;
 
   if (currentKey) {
-    const holdsCurrent = await userHasFunction(
+    // A DECISÃO DE ETAPA É DO KERNEL DO BANCO (mesmas funções usadas no commit).
+    // Nenhum fallback local escolhe etapa: se o kernel não devolve etapa, não
+    // existe etapa válida deste fluxo para o colaborador.
+    const resolved = await previewStageForAssignee({
       tenantId,
-      newAssignedTo,
-      currentKey,
-      (card.work_area as any) ?? undefined,
-    );
+      card: {
+        id: card.id,
+        demand_type_key: card.demand_type_key ?? null,
+        work_area: (card.work_area as any) ?? null,
+        origin: card.origin ?? null,
+        current_function_key: currentKey,
+      },
+      userId: newAssignedTo,
+      administrative: (params.mode ?? "administrative_reassign") === "administrative_reassign",
+    });
 
-    if (!holdsCurrent) {
-      let resolved: string | null = null;
-      try {
-        resolved = await resolveFunctionForAssignee(
-          tenantId,
-          newAssignedTo,
-          card.demand_type_key ?? null,
-          currentKey,
-          card.id,
-          {
-            workArea: (card.work_area as any) ?? undefined,
-            origin: (card.origin as any) ?? undefined,
-            mode: params.mode ?? "administrative_reassign",
-          },
-        );
-      } catch {
-        resolved = null;
-      }
+    if (!resolved) {
+      return {
+        ...base,
+        allowed: false,
+        blockedBy: "function",
+        message: `${nome} não tem nenhuma etapa OPERACIONAL válida na área ${areaLabel} (fluxo de "${stageLabel}")`,
+      };
+    }
 
-      let usableStage =
-        !!resolved &&
-        resolved !== currentKey &&
-        (await userHasFunction(tenantId, newAssignedTo, resolved, (card.work_area as any) ?? undefined));
-
-      // ÚLTIMO RECURSO: o resolvedor não achou etapa (ou devolveu uma que o
-      // destinatário não exerce). Em vez de bloquear a transferência, escolhemos
-      // a etapa habilitada MAIS PRÓXIMA dele na área — primeiro à frente, senão
-      // atrás. Só bloqueia quando ele não tem NENHUMA função na área (aí o
-      // próprio banco recusaria a gravação).
-      if (!usableStage) {
-        const fallback = await pickNearestAllowedStage(
-          tenantId,
-          (card.work_area as any) ?? undefined,
-          currentKey,
-          await fetchUserAllowedFunctionKeys(
-            tenantId,
-            newAssignedTo,
-            (card.work_area as any) ?? undefined,
-          ),
-        );
-        if (fallback) {
-          resolved = fallback;
-          usableStage = true;
-        }
-      }
-
-      if (!usableStage || !resolved) {
-        return {
-          ...base,
-          allowed: false,
-          blockedBy: "function",
-          message: `${nome} não tem nenhuma etapa OPERACIONAL habilitada na área ${areaLabel} (compatível com "${stageLabel}")`,
-        };
-      }
-
-      nextFunctionKey = resolved;
+    nextFunctionKey = resolved;
+    if (resolved !== currentKey) {
       functionRemapped = true;
-      direction = await stageDirection(
-        tenantId,
-        (card.work_area as any) ?? undefined,
-        currentKey,
-        resolved as string,
-      );
+      direction = await stageDirection(tenantId, card, currentKey, resolved);
       remapMessage =
         direction === "backward"
-          ? `Etapa ajustada: o card voltou para "${resolved}" (etapa habilitada de ${nome}).`
-          : `Etapa ajustada: o card avançou para "${resolved}" (etapa habilitada de ${nome}).`;
+          ? `Etapa ajustada: o card voltou para "${resolved}" (etapa válida de ${nome}).`
+          : `Etapa ajustada: o card avançou para "${resolved}" (etapa válida de ${nome}).`;
     }
   }
+
 
 
 
@@ -231,68 +194,23 @@ export async function evaluateReassign(params: {
 }
 
 /**
- * Etapa habilitada mais próxima do destinatário na área do card.
- * Preferência: menor salto PARA FRENTE; se não houver nenhuma à frente, a mais
- * próxima atrás. Nunca devolve a etapa atual nem chaves fora do fluxo da área.
+ * Sentido do remapeamento, medido na SEQUÊNCIA REAL do fluxo (kernel do banco),
+ * não na lista bruta de funções da área.
  */
-async function pickNearestAllowedStage(
-  tenantId: string,
-  workArea: string | null | undefined,
-  currentKey: string,
-  allowedKeys: Set<string>,
-): Promise<string | null> {
-  if (!tenantId || allowedKeys.size === 0) return null;
-  const area = workArea === "sistemas" ? "sistemas" : "midia";
-  const { data } = await (supabase.from("flow_functions") as any)
-    .select("function_key, position")
-    .eq("tenant_id", tenantId)
-    .eq("work_area", area)
-    .order("position", { ascending: true });
-  const rows = (data || []) as Array<{ function_key: string; position: number }>;
-  const currentPos = rows.find((r) => r.function_key === currentKey)?.position;
-
-  const candidates = rows.filter(
-    (r) => r.function_key !== currentKey && allowedKeys.has(r.function_key),
-  );
-  if (candidates.length === 0) {
-    // Sem fluxo cadastrado para comparar: qualquer função habilitada serve.
-    const any = [...allowedKeys].filter((k) => k !== currentKey);
-    return any[0] ?? null;
-  }
-  if (currentPos == null) return candidates[0].function_key;
-
-  const forward = candidates
-    .filter((r) => r.position > currentPos)
-    .sort((a, b) => a.position - b.position);
-  if (forward.length > 0) return forward[0].function_key;
-
-  const backward = candidates
-    .filter((r) => r.position < currentPos)
-    .sort((a, b) => b.position - a.position);
-  return backward[0]?.function_key ?? null;
-}
-
-
-/** Compara a posição de duas etapas na área para saber se houve regressão. */
 async function stageDirection(
   tenantId: string,
-  workArea: string | null | undefined,
+  card: StagePreviewCard,
   fromKey: string,
   toKey: string,
 ): Promise<"same" | "forward" | "backward"> {
   if (fromKey === toKey) return "same";
-  const area = workArea === "sistemas" ? "sistemas" : "midia";
-  const { data } = await (supabase.from("flow_functions") as any)
-    .select("function_key, position")
-    .eq("tenant_id", tenantId)
-    .eq("work_area", area)
-    .in("function_key", [fromKey, toKey]);
-  const rows = (data || []) as Array<{ function_key: string; position: number }>;
-  const from = rows.find((r) => r.function_key === fromKey)?.position;
-  const to = rows.find((r) => r.function_key === toKey)?.position;
-  if (from == null || to == null) return "forward";
+  const seq = await loadFlowSequenceKeys({ tenantId, card });
+  const from = seq.indexOf(fromKey);
+  const to = seq.indexOf(toKey);
+  if (from < 0 || to < 0) return "forward";
   return to < from ? "backward" : "forward";
 }
+
 
 
 export interface ApplyReassignInput {
@@ -351,61 +269,53 @@ export async function applyReassign(input: ApplyReassignInput): Promise<ApplyRea
     }
   }
 
-  const update: Record<string, any> = {
-    assigned_to: newAssignedTo,
-    updated_at: new Date().toISOString(),
-  };
-  if ((nextFunctionKey ?? null) !== (card.current_function_key ?? null)) {
-    update.current_function_key = nextFunctionKey;
-  }
-  // Colaboradores extras pertencem à CAPTAÇÃO: sair de `captar` limpa a lista;
-  // dentro dela o novo principal nunca fica duplicado nos extras.
-  // (mesma regra já aplicada na alocação em massa)
-  const extras = normalizeAdditionalAssignees({
-    extras: card.additional_assignees ?? null,
-    currentFunctionKey: card.current_function_key ?? null,
-    nextFunctionKey: nextFunctionKey ?? null,
-    newAssignedTo,
-  });
-  if (extras) update.additional_assignees = extras.value;
+  // Campos que NÃO são autoridade de fluxo (datas + reativação de coluna).
+  const sideEffects: Record<string, any> = {};
   if (reschedule) {
-    update.due_date = reschedule.due_date;
-    update.due_time = reschedule.due_time;
-    update.delivery_date = reschedule.delivery_date;
-    update.delivery_time = reschedule.delivery_time;
+    sideEffects.due_date = reschedule.due_date;
+    sideEffects.due_time = reschedule.due_time;
+    sideEffects.delivery_date = reschedule.delivery_date;
+    sideEffects.delivery_time = reschedule.delivery_time;
+  }
+  await applyFlowReactivation(sideEffects, card.id, newAssignedTo);
+
+  // DESATRIBUIR não é resolução de fluxo: apenas limpa o responsável.
+  if (!newAssignedTo) {
+    const { error } = await (supabase.from("demands") as any)
+      .update({ ...sideEffects, assigned_to: null, updated_at: new Date().toISOString() })
+      .eq("id", card.id)
+      .eq("assigned_to", card.assigned_to ?? "");
+    if (error) return { status: "error", error };
+    return { status: "ok", error: null };
   }
 
-
-  await applyFlowReactivation(update, card.id, newAssignedTo);
-
-  const commit = await commitFlowTransition({
+  // AUTORIDADE ÚNICA: o banco decide/valida etapa, responsável e histórico.
+  const result = await transitionDemand({
     demandId: card.id,
-    payload: update,
-    expectedAssignee: card.assigned_to ?? null,
-    expectedFunctionKey: card.current_function_key ?? null,
+    intent: input.direction === "backward" ? "move_back" : "reassign",
+    targetUserId: newAssignedTo,
+    targetFunctionKey: nextFunctionKey ?? undefined,
+    administrative: true,
+    expected: {
+      assignedTo: card.assigned_to ?? null,
+      functionKey: card.current_function_key ?? null,
+    },
+    source: input.historySource || "reassign",
+    metadata: { rescheduled: !!reschedule, ...(input.metadata || {}) },
   });
 
-  if (commit.status === "error") return { status: "error", error: commit.error };
-  if (commit.status === "stale") return { status: "stale", error: null };
+  if (result.status === "stale") return { status: "stale", error: null };
+  if (result.status === "blocked") {
+    return { status: "conflict", error: null, hard: [], message: result.message };
+  }
+  if (result.status === "error") return { status: "error", error: result.message };
 
-  if (tenantId) {
-    await recordFlowHistory({
-      tenantId,
-      demandId: card.id,
-      action: input.direction === "backward" ? "moved_back" : "manual_assignment",
-      fromUserId: card.assigned_to ?? null,
-      toUserId: newAssignedTo,
-      fromFunctionKey: card.current_function_key ?? null,
-      toFunctionKey: nextFunctionKey,
-      metadata: {
-        source: input.historySource || "reassign",
-        rescheduled: !!reschedule,
-        ...(input.metadata || {}),
-      },
-    });
+  if (Object.keys(sideEffects).length > 0) {
+    await (supabase.from("demands") as any).update(sideEffects).eq("id", card.id);
   }
   return { status: "ok", error: null };
 }
+
 
 
 /**

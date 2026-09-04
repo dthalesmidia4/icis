@@ -14,8 +14,7 @@
  *  - o tempo operacional personalizado da etapa antiga não é herdado: a etapa
  *    nova volta ao tempo padrão do fluxo.
  */
-import { supabase } from "@/integrations/supabase/client";
-import { recordFlowHistory } from "@/lib/flowHistory";
+import { transitionDemand } from "@/lib/demandTransition";
 import { jumpToFunction, type ProceedResult } from "@/lib/proceedDemand";
 import { saveStageDurationOverrides } from "@/lib/durationOverrides";
 import {
@@ -107,48 +106,37 @@ export async function applyTypeStageChange(
     return { status: "ok", message: res.message || "Etapa alterada." };
   }
 
-  const { data, error } = await (supabase as any).rpc("change_demand_type_and_stage", {
-    p_demand_id: card.id,
-    p_next_type_key: targetType,
-    p_next_function_key: targetStage,
-    p_next_assigned_to: card.assigned_to,
-    p_expected_type_key: currentType,
-    p_expected_function_key: norm(card.current_function_key),
-    p_expected_assigned_to: card.assigned_to,
-    p_next_type_label: norm(params.targetTypeLabel) || null,
-  });
-
-  if (error) {
-    console.error("[typeStageChange] rpc error", error);
-    return { status: "error", message: "Não foi possível trocar o tipo e a etapa." };
-  }
-  if ((data as any)?.status !== "ok") {
-    return {
-      status: "stale",
-      message: "Este card mudou enquanto você decidia. Nada foi alterado — recarregue e tente novamente.",
-    };
-  }
-
-  await recordFlowHistory({
-    tenantId,
+  // AUTORIDADE ÚNICA: tipo + etapa mudam juntos, validados e gravados pelo
+  // kernel (`transition_demand_v2`), com trava, compare-and-set e histórico.
+  const result = await transitionDemand({
     demandId: card.id,
-    action: "manual_assignment",
-    fromUserId: card.assigned_to,
-    toUserId: card.assigned_to,
-    fromFunctionKey: card.current_function_key ?? null,
-    toFunctionKey: targetStage,
+    intent: "change_type",
+    targetTypeKey: targetType,
+    targetTypeLabel: params.targetTypeLabel ?? null,
+    targetFunctionKey: targetStage,
+    targetUserId: card.assigned_to,
+    administrative: true,
+    expected: {
+      assignedTo: card.assigned_to,
+      functionKey: card.current_function_key ?? null,
+    },
+    source: params.source ?? "type_stage_quick_change",
     metadata: {
-      source: params.source ?? "type_stage_quick_change",
       change: "demand_type_and_stage",
       from_demand_type_key: currentType || null,
       to_demand_type_key: targetType,
     },
   });
 
+  if (result.status === "stale") return { status: "stale", message: result.message };
+  if (result.status === "blocked") return { status: "invalid", message: result.message };
+  if (result.status === "error") return { status: "error", message: result.message };
+
   await dropStageDurationOverride(tenantId, card.id, card.current_function_key, targetStage);
 
   return { status: "ok", message: "Tipo e etapa atualizados." };
 }
+
 
 /**
  * O tempo personalizado pertence a (demanda, etapa). Ao sair da etapa antiga

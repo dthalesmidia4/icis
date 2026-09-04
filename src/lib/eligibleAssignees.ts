@@ -67,12 +67,17 @@ export async function listEligibleAssignees(params: {
         `[perf] eligible-assignees ${(performance.now() - started).toFixed(1)}ms · ${userIds.length} colaborador(es) · consultas compartilhadas`,
       );
     }
+    // A UI NÃO PRÉ-BLOQUEIA: `functionKey` é apenas uma DICA de qual etapa a
+    // pessoa assumiria. A decisão (e o eventual bloqueio real) é do kernel do
+    // banco no momento da transferência — o fato de o responsável atual não
+    // possuir a etapa nunca esconde um colaborador do seletor.
     return Object.fromEntries(
       userIds.map((userId) => {
         const key = resolved[userId] ?? null;
-        return [userId, { eligible: !!key, functionKey: key }];
+        return [userId, { eligible: true, functionKey: key }];
       }),
     ) as Record<string, AssigneeEligibility>;
+
   } catch {
     // Nunca esconder colaborador por falha de leitura.
     return Object.fromEntries(

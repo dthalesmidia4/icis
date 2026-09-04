@@ -3847,6 +3847,20 @@ export type Database = {
         Args: { p_payload: Json }
         Returns: Json
       }
+      audit_demand_flow_states: {
+        Args: { _tenant_id?: string }
+        Returns: {
+          assigned_to: string
+          current_function_key: string
+          demand_id: string
+          demand_type_key: string
+          origin: string
+          problem: string
+          tenant_id: string
+          title: string
+          work_area: Database["public"]["Enums"]["work_area"]
+        }[]
+      }
       auto_release_next_for_user: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: number
@@ -3926,6 +3940,32 @@ export type Database = {
       delete_finance_occurrence_safe: {
         Args: { _occurrence_id: string }
         Returns: Json
+      }
+      demand_flow_sequence: {
+        Args: {
+          _demand_type_key: string
+          _origin?: string
+          _tenant_id: string
+          _work_area?: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: {
+          function_key: string
+          seq_position: number
+        }[]
+      }
+      demand_stage_is_valid: {
+        Args: {
+          _demand_type_key: string
+          _function_key: string
+          _origin: string
+          _tenant_id: string
+          _work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: boolean
+      }
+      demand_stages_done_by_user: {
+        Args: { _demand_id: string; _user_id: string }
+        Returns: string[]
       }
       finance_access_scope: { Args: { _tenant_id: string }; Returns: string }
       finance_convert_occurrence_to_card_charge: {
@@ -4165,6 +4205,10 @@ export type Database = {
         Returns: Json
       }
       refresh_client_templates: { Args: { p_client_id: string }; Returns: Json }
+      repair_demand_flow_states: {
+        Args: { _dry_run?: boolean; _tenant_id: string }
+        Returns: Json
+      }
       resolve_function_for_assignee:
         | {
             Args: {
@@ -4217,6 +4261,33 @@ export type Database = {
         }
         Returns: string
       }
+      resolve_valid_assignee_for_stage: {
+        Args: {
+          _demand_id?: string
+          _demand_type_key?: string
+          _exclude_user?: string
+          _function_key: string
+          _origin?: string
+          _prefer_user?: string
+          _tenant_id: string
+          _work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: string
+      }
+      resolve_valid_stage_for_assignee: {
+        Args: {
+          _administrative?: boolean
+          _current_key: string
+          _demand_id?: string
+          _demand_type_key: string
+          _direction?: string
+          _origin: string
+          _tenant_id: string
+          _user_id: string
+          _work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: string
+      }
       set_finance_password: {
         Args: { _password: string; _tenant_id: string }
         Returns: Json
@@ -4245,6 +4316,7 @@ export type Database = {
         Args: { _object_name: string }
         Returns: boolean
       }
+      transition_demand_v2: { Args: { p_payload: Json }; Returns: Json }
       use_invitation: {
         Args: { _code: string; _user_id: string }
         Returns: Json
@@ -4299,12 +4371,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4328,11 +4400,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4353,11 +4425,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4378,11 +4450,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4395,11 +4467,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
