@@ -132,3 +132,40 @@ describe("parseTransitionResponse", () => {
     expect(res.message).toBe(TRANSITION_MESSAGE.FORBIDDEN);
   });
 });
+
+describe("intents de entrega e agendamento", () => {
+  it("deliver envia o status final escolhido pelo app", () => {
+    const p = buildTransitionPayload({
+      demandId: "d1",
+      intent: "deliver",
+      targetStatusId: "st-done",
+      source: "deliver",
+    });
+    expect(p.intent).toBe("deliver");
+    expect(p.target_status_id).toBe("st-done");
+  });
+
+  it("partial_deliver envia o ator da entrega parcial", () => {
+    const p = buildTransitionPayload({
+      demandId: "d1",
+      intent: "partial_deliver",
+      actorUserId: "u1",
+      source: "partial_deliver",
+    });
+    expect(p.intent).toBe("partial_deliver");
+    expect(p.actor_user_id).toBe("u1");
+  });
+
+  it("schedule_publication envia etapa, status e origem da ação", () => {
+    const p = buildTransitionPayload({
+      demandId: "d1",
+      intent: "schedule_publication",
+      targetFunctionKey: "publicar",
+      targetStatusId: "st-agendar",
+      source: "cliente_aprovou_agendar",
+    });
+    expect(p.target_function_key).toBe("publicar");
+    expect(p.target_status_id).toBe("st-agendar");
+    expect(p.source).toBe("cliente_aprovou_agendar");
+  });
+});
