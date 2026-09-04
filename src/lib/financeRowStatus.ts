@@ -26,6 +26,8 @@ import type { FinanceSettlementContext } from "./financeSettlement";
 import { visibleStatementGroups } from "./financeCardVisibility";
 import { interpretStatementCompositionDifference } from "./financeStatementDifference";
 
+import type { GroupedPayment } from "./financePaymentSchedule";
+
 import {
   SafeStatementStatusMap,
   competenceMonthISO,
