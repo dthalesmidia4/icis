@@ -1342,59 +1342,51 @@ export async function proceedDemand({
   const routingMeta = { routing: picked.source || "automatic_load" };
   const proceedMeta: Record<string, unknown> = { ...(skipMeta || {}), ...routingMeta };
 
-  const proceedPayload: any = { assigned_to: picked.userId, current_function_key: nextFn.function_key };
+  const proceedPayload: any = {};
 
   if (currentFunctionKey === "aguardando_cliente" && nextFn.function_key !== "enviar_cliente") {
-    proceedPayload.client_wait_started_at = null;
-    proceedPayload.client_resend_count = 0;
-    proceedPayload.client_last_resend_at = null;
     await applyReturnFromClientSchedule(proceedPayload, tenantId, demandId, nextFn.function_key, typeKey);
   }
-  if (currentFunctionKey === "captar") {
-    proceedPayload.additional_assignees = [];
-  }
   await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key, currentDemand);
-  await applyFlowReactivation(proceedPayload, demandId, picked.userId);
-  const proceedCommit = await commitFlowTransition({
+  const manualChoice = picked.source === "manual_choice";
+  const proceedCommit = await kernelCommit({
     demandId,
-    payload: proceedPayload,
+    intent: "proceed",
+    targetFunctionKey: nextFn.function_key,
+    ...(manualChoice ? { targetUserId: picked.userId } : { preferredUserId: picked.userId }),
+    administrative: false,
+    schedule: scheduleFromPayload(proceedPayload),
     expectedFunctionKey: currentFunctionKey || null,
     expectedAssignee: previousAssignee,
+    source: "proceed_demand",
+    metadata: proceedMeta,
   });
   if (proceedCommit.status === "stale") return staleResult(demandId);
-  if (proceedCommit.status === "error") return { success: false, message: "Erro ao atualizar a demanda." };
+  if (proceedCommit.status !== "ok") return { success: false, message: proceedCommit.message };
 
+  const finalAssignee = proceedCommit.result.final?.assigned_to || picked.userId;
+  const finalName = await resolveAssigneeName(finalAssignee, picked.userId, picked.name);
 
+  // O kernel já registrou a passagem do responsável principal; aqui só os extras.
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: proceedMeta as any },
-      [previousAssignee, ...captarExtras],
+      { tenantId, demandId, action: "proceeded", toUserId: finalAssignee, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: proceedMeta as any },
+      captarExtras,
     );
-  } else {
-    // Último captador de uma captação com entregas parciais anteriores: registra também sua entrega.
-    if (currentFunctionKey === "captar" && previousAssignee && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
-      await recordFlowHistory({
-        tenantId,
-        demandId,
-        action: "partial_delivered",
-        fromUserId: previousAssignee,
-        toUserId: previousAssignee,
-        fromFunctionKey: "captar",
-        toFunctionKey: "captar",
-        metadata: { final_of_capture: true } as any,
-      });
-    }
+  } else if (currentFunctionKey === "captar" && previousAssignee && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
+    // Último captador de uma captação com entregas parciais anteriores: registra sua entrega.
     await recordFlowHistory({
       tenantId,
       demandId,
-      action: "proceeded",
+      action: "partial_delivered",
       fromUserId: previousAssignee,
-      toUserId: picked.userId,
-      fromFunctionKey: currentFunctionKey || null,
-      toFunctionKey: nextFn.function_key,
-      metadata: proceedMeta as any,
+      toUserId: previousAssignee,
+      fromFunctionKey: "captar",
+      toFunctionKey: "captar",
+      metadata: { final_of_capture: true } as any,
     });
   }
+
 
   await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [previousAssignee, ...stageExtras]);
   await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
