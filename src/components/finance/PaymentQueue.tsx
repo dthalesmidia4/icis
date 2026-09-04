@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatBRL, installmentRowLabel } from "@/lib/financeModel";
 import { PaymentQueueEntry, queueDateLabel } from "@/lib/financeRowStatus";
+import { describePaymentRule } from "@/lib/financePaymentSchedule";
 
 interface Props {
   entries: PaymentQueueEntry[];
@@ -24,9 +25,14 @@ const PAYMENT_QUEUE_PREVIEW = 5;
 /** Contexto textual leve — substitui a pill pesada. */
 function entryContextLabel(entry: PaymentQueueEntry): string {
   if (entry.type === "statement") return "Fatura do cartão";
+  if (entry.type === "grouped" && entry.group) {
+    const count = entry.group.rows.length;
+    return `${count} ocorrências · ${describePaymentRule(entry.group.rule)}`;
+  }
   const installment = entry.row ? installmentRowLabel(entry.row) : null;
   return installment ?? "Conta direta";
 }
+
 
 export default function PaymentQueue({ entries, today, onSelect }: Props) {
   const [expanded, setExpanded] = useState(false);
