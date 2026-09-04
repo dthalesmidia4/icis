@@ -839,7 +839,7 @@ function FinancialCockpit() {
       />
 
       <div className={`${FINANCE_SHELL} py-5 space-y-5`}>
-        {view !== "composition" && periodBar}
+        {view !== "composition" && view !== "accounts" && periodBar}
 
         {/* =========================== OVERVIEW =========================== */}
         {view === "overview" && (
