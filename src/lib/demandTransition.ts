@@ -105,6 +105,12 @@ export interface TransitionRequest {
   direction?: "auto" | "forward" | "backward";
   /** `false` = transição real de processo (pode assumir etapa de cliente). */
   administrative?: boolean;
+  /** Agenda aplicada na MESMA transição (nunca em segundo update). */
+  schedule?: TransitionSchedule | null;
+  /** Status de destino explícito (entrega, agendamento de publicação). */
+  targetStatusId?: string | null;
+  /** Participante da ação (entrega parcial). Ausente = auth.uid(). */
+  actorUserId?: string | null;
   expected?: {
     assignedTo?: string | null;
     functionKey?: string | null;
@@ -121,6 +127,11 @@ export const TRANSITION_MESSAGE: Record<TransitionCode, string> = {
   INVALID_STAGE_FOR_FLOW: "Esta etapa não faz parte do fluxo atual desta demanda.",
   NO_VALID_STAGE: "Não há etapa válida deste fluxo para o colaborador escolhido.",
   NO_ASSIGNEE: "Não há colaborador habilitado para esta etapa neste fluxo.",
+  END_OF_FLOW: "Essa demanda já chegou ao final do fluxo.",
+  FIRST_OF_FLOW: "Esta demanda já está na primeira etapa do fluxo.",
+  SCHEDULE_CONFLICT: "O responsável já tem outra demanda ocupando este horário.",
+  NO_FINAL_STATUS: 'Não foi encontrado um status final "Feito" neste pipeline.',
+  INVARIANT_VIOLATION: "O estado resultante violaria uma regra do fluxo.",
   STALE_STATE:
     "A demanda foi alterada por outra ação enquanto você decidia. Nada foi alterado — recarregue e tente novamente.",
   FORBIDDEN: "Você não tem acesso a esta demanda.",
@@ -128,6 +139,7 @@ export const TRANSITION_MESSAGE: Record<TransitionCode, string> = {
   BAD_REQUEST: "Requisição inválida de transição.",
   ERROR: "Não foi possível aplicar a transição.",
 };
+
 
 /** Payload enviado à RPC — puro, para poder ser testado sem rede. */
 export function buildTransitionPayload(req: TransitionRequest): Record<string, unknown> {
