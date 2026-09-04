@@ -267,7 +267,9 @@ export async function checkAssignmentConflicts(params: {
     tenantId,
     userId,
     fromDate: w.date,
-    toDate: params.card.delivery_date || w.date,
+    // Conflito rígido é sempre janela temporizada do mesmo dia.
+    toDate: w.date,
+
     excludeDemandId: params.card.id,
     durations,
   });
