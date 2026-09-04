@@ -231,7 +231,7 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
                   </TableRow>
 
                   {open &&
-                    group.entries.map((entry) => {
+                    sortGroupedEntries(group.entries).map((entry) => {
                       const row = entry.row;
                       const rowStatus = status(entry);
                       const isLocked = locked(row);
