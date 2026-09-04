@@ -52,7 +52,6 @@ import { iofRowsForStatements, sumRowsBrl } from "@/lib/financeIof";
 import MonthCompositionList from "@/components/finance/MonthCompositionList";
 import SubscriptionsPanel from "@/components/finance/SubscriptionsPanel";
 import PaymentQueue from "@/components/finance/PaymentQueue";
-import GroupedPaymentsPanel from "@/components/finance/GroupedPaymentsPanel";
 import {
   GroupedPayment,
   buildGroupedPayments,
@@ -126,6 +125,7 @@ import {
   buildAttentionInsights,
   buildPaidComposition,
   buildPaymentQueue,
+  mergeGroupedPaymentsIntoQueue,
   formatDayMonth,
   isDirectPayableRow,
   isSubscriptionsDomainItem,
@@ -331,7 +331,7 @@ function FinancialCockpit() {
   );
 
   /** Fila de próximos pagamentos (hoje/futuro). Atrasos ficam nas exceções. */
-  const paymentQueue = useMemo(
+  const directPaymentQueue = useMemo(
     () => buildPaymentQueue({ rows, statements, today, cardsById }),
     [rows, statements, today, cardsById],
   );
@@ -350,6 +350,20 @@ function FinancialCockpit() {
         competence,
       }),
     [operationalRows, finance.paymentRules, finance.batches, finance.batchEntries, competence],
+  );
+
+  /**
+   * A fila mostra o LOTE quando ele agrupa de fato (2+ ocorrências) e some com
+   * as ocorrências absorvidas — nunca as duas coisas ao mesmo tempo.
+   */
+  const paymentQueue = useMemo(
+    () =>
+      mergeGroupedPaymentsIntoQueue({
+        entries: directPaymentQueue,
+        groups: groupedPayments,
+        today,
+      }),
+    [directPaymentQueue, groupedPayments, today],
   );
 
   const handleGroupedPay = async (group: GroupedPayment) => {
@@ -691,6 +705,10 @@ function FinancialCockpit() {
   ];
 
   const handleQueueSelect = (entry: PaymentQueueEntry) => {
+    if (entry.type === "grouped" && entry.group) {
+      void handleGroupedPay(entry.group);
+      return;
+    }
     if (entry.type === "statement") {
       goTo("cards");
       setHighlightIncomplete(false);
@@ -932,12 +950,6 @@ function FinancialCockpit() {
 
             {/* D. Próximos pagamentos — centro operacional */}
             <PaymentQueue entries={paymentQueue} today={today} onSelect={handleQueueSelect} />
-
-            <GroupedPaymentsPanel
-              groups={groupedPayments}
-              onPay={handleGroupedPay}
-              onUndo={handleGroupedUndo}
-            />
 
             {/* E. Exceções */}
             <AttentionPanel insights={insights} onAction={handleInsightAction} />
