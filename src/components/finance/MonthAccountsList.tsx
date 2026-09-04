@@ -162,9 +162,10 @@ export default function MonthAccountsList({
       ];
 
 
-  const desktopRow = (row: MonthRow) => {
+  const desktopRow = (row: MonthRow, nameOverride?: string) => {
     const status = resolveRowStatus(row, statusContext);
     const locked = readOnly(row);
+    const displayName = nameOverride ?? occurrenceDisplayName(row, labels);
     return (
       <TableRow
         key={row.key}
@@ -173,7 +174,7 @@ export default function MonthAccountsList({
       >
         <TableCell className="py-3">
           <div className="flex items-center gap-2">
-            <span className="text-[15px] font-semibold text-foreground">{occurrenceDisplayName(row, labels)}</span>
+            <span className="text-[15px] font-semibold text-foreground">{displayName}</span>
             {overlaps.has(row.item.id) && (
               <Badge variant="outline" className="text-destructive border-destructive/40">
                 Duplicidade
@@ -250,9 +251,10 @@ export default function MonthAccountsList({
     );
   };
 
-  const mobileRow = (row: MonthRow) => {
+  const mobileRow = (row: MonthRow, nameOverride?: string) => {
     const status = resolveRowStatus(row, statusContext);
     const locked = readOnly(row);
+    const displayName = nameOverride ?? occurrenceDisplayName(row, labels);
     return (
       <Card
         key={row.key}
@@ -261,7 +263,7 @@ export default function MonthAccountsList({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold text-foreground">{occurrenceDisplayName(row, labels)}</p>
+            <p className="text-[15px] font-semibold text-foreground">{displayName}</p>
             <p className="text-sm text-muted-foreground">{locked ? row.item.purpose : metaFor(row)}</p>
             {!row.item.active && !locked && (
               <p className="text-xs text-muted-foreground">Cadastro inativo</p>
@@ -323,65 +325,116 @@ export default function MonthAccountsList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groups.map((group) => (
-              <Fragment key={`g-${group.key}`}>
-                {grouped && (
-                  <TableRow key={`cc-${group.key}`} className="bg-muted/40 hover:bg-muted/40">
-                    <TableCell colSpan={4} className="py-2 text-xs font-bold uppercase tracking-wider">
-                      {group.label}
-                    </TableCell>
-                    <TableCell className="py-2 text-right text-sm font-semibold whitespace-nowrap">
-                      {formatBRL(group.total)}
-                    </TableCell>
-                  </TableRow>
-                )}
-                {group.categories.map((category) => (
-                  <Fragment key={`c-${group.key}-${category.key}`}>
-                    {grouped && (
-                      <TableRow
-                        key={`cat-${group.key}-${category.key}`}
-                        className="hover:bg-transparent"
-                      >
-                        <TableCell colSpan={4} className="py-1.5 pl-6 text-sm text-muted-foreground">
-                          {category.label}
-                        </TableCell>
-                        <TableCell className="py-1.5 text-right text-sm text-muted-foreground whitespace-nowrap">
-                          {formatBRL(category.total)}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {category.rows.map(desktopRow)}
-                  </Fragment>
-                ))}
-              </Fragment>
-            ))}
+            {groups.map((group) => {
+              const isCollapsed = grouped && collapsed.has(group.key);
+              return (
+                <Fragment key={`g-${group.key}`}>
+                  {grouped && (
+                    <TableRow key={`gh-${group.key}`} className="bg-muted/40 hover:bg-muted/40">
+                      <TableCell colSpan={4} className="py-2">
+                        <button
+                          type="button"
+                          className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
+                          onClick={() => toggleGroup(group.key)}
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                          {group.label}
+                          <span className="font-normal normal-case text-muted-foreground">
+                            {group.rows.length === 1 ? "1 linha" : `${group.rows.length} linhas`}
+                          </span>
+                        </button>
+                      </TableCell>
+                      <TableCell className="py-2 text-right text-sm font-semibold whitespace-nowrap">
+                        {formatBRL(group.total)}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!isCollapsed &&
+                    group.items.map((item) => (
+                      <Fragment key={`i-${group.key}-${item.key}`}>
+                        {grouped && item.multiple && (
+                          <TableRow
+                            key={`ih-${group.key}-${item.key}`}
+                            className="hover:bg-transparent"
+                          >
+                            <TableCell colSpan={4} className="py-1.5 pl-6 text-sm text-muted-foreground">
+                              {item.label}
+                              {" · "}
+                              {item.rows.length} lançamentos no mês
+                            </TableCell>
+                            <TableCell className="py-1.5 text-right text-sm text-muted-foreground whitespace-nowrap">
+                              {formatBRL(item.total)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {item.rows.map((row) =>
+                          desktopRow(
+                            row,
+                            grouped && item.multiple
+                              ? occurrenceDisplaySuffix(row, labels)
+                              : undefined,
+                          ),
+                        )}
+                      </Fragment>
+                    ))}
+                </Fragment>
+              );
+            })}
           </TableBody>
         </Table>
       </Card>
 
       {/* ------------------------------- MOBILE ------------------------------ */}
       <div className="md:hidden space-y-4">
-        {groups.map((group) => (
-          <div key={`m-${group.key}`} className="space-y-3">
-            {grouped && (
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-wider">{group.label}</p>
-                <p className="text-sm font-semibold">{formatBRL(group.total)}</p>
-              </div>
-            )}
-            {group.categories.map((category) => (
-              <div key={`m-${group.key}-${category.key}`} className="space-y-2">
-                {grouped && (
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="text-sm text-muted-foreground">{category.label}</p>
-                    <p className="text-sm text-muted-foreground">{formatBRL(category.total)}</p>
+        {groups.map((group) => {
+          const isCollapsed = grouped && collapsed.has(group.key);
+          return (
+            <div key={`m-${group.key}`} className="space-y-3">
+              {grouped && (
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between gap-3 min-h-10"
+                  onClick={() => toggleGroup(group.key)}
+                >
+                  <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                    {isCollapsed ? (
+                      <ChevronRight className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                    {group.label}
+                  </span>
+                  <span className="text-sm font-semibold">{formatBRL(group.total)}</span>
+                </button>
+              )}
+              {!isCollapsed &&
+                group.items.map((item) => (
+                  <div key={`m-${group.key}-${item.key}`} className="space-y-2">
+                    {grouped && item.multiple && (
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="text-sm text-muted-foreground">
+                          {item.label} · {item.rows.length} lançamentos
+                        </p>
+                        <p className="text-sm text-muted-foreground">{formatBRL(item.total)}</p>
+                      </div>
+                    )}
+                    {item.rows.map((row) =>
+                      mobileRow(
+                        row,
+                        grouped && item.multiple
+                          ? occurrenceDisplaySuffix(row, labels)
+                          : undefined,
+                      ),
+                    )}
                   </div>
-                )}
-                {category.rows.map(mobileRow)}
-              </div>
-            ))}
-          </div>
-        ))}
+                ))}
+            </div>
+          );
+        })}
       </div>
     </>
   );
