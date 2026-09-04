@@ -11,8 +11,6 @@ const ROOT = join(process.cwd(), "src");
 
 /** Módulos autorizados a escrever `assigned_to` (transições reais / contrato). */
 const ALLOWLIST = new Set([
-  "lib/reassignDemand.ts",
-  "lib/proceedDemand.ts",
   "lib/flowTransition.ts",
   "lib/flowTransitionCore.ts",
   "lib/bulkAllocation.ts",
