@@ -763,6 +763,59 @@ export function buildPaymentQueue(params: PaymentQueueParams): PaymentQueueEntry
   );
 }
 
+/**
+ * Integra as SAÍDAS DE CAIXA AGRUPADAS na própria fila de pagamentos.
+ *
+ * Só é agrupamento de verdade quando o lote tem MAIS DE UMA ocorrência: uma
+ * regra de pagamento com uma única ocorrência continua sendo pagamento normal.
+ * Grupos já pagos não entram, e as ocorrências absorvidas pelo lote saem da
+ * fila para nunca aparecerem duas vezes. Cobranças no cartão nunca são
+ * agrupadas aqui: quem agrupa essas é a fatura.
+ */
+export function mergeGroupedPaymentsIntoQueue(params: {
+  entries: PaymentQueueEntry[];
+  groups: GroupedPayment[];
+  today: string;
+  includeOverdue?: boolean;
+}): PaymentQueueEntry[] {
+  const includeOverdue = params.includeOverdue ?? false;
+  const absorbed = new Set<string>();
+  const grouped: PaymentQueueEntry[] = [];
+
+  for (const group of params.groups) {
+    if (group.paid) continue;
+    if (group.rows.length < 2) continue;
+    if (!group.paymentDate) continue;
+    if (group.rows.some((row) => !!row.cardItemId)) continue;
+
+    const dueDate = group.paymentDate.slice(0, 10);
+    const overdue = dueDate < params.today;
+    for (const row of group.rows) absorbed.add(row.key);
+    if (overdue && !includeOverdue) continue;
+
+    grouped.push({
+      id: `grouped:${group.key}`,
+      type: "grouped",
+      name: group.itemName,
+      dueDate,
+      amount: group.totalBrl ?? 0,
+      label: "Pagamento agrupado",
+      status: overdue ? "overdue" : "open",
+      overdue,
+      group,
+    });
+  }
+
+  const kept = params.entries.filter(
+    (entry) => !(entry.type === "direct" && entry.row && absorbed.has(entry.row.key)),
+  );
+
+  return [...kept, ...grouped].sort(
+    (a, b) => a.dueDate.localeCompare(b.dueDate) || a.name.localeCompare(b.name, "pt-BR"),
+  );
+}
+
+
 /* -------------------------------------------------------------------------- */
 /*                    ROTULAGEM HONESTA DO VALOR DA FATURA                    */
 /* -------------------------------------------------------------------------- */
