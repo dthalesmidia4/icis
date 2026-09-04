@@ -141,7 +141,9 @@ export function cardWindow(card: OccupancyCardInput, durations?: StageDurations)
   let end: number | null = null;
   let endTime: string | null = null;
   if (!allDay) {
-    if (card.delivery_date) {
+    // Card multi-dia (due_date ≠ delivery_date) = PRAZO/PERÍODO, não ocupação
+    // contínua: só o mesmo dia define fim real; senão vale a duração da etapa.
+    if (card.delivery_date && card.delivery_date === startDate) {
       endTime = norm(card.delivery_time);
       end = toMs(card.delivery_date, endTime || startTime!);
     }
@@ -151,6 +153,7 @@ export function cardWindow(card: OccupancyCardInput, durations?: StageDurations)
       endTime = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     }
   } else {
+
     end = endOfDayMs(startDate);
   }
 
@@ -264,7 +267,9 @@ export async function checkAssignmentConflicts(params: {
     tenantId,
     userId,
     fromDate: w.date,
-    toDate: params.card.delivery_date || w.date,
+    // Conflito rígido é sempre janela temporizada do mesmo dia.
+    toDate: w.date,
+
     excludeDemandId: params.card.id,
     durations,
   });
