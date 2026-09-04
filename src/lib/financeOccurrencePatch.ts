@@ -66,6 +66,7 @@ export function resolvePaidAtTimestamp(input: {
 
 export function buildOccurrencePatch(input: OccurrencePatchInput): Partial<FinanceOccurrence> {
   const { row, cardRow, factDate } = input;
+  const currency = input.currency ?? row.currency;
 
   const datePatch: Partial<FinanceOccurrence> = cardRow
     ? { charge_date: factDate || null, due_date: null }
