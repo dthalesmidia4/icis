@@ -313,7 +313,7 @@ export function useFinance(competence: Competence) {
       tracked
         ? operationalMonthRows(
             buildMonthRows({
-              items,
+              items: monthItems,
               occurrences,
               competence: normalized,
               fallbackRate: settings.defaultUsdRate,
@@ -321,28 +321,29 @@ export function useFinance(competence: Competence) {
             }),
           )
         : [],
-    [items, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
+    [monthItems, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
 
   const statements = useMemo(
     () =>
       tracked
         ? buildStatementGroups({
-            items,
+            items: monthItems,
             occurrences,
             competence: normalized,
             fallbackRate: settings.defaultUsdRate,
             rules,
           })
         : [],
-    [items, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
+    [monthItems, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
   );
 
   /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
   const skipped = useMemo(
-    () => (tracked ? skippedEntriesInMonth({ items, occurrences, competence: normalized }) : []),
-    [items, occurrences, normalized.year, normalized.month, tracked],
+    () => (tracked ? skippedEntriesInMonth({ items: monthItems, occurrences, competence: normalized }) : []),
+    [monthItems, occurrences, normalized.year, normalized.month, tracked],
   );
+
 
 
 
