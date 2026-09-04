@@ -54,7 +54,7 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
   const { requestExit, dialog: executionExitDialog } = useExecutionExitGuard();
 
   const load = useCallback(async () => {
-    if (!tenantId || !card.assigned_to) {
+    if (!tenantId) {
       setGroups([]);
       return;
     }
@@ -70,10 +70,6 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
           origin: card.origin ?? null,
           current_function_key: card.current_function_key ?? null,
         },
-        userId: card.assigned_to,
-        administrative: true,
-        // Escolha manual explícita: etapa já concluída não é bloqueio.
-        mode: "manual_stage_change",
       });
       setGroups(res.groups);
       setExpanded(
@@ -88,7 +84,6 @@ export default function StageQuickChangePopover({ tenantId, card, children, disa
   }, [
     tenantId,
     card.id,
-    card.assigned_to,
     card.demand_type_key,
     card.demand_type,
     card.work_area,
