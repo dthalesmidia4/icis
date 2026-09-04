@@ -567,6 +567,11 @@ function FinancialCockpit() {
     [accountRows, statusContext],
   );
 
+  const accountsTotal = useMemo(
+    () => accountRows.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0),
+    [accountRows],
+  );
+
   /**
    * Cartão inativo sem fato real na competência não aparece na tela
    * operacional — o cadastro continua existindo em `Gerenciar cadastros`.
