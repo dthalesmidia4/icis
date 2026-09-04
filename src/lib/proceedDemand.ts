@@ -135,6 +135,30 @@ async function avoidScheduleConflict(
   }
 }
 
+/**
+ * Nome de quem realmente ficou com o card. Quando o kernel troca o responsável
+ * (a preferência não podia a etapa), a mensagem precisa refletir a decisão real.
+ */
+async function resolveAssigneeName(
+  finalUserId: string | null,
+  expectedUserId: string | null,
+  expectedName?: string,
+): Promise<string> {
+  if (!finalUserId) return "sem responsável";
+  if (finalUserId === expectedUserId && expectedName) return expectedName;
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", finalUserId)
+      .maybeSingle();
+    return ((data as any)?.full_name as string) || expectedName || "Colaborador";
+  } catch {
+    return expectedName || "Colaborador";
+  }
+}
+
+
 /** Extrai só a agenda de um payload legado, para enviá-la DENTRO da transição. */
 function scheduleFromPayload(payload: any): TransitionSchedule | undefined {
   const out: Record<string, any> = {};
