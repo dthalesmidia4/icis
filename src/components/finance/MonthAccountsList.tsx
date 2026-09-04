@@ -39,7 +39,7 @@ import {
   formatBRL,
   formatCurrencyValue,
 } from "@/lib/financeModel";
-import { RowStatus, RowStatusContext, StatusTone, paymentLabel, resolveRowStatus, whenLabel } from "@/lib/financeRowStatus";
+import { RowStatus, RowStatusContext, StatusTone, resolveRowStatus, whenLabel } from "@/lib/financeRowStatus";
 import { buildAccountGroups } from "@/lib/financeAccountGrouping";
 import type { CompositionGroupBy } from "@/lib/financeGrouping";
 import { isIofRow } from "@/lib/financeIof";
