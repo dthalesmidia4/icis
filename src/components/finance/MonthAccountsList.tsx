@@ -11,8 +11,17 @@
  * de `Composição do mês`, para que "Administrativo", "Encargos trabalhistas"
  * etc. sejam rastreáveis aqui, sem tela paralela nem outra fonte de dados.
  */
-import { Fragment } from "react";
-import { AlertTriangle, CheckCircle2, Clock, CreditCard, MoreVertical, Paperclip } from "lucide-react";
+import { Fragment, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  MoreVertical,
+  Paperclip,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,9 +42,14 @@ import {
 } from "@/lib/financeModel";
 import { RowStatus, RowStatusContext, StatusTone, resolveRowStatus, whenLabel } from "@/lib/financeRowStatus";
 import { buildAccountGroups } from "@/lib/financeAccountGrouping";
+import type { CompositionGroupBy } from "@/lib/financeGrouping";
 import { isIofRow } from "@/lib/financeIof";
 
-import { type OccurrenceLabel, occurrenceDisplayName } from "@/lib/financeOccurrenceLabels";
+import {
+  type OccurrenceLabel,
+  occurrenceDisplayName,
+  occurrenceDisplaySuffix,
+} from "@/lib/financeOccurrenceLabels";
 
 interface Props {
   rows: MonthRow[];
@@ -52,6 +66,8 @@ interface Props {
   onEditItem: (item: FinanceItem) => void;
   /** `false` mantém a lista corrida, sem hierarquia. */
   grouped?: boolean;
+  /** Dimensão do primeiro nível: natureza (categoria) ou área (centro de custo). */
+  groupBy?: CompositionGroupBy;
 }
 
 const TONE_ICON: Record<StatusTone, typeof Clock> = {
@@ -92,7 +108,17 @@ export default function MonthAccountsList({
   onTogglePaid,
   onEditItem,
   grouped = true,
+  groupBy = "category",
 }: Props) {
+  /** Recolher é só apresentação: nada é persistido. */
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const metaFor = (row: MonthRow) => {
     const center = COST_CENTER_LABELS[row.item.cost_center] ?? row.item.cost_center;
     const payment = row.cardItemId
