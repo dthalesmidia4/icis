@@ -557,6 +557,14 @@ function FinancialCockpit() {
     return { pending: pending.length, overdue: overdue.length, open };
   }, [accountRows, statusContext]);
 
+  const accountsPaidTotal = useMemo(
+    () =>
+      accountRows
+        .filter((row) => resolveRowStatus(row, statusContext).kind === "paid")
+        .reduce((sum, r) => sum + (r.amountBrl ?? 0), 0),
+    [accountRows, statusContext],
+  );
+
   /**
    * Cartão inativo sem fato real na competência não aparece na tela
    * operacional — o cadastro continua existindo em `Gerenciar cadastros`.
