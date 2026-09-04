@@ -635,6 +635,26 @@ export default function FinanceItemFormModal({
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              {/* Categoria pertence ao CADASTRO: é a NATUREZA da despesa e
+                  organiza o histórico deste item nos próximos meses. Dimensão
+                  independente de Tipo e de Centro de custo. */}
+              <Label>Categoria</Label>
+              <Input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                list="finance-category-options"
+                placeholder="Ex: Folha de pagamento, Encargos, IA"
+              />
+              <datalist id="finance-category-options">
+                {knownCategories.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+              <p className="text-xs text-muted-foreground mt-1">
+                Escolha uma existente ou digite uma nova.
+              </p>
+            </div>
           </div>
 
           {isIncluded && (
@@ -1119,26 +1139,6 @@ export default function FinanceItemFormModal({
                     <FinanceDateInput value={subscriptionDate} onChange={setSubscriptionDate} />
                   </div>
                 )}
-                <div>
-                  <Label>Categoria</Label>
-                  {/* Categoria pertence ao CADASTRO: organiza o histórico deste
-                      item e vale para os meses/projeções futuros. */}
-                  <Input
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    list="finance-category-options"
-                    placeholder="Ex: Folha de pagamento, Encargos trabalhistas, Assinaturas"
-                  />
-                  <datalist id="finance-category-options">
-                    {knownCategories.map((option) => (
-                      <option key={option} value={option} />
-                    ))}
-                  </datalist>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Escolha uma categoria existente ou digite uma nova. Ela agrupa este item na
-                    Composição do mês e vale também para os próximos meses.
-                  </p>
-                </div>
                 <div>
                   <Label>Link / painel</Label>
                   <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" />
