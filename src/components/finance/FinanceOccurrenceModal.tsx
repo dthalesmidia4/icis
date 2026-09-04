@@ -623,7 +623,7 @@ export default function FinanceOccurrenceModal({
               )}
             </div>
 
-            {row.currency === "USD" && (
+            {isUsd && (
               <p className="text-xs text-muted-foreground">
                 {USD_CONVERSION_HELP}{" "}
                 {persistedRate != null
