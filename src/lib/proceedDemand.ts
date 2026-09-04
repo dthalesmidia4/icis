@@ -21,11 +21,17 @@ import {
 import { checkAssignmentConflicts, suggestFreeSlot } from "@/lib/scheduleOccupancy";
 import { applyFlowReactivation } from "@/lib/reactivateDemand";
 import {
-  commitFlowTransition,
+  transitionDemand,
+  type TransitionIntent,
+  type TransitionResult,
+  type TransitionSchedule,
+} from "@/lib/demandTransition";
+import {
   fetchFlowState,
   STALE_TRANSITION_MESSAGE,
   type FlowState,
 } from "@/lib/flowTransition";
+
 
 
 
