@@ -862,21 +862,19 @@ export async function jumpToFunction({
     const keep = keepOwner?.userId || null;
 
     if (!keep) return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
-    const updateWait: any = {
-      assigned_to: keep,
-      current_function_key: target.function_key,
-      client_wait_started_at: new Date().toISOString(),
-    };
-    await applyFlowReactivation(updateWait, demandId, keep);
-    const commit = await commitFlowTransition({
+    const commit = await kernelCommit({
       demandId,
-      payload: updateWait,
+      intent: "proceed",
+      targetFunctionKey: target.function_key,
+      targetUserId: keep,
+      administrative: false,
       expectedFunctionKey: currentFunctionKey || null,
       expectedAssignee: previous,
+      source: "jump_to_function",
+      metadata: jumpHistoryMeta,
     });
     if (commit.status === "stale") return staleResult(demandId);
-    if (commit.status === "error") return { success: false, message: "Erro ao atualizar etapa." };
-    await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: previous, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key, metadata: jumpHistoryMeta });
+    if (commit.status !== "ok") return { success: false, message: commit.message };
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
     await recordStageTouchpoint(tenantId, demandId, target.function_key);
     // A etapa que enviou ao cliente foi concluída: registra a entrega (trava regressão).
@@ -885,6 +883,7 @@ export async function jumpToFunction({
       ...(await fetchExtraAssignees(demandId)),
     ]);
     return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.`, flowState: commit.flowState };
+
 
   }
 
