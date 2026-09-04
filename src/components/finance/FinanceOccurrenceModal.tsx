@@ -52,7 +52,7 @@ import {
   installmentHeaderLine,
   installmentProjectedNote,
   isInstallmentRow,
-  occurrenceAmountLabel,
+  
   occurrencePaidHelp,
 } from "@/lib/financeInstallmentPresentation";
 import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
@@ -181,6 +181,11 @@ export default function FinanceOccurrenceModal({
   const [removing, setRemoving] = useState(false);
   /** Origem do pagamento DESTE mês (`NONE` = seguir o cadastro permanente). */
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
+  /**
+   * Moeda DESTE fato. Corrigível no mês sem tocar no cadastro permanente
+   * (`row.item.currency` continua intacto).
+   */
+  const [currency, setCurrency] = useState<"BRL" | "USD">("BRL");
 
   /**
    * Fato FECHADO (pago direto ou liquidado por fatura paga) NÃO trava a
@@ -283,12 +288,41 @@ export default function FinanceOccurrenceModal({
     if (occ?.card_item_id_snapshot) setOrigin(`card:${occ.card_item_id_snapshot}`);
     else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
     else setOrigin(FOLLOW_ITEM);
+    setCurrency(row.currency === "USD" ? "USD" : "BRL");
     // Nada de modo de correção: os campos factuais já abrem digitáveis.
 
   }, [open, row, defaultUsdRate, today]);
 
 
-  const isUsd = row?.currency === "USD";
+  const isUsd = currency === "USD";
+
+  /**
+   * Troca de moeda DESTE mês: nunca perde o número já digitado.
+   *  - BRL → USD: o valor digitado passa a ser o valor em dólar e o câmbio
+   *    disponível (efetivo/cadastro/referência) semeia a conversão;
+   *  - USD → BRL: o valor principal passa a ser o real já calculado.
+   */
+  const changeCurrency = (next: "BRL" | "USD") => {
+    if (next === currency) return;
+    if (next === "USD") {
+      const seedRate =
+        parseLocalizedNumber(rate) ?? persistedRate ?? row?.exchangeRate ?? defaultUsdRate ?? null;
+      const seeded = seedUsdConversion({
+        original: parseLocalizedNumber(amount),
+        rate: seedRate,
+        brl: null,
+      });
+      setAmount(seeded.original);
+      setRate(seeded.rate);
+      setBrlCharged(seeded.brl);
+    } else {
+      const brlValue = resolveUsdNumbers({ original: amount, rate, brl: brlCharged }).amountBrl;
+      if (brlValue != null) setAmount(String(brlValue));
+      setBrlCharged("");
+    }
+    setCurrency(next);
+  };
+
   const usdState: UsdConversionState = { original: amount, rate, brl: brlCharged };
   /** Edição bidirecional: câmbio ↔ valor cobrado em reais. */
   const editUsd = (field: UsdConversionField, value: string) => {
@@ -351,6 +385,16 @@ export default function FinanceOccurrenceModal({
   };
 
   /**
+   * Cartão inativo não é oferecido como NOVA escolha. A única exceção é o
+   * cartão já gravado no snapshot deste mês: ele continua visível apenas para
+   * representar a seleção existente.
+   */
+  const selectableCards = useMemo(() => {
+    const current = row?.occurrence?.card_item_id_snapshot ?? null;
+    return cards.filter((card) => card.active || card.id === current);
+  }, [cards, row?.occurrence?.card_item_id_snapshot]);
+
+  /**
    * Snapshot da origem: só este mês muda. O cadastro permanente fica intacto,
    * então o histórico dos meses anteriores nunca é reescrito.
    */
@@ -384,7 +428,7 @@ export default function FinanceOccurrenceModal({
     }
     const patch = buildFactCorrectionPatch({
       cardRow: cardRow || convertFirst,
-      currency: row.currency,
+      currency,
       amountOriginal: amountNumber,
       amountBrl: brl,
       exchangeRate: rateNumber,
@@ -431,6 +475,7 @@ export default function FinanceOccurrenceModal({
     const patch = buildOccurrencePatch({
       row,
       cardRow,
+      currency,
       factDate,
       amountOriginal: amountNumber,
       amountBrl: brl,
@@ -457,6 +502,13 @@ export default function FinanceOccurrenceModal({
 
   const dateLabel = cardRow ? cardChargeDateFieldLabel(row.projected) : "Vencimento";
   const rateLabel = persistedRate != null ? "Câmbio efetivo" : "Câmbio de referência";
+  /**
+   * Rótulo do valor segue a moeda ESCOLHIDA no mês (o helper global continua
+   * lendo `row.currency`, que é do cadastro).
+   */
+  const amountLabel = isInstallmentRow(row)
+    ? `Valor desta parcela (${currency})`
+    : `Valor real (${currency})`;
   const whenText = cardRow
     ? `${row.projected ? "cobrança prevista no cartão" : "cobrado no cartão"} em ${formatDateBR(row.chargeDate)}`
     : `vencimento ${row.projected ? "previsto" : ""} ${formatDateBR(row.dueDate ?? row.chargeDate)}`.replace("  ", " ");
@@ -509,7 +561,7 @@ export default function FinanceOccurrenceModal({
           <Block title="Dados deste mês">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="min-w-0">
-                <Label>{occurrenceAmountLabel(row)}</Label>
+                <Label>{amountLabel}</Label>
                 <Input
                   className="w-full min-w-0 max-w-full"
                   value={amount}
@@ -535,7 +587,25 @@ export default function FinanceOccurrenceModal({
                 )}
               </div>
 
-              {row.currency === "USD" && (
+              {/* Moeda DESTE fato: correção do mês, nunca do cadastro. */}
+              <div className="min-w-0">
+                <Label>Moeda</Label>
+                <Select
+                  value={currency}
+                  onValueChange={(v) => changeCurrency(v === "USD" ? "USD" : "BRL")}
+                  disabled={readOnlyMoney}
+                >
+                  <SelectTrigger className="mt-1 w-full min-w-0 max-w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BRL">Real (BRL)</SelectItem>
+                    <SelectItem value="USD">Dólar (USD)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isUsd && (
                 <>
                   <div className="min-w-0">
                     <Label>{rateLabel}</Label>
@@ -564,7 +634,7 @@ export default function FinanceOccurrenceModal({
               )}
             </div>
 
-            {row.currency === "USD" && (
+            {isUsd && (
               <p className="text-xs text-muted-foreground">
                 {USD_CONVERSION_HELP}{" "}
                 {persistedRate != null
@@ -589,9 +659,10 @@ export default function FinanceOccurrenceModal({
                   <SelectItem value={FOLLOW_ITEM}>
                     Seguir o cadastro{row.item.payment_method ? ` (${row.item.payment_method})` : ""}
                   </SelectItem>
-                  {cards.map((card) => (
+                  {selectableCards.map((card) => (
                     <SelectItem key={card.id} value={`card:${card.id}`}>
                       {cardDisplayLabel(card)}
+                      {card.active ? "" : " (inativo)"}
                     </SelectItem>
                   ))}
                   {PAYMENT_METHODS.filter((m) => m !== CARD_PAYMENT_METHOD).map((m) => (

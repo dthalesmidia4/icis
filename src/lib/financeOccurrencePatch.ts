@@ -17,6 +17,11 @@ export interface OccurrencePatchInput {
   row: MonthRow;
   /** `isCardCharge(row)` — decidido pelo chamador. */
   cardRow: boolean;
+  /**
+   * Moeda DESTE fato. A correção de moeda vale só para a ocorrência do mês;
+   * quando ausente, segue a moeda da linha (cadastro).
+   */
+  currency?: "BRL" | "USD";
   /** Data do fato digitada (`YYYY-MM-DD`). */
   factDate: string;
   amountOriginal: number | null;
@@ -61,6 +66,7 @@ export function resolvePaidAtTimestamp(input: {
 
 export function buildOccurrencePatch(input: OccurrencePatchInput): Partial<FinanceOccurrence> {
   const { row, cardRow, factDate } = input;
+  const currency = input.currency ?? row.currency;
 
   const datePatch: Partial<FinanceOccurrence> = cardRow
     ? { charge_date: factDate || null, due_date: null }
@@ -80,9 +86,9 @@ export function buildOccurrencePatch(input: OccurrencePatchInput): Partial<Finan
       };
 
   return {
-    currency: row.currency,
-    amount_original: input.amountOriginal,
-    exchange_rate: row.currency === "USD" ? input.exchangeRate : null,
+    currency,
+    amount_original: currency === "USD" ? input.amountOriginal : null,
+    exchange_rate: currency === "USD" ? input.exchangeRate : null,
     amount_brl: input.amountBrl,
     is_estimated: false,
     observations: input.observations.trim() || null,
