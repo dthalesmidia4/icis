@@ -672,7 +672,7 @@ export const ALL_CLEAR_MESSAGE =
 /*                          FILA DE PRÓXIMOS PAGAMENTOS                       */
 /* -------------------------------------------------------------------------- */
 
-export type PaymentQueueType = "direct" | "statement";
+export type PaymentQueueType = "direct" | "statement" | "grouped";
 
 export interface PaymentQueueEntry {
   id: string;
@@ -688,7 +688,10 @@ export interface PaymentQueueEntry {
   row?: MonthRow;
   /** Cartão de destino, quando a entrada é uma fatura. */
   cardId?: string;
+  /** Lote de saída de caixa, quando a entrada agrupa várias ocorrências. */
+  group?: GroupedPayment;
 }
+
 
 export interface PaymentQueueParams {
   rows: MonthRow[];
