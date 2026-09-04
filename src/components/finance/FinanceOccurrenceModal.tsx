@@ -181,6 +181,11 @@ export default function FinanceOccurrenceModal({
   const [removing, setRemoving] = useState(false);
   /** Origem do pagamento DESTE mês (`NONE` = seguir o cadastro permanente). */
   const [origin, setOrigin] = useState<string>(FOLLOW_ITEM);
+  /**
+   * Moeda DESTE fato. Corrigível no mês sem tocar no cadastro permanente
+   * (`row.item.currency` continua intacto).
+   */
+  const [currency, setCurrency] = useState<"BRL" | "USD">("BRL");
 
   /**
    * Fato FECHADO (pago direto ou liquidado por fatura paga) NÃO trava a
