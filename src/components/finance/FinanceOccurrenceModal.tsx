@@ -244,6 +244,13 @@ export default function FinanceOccurrenceModal({
   /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
   const cardRow = !!row && isCardCharge(row);
   const statementRow = !!row && isStatementRow(row);
+  /**
+   * Cartão de terceiro: liquidado no próprio fato, sem fatura interna.
+   * Vale tanto para o fato já gravado quanto para a escolha feita agora.
+   */
+  const externalCardRow =
+    (!!row && row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD && !row.cardItemId) ||
+    origin === `method:${EXTERNAL_CARD_PAYMENT_METHOD}`;
   /** Campos factuais: abertos sempre, exceto na própria fatura. */
   const factEditable = !!row && factFieldsEditable({ statementRow });
   const readOnlyFact = !factEditable;
