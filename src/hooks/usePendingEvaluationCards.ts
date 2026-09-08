@@ -32,7 +32,8 @@ interface PeriodRow {
  * Fetch pending planning cards (JSON) para toda a tenant e resolve
  * o responsável por avaliá-los usando `collaborator_function_assignments`
  * para `function_key = 'avaliar'`. Cards já materializados como demands
- * (mesmo period_plan_id + mesmo título) são excluídos.
+ * (mesmo period_plan_id + demand_id) são excluídos; título/código só são
+ * usados como fallback para snapshots legados sem demand_id.
  */
 export function usePendingEvaluationCards(tenantId: string | null) {
   const [cards, setCards] = useState<PendingEvaluationCard[]>([]);
