@@ -18,6 +18,11 @@ export interface OccurrencePatchInput {
   /** `isCardCharge(row)` — decidido pelo chamador. */
   cardRow: boolean;
   /**
+   * Cartão de terceiro/fora do financeiro: não existe fatura interna, então o
+   * fato já nasce LIQUIDADO na própria `charge_date`.
+   */
+  externalCardRow?: boolean;
+  /**
    * Moeda DESTE fato. A correção de moeda vale só para a ocorrência do mês;
    * quando ausente, segue a moeda da linha (cadastro).
    */
