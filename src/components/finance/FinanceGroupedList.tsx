@@ -159,6 +159,7 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
   rowLocked,
   action,
   countLabel = defaultCountLabel,
+  valueSecondary,
 }: FinanceGroupedListProps<E>) {
   if (loading) {
     return (
