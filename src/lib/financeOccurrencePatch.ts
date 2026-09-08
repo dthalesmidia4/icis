@@ -77,7 +77,15 @@ export function buildOccurrencePatch(input: OccurrencePatchInput): Partial<Finan
     ? { charge_date: factDate || null, due_date: null }
     : { due_date: factDate || null, charge_date: row.chargeDate };
 
-  const paymentPatch: Partial<FinanceOccurrence> = cardRow
+  const externalCardRow = !!input.externalCardRow;
+
+  const paymentPatch: Partial<FinanceOccurrence> = externalCardRow
+    ? {
+        // Liquidado no próprio fato: a data de liquidação é a da compra.
+        paid_at: factDate && isValidPaymentDate(factDate) ? paymentDateToTimestamp(factDate) : null,
+        paid_amount_brl: input.amountBrl,
+      }
+    : cardRow
     ? {}
     : {
         paid_at: input.paid
