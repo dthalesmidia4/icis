@@ -108,6 +108,22 @@ const NO_METHOD = "__none__";
 
 import { type OccurrenceLabel, occurrenceDisplayName } from "@/lib/financeOccurrenceLabels";
 
+/** Auditoria de diferença entre valor lançado e valor efetivamente pago. */
+function paymentDivergenceNode(row: MonthRow): ReactNode | null {
+  if (!row.occurrence?.paid_at) return null;
+  const amount = row.amountBrl ?? 0;
+  const paid = row.paidAmountBrl ?? amount;
+  const diff = Number((paid - amount).toFixed(2));
+  if (Math.abs(diff) <= 0.01) return null;
+  return (
+    <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+      <p>Valor do lançamento: {formatBRL(amount)}</p>
+      <p>Valor pago: {formatBRL(paid)}</p>
+      <p>Diferença: {diff > 0 ? `+${formatBRL(diff)}` : formatBRL(diff)}</p>
+    </div>
+  );
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
