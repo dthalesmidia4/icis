@@ -274,6 +274,7 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
                                 {formatCurrencyValue(row.amountOriginal, "USD")}
                               </p>
                             )}
+                            {valueSecondary?.(entry)}
                           </TableCell>
                           <TableCell>
                             <FinanceStatusBadge status={rowStatus} />
