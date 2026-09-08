@@ -244,6 +244,13 @@ export default function FinanceOccurrenceModal({
   /** Compra no cartão: a data é cobrança e o pagamento vem da fatura. */
   const cardRow = !!row && isCardCharge(row);
   const statementRow = !!row && isStatementRow(row);
+  /**
+   * Cartão de terceiro: liquidado no próprio fato, sem fatura interna.
+   * Vale tanto para o fato já gravado quanto para a escolha feita agora.
+   */
+  const externalCardRow =
+    (!!row && row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD && !row.cardItemId) ||
+    origin === `method:${EXTERNAL_CARD_PAYMENT_METHOD}`;
   /** Campos factuais: abertos sempre, exceto na própria fatura. */
   const factEditable = !!row && factFieldsEditable({ statementRow });
   const readOnlyFact = !factEditable;
@@ -532,6 +539,7 @@ export default function FinanceOccurrenceModal({
     const patch = buildOccurrencePatch({
       row,
       cardRow,
+      externalCardRow,
       currency,
       factDate,
       amountOriginal: amountNumber,
@@ -557,7 +565,7 @@ export default function FinanceOccurrenceModal({
 
   if (!row) return null;
 
-  const dateLabel = cardRow ? cardChargeDateFieldLabel(row.projected) : "Vencimento";
+  const dateLabel = cardRow || externalCardRow ? cardChargeDateFieldLabel(row.projected) : "Vencimento";
   const rateLabel = persistedRate != null ? "Câmbio efetivo" : "Câmbio de referência";
   /**
    * Rótulo do valor segue a moeda ESCOLHIDA no mês (o helper global continua
@@ -746,7 +754,14 @@ export default function FinanceOccurrenceModal({
           </Block>
 
           <Block title="Situação do pagamento">
-            {cardRow || statementRow ? (
+            {externalCardRow ? (
+              <div className="rounded-lg border p-3 min-w-0">
+                <p className={`text-sm font-medium ${toneClass}`}>Pago no cartão externo</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cobrança liquidada no próprio fato; não depende de fatura interna.
+                </p>
+              </div>
+            ) : cardRow || statementRow ? (
               <div className="rounded-lg border p-3 min-w-0">
                 <p className={`text-sm font-medium ${toneClass}`}>{status.label}</p>
                 <p className="text-xs text-muted-foreground mt-1">

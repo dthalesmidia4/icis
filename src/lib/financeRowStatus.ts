@@ -260,19 +260,11 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
      * gerenciada, ciclo nem vínculo — então nada é afirmado sobre fatura.
      */
     if (row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD && !row.cardItemId) {
-      if (row.paid) {
-        return {
-          kind: "paid",
-          label: paidLabelWithDate("Pago", row.occurrence?.paid_at),
-          tone: "positive",
-          direct: false,
-          canPayDirectly: false,
-        };
-      }
+      const day = paidAtDayMonth(row.occurrence?.paid_at) ?? paidAtDayMonth(row.chargeDate);
       return {
-        kind: "card_unlinked",
-        label: EXTERNAL_CARD_PAYMENT_METHOD,
-        tone: "neutral",
+        kind: "paid",
+        label: day ? `Pago no cartão externo em ${day}` : "Pago no cartão externo",
+        tone: "positive",
         direct: false,
         canPayDirectly: false,
       };

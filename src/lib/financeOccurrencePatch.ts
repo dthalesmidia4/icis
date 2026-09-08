@@ -18,6 +18,11 @@ export interface OccurrencePatchInput {
   /** `isCardCharge(row)` — decidido pelo chamador. */
   cardRow: boolean;
   /**
+   * Cartão de terceiro/fora do financeiro: não existe fatura interna, então o
+   * fato já nasce LIQUIDADO na própria `charge_date`.
+   */
+  externalCardRow?: boolean;
+  /**
    * Moeda DESTE fato. A correção de moeda vale só para a ocorrência do mês;
    * quando ausente, segue a moeda da linha (cadastro).
    */
@@ -65,14 +70,23 @@ export function resolvePaidAtTimestamp(input: {
 }
 
 export function buildOccurrencePatch(input: OccurrencePatchInput): Partial<FinanceOccurrence> {
-  const { row, cardRow, factDate } = input;
+  const { row, factDate } = input;
+  const cardRow = input.cardRow || !!input.externalCardRow;
   const currency = input.currency ?? row.currency;
 
   const datePatch: Partial<FinanceOccurrence> = cardRow
     ? { charge_date: factDate || null, due_date: null }
     : { due_date: factDate || null, charge_date: row.chargeDate };
 
-  const paymentPatch: Partial<FinanceOccurrence> = cardRow
+  const externalCardRow = !!input.externalCardRow;
+
+  const paymentPatch: Partial<FinanceOccurrence> = externalCardRow
+    ? {
+        // Liquidado no próprio fato: a data de liquidação é a da compra.
+        paid_at: factDate && isValidPaymentDate(factDate) ? paymentDateToTimestamp(factDate) : null,
+        paid_amount_brl: input.amountBrl,
+      }
+    : cardRow
     ? {}
     : {
         paid_at: input.paid

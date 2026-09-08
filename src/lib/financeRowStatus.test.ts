@@ -371,15 +371,16 @@ describe("cartão externo e forma de pagamento explícita", () => {
     expect(isDirectPayableRow(external)).toBe(false);
   });
 
-  it("cartão externo tem status neutro próprio, sem semântica de fatura", () => {
+  it("cartão externo é liquidado no próprio fato, sem semântica de fatura", () => {
     const status = resolveRowStatus(external, {
       rows: [external],
       today: TODAY,
       cardsById: new Map(),
       competenceMonth: "2026-08-01",
     });
-    expect(status.label).toBe("Cartão externo");
-    expect(status.tone).toBe("neutral");
+    expect(status.kind).toBe("paid");
+    expect(status.label).toContain("Pago no cartão externo");
+    expect(status.tone).toBe("positive");
     expect(status.direct).toBe(false);
     expect(status.canPayDirectly).toBe(false);
   });

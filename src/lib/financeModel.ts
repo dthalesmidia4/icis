@@ -984,6 +984,9 @@ export function effectivePaid(
   settlement?: SettlementIndexLike | null,
 ): boolean {
   if (row.paid) return true;
+  // Cartão externo: não existe fatura interna nem saldo a pagar — o gasto é
+  // liquidado no próprio fato, antes de qualquer tentativa de settlement.
+  if (row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD && !row.cardItemId) return true;
   if (settlement?.paidComponentKeys.has(row.key)) return true;
   const statement = linkedStatementRowFor(row, rows.filter(isStatementRow));
   return !!statement?.paid;
