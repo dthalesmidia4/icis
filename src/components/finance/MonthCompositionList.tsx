@@ -94,6 +94,7 @@ export default function MonthCompositionList({
         </span>
       )}
       status={(entry) => compositionStatusLabel(entry.row, statusContext, entry)}
+      valueSecondary={status === "paid" ? paidDivergenceSecondary : undefined}
     />
   );
 }
