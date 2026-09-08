@@ -266,6 +266,18 @@ export const PAYMENT_METHODS = [
 
 export const CARD_PAYMENT_METHOD = "Cartão de Crédito";
 
+/**
+ * Escolha EXPLÍCITA de "não há forma definida neste mês". Diferente de snapshot
+ * nulo, que significa "seguir o cadastro".
+ */
+export const UNDEFINED_PAYMENT_METHOD = "Sem forma definida";
+
+/**
+ * Cobrança feita em cartão de TERCEIRO/EXTERNO: não existe cartão cadastrado,
+ * não há fatura interna e nada é vinculado a `finance_items`.
+ */
+export const EXTERNAL_CARD_PAYMENT_METHOD = "Cartão externo";
+
 /* -------------------------------------------------------------------------- */
 /*                            IDENTIDADE DO CARTÃO                            */
 /* -------------------------------------------------------------------------- */

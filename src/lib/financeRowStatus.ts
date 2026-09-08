@@ -48,6 +48,8 @@ export { formatDayMonth, paidAtDayMonth, paidLabelWithDate };
 
 import {
   CARD_PAYMENT_METHOD,
+  EXTERNAL_CARD_PAYMENT_METHOD,
+  UNDEFINED_PAYMENT_METHOD,
   FinanceItem,
   MonthRow,
   StatementGroup,
@@ -144,6 +146,7 @@ export function daysBetweenISO(from: string, to: string): number {
 export function isCardCharge(row: MonthRow): boolean {
   if (isStatementRow(row)) return false;
   if (row.cardItemId) return true;
+  if (row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD) return true;
   return row.paymentMethod === CARD_PAYMENT_METHOD;
 }
 
