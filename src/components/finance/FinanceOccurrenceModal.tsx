@@ -15,7 +15,7 @@
  * `minmax(0,1fr)` e filhos `min-w-0`; `input[type=date]` tem largura intrínseca
  * maior que a trilha e estouraria o modal sem isso.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CalendarOff, Paperclip, Pencil, PlusCircle, Trash2 } from "lucide-react";
@@ -107,6 +107,22 @@ const FOLLOW_ITEM = "__follow__";
 const NO_METHOD = "__none__";
 
 import { type OccurrenceLabel, occurrenceDisplayName } from "@/lib/financeOccurrenceLabels";
+
+/** Auditoria de diferença entre valor lançado e valor efetivamente pago. */
+function paymentDivergenceNode(row: MonthRow): ReactNode | null {
+  if (!row.occurrence?.paid_at) return null;
+  const amount = row.amountBrl ?? 0;
+  const paid = row.paidAmountBrl ?? amount;
+  const diff = Number((paid - amount).toFixed(2));
+  if (Math.abs(diff) <= 0.01) return null;
+  return (
+    <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+      <p>Valor do lançamento: {formatBRL(amount)}</p>
+      <p>Valor pago: {formatBRL(paid)}</p>
+      <p>Diferença: {diff > 0 ? `+${formatBRL(diff)}` : formatBRL(diff)}</p>
+    </div>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -372,7 +388,7 @@ export default function FinanceOccurrenceModal({
   const handleUpload = async (file: File) => {
     if (!row) return;
     setUploading(true);
-    const path = `finance/${row.item.id}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+    const path = `finance/${row.item.id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
     const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
     setUploading(false);
     if (error) {
@@ -723,6 +739,7 @@ export default function FinanceOccurrenceModal({
                         Data real da saída de caixa, mesmo retroativa. O vencimento não muda.
                       </p>
                     )}
+                    {paymentDivergenceNode(row)}
                   </div>
                 )}
 

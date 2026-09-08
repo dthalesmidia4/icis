@@ -9,11 +9,13 @@ import { CreditCard } from "lucide-react";
 import {
   COST_CENTER_LABELS,
   MonthRow,
+  formatBRL,
   installmentRowLabel,
 } from "@/lib/financeModel";
 import { RowStatusContext, formatDayMonth, paymentLabel } from "@/lib/financeRowStatus";
 import {
   CompositionEntry,
+  CompositionStatus,
   compositionDateLabel,
   compositionStatusLabel,
 } from "@/lib/financeComposition";
@@ -31,6 +33,8 @@ interface Props {
   groupBy: CompositionGroupBy;
   expanded: Record<string, boolean>;
   onToggleGroup: (key: string) => void;
+  /** Recorte da composição (`paid` é o único que exibe divergência pago x lançado). */
+  status?: CompositionStatus;
 }
 
 function purposeLine(row: MonthRow): string {
@@ -46,6 +50,19 @@ function dateText(row: MonthRow): string {
   return `${label} ${formatDayMonth(date)}`;
 }
 
+function paidDivergenceSecondary(entry: CompositionEntry): React.ReactNode | null {
+  const amountBrl = entry.row.amountBrl ?? 0;
+  const paidAmountBrl = entry.row.paidAmountBrl;
+  if (paidAmountBrl == null) return null;
+  const diff = Number((paidAmountBrl - amountBrl).toFixed(2));
+  if (Math.abs(diff) <= 0.01) return null;
+  return (
+    <p className="text-sm text-muted-foreground">
+      Lançamento {formatBRL(amountBrl)} · diferença {diff > 0 ? `+${formatBRL(diff)}` : formatBRL(diff)}
+    </p>
+  );
+}
+
 export default function MonthCompositionList({
   entries,
   statusContext,
@@ -56,6 +73,7 @@ export default function MonthCompositionList({
   groupBy,
   expanded,
   onToggleGroup,
+  status,
 }: Props) {
   return (
     <FinanceGroupedList
@@ -76,6 +94,7 @@ export default function MonthCompositionList({
         </span>
       )}
       status={(entry) => compositionStatusLabel(entry.row, statusContext, entry)}
+      valueSecondary={status === "paid" ? paidDivergenceSecondary : undefined}
     />
   );
 }
