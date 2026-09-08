@@ -1148,6 +1148,7 @@ function FinancialCockpit() {
               emptyMessage="Nenhuma despesa neste recorte com esses filtros."
               onOpenRow={setOccurrenceRow}
               labels={occurrenceLabels}
+              status={compositionStatus}
               groupBy={compositionGroupBy}
               expanded={compositionExpanded}
               onToggleGroup={toggleCompositionGroup}
