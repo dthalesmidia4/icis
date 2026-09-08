@@ -754,7 +754,14 @@ export default function FinanceOccurrenceModal({
           </Block>
 
           <Block title="Situação do pagamento">
-            {cardRow || statementRow ? (
+            {externalCardRow ? (
+              <div className="rounded-lg border p-3 min-w-0">
+                <p className="text-sm font-medium text-emerald-600">Pago no cartão externo</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cobrança liquidada no próprio fato; não depende de fatura interna.
+                </p>
+              </div>
+            ) : cardRow || statementRow ? (
               <div className="rounded-lg border p-3 min-w-0">
                 <p className={`text-sm font-medium ${toneClass}`}>{status.label}</p>
                 <p className="text-xs text-muted-foreground mt-1">
