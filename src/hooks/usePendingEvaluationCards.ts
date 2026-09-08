@@ -79,12 +79,20 @@ export function usePendingEvaluationCards(tenantId: string | null) {
 
       const responsibles = Array.from(new Set(((assigns as any[]) || []).map(a => a.user_id).filter(Boolean)));
 
-      const materializedByPeriod = new Map<string, Set<string>>();
+      // Deduplicação por UUID quando o snapshot traz demand_id; título/código
+      // continuam como fallback para snapshots legados sem UUID.
+      const materializedByDemandId = new Map<string, Set<string>>();
+      const materializedByTitle = new Map<string, Set<string>>();
       ((existingDemands as any[]) || []).forEach((d) => {
         if (!d.period_plan_id) return;
-        const set = materializedByPeriod.get(d.period_plan_id) || new Set<string>();
-        set.add((d.title || "").trim());
-        materializedByPeriod.set(d.period_plan_id, set);
+        if (d.id) {
+          const set = materializedByDemandId.get(d.period_plan_id) || new Set<string>();
+          set.add(d.id);
+          materializedByDemandId.set(d.period_plan_id, set);
+        }
+        const titleSet = materializedByTitle.get(d.period_plan_id) || new Set<string>();
+        titleSet.add((d.title || "").trim());
+        materializedByTitle.set(d.period_plan_id, titleSet);
       });
 
       const clientNameById = new Map<string, string>();
@@ -103,7 +111,8 @@ export function usePendingEvaluationCards(tenantId: string | null) {
 
       const out: PendingEvaluationCard[] = [];
       ((periods as PeriodRow[]) || []).forEach((p) => {
-        const alreadyTitles = materializedByPeriod.get(p.id) || new Set<string>();
+        const alreadyByDemandId = materializedByDemandId.get(p.id) || new Set<string>();
+        const alreadyTitles = materializedByTitle.get(p.id) || new Set<string>();
         const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
         const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
         const clientName = clientNameById.get(p.company_id) || "Cliente";
@@ -113,7 +122,10 @@ export function usePendingEvaluationCards(tenantId: string | null) {
           items.forEach((raw, i) => {
             const title = String(raw?.titulo ?? raw?.title ?? "").trim();
             if (!title) return;
-            if (alreadyTitles.has(title)) return;
+            const rawDemandId = raw?.demand_id || null;
+            // UUID real do demand é a chave prioritária; só usa título/código para snapshots legados.
+            if (rawDemandId && alreadyByDemandId.has(rawDemandId)) return;
+            if (!rawDemandId && alreadyTitles.has(title)) return;
             out.push({
               key: `${p.id}:${source}:${i}`,
               periodId: p.id,
