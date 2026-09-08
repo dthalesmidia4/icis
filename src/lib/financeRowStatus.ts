@@ -48,6 +48,8 @@ export { formatDayMonth, paidAtDayMonth, paidLabelWithDate };
 
 import {
   CARD_PAYMENT_METHOD,
+  EXTERNAL_CARD_PAYMENT_METHOD,
+  UNDEFINED_PAYMENT_METHOD,
   FinanceItem,
   MonthRow,
   StatementGroup,
@@ -144,6 +146,7 @@ export function daysBetweenISO(from: string, to: string): number {
 export function isCardCharge(row: MonthRow): boolean {
   if (isStatementRow(row)) return false;
   if (row.cardItemId) return true;
+  if (row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD) return true;
   return row.paymentMethod === CARD_PAYMENT_METHOD;
 }
 
@@ -252,6 +255,29 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
   /* -------------------------- CARTÃO (componente) --------------------- */
   if (isCardCharge(row)) {
+    /**
+     * CARTÃO EXTERNO: cobrança em cartão de terceiro. Não existe fatura
+     * gerenciada, ciclo nem vínculo — então nada é afirmado sobre fatura.
+     */
+    if (row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD && !row.cardItemId) {
+      if (row.paid) {
+        return {
+          kind: "paid",
+          label: paidLabelWithDate("Pago", row.occurrence?.paid_at),
+          tone: "positive",
+          direct: false,
+          canPayDirectly: false,
+        };
+      }
+      return {
+        kind: "card_unlinked",
+        label: EXTERNAL_CARD_PAYMENT_METHOD,
+        tone: "neutral",
+        direct: false,
+        canPayDirectly: false,
+      };
+    }
+
     const statement = linkedStatementRow(row, statementRows);
     /**
      * BOOLEANO CANÔNICO — a MESMA prova de `effectivePaid`: fato próprio,
@@ -517,6 +543,9 @@ export function cardCycleWarning(row: MonthRow, ctx: RowStatusContext): string |
 export function paymentLabel(row: MonthRow, ctx: RowStatusContext): string {
   const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
   if (card) return cardDisplayLabel(card);
+  if (row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD) return EXTERNAL_CARD_PAYMENT_METHOD;
+  // Escolha explícita de "sem forma" é lida como ausência, não como rótulo cru.
+  if (row.paymentMethod === UNDEFINED_PAYMENT_METHOD) return "Forma de pagamento não definida";
   return row.paymentMethod ?? "Forma de pagamento não definida";
 }
 

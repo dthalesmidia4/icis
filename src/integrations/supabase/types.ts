@@ -1414,6 +1414,57 @@ export type Database = {
           },
         ]
       }
+      finance_deleted_records_audit: {
+        Row: {
+          competence_month: string | null
+          deleted_at: string
+          deleted_by: string | null
+          entry_role: string | null
+          id: string
+          item_id: string
+          item_name: string
+          occurrence_id: string | null
+          payment_date: string | null
+          reason: string
+          replacement_item_id: string | null
+          replacement_occurrence_id: string | null
+          tenant_id: string
+          was_paid: boolean
+        }
+        Insert: {
+          competence_month?: string | null
+          deleted_at?: string
+          deleted_by?: string | null
+          entry_role?: string | null
+          id?: string
+          item_id: string
+          item_name: string
+          occurrence_id?: string | null
+          payment_date?: string | null
+          reason: string
+          replacement_item_id?: string | null
+          replacement_occurrence_id?: string | null
+          tenant_id: string
+          was_paid?: boolean
+        }
+        Update: {
+          competence_month?: string | null
+          deleted_at?: string
+          deleted_by?: string | null
+          entry_role?: string | null
+          id?: string
+          item_id?: string
+          item_name?: string
+          occurrence_id?: string | null
+          payment_date?: string | null
+          reason?: string
+          replacement_item_id?: string | null
+          replacement_occurrence_id?: string | null
+          tenant_id?: string
+          was_paid?: boolean
+        }
+        Relationships: []
+      }
       finance_item_versions: {
         Row: {
           active: boolean
@@ -4082,6 +4133,14 @@ export type Database = {
       }
       create_manual_demand_atomic: { Args: { p_payload: Json }; Returns: Json }
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
+      delete_finance_erroneous_one_off: {
+        Args: {
+          _item_id: string
+          _reason: string
+          _replacement_occurrence_id?: string
+        }
+        Returns: Json
+      }
       delete_finance_item_safe: { Args: { _item_id: string }; Returns: Json }
       delete_finance_occurrence_safe: {
         Args: { _occurrence_id: string }

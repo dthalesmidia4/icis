@@ -28,6 +28,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CARD_PAYMENT_METHOD,
+  EXTERNAL_CARD_PAYMENT_METHOD,
+  UNDEFINED_PAYMENT_METHOD,
   FinanceItem,
   FinanceOccurrence,
   MonthRow,
@@ -122,6 +124,31 @@ function paymentDivergenceNode(row: MonthRow): ReactNode | null {
       <p>Diferença: {diff > 0 ? `+${formatBRL(diff)}` : formatBRL(diff)}</p>
     </div>
   );
+}
+
+const MONTH_NAMES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+/**
+ * Aviso quando a data do fato pertence a OUTRA competência que não a exibida.
+ * Nunca bloqueia o salvamento: só torna a inconsistência impossível de passar
+ * despercebida.
+ */
+export function competenceMismatchWarning(
+  factDate: string,
+  competenceMonth: string | null | undefined,
+): string | null {
+  if (!competenceMonth) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(factDate)) return null;
+  const competence = competenceMonth.slice(0, 7);
+  if (factDate.slice(0, 7) === competence) return null;
+  const [cy, cm] = competence.split("-").map(Number);
+  const monthLabel = MONTH_NAMES[cm - 1];
+  if (!monthLabel || !cy) return null;
+  const [y, m, d] = factDate.split("-");
+  return `Atenção: esta data é de ${d}/${m}/${y}, mas você está editando ${monthLabel}/${cy}.`;
 }
 
 interface Props {
@@ -302,6 +329,7 @@ export default function FinanceOccurrenceModal({
     setAttachmentName(row.occurrence?.attachment_name ?? null);
     const occ = row.occurrence;
     if (occ?.card_item_id_snapshot) setOrigin(`card:${occ.card_item_id_snapshot}`);
+    else if (occ?.payment_method_snapshot === UNDEFINED_PAYMENT_METHOD) setOrigin(NO_METHOD);
     else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
     else setOrigin(FOLLOW_ITEM);
     setCurrency(row.currency === "USD" ? "USD" : "BRL");
@@ -383,6 +411,16 @@ export default function FinanceOccurrenceModal({
     [cardRow, cardStatus?.label, row?.paid, persistedPaidDate, paid, paymentDate],
   );
 
+  /** Competência exibida: contexto da tela > competência do próprio fato. */
+  const competenceWarning = useMemo(
+    () =>
+      competenceMismatchWarning(
+        factDate,
+        statusContext?.competenceMonth ?? row?.occurrence?.competence_month ?? null,
+      ),
+    [factDate, statusContext?.competenceMonth, row?.occurrence?.competence_month],
+  );
+
   const canSubmit = canSubmitOccurrence({ cardRow, paid, paymentDate });
 
   const handleUpload = async (file: File) => {
@@ -416,7 +454,10 @@ export default function FinanceOccurrenceModal({
    */
   const originPatch: Partial<FinanceOccurrence> = useMemo(() => {
     if (origin === FOLLOW_ITEM) return { payment_method_snapshot: null, card_item_id_snapshot: null };
-    if (origin === NO_METHOD) return { payment_method_snapshot: null, card_item_id_snapshot: null };
+    // Escolha EXPLÍCITA: grava um snapshot próprio para não voltar a herdar o cadastro.
+    if (origin === NO_METHOD) {
+      return { payment_method_snapshot: UNDEFINED_PAYMENT_METHOD, card_item_id_snapshot: null };
+    }
     if (origin.startsWith("card:")) {
       return {
         payment_method_snapshot: CARD_PAYMENT_METHOD,
@@ -598,6 +639,11 @@ export default function FinanceOccurrenceModal({
                   onChange={setFactDate}
                   readOnly={readOnlyFact}
                 />
+                {competenceWarning && (
+                  <p className="mt-1 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1 text-xs text-amber-600 dark:text-amber-400 break-words">
+                    {competenceWarning}
+                  </p>
+                )}
                 {cardRow && (
                   <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DATE_HELP}</p>
                 )}
@@ -684,6 +730,11 @@ export default function FinanceOccurrenceModal({
                   {PAYMENT_METHODS.filter((m) => m !== CARD_PAYMENT_METHOD).map((m) => (
                     <SelectItem key={m} value={`method:${m}`}>{m}</SelectItem>
                   ))}
+                  {/* Cartão de terceiro: sem cadastro, sem fatura interna. */}
+                  <SelectItem value={`method:${EXTERNAL_CARD_PAYMENT_METHOD}`}>
+                    {EXTERNAL_CARD_PAYMENT_METHOD}
+                  </SelectItem>
+                  <SelectItem value={NO_METHOD}>Pagamento direto sem forma definida</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
