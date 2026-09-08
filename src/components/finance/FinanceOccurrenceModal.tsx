@@ -539,6 +539,7 @@ export default function FinanceOccurrenceModal({
     const patch = buildOccurrencePatch({
       row,
       cardRow,
+      externalCardRow,
       currency,
       factDate,
       amountOriginal: amountNumber,
