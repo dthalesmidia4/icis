@@ -9,11 +9,13 @@ import { CreditCard } from "lucide-react";
 import {
   COST_CENTER_LABELS,
   MonthRow,
+  formatBRL,
   installmentRowLabel,
 } from "@/lib/financeModel";
 import { RowStatusContext, formatDayMonth, paymentLabel } from "@/lib/financeRowStatus";
 import {
   CompositionEntry,
+  CompositionStatus,
   compositionDateLabel,
   compositionStatusLabel,
 } from "@/lib/financeComposition";
@@ -31,6 +33,8 @@ interface Props {
   groupBy: CompositionGroupBy;
   expanded: Record<string, boolean>;
   onToggleGroup: (key: string) => void;
+  /** Recorte da composição (`paid` é o único que exibe divergência pago x lançado). */
+  status?: CompositionStatus;
 }
 
 function purposeLine(row: MonthRow): string {
