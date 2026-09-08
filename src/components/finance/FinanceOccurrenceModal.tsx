@@ -739,6 +739,7 @@ export default function FinanceOccurrenceModal({
                         Data real da saída de caixa, mesmo retroativa. O vencimento não muda.
                       </p>
                     )}
+                    {paymentDivergenceNode(row)}
                   </div>
                 )}
 
