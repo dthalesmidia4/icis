@@ -411,6 +411,16 @@ export default function FinanceOccurrenceModal({
     [cardRow, cardStatus?.label, row?.paid, persistedPaidDate, paid, paymentDate],
   );
 
+  /** Competência exibida: contexto da tela > competência do próprio fato. */
+  const competenceWarning = useMemo(
+    () =>
+      competenceMismatchWarning(
+        factDate,
+        statusContext?.competenceMonth ?? row?.occurrence?.competence_month ?? null,
+      ),
+    [factDate, statusContext?.competenceMonth, row?.occurrence?.competence_month],
+  );
+
   const canSubmit = canSubmitOccurrence({ cardRow, paid, paymentDate });
 
   const handleUpload = async (file: File) => {
