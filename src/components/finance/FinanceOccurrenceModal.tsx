@@ -690,6 +690,11 @@ export default function FinanceOccurrenceModal({
                   {PAYMENT_METHODS.filter((m) => m !== CARD_PAYMENT_METHOD).map((m) => (
                     <SelectItem key={m} value={`method:${m}`}>{m}</SelectItem>
                   ))}
+                  {/* Cartão de terceiro: sem cadastro, sem fatura interna. */}
+                  <SelectItem value={`method:${EXTERNAL_CARD_PAYMENT_METHOD}`}>
+                    {EXTERNAL_CARD_PAYMENT_METHOD}
+                  </SelectItem>
+                  <SelectItem value={NO_METHOD}>Pagamento direto sem forma definida</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
