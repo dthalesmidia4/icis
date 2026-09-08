@@ -126,6 +126,31 @@ function paymentDivergenceNode(row: MonthRow): ReactNode | null {
   );
 }
 
+const MONTH_NAMES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+/**
+ * Aviso quando a data do fato pertence a OUTRA competência que não a exibida.
+ * Nunca bloqueia o salvamento: só torna a inconsistência impossível de passar
+ * despercebida.
+ */
+export function competenceMismatchWarning(
+  factDate: string,
+  competenceMonth: string | null | undefined,
+): string | null {
+  if (!competenceMonth) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(factDate)) return null;
+  const competence = competenceMonth.slice(0, 7);
+  if (factDate.slice(0, 7) === competence) return null;
+  const [cy, cm] = competence.split("-").map(Number);
+  const monthLabel = MONTH_NAMES[cm - 1];
+  if (!monthLabel || !cy) return null;
+  const [y, m, d] = factDate.split("-");
+  return `Atenção: esta data é de ${d}/${m}/${y}, mas você está editando ${monthLabel}/${cy}.`;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
