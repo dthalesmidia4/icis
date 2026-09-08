@@ -565,7 +565,7 @@ export default function FinanceOccurrenceModal({
 
   if (!row) return null;
 
-  const dateLabel = cardRow ? cardChargeDateFieldLabel(row.projected) : "Vencimento";
+  const dateLabel = cardRow || externalCardRow ? cardChargeDateFieldLabel(row.projected) : "Vencimento";
   const rateLabel = persistedRate != null ? "Câmbio efetivo" : "Câmbio de referência";
   /**
    * Rótulo do valor segue a moeda ESCOLHIDA no mês (o helper global continua
@@ -756,7 +756,7 @@ export default function FinanceOccurrenceModal({
           <Block title="Situação do pagamento">
             {externalCardRow ? (
               <div className="rounded-lg border p-3 min-w-0">
-                <p className="text-sm font-medium text-emerald-600">Pago no cartão externo</p>
+                <p className={`text-sm font-medium ${toneClass}`}>Pago no cartão externo</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Cobrança liquidada no próprio fato; não depende de fatura interna.
                 </p>
