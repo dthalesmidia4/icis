@@ -255,6 +255,29 @@ export function resolveRowStatus(row: MonthRow, ctx: RowStatusContext): RowStatu
 
   /* -------------------------- CARTÃO (componente) --------------------- */
   if (isCardCharge(row)) {
+    /**
+     * CARTÃO EXTERNO: cobrança em cartão de terceiro. Não existe fatura
+     * gerenciada, ciclo nem vínculo — então nada é afirmado sobre fatura.
+     */
+    if (row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD && !row.cardItemId) {
+      if (row.paid) {
+        return {
+          kind: "paid",
+          label: paidLabelWithDate("Pago", row.occurrence?.paid_at),
+          tone: "positive",
+          direct: false,
+          canPayDirectly: false,
+        };
+      }
+      return {
+        kind: "card_unlinked",
+        label: EXTERNAL_CARD_PAYMENT_METHOD,
+        tone: "neutral",
+        direct: false,
+        canPayDirectly: false,
+      };
+    }
+
     const statement = linkedStatementRow(row, statementRows);
     /**
      * BOOLEANO CANÔNICO — a MESMA prova de `effectivePaid`: fato próprio,
