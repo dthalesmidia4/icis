@@ -50,6 +50,19 @@ function dateText(row: MonthRow): string {
   return `${label} ${formatDayMonth(date)}`;
 }
 
+function paidDivergenceSecondary(entry: CompositionEntry): React.ReactNode | null {
+  const amountBrl = entry.row.amountBrl ?? 0;
+  const paidAmountBrl = entry.row.paidAmountBrl;
+  if (paidAmountBrl == null) return null;
+  const diff = Number((paidAmountBrl - amountBrl).toFixed(2));
+  if (Math.abs(diff) <= 0.01) return null;
+  return (
+    <p className="text-sm text-muted-foreground">
+      Lançamento {formatBRL(amountBrl)} · diferença {diff > 0 ? `+${formatBRL(diff)}` : formatBRL(diff)}
+    </p>
+  );
+}
+
 export default function MonthCompositionList({
   entries,
   statusContext,
@@ -60,6 +73,7 @@ export default function MonthCompositionList({
   groupBy,
   expanded,
   onToggleGroup,
+  status,
 }: Props) {
   return (
     <FinanceGroupedList
