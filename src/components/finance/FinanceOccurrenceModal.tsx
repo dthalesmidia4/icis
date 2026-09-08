@@ -629,6 +629,11 @@ export default function FinanceOccurrenceModal({
                   onChange={setFactDate}
                   readOnly={readOnlyFact}
                 />
+                {competenceWarning && (
+                  <p className="mt-1 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1 text-xs text-amber-600 dark:text-amber-400 break-words">
+                    {competenceWarning}
+                  </p>
+                )}
                 {cardRow && (
                   <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DATE_HELP}</p>
                 )}
