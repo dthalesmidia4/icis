@@ -304,6 +304,7 @@ export default function FinanceOccurrenceModal({
     setAttachmentName(row.occurrence?.attachment_name ?? null);
     const occ = row.occurrence;
     if (occ?.card_item_id_snapshot) setOrigin(`card:${occ.card_item_id_snapshot}`);
+    else if (occ?.payment_method_snapshot === UNDEFINED_PAYMENT_METHOD) setOrigin(NO_METHOD);
     else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
     else setOrigin(FOLLOW_ITEM);
     setCurrency(row.currency === "USD" ? "USD" : "BRL");
@@ -418,7 +419,10 @@ export default function FinanceOccurrenceModal({
    */
   const originPatch: Partial<FinanceOccurrence> = useMemo(() => {
     if (origin === FOLLOW_ITEM) return { payment_method_snapshot: null, card_item_id_snapshot: null };
-    if (origin === NO_METHOD) return { payment_method_snapshot: null, card_item_id_snapshot: null };
+    // Escolha EXPLÍCITA: grava um snapshot próprio para não voltar a herdar o cadastro.
+    if (origin === NO_METHOD) {
+      return { payment_method_snapshot: UNDEFINED_PAYMENT_METHOD, card_item_id_snapshot: null };
+    }
     if (origin.startsWith("card:")) {
       return {
         payment_method_snapshot: CARD_PAYMENT_METHOD,
