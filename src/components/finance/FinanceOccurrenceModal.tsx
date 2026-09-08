@@ -388,7 +388,7 @@ export default function FinanceOccurrenceModal({
   const handleUpload = async (file: File) => {
     if (!row) return;
     setUploading(true);
-    const path = `finance/${row.item.id}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+    const path = `finance/${row.item.id}/${Date.now()}-${file.name.replace(/[^\w.]/g, "_")}`;
     const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
     setUploading(false);
     if (error) {
