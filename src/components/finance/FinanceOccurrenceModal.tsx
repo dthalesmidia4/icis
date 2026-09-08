@@ -15,7 +15,7 @@
  * `minmax(0,1fr)` e filhos `min-w-0`; `input[type=date]` tem largura intrínseca
  * maior que a trilha e estouraria o modal sem isso.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CalendarOff, Paperclip, Pencil, PlusCircle, Trash2 } from "lucide-react";
