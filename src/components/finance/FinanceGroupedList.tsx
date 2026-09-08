@@ -355,9 +355,12 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
                           <p className="text-sm text-muted-foreground">{descriptionText(row)}</p>
                           {nameExtras?.(row)}
                         </div>
-                        <span className="text-[15px] font-semibold whitespace-nowrap">
-                          {formatBRL(entry.value)}
-                        </span>
+                        <div className="text-right">
+                          <span className="block text-[15px] font-semibold whitespace-nowrap">
+                            {formatBRL(entry.value)}
+                          </span>
+                          {valueSecondary?.(entry)}
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground">{originNode(row)}</p>
                       <div className="flex flex-wrap items-center gap-2 justify-between">
