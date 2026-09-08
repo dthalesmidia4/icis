@@ -68,7 +68,7 @@ export function usePendingEvaluationCards(tenantId: string | null) {
 
         supabase
           .from("demands")
-          .select("period_plan_id, title")
+          .select("id, period_plan_id, title")
           .eq("tenant_id", tenantId)
           .not("period_plan_id", "is", null),
         supabase

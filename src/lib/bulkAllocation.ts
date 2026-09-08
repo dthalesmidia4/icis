@@ -629,6 +629,9 @@ export const defaultBulkDeps: BulkAllocationDeps = {
     for (const row of ((data || []) as any[])) {
       if (skip.has(row.id)) continue;
       if (!row.due_date || !row.due_time || !row.delivery_date || !row.delivery_time) continue;
+      // Alinha com a regra canônica de ocupação: só bloqueia continuamente quando
+      // início e fim são no MESMO dia. Multi-dia é prazo/período, não ocupação.
+      if (row.due_date !== row.delivery_date) continue;
       const start = new Date(`${row.due_date}T${String(row.due_time).slice(0, 5)}:00`);
       const end = new Date(`${row.delivery_date}T${String(row.delivery_time).slice(0, 5)}:00`);
       if (!(end > start)) continue;
