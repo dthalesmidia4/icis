@@ -56,6 +56,8 @@ export interface FinanceGroupedListProps<E extends FinanceGroupedEntry> {
   };
   /** Texto de quantidade do grupo. */
   countLabel?: (count: number) => string;
+  /** Linha secundária discreta abaixo do valor (ex.: divergência pago x lançado). */
+  valueSecondary?: (entry: E) => ReactNode;
 }
 
 const TONE_ICON: Record<StatusTone, typeof Clock> = {
