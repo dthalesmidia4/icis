@@ -28,6 +28,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CARD_PAYMENT_METHOD,
+  EXTERNAL_CARD_PAYMENT_METHOD,
+  UNDEFINED_PAYMENT_METHOD,
   FinanceItem,
   FinanceOccurrence,
   MonthRow,
