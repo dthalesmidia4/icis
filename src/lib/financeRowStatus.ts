@@ -543,6 +543,9 @@ export function cardCycleWarning(row: MonthRow, ctx: RowStatusContext): string |
 export function paymentLabel(row: MonthRow, ctx: RowStatusContext): string {
   const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
   if (card) return cardDisplayLabel(card);
+  if (row.paymentMethod === EXTERNAL_CARD_PAYMENT_METHOD) return EXTERNAL_CARD_PAYMENT_METHOD;
+  // Escolha explícita de "sem forma" é lida como ausência, não como rótulo cru.
+  if (row.paymentMethod === UNDEFINED_PAYMENT_METHOD) return "Forma de pagamento não definida";
   return row.paymentMethod ?? "Forma de pagamento não definida";
 }
 
