@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { FinanceItem, FinanceOccurrence, MonthRow, formatBRL } from "./financeModel";
+import {
+  EXTERNAL_CARD_PAYMENT_METHOD,
+  FinanceItem,
+  FinanceOccurrence,
+  MonthRow,
+  UNDEFINED_PAYMENT_METHOD,
+  formatBRL,
+} from "./financeModel";
 import {
   buildAttentionInsights,
   isCardCharge,
@@ -12,6 +19,7 @@ import {
   statementValueLabel,
   buildPaidComposition,
   queueDateLabel,
+  paymentLabel,
 } from "./financeRowStatus";
 import { buildOccurrenceLabels } from "./financeOccurrenceLabels";
 
@@ -347,5 +355,42 @@ describe("rótulo contextual da fila de pagamentos", () => {
     expect(queueDateLabel("2026-08-25", "2026-08-24")).toBe("Amanhã");
     expect(queueDateLabel("2026-08-30", "2026-08-24")).toBe("30 ago");
     expect(queueDateLabel(null, "2026-08-24")).toBe("—");
+  });
+});
+
+describe("cartão externo e forma de pagamento explícita", () => {
+  const external = row({
+    item: item({ id: "lovable", name: "Lovable", payment_method: null }),
+    paymentMethod: EXTERNAL_CARD_PAYMENT_METHOD,
+    chargeDate: "2026-08-23",
+  } as never);
+
+  it("cartão externo é cobrança de cartão e nunca entra na fila direta", () => {
+    expect(isCardCharge(external)).toBe(true);
+    expect(isDirectObligation(external)).toBe(false);
+    expect(isDirectPayableRow(external)).toBe(false);
+  });
+
+  it("cartão externo tem status neutro próprio, sem semântica de fatura", () => {
+    const status = resolveRowStatus(external, {
+      rows: [external],
+      today: TODAY,
+      cardsById: new Map(),
+      competenceMonth: "2026-08-01",
+    });
+    expect(status.label).toBe("Cartão externo");
+    expect(status.tone).toBe("neutral");
+    expect(status.direct).toBe(false);
+    expect(status.canPayDirectly).toBe(false);
+  });
+
+  it("rótulos distinguem cartão externo e escolha explícita de sem forma", () => {
+    const ctx = { rows: [], today: TODAY, cardsById: new Map() };
+    expect(paymentLabel(external, ctx)).toBe("Cartão externo");
+    const undefinedMethod = row({
+      item: item({ id: "x", name: "X" }),
+      paymentMethod: UNDEFINED_PAYMENT_METHOD,
+    } as never);
+    expect(paymentLabel(undefinedMethod, ctx)).toBe("Forma de pagamento não definida");
   });
 });
