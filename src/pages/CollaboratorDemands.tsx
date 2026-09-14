@@ -888,7 +888,7 @@ const CollaboratorDemands = () => {
                 >
                   {reviewOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <Eye className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-sm">Em revisão</span>
+                  <span className="font-medium text-sm">Revisar</span>
                   <Badge variant="secondary" className="ml-1">{reviewCards.length}</Badge>
                 </button>
                 {reviewOpen && (
@@ -899,6 +899,51 @@ const CollaboratorDemands = () => {
                 )}
               </div>
             )}
+
+            {publicationReviewCards.length > 0 && (
+              <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setPublicationReviewOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors border-b border-border"
+                  aria-expanded={publicationReviewOpen}
+                >
+                  {publicationReviewOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <Eye className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Revisar publicação</span>
+                  <Badge variant="secondary" className="ml-1">{publicationReviewCards.length}</Badge>
+                </button>
+                {publicationReviewOpen && (
+                  <Table>
+                    {renderTableHeader()}
+                    <TableBody>{publicationReviewCards.map(renderRow)}</TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+
+            {clientSendCards.length > 0 && (
+              <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setClientSendOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors border-b border-border"
+                  aria-expanded={clientSendOpen}
+                >
+                  {clientSendOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <Clock className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Enviar cliente</span>
+                  <Badge variant="secondary" className="ml-1">{clientSendCards.length}</Badge>
+                </button>
+                {clientSendOpen && (
+                  <Table>
+                    {renderTableHeader()}
+                    <TableBody>{clientSendCards.map(renderRow)}</TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+
           </div>
         );
       })()}
