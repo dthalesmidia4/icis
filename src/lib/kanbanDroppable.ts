@@ -6,11 +6,27 @@
  * `assigned_to`. Este helper é a única fonte de verdade dessa tradução.
  */
 
-export type KanbanFocusKind = "production" | "planning" | "review" | "awaiting" | "evaluate";
+export type KanbanFocusKind =
+  | "production"
+  | "planning"
+  | "review"
+  | "publicationReview"
+  | "clientSend"
+  | "awaiting"
+  | "evaluate";
 
 export const UNASSIGNED_DROPPABLE_ID = "__unassigned__";
 
-const FOCUS_KINDS: KanbanFocusKind[] = ["production", "planning", "review", "awaiting", "evaluate"];
+const FOCUS_KINDS: KanbanFocusKind[] = [
+  "production",
+  "planning",
+  "review",
+  "publicationReview",
+  "clientSend",
+  "awaiting",
+  "evaluate",
+];
+
 
 export interface ParsedKanbanDroppable {
   /** UUID do responsável ou null quando "sem responsável". */
@@ -72,7 +88,7 @@ export function decideKanbanDrop(params: {
 export function isCardDraggable(state: {
   selectionMode: boolean;
   historyMode: boolean;
-  kind: "production" | "planning" | "review" | "awaiting" | "evaluate" | "history" | "queued";
+  kind: "production" | "planning" | "review" | "publicationReview" | "clientSend" | "awaiting" | "evaluate" | "history" | "queued";
   /** Fila de liberação: só arrasta o que já está operacionalmente liberado. */
   operationallyReleased?: boolean;
 }): boolean {

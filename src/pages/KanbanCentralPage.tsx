@@ -72,7 +72,7 @@ import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { ensureExecutionRun } from "@/lib/demandExecution";
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
-import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
+import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction, isClientSendFunction, isPublicationReviewFunction } from "@/lib/flowFunctions";
 import { isPlanningFunction } from "@/lib/collaboratorCardGroups";
 import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
@@ -134,7 +134,7 @@ const KANBAN_FOCUS_TRANSITION_MS = 280;
 const getClientSentAt = (card: Pick<KanbanCardData, "client_wait_started_at"> & { client_sent_at_fallback?: string | null }) =>
   card.client_wait_started_at || card.client_sent_at_fallback || null;
 
-type KanbanFocusKind = 'production' | 'planning' | 'evaluate' | 'awaiting' | 'review';
+type KanbanFocusKind = 'production' | 'planning' | 'evaluate' | 'awaiting' | 'review' | 'publicationReview' | 'clientSend';
 type KanbanDisplayColumn = {
   id: string;
   name: string;
@@ -350,6 +350,27 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
       return next;
     });
   }, []);
+  // Grupo "Enviar cliente" (`enviar_cliente`) — recolhido por padrão.
+  const [expandedClientSend, setExpandedClientSend] = useState<Set<string>>(new Set());
+  const toggleClientSend = useCallback((columnId: string) => {
+    setExpandedClientSend((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
+  // Grupo "Revisar publicação" (`revisar_publicacao`) — recolhido por padrão.
+  const [expandedPublicationReview, setExpandedPublicationReview] = useState<Set<string>>(new Set());
+  const togglePublicationReview = useCallback((columnId: string) => {
+    setExpandedPublicationReview((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
+
   // Grupo "Avaliar" (cards planejados aguardando aprovação) — recolhido por padrão.
   const [expandedEvaluate, setExpandedEvaluate] = useState<Set<string>>(new Set());
   const toggleEvaluate = useCallback((columnId: string) => {
@@ -2964,14 +2985,30 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                 );
                 const _aw = userCards.filter((c) => isClientWaitingFunction(c.current_function_key));
                 const _nonAw = userCards.filter((c) => !isClientWaitingFunction(c.current_function_key));
-                // `planejar` sai da produção e da revisão: agrupamento próprio.
+                // `planejar`, `enviar_cliente` e `revisar_publicacao` saem da produção
+                // e da revisão genérica: cada um tem agrupamento próprio.
                 const _plan = _nonAw.filter((c) => isPlanningFunction(c.current_function_key));
+                const _send = _nonAw.filter(
+                  (c) => !isPlanningFunction(c.current_function_key) && isClientSendFunction(c.current_function_key),
+                );
+                const _pubRev = _nonAw.filter(
+                  (c) =>
+                    !isPlanningFunction(c.current_function_key) &&
+                    !isClientSendFunction(c.current_function_key) &&
+                    isPublicationReviewFunction(c.current_function_key),
+                );
                 const _rev = _nonAw.filter(
-                  (c) => !isPlanningFunction(c.current_function_key) && isReviewFunction(c.current_function_key),
+                  (c) =>
+                    !isPlanningFunction(c.current_function_key) &&
+                    !isClientSendFunction(c.current_function_key) &&
+                    !isPublicationReviewFunction(c.current_function_key) &&
+                    isReviewFunction(c.current_function_key),
                 );
                 const _prod = _nonAw.filter(
                   (c) =>
                     !isPlanningFunction(c.current_function_key) &&
+                    !isClientSendFunction(c.current_function_key) &&
+                    !isPublicationReviewFunction(c.current_function_key) &&
                     !isReviewFunction(c.current_function_key) &&
                     !isEvaluationFunction(c.current_function_key),
                 );
@@ -2979,10 +3016,13 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                 const sub: typeof rawColumns = [];
                 if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
                 if (_plan.length > 0) sub.push({ id: `${target.userId}::planning`, name: 'Planejar', color: 'hsl(160 70% 40%)', userId: target.userId, focusKind: 'planning' });
-                if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Em revisão', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
+                if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Revisar', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
+                if (_pubRev.length > 0) sub.push({ id: `${target.userId}::publicationReview`, name: 'Revisar publicação', color: 'hsl(268 70% 58%)', userId: target.userId, focusKind: 'publicationReview' });
+                if (_send.length > 0) sub.push({ id: `${target.userId}::clientSend`, name: 'Enviar cliente', color: 'hsl(190 85% 45%)', userId: target.userId, focusKind: 'clientSend' });
                 if (_aw.length > 0) sub.push({ id: `${target.userId}::awaiting`, name: 'Aguardando clientes', color: 'hsl(210 90% 55%)', userId: target.userId, focusKind: 'awaiting' });
                 if (_eval.length > 0) sub.push({ id: `${target.userId}::evaluate`, name: 'Avaliar', color: 'hsl(280 70% 55%)', userId: target.userId, focusKind: 'evaluate' });
                 if (sub.length === 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+
                 displayColumns = sub;
               }
             }
@@ -3044,7 +3084,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
               : allColumnCards;
 
             // Planejar: SEMPRE agrupado (mesmo com 1 card), fora da coluna
-            // principal e fora de "Em revisão" (só modo ativo).
+            // principal e fora de "Revisar" (só modo ativo).
             const planningCardsBase = !isHistoryMode
               ? nonAwaitingCards.filter((c) => isPlanningFunction(c.current_function_key))
               : [];
@@ -3052,15 +3092,31 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
               ? nonAwaitingCards.filter((c) => !isPlanningFunction(c.current_function_key))
               : nonAwaitingCards;
 
+            // Enviar cliente: agrupamento próprio, nunca fica em produção.
+            const clientSendCardsBase = !isHistoryMode
+              ? nonPlanningCards.filter((c) => isClientSendFunction(c.current_function_key))
+              : [];
+            const nonClientSendCards = !isHistoryMode
+              ? nonPlanningCards.filter((c) => !isClientSendFunction(c.current_function_key))
+              : nonPlanningCards;
+
+            // Revisar publicação: agrupamento próprio, nunca junto das outras revisões.
+            const publicationReviewCardsBase = !isHistoryMode
+              ? nonClientSendCards.filter((c) => isPublicationReviewFunction(c.current_function_key))
+              : [];
+            const nonPublicationReviewCards = !isHistoryMode
+              ? nonClientSendCards.filter((c) => !isPublicationReviewFunction(c.current_function_key))
+              : nonClientSendCards;
+
             // Revisão: agrupar SE houver 3 ou mais cards em função de revisão neste colaborador (só modo ativo)
             const reviewCandidateCards = !isHistoryMode
-              ? nonPlanningCards.filter((c) => isReviewFunction(c.current_function_key))
+              ? nonPublicationReviewCards.filter((c) => isReviewFunction(c.current_function_key))
               : [];
             const shouldGroupReview = reviewCandidateCards.length >= 3;
             const reviewCardsBase = shouldGroupReview ? reviewCandidateCards : [];
             const columnCardsBase = shouldGroupReview
-              ? nonPlanningCards.filter((c) => !isReviewFunction(c.current_function_key))
-              : nonPlanningCards;
+              ? nonPublicationReviewCards.filter((c) => !isReviewFunction(c.current_function_key))
+              : nonPublicationReviewCards;
 
             // Avaliar: cards planejados aguardando aprovação atribuídos a esse colaborador
             const evaluateCardsBase = !isHistoryMode
@@ -3069,7 +3125,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
 
             // Aplicar overrides do modo foco (isola exatamente 1 agrupamento por sub-coluna)
             const columnCards = focusKind
-              ? (focusKind === 'production' ? nonPlanningCards.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key)) : [])
+              ? (focusKind === 'production' ? nonPublicationReviewCards.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key)) : [])
               : columnCardsBase;
             const evaluateCards = focusKind
               ? (focusKind === 'evaluate' ? evaluateCardsBase : [])
@@ -3083,6 +3139,13 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
             const planningCardsUnsorted = focusKind
               ? (focusKind === 'planning' ? planningCardsBase : [])
               : planningCardsBase;
+            const clientSendCardsUnsorted = focusKind
+              ? (focusKind === 'clientSend' ? clientSendCardsBase : [])
+              : clientSendCardsBase;
+            const publicationReviewCardsUnsorted = focusKind
+              ? (focusKind === 'publicationReview' ? publicationReviewCardsBase : [])
+              : publicationReviewCardsBase;
+
 
             // --- Ordenação cronológica dos agrupamentos ---
             const startKeyOf = (c: CentralKanbanCard): string =>
@@ -3091,6 +3154,9 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
               [...list].sort((a, b) => startKeyOf(a).localeCompare(startKeyOf(b)));
             const reviewCards = sortChrono(reviewCardsUnsorted);
             const planningCards = sortChrono(planningCardsUnsorted);
+            const clientSendCards = sortChrono(clientSendCardsUnsorted);
+            const publicationReviewCards = sortChrono(publicationReviewCardsUnsorted);
+
             const awaitingCardsSorted = sortChrono(awaitingCards);
             const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
               (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
@@ -3112,7 +3178,11 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
             const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
             const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
             const isPlanningCollapsed = focusKind ? false : !expandedPlanning.has(column.id);
+            const isClientSendCollapsed = focusKind ? false : !expandedClientSend.has(column.id);
+            const isPublicationReviewCollapsed = focusKind ? false : !expandedPublicationReview.has(column.id);
             const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
+
+
             const isQueueCollapsed = !expandedQueue.has(column.id);
 
             return (
@@ -3152,7 +3222,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                                 // realmente mostra (nunca a métrica global do hook).
                                 const badge = countColumnBadge(
                                   focusKind
-                                    ? [columnCards, reviewCards, awaitingCards, evaluateCards]
+                                    ? [columnCards, reviewCards, publicationReviewCards, clientSendCards, planningCards, awaitingCards, evaluateCards]
                                     : [allColumnCards],
                                 );
                                 const total = collaborators.find((c) => c.userId === columnUserId)
@@ -3629,7 +3699,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                             >
                               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
                               <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground uppercase tracking-[0.12em] transition-colors">
-                                Em revisão
+                                Revisar
                               </span>
                               <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
                                 {reviewCards.length}
@@ -3796,7 +3866,184 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                             )}
                           </div>
                         )}
+                        {/* Revisar publicação — `revisar_publicacao`, nunca junto de "Revisar" */}
+                        {publicationReviewCards.length > 0 && (
+                          <div className="mt-5">
+                            <button
+                              type="button"
+                              onClick={() => togglePublicationReview(column.id)}
+                              className="group w-full flex items-center gap-2 px-1 py-1.5 border-t border-border/60 hover:border-border transition-colors"
+                              aria-expanded={!isPublicationReviewCollapsed}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                              <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground uppercase tracking-[0.12em] transition-colors">
+                                Revisar publicação
+                              </span>
+                              <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
+                                {publicationReviewCards.length}
+                              </span>
+                              {publicationReviewCards.filter((c) => isCardOverdue(c)).length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400"
+                                  title="Cards atrasados neste agrupamento"
+                                >
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {publicationReviewCards.filter((c) => isCardOverdue(c)).length}
+                                </span>
+                              )}
+                              {isPublicationReviewCollapsed ? (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              )}
+                            </button>
+
+                            {!isPublicationReviewCollapsed && (
+                              <div className="mt-1 space-y-1">
+                                {publicationReviewCards.map((card, pubIdx) => (
+                                  <Draggable
+                                    key={card.id}
+                                    draggableId={card.id}
+                                    index={columnCards.length + reviewCards.length + planningCards.length + pubIdx}
+                                    isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "publicationReview" })}
+                                  >
+                                    {(dp, snap) => (
+                                      <div
+                                        ref={(el) => {
+                                          dp.innerRef(el);
+                                          if (el) cardRefs.current.set(card.id, el);
+                                          else cardRefs.current.delete(card.id);
+                                        }}
+                                        {...dp.draggableProps}
+                                        {...dp.dragHandleProps}
+                                        className={cn(
+                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                        )}
+                                      >
+                                        <KanbanCard
+                                          title={card.title}
+                                          subtitle={card.clientName}
+                                          demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                          dueDate={card.due_date}
+                                          dueTime={card.due_time || undefined}
+                                          cardDeliveryDate={card.delivery_date || undefined}
+                                          deliveryTime={card.delivery_time || undefined}
+                                          isDragging={snap.isDragging}
+                                          isOverdue={isCardOverdue(card)}
+                                          overdueSince={cardOverdueSince(card)}
+                                          cardId={card.id}
+                                          statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
+                                          stageChipWrapper={stageChipWrapper(card, selectionMode)}
+                                          selectable={selectionMode}
+                                          selected={selectedCardIds.includes(card.id)}
+                                          onToggleSelect={() => toggleCardSelection(card.id)}
+                                          statusColor={(card as any).status_color}
+                                          isDailyCard={(card as any).is_daily_card}
+                                          dailyCompleted={(card as any).daily_completed_occurrences}
+                                          dailyTotal={(card as any).daily_total_occurrences}
+                                          dailyNextDate={(card as any).daily_next_date}
+                                          workArea={(card as any).work_area || null}
+                                          onClick={() => handleCardClick(card, column.id)}
+                                          onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
+                                        />
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* Enviar cliente — `enviar_cliente`, interação com cliente fora da produção */}
+                        {clientSendCards.length > 0 && (
+                          <div className="mt-5">
+                            <button
+                              type="button"
+                              onClick={() => toggleClientSend(column.id)}
+                              className="group w-full flex items-center gap-2 px-1 py-1.5 border-t border-border/60 hover:border-border transition-colors"
+                              aria-expanded={!isClientSendCollapsed}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
+                              <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground uppercase tracking-[0.12em] transition-colors">
+                                Enviar cliente
+                              </span>
+                              <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
+                                {clientSendCards.length}
+                              </span>
+                              {clientSendCards.filter((c) => isCardOverdue(c)).length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400"
+                                  title="Cards atrasados neste agrupamento"
+                                >
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {clientSendCards.filter((c) => isCardOverdue(c)).length}
+                                </span>
+                              )}
+                              {isClientSendCollapsed ? (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              )}
+                            </button>
+
+                            {!isClientSendCollapsed && (
+                              <div className="mt-1 space-y-1">
+                                {clientSendCards.map((card, sendIdx) => (
+                                  <Draggable
+                                    key={card.id}
+                                    draggableId={card.id}
+                                    index={columnCards.length + reviewCards.length + planningCards.length + publicationReviewCards.length + sendIdx}
+                                    isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "clientSend" })}
+                                  >
+                                    {(dp, snap) => (
+                                      <div
+                                        ref={(el) => {
+                                          dp.innerRef(el);
+                                          if (el) cardRefs.current.set(card.id, el);
+                                          else cardRefs.current.delete(card.id);
+                                        }}
+                                        {...dp.draggableProps}
+                                        {...dp.dragHandleProps}
+                                        className={cn(
+                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                        )}
+                                      >
+                                        <KanbanCard
+                                          title={card.title}
+                                          subtitle={card.clientName}
+                                          demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                          dueDate={card.due_date}
+                                          dueTime={card.due_time || undefined}
+                                          cardDeliveryDate={card.delivery_date || undefined}
+                                          deliveryTime={card.delivery_time || undefined}
+                                          isDragging={snap.isDragging}
+                                          isOverdue={isCardOverdue(card)}
+                                          overdueSince={cardOverdueSince(card)}
+                                          cardId={card.id}
+                                          statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
+                                          stageChipWrapper={stageChipWrapper(card, selectionMode)}
+                                          selectable={selectionMode}
+                                          selected={selectedCardIds.includes(card.id)}
+                                          onToggleSelect={() => toggleCardSelection(card.id)}
+                                          statusColor={(card as any).status_color}
+                                          isDailyCard={(card as any).is_daily_card}
+                                          dailyCompleted={(card as any).daily_completed_occurrences}
+                                          dailyTotal={(card as any).daily_total_occurrences}
+                                          dailyNextDate={(card as any).daily_next_date}
+                                          workArea={(card as any).work_area || null}
+                                          onClick={() => handleCardClick(card, column.id)}
+                                          onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
+                                        />
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {/* Aguardando clientes — cards em `aguardando_cliente` ficam agrupados aqui */}
+
                         {awaitingCards.length > 0 && (
                           <div className="mt-5">
                             <button
@@ -3832,7 +4079,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                                   <Draggable
                                     key={card.id}
                                     draggableId={card.id}
-                                    index={columnCards.length + reviewCards.length + planningCards.length + awIdx}
+                                    index={columnCards.length + reviewCards.length + planningCards.length + publicationReviewCards.length + clientSendCards.length + awIdx}
                                     isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "awaiting" })}
                                   >
                                     {(dp) => (

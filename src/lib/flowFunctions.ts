@@ -37,12 +37,32 @@ const REVIEW_FUNCTION_KEYS = new Set([
   "revisar_conteudo",
 ]);
 
+export const CLIENT_SEND_FUNCTION_KEY = "enviar_cliente";
+export const PUBLICATION_REVIEW_FUNCTION_KEY = "revisar_publicacao";
+
+/** `true` só para a etapa de envio ao cliente (chave exata `enviar_cliente`). */
+export function isClientSendFunction(key?: string | null): boolean {
+  if (!key) return false;
+  return key.toLowerCase().trim() === CLIENT_SEND_FUNCTION_KEY;
+}
+
+/**
+ * `true` só para `revisar_publicacao`. Deve ser testada ANTES de
+ * `isReviewFunction` nos agrupamentos, para não cair junto com as revisões
+ * de produção. A semântica global de `isReviewFunction` não muda.
+ */
+export function isPublicationReviewFunction(key?: string | null): boolean {
+  if (!key) return false;
+  return key.toLowerCase().trim() === PUBLICATION_REVIEW_FUNCTION_KEY;
+}
+
 export function isReviewFunction(key?: string | null): boolean {
   if (!key) return false;
   const k = key.toLowerCase().trim();
   if (REVIEW_FUNCTION_KEYS.has(k)) return true;
   return k.startsWith("revis");
 }
+
 
 export function isEvaluationFunction(key?: string | null): boolean {
   if (!key) return false;
