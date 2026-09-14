@@ -3154,6 +3154,9 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
               [...list].sort((a, b) => startKeyOf(a).localeCompare(startKeyOf(b)));
             const reviewCards = sortChrono(reviewCardsUnsorted);
             const planningCards = sortChrono(planningCardsUnsorted);
+            const clientSendCards = sortChrono(clientSendCardsUnsorted);
+            const publicationReviewCards = sortChrono(publicationReviewCardsUnsorted);
+
             const awaitingCardsSorted = sortChrono(awaitingCards);
             const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
               (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
