@@ -3180,6 +3180,8 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
             const isPlanningCollapsed = focusKind ? false : !expandedPlanning.has(column.id);
             const isClientSendCollapsed = focusKind ? false : !expandedClientSend.has(column.id);
             const isPublicationReviewCollapsed = focusKind ? false : !expandedPublicationReview.has(column.id);
+            const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
+
 
             const isQueueCollapsed = !expandedQueue.has(column.id);
 
