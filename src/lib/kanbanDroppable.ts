@@ -6,11 +6,27 @@
  * `assigned_to`. Este helper é a única fonte de verdade dessa tradução.
  */
 
-export type KanbanFocusKind = "production" | "planning" | "review" | "awaiting" | "evaluate";
+export type KanbanFocusKind =
+  | "production"
+  | "planning"
+  | "review"
+  | "publicationReview"
+  | "clientSend"
+  | "awaiting"
+  | "evaluate";
 
 export const UNASSIGNED_DROPPABLE_ID = "__unassigned__";
 
-const FOCUS_KINDS: KanbanFocusKind[] = ["production", "planning", "review", "awaiting", "evaluate"];
+const FOCUS_KINDS: KanbanFocusKind[] = [
+  "production",
+  "planning",
+  "review",
+  "publicationReview",
+  "clientSend",
+  "awaiting",
+  "evaluate",
+];
+
 
 export interface ParsedKanbanDroppable {
   /** UUID do responsável ou null quando "sem responsável". */
