@@ -272,11 +272,19 @@ const CollaboratorDemands = () => {
   const [awaitingOpen, setAwaitingOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [planningOpen, setPlanningOpen] = useState(false);
+  const [clientSendOpen, setClientSendOpen] = useState(false);
+  const [publicationReviewOpen, setPublicationReviewOpen] = useState(false);
 
-  const { awaitingCards, planningCards, reviewCards, mainCards, shouldGroupReview } = useMemo(
-    () => splitCollaboratorCardGroups(sortedCards),
-    [sortedCards],
-  );
+  const {
+    awaitingCards,
+    planningCards,
+    reviewCards,
+    clientSendCards,
+    publicationReviewCards,
+    mainCards,
+    shouldGroupReview,
+  } = useMemo(() => splitCollaboratorCardGroups(sortedCards), [sortedCards]);
+
 
 
 
