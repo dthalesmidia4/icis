@@ -3222,7 +3222,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                                 // realmente mostra (nunca a métrica global do hook).
                                 const badge = countColumnBadge(
                                   focusKind
-                                    ? [columnCards, reviewCards, awaitingCards, evaluateCards]
+                                    ? [columnCards, reviewCards, publicationReviewCards, clientSendCards, planningCards, awaitingCards, evaluateCards]
                                     : [allColumnCards],
                                 );
                                 const total = collaborators.find((c) => c.userId === columnUserId)
