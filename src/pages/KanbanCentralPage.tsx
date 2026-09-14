@@ -350,6 +350,27 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
       return next;
     });
   }, []);
+  // Grupo "Enviar cliente" (`enviar_cliente`) — recolhido por padrão.
+  const [expandedClientSend, setExpandedClientSend] = useState<Set<string>>(new Set());
+  const toggleClientSend = useCallback((columnId: string) => {
+    setExpandedClientSend((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
+  // Grupo "Revisar publicação" (`revisar_publicacao`) — recolhido por padrão.
+  const [expandedPublicationReview, setExpandedPublicationReview] = useState<Set<string>>(new Set());
+  const togglePublicationReview = useCallback((columnId: string) => {
+    setExpandedPublicationReview((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
+
   // Grupo "Avaliar" (cards planejados aguardando aprovação) — recolhido por padrão.
   const [expandedEvaluate, setExpandedEvaluate] = useState<Set<string>>(new Set());
   const toggleEvaluate = useCallback((columnId: string) => {
