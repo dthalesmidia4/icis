@@ -134,7 +134,7 @@ const KANBAN_FOCUS_TRANSITION_MS = 280;
 const getClientSentAt = (card: Pick<KanbanCardData, "client_wait_started_at"> & { client_sent_at_fallback?: string | null }) =>
   card.client_wait_started_at || card.client_sent_at_fallback || null;
 
-type KanbanFocusKind = 'production' | 'planning' | 'evaluate' | 'awaiting' | 'review';
+type KanbanFocusKind = 'production' | 'planning' | 'evaluate' | 'awaiting' | 'review' | 'publicationReview' | 'clientSend';
 type KanbanDisplayColumn = {
   id: string;
   name: string;
