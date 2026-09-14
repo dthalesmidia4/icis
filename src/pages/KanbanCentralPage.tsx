@@ -3084,7 +3084,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
               : allColumnCards;
 
             // Planejar: SEMPRE agrupado (mesmo com 1 card), fora da coluna
-            // principal e fora de "Em revisão" (só modo ativo).
+            // principal e fora de "Revisar" (só modo ativo).
             const planningCardsBase = !isHistoryMode
               ? nonAwaitingCards.filter((c) => isPlanningFunction(c.current_function_key))
               : [];
@@ -3092,15 +3092,31 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
               ? nonAwaitingCards.filter((c) => !isPlanningFunction(c.current_function_key))
               : nonAwaitingCards;
 
+            // Enviar cliente: agrupamento próprio, nunca fica em produção.
+            const clientSendCardsBase = !isHistoryMode
+              ? nonPlanningCards.filter((c) => isClientSendFunction(c.current_function_key))
+              : [];
+            const nonClientSendCards = !isHistoryMode
+              ? nonPlanningCards.filter((c) => !isClientSendFunction(c.current_function_key))
+              : nonPlanningCards;
+
+            // Revisar publicação: agrupamento próprio, nunca junto das outras revisões.
+            const publicationReviewCardsBase = !isHistoryMode
+              ? nonClientSendCards.filter((c) => isPublicationReviewFunction(c.current_function_key))
+              : [];
+            const nonPublicationReviewCards = !isHistoryMode
+              ? nonClientSendCards.filter((c) => !isPublicationReviewFunction(c.current_function_key))
+              : nonClientSendCards;
+
             // Revisão: agrupar SE houver 3 ou mais cards em função de revisão neste colaborador (só modo ativo)
             const reviewCandidateCards = !isHistoryMode
-              ? nonPlanningCards.filter((c) => isReviewFunction(c.current_function_key))
+              ? nonPublicationReviewCards.filter((c) => isReviewFunction(c.current_function_key))
               : [];
             const shouldGroupReview = reviewCandidateCards.length >= 3;
             const reviewCardsBase = shouldGroupReview ? reviewCandidateCards : [];
             const columnCardsBase = shouldGroupReview
-              ? nonPlanningCards.filter((c) => !isReviewFunction(c.current_function_key))
-              : nonPlanningCards;
+              ? nonPublicationReviewCards.filter((c) => !isReviewFunction(c.current_function_key))
+              : nonPublicationReviewCards;
 
             // Avaliar: cards planejados aguardando aprovação atribuídos a esse colaborador
             const evaluateCardsBase = !isHistoryMode
@@ -3109,7 +3125,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
 
             // Aplicar overrides do modo foco (isola exatamente 1 agrupamento por sub-coluna)
             const columnCards = focusKind
-              ? (focusKind === 'production' ? nonPlanningCards.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key)) : [])
+              ? (focusKind === 'production' ? nonPublicationReviewCards.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key)) : [])
               : columnCardsBase;
             const evaluateCards = focusKind
               ? (focusKind === 'evaluate' ? evaluateCardsBase : [])
@@ -3123,6 +3139,13 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
             const planningCardsUnsorted = focusKind
               ? (focusKind === 'planning' ? planningCardsBase : [])
               : planningCardsBase;
+            const clientSendCardsUnsorted = focusKind
+              ? (focusKind === 'clientSend' ? clientSendCardsBase : [])
+              : clientSendCardsBase;
+            const publicationReviewCardsUnsorted = focusKind
+              ? (focusKind === 'publicationReview' ? publicationReviewCardsBase : [])
+              : publicationReviewCardsBase;
+
 
             // --- Ordenação cronológica dos agrupamentos ---
             const startKeyOf = (c: CentralKanbanCard): string =>
