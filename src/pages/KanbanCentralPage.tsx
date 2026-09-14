@@ -72,7 +72,7 @@ import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { ensureExecutionRun } from "@/lib/demandExecution";
 import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
 
-import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
+import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction, isClientSendFunction, isPublicationReviewFunction } from "@/lib/flowFunctions";
 import { isPlanningFunction } from "@/lib/collaboratorCardGroups";
 import { isClientStageKey, userHasFunction, fetchAllowedUsersForFunction } from "@/lib/clientStageAssignments";
 import { evaluateReassign, applyReassign, reassignFailureMessage } from "@/lib/reassignDemand";
