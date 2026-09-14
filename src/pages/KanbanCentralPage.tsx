@@ -2985,14 +2985,30 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                 );
                 const _aw = userCards.filter((c) => isClientWaitingFunction(c.current_function_key));
                 const _nonAw = userCards.filter((c) => !isClientWaitingFunction(c.current_function_key));
-                // `planejar` sai da produção e da revisão: agrupamento próprio.
+                // `planejar`, `enviar_cliente` e `revisar_publicacao` saem da produção
+                // e da revisão genérica: cada um tem agrupamento próprio.
                 const _plan = _nonAw.filter((c) => isPlanningFunction(c.current_function_key));
+                const _send = _nonAw.filter(
+                  (c) => !isPlanningFunction(c.current_function_key) && isClientSendFunction(c.current_function_key),
+                );
+                const _pubRev = _nonAw.filter(
+                  (c) =>
+                    !isPlanningFunction(c.current_function_key) &&
+                    !isClientSendFunction(c.current_function_key) &&
+                    isPublicationReviewFunction(c.current_function_key),
+                );
                 const _rev = _nonAw.filter(
-                  (c) => !isPlanningFunction(c.current_function_key) && isReviewFunction(c.current_function_key),
+                  (c) =>
+                    !isPlanningFunction(c.current_function_key) &&
+                    !isClientSendFunction(c.current_function_key) &&
+                    !isPublicationReviewFunction(c.current_function_key) &&
+                    isReviewFunction(c.current_function_key),
                 );
                 const _prod = _nonAw.filter(
                   (c) =>
                     !isPlanningFunction(c.current_function_key) &&
+                    !isClientSendFunction(c.current_function_key) &&
+                    !isPublicationReviewFunction(c.current_function_key) &&
                     !isReviewFunction(c.current_function_key) &&
                     !isEvaluationFunction(c.current_function_key),
                 );
@@ -3000,10 +3016,13 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                 const sub: typeof rawColumns = [];
                 if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
                 if (_plan.length > 0) sub.push({ id: `${target.userId}::planning`, name: 'Planejar', color: 'hsl(160 70% 40%)', userId: target.userId, focusKind: 'planning' });
-                if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Em revisão', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
+                if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Revisar', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
+                if (_pubRev.length > 0) sub.push({ id: `${target.userId}::publicationReview`, name: 'Revisar publicação', color: 'hsl(268 70% 58%)', userId: target.userId, focusKind: 'publicationReview' });
+                if (_send.length > 0) sub.push({ id: `${target.userId}::clientSend`, name: 'Enviar cliente', color: 'hsl(190 85% 45%)', userId: target.userId, focusKind: 'clientSend' });
                 if (_aw.length > 0) sub.push({ id: `${target.userId}::awaiting`, name: 'Aguardando clientes', color: 'hsl(210 90% 55%)', userId: target.userId, focusKind: 'awaiting' });
                 if (_eval.length > 0) sub.push({ id: `${target.userId}::evaluate`, name: 'Avaliar', color: 'hsl(280 70% 55%)', userId: target.userId, focusKind: 'evaluate' });
                 if (sub.length === 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+
                 displayColumns = sub;
               }
             }
