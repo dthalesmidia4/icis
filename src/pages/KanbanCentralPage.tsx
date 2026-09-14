@@ -3866,7 +3866,184 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                             )}
                           </div>
                         )}
+                        {/* Revisar publicação — `revisar_publicacao`, nunca junto de "Revisar" */}
+                        {publicationReviewCards.length > 0 && (
+                          <div className="mt-5">
+                            <button
+                              type="button"
+                              onClick={() => togglePublicationReview(column.id)}
+                              className="group w-full flex items-center gap-2 px-1 py-1.5 border-t border-border/60 hover:border-border transition-colors"
+                              aria-expanded={!isPublicationReviewCollapsed}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                              <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground uppercase tracking-[0.12em] transition-colors">
+                                Revisar publicação
+                              </span>
+                              <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
+                                {publicationReviewCards.length}
+                              </span>
+                              {publicationReviewCards.filter((c) => isCardOverdue(c)).length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400"
+                                  title="Cards atrasados neste agrupamento"
+                                >
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {publicationReviewCards.filter((c) => isCardOverdue(c)).length}
+                                </span>
+                              )}
+                              {isPublicationReviewCollapsed ? (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              )}
+                            </button>
+
+                            {!isPublicationReviewCollapsed && (
+                              <div className="mt-1 space-y-1">
+                                {publicationReviewCards.map((card, pubIdx) => (
+                                  <Draggable
+                                    key={card.id}
+                                    draggableId={card.id}
+                                    index={columnCards.length + reviewCards.length + planningCards.length + pubIdx}
+                                    isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "publicationReview" })}
+                                  >
+                                    {(dp, snap) => (
+                                      <div
+                                        ref={(el) => {
+                                          dp.innerRef(el);
+                                          if (el) cardRefs.current.set(card.id, el);
+                                          else cardRefs.current.delete(card.id);
+                                        }}
+                                        {...dp.draggableProps}
+                                        {...dp.dragHandleProps}
+                                        className={cn(
+                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                        )}
+                                      >
+                                        <KanbanCard
+                                          title={card.title}
+                                          subtitle={card.clientName}
+                                          demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                          dueDate={card.due_date}
+                                          dueTime={card.due_time || undefined}
+                                          cardDeliveryDate={card.delivery_date || undefined}
+                                          deliveryTime={card.delivery_time || undefined}
+                                          isDragging={snap.isDragging}
+                                          isOverdue={isCardOverdue(card)}
+                                          overdueSince={cardOverdueSince(card)}
+                                          cardId={card.id}
+                                          statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
+                                          stageChipWrapper={stageChipWrapper(card, selectionMode)}
+                                          selectable={selectionMode}
+                                          selected={selectedCardIds.includes(card.id)}
+                                          onToggleSelect={() => toggleCardSelection(card.id)}
+                                          statusColor={(card as any).status_color}
+                                          isDailyCard={(card as any).is_daily_card}
+                                          dailyCompleted={(card as any).daily_completed_occurrences}
+                                          dailyTotal={(card as any).daily_total_occurrences}
+                                          dailyNextDate={(card as any).daily_next_date}
+                                          workArea={(card as any).work_area || null}
+                                          onClick={() => handleCardClick(card, column.id)}
+                                          onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
+                                        />
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* Enviar cliente — `enviar_cliente`, interação com cliente fora da produção */}
+                        {clientSendCards.length > 0 && (
+                          <div className="mt-5">
+                            <button
+                              type="button"
+                              onClick={() => toggleClientSend(column.id)}
+                              className="group w-full flex items-center gap-2 px-1 py-1.5 border-t border-border/60 hover:border-border transition-colors"
+                              aria-expanded={!isClientSendCollapsed}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
+                              <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground uppercase tracking-[0.12em] transition-colors">
+                                Enviar cliente
+                              </span>
+                              <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
+                                {clientSendCards.length}
+                              </span>
+                              {clientSendCards.filter((c) => isCardOverdue(c)).length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400"
+                                  title="Cards atrasados neste agrupamento"
+                                >
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {clientSendCards.filter((c) => isCardOverdue(c)).length}
+                                </span>
+                              )}
+                              {isClientSendCollapsed ? (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 ml-auto" />
+                              )}
+                            </button>
+
+                            {!isClientSendCollapsed && (
+                              <div className="mt-1 space-y-1">
+                                {clientSendCards.map((card, sendIdx) => (
+                                  <Draggable
+                                    key={card.id}
+                                    draggableId={card.id}
+                                    index={columnCards.length + reviewCards.length + planningCards.length + publicationReviewCards.length + sendIdx}
+                                    isDragDisabled={!isCardDraggable({ selectionMode, historyMode: isHistoryMode, kind: "clientSend" })}
+                                  >
+                                    {(dp, snap) => (
+                                      <div
+                                        ref={(el) => {
+                                          dp.innerRef(el);
+                                          if (el) cardRefs.current.set(card.id, el);
+                                          else cardRefs.current.delete(card.id);
+                                        }}
+                                        {...dp.draggableProps}
+                                        {...dp.dragHandleProps}
+                                        className={cn(
+                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                        )}
+                                      >
+                                        <KanbanCard
+                                          title={card.title}
+                                          subtitle={card.clientName}
+                                          demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                          dueDate={card.due_date}
+                                          dueTime={card.due_time || undefined}
+                                          cardDeliveryDate={card.delivery_date || undefined}
+                                          deliveryTime={card.delivery_time || undefined}
+                                          isDragging={snap.isDragging}
+                                          isOverdue={isCardOverdue(card)}
+                                          overdueSince={cardOverdueSince(card)}
+                                          cardId={card.id}
+                                          statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
+                                          stageChipWrapper={stageChipWrapper(card, selectionMode)}
+                                          selectable={selectionMode}
+                                          selected={selectedCardIds.includes(card.id)}
+                                          onToggleSelect={() => toggleCardSelection(card.id)}
+                                          statusColor={(card as any).status_color}
+                                          isDailyCard={(card as any).is_daily_card}
+                                          dailyCompleted={(card as any).daily_completed_occurrences}
+                                          dailyTotal={(card as any).daily_total_occurrences}
+                                          dailyNextDate={(card as any).daily_next_date}
+                                          workArea={(card as any).work_area || null}
+                                          onClick={() => handleCardClick(card, column.id)}
+                                          onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
+                                        />
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {/* Aguardando clientes — cards em `aguardando_cliente` ficam agrupados aqui */}
+
                         {awaitingCards.length > 0 && (
                           <div className="mt-5">
                             <button
