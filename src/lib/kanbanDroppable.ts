@@ -88,7 +88,7 @@ export function decideKanbanDrop(params: {
 export function isCardDraggable(state: {
   selectionMode: boolean;
   historyMode: boolean;
-  kind: "production" | "planning" | "review" | "awaiting" | "evaluate" | "history" | "queued";
+  kind: "production" | "planning" | "review" | "publicationReview" | "clientSend" | "awaiting" | "evaluate" | "history" | "queued";
   /** Fila de liberação: só arrasta o que já está operacionalmente liberado. */
   operationallyReleased?: boolean;
 }): boolean {
