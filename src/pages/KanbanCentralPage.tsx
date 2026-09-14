@@ -3699,7 +3699,7 @@ const KanbanCentralPage = ({ modeSelector, headerTitle, headerIcon }: KanbanCent
                             >
                               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
                               <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground uppercase tracking-[0.12em] transition-colors">
-                                Em revisão
+                                Revisar
                               </span>
                               <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
                                 {reviewCards.length}
