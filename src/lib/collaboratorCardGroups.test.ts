@@ -30,15 +30,18 @@ describe("splitCollaboratorCardGroups", () => {
       card("p2", "planejar"),
       card("r1", "revisar_arte"),
       card("r2", "revisar_roteiro"),
-      card("r3", "revisar_publicacao"),
+      card("r3", "revisar_conteudo"),
+      card("pub1", "revisar_publicacao"),
       card("m1", "executar"),
     ];
     const g = splitCollaboratorCardGroups(cards);
     expect(g.shouldGroupReview).toBe(true);
     expect(g.planningCards.map((c) => c.id)).toEqual(["p1", "p2"]);
     expect(g.reviewCards.map((c) => c.id)).toEqual(["r1", "r2", "r3"]);
+    expect(g.publicationReviewCards.map((c) => c.id)).toEqual(["pub1"]);
     expect(g.mainCards.map((c) => c.id)).toEqual(["m1"]);
   });
+
 
   it("mantém o limiar de revisão: abaixo de 3 volta para a principal", () => {
     const cards = [card("r1", "revisar_arte"), card("r2", "revisar_arte"), card("p1", "planejar")];
