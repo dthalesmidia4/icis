@@ -209,3 +209,110 @@ describe("tools-only (buildSafeSettlementIndex) segue a mesma regra", () => {
     expect(index.paidComponentKeys.size).toBe(0);
   });
 });
+
+/**
+ * REGRESSÃO REAL — Itaú 7587, setembro/2026 (ciclo previsto 14/08–13/09, venc.
+ * 25/09, fatura ABERTA e sem fechamento informado). O fato do `Supabase
+ * SmartVety` (charge_date 15/09, arquivado na competência de outubro) compõe
+ * PROVISORIAMENTE a fatura de setembro; a projeção sem fato (Adobe 14/09)
+ * continua pertencendo a outubro.
+ */
+describe("reivindicação provisória da fatura aberta (sem fechamento informado)", () => {
+  const SEP = { year: 2026, month: 9 };
+  const OCT = { year: 2026, month: 10 };
+
+  const itau = item({
+    id: "itau",
+    name: "Itaú ••••7587",
+    kind: "card",
+    cost_center: "compartilhado",
+    statement_closing_day: 13,
+    statement_due_day: 25,
+  });
+  const smartvety = item({
+    id: "smartvety",
+    name: "Supabase SmartVety",
+    default_amount_brl: 135,
+    charge_day: 15,
+    card_item_id: "itau",
+  });
+  const adobe = item({
+    id: "adobe",
+    name: "Adobe",
+    default_amount_brl: 120,
+    charge_day: 14,
+    card_item_id: "itau",
+  });
+
+  /** Fato real de 15/09 arquivado na competência de OUTUBRO. */
+  const smartvetyFact = occ({
+    id: "occ-smartvety",
+    item_id: "smartvety",
+    competence_month: "2026-10-01",
+    amount_brl: 135,
+    charge_date: "2026-09-15",
+  });
+
+  function cycles(sepEnd: string, sepActual: boolean) {
+    const nextStart = `2026-09-${String(Number(sepEnd.slice(8)) + 1).padStart(2, "0")}`;
+    return new Map([
+      [
+        `itau|2026-09-01`,
+        {
+          cardId: "itau",
+          competenceMonth: "2026-09-01",
+          cycleStart: "2026-08-14",
+          cycleEnd: sepEnd,
+          closingDateIsActual: sepActual,
+        },
+      ],
+      [
+        `itau|2026-10-01`,
+        {
+          cardId: "itau",
+          competenceMonth: "2026-10-01",
+          cycleStart: nextStart,
+          cycleEnd: "2026-10-13",
+          closingDateIsActual: false,
+        },
+      ],
+    ]) as never;
+  }
+
+  const items = [itau, smartvety, adobe];
+  const occurrences = [smartvetyFact];
+
+  function group(competence: { year: number; month: number }, sepEnd = "2026-09-13", sepActual = false) {
+    return buildStatementGroups({ items, occurrences, competence, cycles: cycles(sepEnd, sepActual) })[0];
+  }
+
+  it("fatura de setembro aberta recebe o fato de 15/09 uma única vez", () => {
+    const sep = group(SEP);
+    const found = sep.components.filter((c) => c.item.id === "smartvety");
+    expect(found).toHaveLength(1);
+    expect(found[0].occurrence?.id).toBe("occ-smartvety");
+    expect(found[0].projected).toBe(false);
+  });
+
+  it("outubro não repete o fato reivindicado por setembro", () => {
+    const oct = group(OCT);
+    expect(oct.components.some((c) => c.item.id === "smartvety")).toBe(false);
+  });
+
+  it("projeção sem fato (Adobe 14/09) fica fora de setembro e pertence a outubro", () => {
+    expect(group(SEP).components.some((c) => c.item.id === "adobe" && c.chargeDate === "2026-09-14")).toBe(false);
+    expect(group(OCT).components.some((c) => c.item.id === "adobe" && c.chargeDate === "2026-09-14")).toBe(true);
+  });
+
+  it("fechamento REAL em 13/09 devolve o fato de 15/09 para outubro", () => {
+    expect(group(SEP, "2026-09-13", true).components.some((c) => c.item.id === "smartvety")).toBe(false);
+    expect(group(OCT, "2026-09-13", true).components.some((c) => c.occurrence?.id === "occ-smartvety")).toBe(true);
+  });
+
+  it("fechamento REAL em 15/09 mantém o fato em setembro e fora de outubro", () => {
+    const sep = group(SEP, "2026-09-15", true);
+    expect(sep.components.filter((c) => c.occurrence?.id === "occ-smartvety")).toHaveLength(1);
+    expect(group(OCT, "2026-09-15", true).components.some((c) => c.item.id === "smartvety")).toBe(false);
+  });
+});
+
