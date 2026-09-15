@@ -1243,7 +1243,13 @@ export function buildStatementGroups(params: {
         statementRow?.dueDate ??
         (card.statement_due_day != null ? dateInMonth(competence, card.statement_due_day) : null),
       closingDate:
-        card.statement_closing_day != null ? dateInMonth(competence, card.statement_closing_day) : null,
+        effectiveCycle?.cycleEnd ??
+        (card.statement_closing_day != null ? dateInMonth(competence, card.statement_closing_day) : null),
+      /** `true` só quando o fechamento foi INFORMADO (não é previsão). */
+      closingIsActual:
+        effectiveCycle?.closingDateIsActual ??
+        statementRow?.occurrence?.statement_closing_date != null,
+      cycleStart: effectiveCycle?.cycleStart ?? null,
       paid: !!statementRow?.paid,
     };
   });
