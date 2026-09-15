@@ -201,18 +201,18 @@ export default function SubscriptionsPanel({
                   Já incluída em {overlaps.get(item.id)!.join(", ")}
                 </Badge>
               )}
-              {status && (
+              {badgeStatus && (
                 <Badge
                   variant="outline"
                   className={
-                    status.tone === "danger"
+                    badgeStatus.tone === "danger"
                       ? "bg-destructive/10 text-destructive border-destructive/40 text-sm"
-                      : status.tone === "positive"
+                      : badgeStatus.tone === "positive"
                         ? "bg-primary/10 text-primary border-primary/30 text-sm"
                         : "text-sm"
                   }
                 >
-                  {status.label}
+                  {badgeStatus.label}
                 </Badge>
               )}
             </div>
@@ -222,11 +222,14 @@ export default function SubscriptionsPanel({
                 item.purpose || item.category || null,
                 COST_CENTER_LABELS[item.cost_center] ?? item.cost_center,
                 RECURRENCE_LABELS[item.recurrence_type],
-                next ? `Próxima cobrança em ${formatDayMonth(next)}` : null,
+                dateLine,
               ]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            {quietStatus && (
+              <p className="text-xs text-muted-foreground font-normal">{quietStatus}</p>
+            )}
           </div>
 
           <div className="text-right">
