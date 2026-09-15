@@ -19,6 +19,10 @@ import {
   resolveStatementForCharge,
   sameCompetence,
 } from "./financeCardCycle";
+import {
+  type StatementCycleMap,
+  findCycleForChargeDate,
+} from "./financeStatementCycles";
 
 import { CARD_CHARGE_DATE_MISSING, cardChargeDateLabel } from "./financeCardLabels";
 
