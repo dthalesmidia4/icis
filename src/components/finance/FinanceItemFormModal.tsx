@@ -506,8 +506,12 @@ export default function FinanceItemFormModal({
        * Dia do FATO mensal (agenda da DESPESA). É o que dá data à linha quando o
        * pagamento acontece em outro dia — vencimento/cobrança falam de PAGAMENTO.
        */
+      /**
+       * No cartão, a data da cobrança é só `charge_day`: nenhum campo oculto
+       * pode governar a data da despesa.
+       */
       recurrence_day_of_month:
-        isRecurring && !isSubMonthly ? parseDayOfMonth(factDayOfMonth) : null,
+        isRecurring && !isSubMonthly && !onCard ? parseDayOfMonth(factDayOfMonth) : null,
       installment_start_date: isInstallments ? installmentStart : null,
       installment_count: isInstallments ? installmentCountNumber : null,
       link: link.trim() || null,
