@@ -11,7 +11,6 @@
  * Regra de pertencimento: `charge_date` DENTRO da janela, limites INCLUSIVOS.
  * `cycle_end + 1` já é a próxima fatura.
  */
-import { supabase } from "@/integrations/supabase/client";
 import { Competence, competenceToISO } from "./financeCardCycle";
 
 export interface StatementCycle {
@@ -76,21 +75,4 @@ export function parseStatementCycles(rows: any[] | null | undefined): StatementC
     });
   }
   return map;
-}
-
-/**
- * Janelas do mês selecionado (a RPC já devolve ±2 meses). Erro é PROPAGADO:
- * cair no padrão sem avisar mudaria silenciosamente a composição da fatura.
- */
-export async function fetchStatementCycles(
-  tenantId: string,
-  competence: Competence,
-): Promise<StatementCycleMap> {
-  const { data, error } = await (supabase as any).rpc("finance_statement_cycles", {
-    _tenant_id: tenantId,
-    _competence_month: competenceToISO(competence),
-  });
-  if (error) throw new FinanceStatementCycleError(error);
-  if (!Array.isArray(data)) throw new FinanceStatementCycleError();
-  return parseStatementCycles(data);
 }
