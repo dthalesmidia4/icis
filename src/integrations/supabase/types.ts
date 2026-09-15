@@ -1867,6 +1867,7 @@ export type Database = {
           skip_reason: string | null
           skipped_at: string | null
           skipped_by: string | null
+          statement_closing_date: string | null
           statement_competence_snapshot: string | null
           statement_occurrence_id: string | null
           tenant_id: string
@@ -1906,6 +1907,7 @@ export type Database = {
           skip_reason?: string | null
           skipped_at?: string | null
           skipped_by?: string | null
+          statement_closing_date?: string | null
           statement_competence_snapshot?: string | null
           statement_occurrence_id?: string | null
           tenant_id: string
@@ -1945,6 +1947,7 @@ export type Database = {
           skip_reason?: string | null
           skipped_at?: string | null
           skipped_by?: string | null
+          statement_closing_date?: string | null
           statement_competence_snapshot?: string | null
           statement_occurrence_id?: string | null
           tenant_id?: string
@@ -4340,6 +4343,16 @@ export type Database = {
       finance_skip_occurrence: {
         Args: { _item_id: string; _reason?: string; _scheduled_date: string }
         Returns: string
+      }
+      finance_statement_cycles: {
+        Args: { _competence_month: string; _tenant_id: string }
+        Returns: {
+          card_id: string
+          closing_date_is_actual: boolean
+          competence_month: string
+          cycle_end: string
+          cycle_start: string
+        }[]
       }
       finance_tools_item_allowed: {
         Args: { _item_id: string; _tenant_id: string }

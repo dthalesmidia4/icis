@@ -118,6 +118,9 @@ export const FINANCE_OCCURRENCE_METADATA_COLUMNS = [
   "restored_at",
   "charge_date",
   "due_date",
+  // Fechamento REAL desta fatura (override do padrão do cartão).
+  "statement_closing_date",
+
 
   "currency",
   "is_estimated",

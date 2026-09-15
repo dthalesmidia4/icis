@@ -213,7 +213,7 @@ function FinancialCockpit() {
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     skipped, skipOccurrence, restoreOccurrence,
-    saveOccurrence, ensureStatementOccurrence, togglePaid, payStatement, updateStatementClosure, saveSettings, saveItem, setItemActive, refresh,
+    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, togglePaid, payStatement, updateStatementClosure, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
 
@@ -319,8 +319,9 @@ function FinancialCockpit() {
       settlement,
       safeStatementStatuses,
       competenceMonth: competenceMonthISO(competence),
+      statementCycles: finance.statementCycles,
     }),
-    [rows, today, cardsById, statementRows, settlement, safeStatementStatuses, competence],
+    [rows, today, cardsById, statementRows, settlement, safeStatementStatuses, competence, finance.statementCycles],
   );
 
 
@@ -633,6 +634,24 @@ function FinancialCockpit() {
     const occurrence = await ensureStatementOccurrence(row, group.dueDate ?? null);
     if (!occurrence) return null;
     return { ...group, statementRow: { ...row, occurrence } };
+  };
+
+  /**
+   * FECHAMENTO REAL desta fatura: materializa a fatura quando necessário e
+   * grava apenas a data. A composição, os vinculados e o status se refazem no
+   * refresh — o mês nunca fica com janela antiga na tela.
+   */
+  const handleSaveClosingDate = async (group: StatementGroup, closingDate: string | null) => {
+    if (statementBusy) return false;
+    setStatementBusy(true);
+    try {
+      const resolved = await resolveStatementGroup(group);
+      const occurrenceId = resolved?.statementRow?.occurrence?.id;
+      if (!occurrenceId) return false;
+      return await saveStatementClosingDate(occurrenceId, closingDate);
+    } finally {
+      setStatementBusy(false);
+    }
   };
 
   /** Pagamento da fatura pede a DATA REAL — nunca assume `now()`. */
@@ -1335,6 +1354,7 @@ function FinancialCockpit() {
                 onOpenStatement={handleOpenStatement}
                 onPayStatement={handlePayStatement}
                 processing={statementBusy}
+                onSaveClosingDate={handleSaveClosingDate}
                 onEditCard={(card) => openItemModal(card)}
                 linkedItems={linkedByCard}
                 onEditItem={(item) => openItemModal(item)}

@@ -18,6 +18,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import FinanceDateInput from "@/components/finance/FinanceDateInput";
 import {
   FinanceItem,
   MonthRow,
@@ -73,6 +74,11 @@ interface Props {
   onEditItem?: (item: FinanceItem) => void;
   /** Materializando/abrindo a fatura: evita duplo clique. */
   processing?: boolean;
+  /**
+   * Grava o FECHAMENTO REAL desta fatura (só a data). Ausente => o campo não
+   * aparece (escopo sem permissão de escrita).
+   */
+  onSaveClosingDate?: (group: StatementGroup, closingDate: string | null) => Promise<boolean>;
 }
 
 function Fact({ label, value, tone, hint }: { label: string; value: string; tone?: "muted" | "warning"; hint?: string }) {
@@ -105,12 +111,16 @@ export default function StatementPanel({
   onEditItem,
   labels,
   processing,
+  onSaveClosingDate,
 }: Props) {
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [linkedOpen, setLinkedOpen] = useState<Record<string, boolean>>({});
   /** Expansão das cobranças múltiplas de um MESMO cadastro dentro da fatura. */
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  /** Rascunho do fechamento por cartão (só existe enquanto está sendo editado). */
+  const [closingDraft, setClosingDraft] = useState<Record<string, string>>({});
+  const [savingClosing, setSavingClosing] = useState<string | null>(null);
 
   useEffect(() => {
     if (focusCardId) setExpanded((prev) => ({ ...prev, [focusCardId]: true }));
@@ -136,6 +146,14 @@ export default function StatementPanel({
         const classifiedIof = statementIofBrl(group);
         // `Pago em` é FATO; `Vence em` é histórico. Os dois coexistem.
         const paidOn = paymentTimestampToDate(group.statementRow?.occurrence?.paid_at);
+        /**
+         * Enquanto a data está suja/salvando, fechar ou pagar usaria a janela
+         * ANTIGA — as duas ações ficam bloqueadas até a fatura ser recarregada.
+         */
+        const closingValue = closingDraft[card.id] ?? group.closingDate ?? "";
+        const closingDirty = closingValue !== (group.closingDate ?? "");
+        const closingSaving = savingClosing === card.id;
+        const closingBusy = closingDirty || closingSaving;
         const usagePercent =
           limit != null && limit > 0 && usageBase != null
             ? Math.min(100, Math.round((usageBase / limit) * 100))
@@ -249,6 +267,50 @@ export default function StatementPanel({
                 </div>
               )}
 
+              {onSaveClosingDate && (
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="w-[170px]">
+                    <p className="text-sm text-muted-foreground mb-1">Fechamento desta fatura</p>
+                    <FinanceDateInput
+                      value={closingValue}
+                      onChange={(iso) =>
+                        setClosingDraft((prev) => ({ ...prev, [card.id]: iso }))
+                      }
+                      readOnly={group.paid}
+                      aria-label="Fechamento desta fatura"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground pb-2">
+                    {group.paid
+                      ? "Fatura paga — somente leitura"
+                      : group.closingIsActual
+                        ? "Informado por você"
+                        : "Previsto pelo dia de fechamento do cartão"}
+                  </p>
+                  {closingDirty && !group.paid && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="min-h-10 mb-0.5"
+                      disabled={closingSaving}
+                      onClick={async () => {
+                        setSavingClosing(card.id);
+                        const ok = await onSaveClosingDate(group, closingValue || null);
+                        setSavingClosing(null);
+                        // Salvou: o valor volta a vir do grupo recarregado.
+                        if (ok) setClosingDraft((prev) => {
+                          const next = { ...prev };
+                          delete next[card.id];
+                          return next;
+                        });
+                      }}
+                    >
+                      {closingSaving ? "Salvando..." : "Salvar fechamento"}
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="ghost"
@@ -278,7 +340,7 @@ export default function StatementPanel({
                   variant="outline"
                   size="sm"
                   className="min-h-10"
-                  disabled={!group.statementRow || !!processing}
+                  disabled={!group.statementRow || !!processing || closingBusy}
                   onClick={() => onOpenStatement(group)}
                 >
                   {statementClosureButtonLabel(group)}
@@ -287,7 +349,7 @@ export default function StatementPanel({
                   <Button
                     size="sm"
                     className="min-h-10"
-                    disabled={!group.statementRow || !!processing}
+                    disabled={!group.statementRow || !!processing || closingBusy}
                     onClick={() => onPayStatement(group)}
                   >
                     Pagar fatura

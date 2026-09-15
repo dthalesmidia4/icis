@@ -506,8 +506,12 @@ export default function FinanceItemFormModal({
        * Dia do FATO mensal (agenda da DESPESA). É o que dá data à linha quando o
        * pagamento acontece em outro dia — vencimento/cobrança falam de PAGAMENTO.
        */
+      /**
+       * No cartão, a data da cobrança é só `charge_day`: nenhum campo oculto
+       * pode governar a data da despesa.
+       */
       recurrence_day_of_month:
-        isRecurring && !isSubMonthly ? parseDayOfMonth(factDayOfMonth) : null,
+        isRecurring && !isSubMonthly && !onCard ? parseDayOfMonth(factDayOfMonth) : null,
       installment_start_date: isInstallments ? installmentStart : null,
       installment_count: isInstallments ? installmentCountNumber : null,
       link: link.trim() || null,
@@ -717,6 +721,54 @@ export default function FinanceItemFormModal({
 
           {!isIncluded && !isCard && (
             <>
+              {/*
+                A FORMA DE PAGAMENTO vem PRIMEIRO: escolher cartão muda quais
+                campos de data existem depois. Assim o usuário nunca preenche
+                algo que desaparece em seguida.
+              */}
+              <div className="rounded-lg border p-3 space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Como você paga isso?</p>
+                  <p className="text-xs text-muted-foreground">
+                    No cartão, a data da despesa é a do dia em que ela é cobrada no cartão.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Forma de pagamento</Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>Não definida</SelectItem>
+                        {PAYMENT_METHODS.map((m) => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {onCard && (
+                    <div>
+                      <Label>Cartão utilizado</Label>
+                      <Select value={cardItemId} onValueChange={setCardItemId}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o cartão" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE}>Nenhum</SelectItem>
+                          {cards.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{cardDisplayLabel(c)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Vinculando ao cartão, a despesa entra na composição da fatura.
+                        {selectedCard?.statement_due_day != null && (
+                          <> A fatura vence no dia {selectedCard.statement_due_day}.</>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="rounded-lg border p-3 space-y-3">
                 <div>
                   <p className="text-sm font-medium">Como essa despesa é cobrada?</p>
@@ -835,7 +887,12 @@ export default function FinanceItemFormModal({
                   </p>
                 )}
 
-                {isRecurring && !isSubMonthly && (
+                {/*
+                  No cartão a ÚNICA data da cobrança é o "dia em que é cobrado
+                  no cartão" (`charge_day`) — este campo genérico sairia
+                  duplicado e governaria data escondida.
+                */}
+                {isRecurring && !isSubMonthly && !onCard && (
                   <div className="max-w-xs">
                     <Label>Dia do mês em que o gasto acontece</Label>
                     <Input
@@ -990,18 +1047,6 @@ export default function FinanceItemFormModal({
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Forma de pagamento</Label>
-                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Não definida</SelectItem>
-                      {PAYMENT_METHODS.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 {!isInstallments && !isOneOff && (
                   <>
                     <div>
@@ -1064,26 +1109,6 @@ export default function FinanceItemFormModal({
                 <p className="text-xs text-destructive">{chargeDueConflict}</p>
               )}
 
-              {onCard && (
-                <div>
-                  <Label>Cartão utilizado</Label>
-                  <Select value={cardItemId} onValueChange={setCardItemId}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o cartão" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Nenhum</SelectItem>
-                      {cards.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{cardDisplayLabel(c)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Vinculando ao cartão, a despesa entra na composição da fatura.
-                    {selectedCard?.statement_due_day != null && (
-                      <> A fatura vence no dia {selectedCard.statement_due_day}.</>
-                    )}
-                  </p>
-                </div>
-              )}
             </>
           )}
           {isInstallments && (

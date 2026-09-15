@@ -41,6 +41,7 @@ import {
 import { Competence, dateInMonth } from "@/lib/financeCardCycle";
 import { RowStatusContext, formatDayMonth, isCardCharge, resolveRowStatus } from "@/lib/financeRowStatus";
 import { findSafeStatementStatus, groupStatementNotice } from "@/lib/financeSafeStatement";
+import { buildOccurrenceLabels, occurrenceDisplaySuffix } from "@/lib/financeOccurrenceLabels";
 
 import SubscriptionCatalogModal from "@/components/finance/SubscriptionCatalogModal";
 
@@ -124,9 +125,16 @@ export default function SubscriptionsPanel({
 }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
+  /** Cadastros com os lançamentos do mês abertos (renovação + recargas). */
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   const view = buildSubscriptionMonthView({ items, rows, cards, competence, search });
+  /**
+   * Nomes dos lançamentos do mês vêm do MESMO helper usado na fatura, então
+   * "Renovação", "Recarga 1/2" e "Extra" nunca divergem entre as telas.
+   */
+  const occurrenceLabels = buildOccurrenceLabels(rows);
 
   const renderChildren = (entry: SubscriptionEntry) => {
     const open = !!expandedPackages[entry.item.id];
@@ -183,7 +191,21 @@ export default function SubscriptionsPanel({
     const showPay = !!row && !!status && status.canPayDirectly && !isCardCharge(row);
     /** Alerta real fica em pílula; projeção/neutro vira texto discreto. */
     const badgeStatus = status && status.tone !== "neutral" ? status : null;
-    const quietStatus = status && status.tone === "neutral" ? shortProjectionLabel(status.label) : null;
+    /**
+     * Cobrança de cartão SEM cartão vinculado não é "aguardando fechamento":
+     * falta a informação do cartão, e é isso que a tela precisa dizer.
+     */
+    const missingCard = !!row && isCardCharge(row) && !row.cardItemId;
+    const quietStatus = missingCard
+      ? "Cartão não informado"
+      : status && status.tone === "neutral"
+        ? shortProjectionLabel(status.label)
+        : null;
+    /** Moeda e valor original SEMPRE da linha exibida (fato do mês manda). */
+    const lineCurrency = row?.currency ?? item.currency;
+    const lineOriginal = row ? row.amountOriginal : item.default_amount_original;
+    const multiple = entry.rows.length > 1;
+    const rowsOpen = !!expandedRows[item.id];
 
     return (
       <div key={item.id} className="border-t first:border-t-0">
@@ -234,9 +256,18 @@ export default function SubscriptionsPanel({
 
           <div className="text-right">
             <p className="text-[15px] font-semibold">{formatBRL(entry.amountBrl)}</p>
-            {item.currency === "USD" && (
+            {/*
+              MOEDA DA LINHA, nunca a do cadastro: um fato do mês em reais não
+              pode ser exibido como dólar só porque o cadastro é em USD.
+            */}
+            {!multiple && lineCurrency === "USD" && lineOriginal != null && (
               <p className="text-sm text-muted-foreground">
-                {formatCurrencyValue(row?.amountOriginal ?? item.default_amount_original, "USD")}
+                {formatCurrencyValue(lineOriginal, "USD")}
+              </p>
+            )}
+            {multiple && (
+              <p className="text-sm text-muted-foreground">
+                {entry.rows.length} lançamentos no mês
               </p>
             )}
           </div>
@@ -281,6 +312,61 @@ export default function SubscriptionsPanel({
             )}
           </div>
         </div>
+
+        {multiple && (
+          <div className="pl-4 sm:pl-8 pb-3">
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+              aria-expanded={rowsOpen}
+              onClick={() => setExpandedRows((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+            >
+              Ver {entry.rows.length} lançamentos do mês
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${rowsOpen ? "" : "-rotate-90"}`}
+              />
+            </button>
+
+            {rowsOpen && (
+              <div className="mt-2 rounded-md border bg-muted/30 divide-y">
+                {entry.rows.map((child) => {
+                  const childDate = child.chargeDate ?? child.scheduledDate ?? child.dueDate;
+                  return (
+                    <div key={child.key} className="flex items-center gap-2 px-3 py-2">
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium truncate">
+                          {occurrenceDisplaySuffix(child, occurrenceLabels)}
+                        </span>
+                        <span className="block text-sm text-muted-foreground">
+                          {childDate ? formatDayMonth(childDate) : "Sem data"}
+                          {child.projected ? " · prevista" : ""}
+                        </span>
+                      </span>
+                      <span className="text-right">
+                        <span className="block text-sm font-semibold">
+                          {formatBRL(child.amountBrl ?? 0)}
+                        </span>
+                        {child.currency === "USD" && child.amountOriginal != null && (
+                          <span className="block text-sm text-muted-foreground">
+                            {formatCurrencyValue(child.amountOriginal, "USD")}
+                          </span>
+                        )}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="min-h-10"
+                        onClick={() => onOpenRow(child)}
+                      >
+                        Detalhes do mês
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {item.kind === "package" && entry.children.length > 0 && renderChildren(entry)}
       </div>

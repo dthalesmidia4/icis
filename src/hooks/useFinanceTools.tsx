@@ -13,6 +13,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Competence, competenceToISO, normalizeCompetence } from "@/lib/financeCardCycle";
 import { isTrackedCompetence } from "@/lib/financeTrackingPeriod";
+import type { StatementCycleMap } from "@/lib/financeStatementCycles";
+import { fetchStatementCycles } from "@/lib/financeStatementCyclesRpc";
 
 import {
   FinanceItem,
@@ -56,6 +58,11 @@ export function useFinanceTools(competence: Competence) {
    * da fatura" mesmo com a fatura do mês já paga.
    */
   const [statementStatuses, setStatementStatuses] = useState<SafeStatementStatusMap>(new Map());
+  /**
+   * Janelas efetivas de fatura (mesma RPC do escopo completo): a cobrança do
+   * mês precisa pertencer à MESMA fatura aqui e no fechamento.
+   */
+  const [statementCycles, setStatementCycles] = useState<StatementCycleMap>(new Map());
   const [loading, setLoading] = useState(true);
   /** Pós-cutover: falha na leitura segura não pode virar total zerado. */
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -68,7 +75,8 @@ export function useFinanceTools(competence: Competence) {
 
     const monthISO = competenceToISO(normalized);
     try {
-      const [itemsRes, occRes, cardsRes, statementRes, itemValues, occValues] = await Promise.all([
+      const [itemsRes, occRes, cardsRes, statementRes, itemValues, occValues, cycles] =
+        await Promise.all([
         supabase
           .from("finance_items")
           .select(FINANCE_ITEM_METADATA_COLUMNS)
@@ -87,6 +95,7 @@ export function useFinanceTools(competence: Competence) {
         } as any),
         fetchSecureItemValues(agencyId),
         fetchSecureOccurrenceValues(agencyId, monthISO, monthISO),
+        fetchStatementCycles(agencyId, normalized),
       ]);
 
       if (itemsRes.error || occRes.error) {
@@ -106,6 +115,7 @@ export function useFinanceTools(competence: Competence) {
       );
       setCards(((cardsRes.data as any[]) ?? []) as SafeCard[]);
       setStatementStatuses(buildSafeStatementStatusMap((statementRes.data as any[]) ?? []));
+      setStatementCycles(cycles);
       setLoadError(null);
 
     } catch (err) {
@@ -117,6 +127,7 @@ export function useFinanceTools(competence: Competence) {
       setItems([]);
       setOccurrences([]);
       setStatementStatuses(new Map());
+      setStatementCycles(new Map());
       setLoadError(message);
 
     } finally {
@@ -289,6 +300,7 @@ export function useFinanceTools(competence: Competence) {
     rows,
     cards,
     statementStatuses,
+    statementCycles,
 
     packages,
     overlaps,

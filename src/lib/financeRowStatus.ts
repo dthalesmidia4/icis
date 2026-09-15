@@ -19,6 +19,10 @@ import {
   resolveStatementForCharge,
   sameCompetence,
 } from "./financeCardCycle";
+import {
+  type StatementCycleMap,
+  findCycleForChargeDate,
+} from "./financeStatementCycles";
 
 import { CARD_CHARGE_DATE_MISSING, cardChargeDateLabel } from "./financeCardLabels";
 
@@ -179,6 +183,11 @@ export interface RowStatusContext {
   safeStatementStatuses?: SafeStatementStatusMap;
   /** Competência exibida na tela (`YYYY-MM-01`), chave do mapa seguro. */
   competenceMonth?: string;
+  /**
+   * JANELAS EFETIVAS de fatura (servidor). Quando presentes, elas — e não o
+   * fechamento padrão — dizem a qual fatura a cobrança pertence.
+   */
+  statementCycles?: StatementCycleMap | null;
 }
 
 
@@ -213,6 +222,12 @@ export function resolveStatementCompetenceForRow(
   ctx: RowStatusContext,
 ): Competence | null {
   if (!ctx.competenceMonth) return null;
+  /**
+   * JANELA EFETIVA primeiro: se o fechamento desta fatura foi informado, é ela
+   * que recebe a cobrança — o padrão do cadastro deixa de valer para o mês.
+   */
+  const byCycle = findCycleForChargeDate(ctx.statementCycles, row.cardItemId, row.chargeDate);
+  if (byCycle) return competenceFromISO(byCycle.competenceMonth);
   const card = row.cardItemId ? ctx.cardsById.get(row.cardItemId) : null;
   if (!card || cardConfigIncomplete(card)) return null;
   const chargeDay = rowChargeDay(row);

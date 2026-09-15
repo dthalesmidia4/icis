@@ -27,6 +27,11 @@ import {
   scheduleIdentity,
   scheduledDatesInMonth,
 } from "./financeRecurrenceSchedule";
+import {
+  type StatementCycleMap,
+  chargeDateInCycle,
+  cycleFor,
+} from "./financeStatementCycles";
 
 
 export type FinanceKind = "expense" | "tool" | "package" | "card" | "included_resource";
@@ -162,6 +167,11 @@ export interface FinanceOccurrence {
 
   charge_date?: string | null;
   due_date?: string | null;
+  /**
+   * Fechamento REAL desta fatura (apenas ocorrências de cartão). `null` = usar
+   * o padrão do cadastro (`statement_closing_day`) como PREVISÃO.
+   */
+  statement_closing_date?: string | null;
   amount_original?: number | null;
   currency: FinanceCurrency;
   exchange_rate?: number | null;
@@ -745,6 +755,12 @@ export function buildMonthRows(params: {
     if (occ) {
       if (isSkippedOccurrence(occ)) continue;
       rows.push(rowFromOccurrence(item, occ, fallbackRate));
+      /**
+       * FATO ARQUIVADO AQUI COM DATA DE OUTRO MÊS (ex.: cobrança de 15/07 na
+       * competência de agosto) continua sendo O FATO DO MÊS — regra canônica
+       * (regressão AVISA-API). Nenhuma previsão extra é criada: o recorte da
+       * fatura passou a ser feito pela `charge_date` dentro da janela.
+       */
     } else if (isProjectableInMonth(item, competence, rules)) {
       rows.push(rowFromProjection(item, competence, fallbackRate));
     }
@@ -1051,7 +1067,12 @@ export interface StatementGroup {
   configIncomplete: boolean;
   incompleteReason: string | null;
   dueDate: string | null;
+  /** Fechamento efetivo desta fatura (informado quando houver, senão previsto). */
   closingDate: string | null;
+  /** `true` quando o fechamento é FATO informado; `false` = previsão. */
+  closingIsActual?: boolean;
+  /** Início da janela efetiva, quando o servidor a informou. */
+  cycleStart?: string | null;
   paid: boolean;
 }
 
@@ -1068,6 +1089,12 @@ export function buildStatementGroups(params: {
   fallbackRate?: number | null;
   /** Versões de regra de recorrência (histórico). Opcional. */
   rules?: FinanceRecurrenceRule[];
+  /**
+   * JANELA EFETIVA por cartão+competência (servidor). Quando existe, ela é a
+   * autoridade do recorte — inclusive quando o fechamento foi informado à mão.
+   * Ausente, cai no padrão do cadastro (`statement_closing_day`).
+   */
+  cycles?: StatementCycleMap | null;
 }): StatementGroup[] {
   const { items, occurrences, competence } = params;
   const fallbackRate = params.fallbackRate ?? null;
@@ -1078,6 +1105,7 @@ export function buildStatementGroups(params: {
 
   return cards.map((card) => {
     const cycle = { closingDay: card.statement_closing_day, dueDay: card.statement_due_day };
+    const effectiveCycle = cycleFor(params.cycles, card.id, competence);
     const configIncomplete = card.statement_closing_day == null || card.statement_due_day == null;
 
     // Snapshots podem mover uma cobrança para outro cartão no mês: por isso o
@@ -1097,7 +1125,15 @@ export function buildStatementGroups(params: {
        * arquivada em outra competência. O fato real sempre vence a projeção.
        */
       const byChargeIdentity = new Map<string, MonthRow>();
-      for (const chargeCompetence of candidateChargeCompetences(competence)) {
+      /**
+       * Com janela efetiva, o fato pode estar arquivado no mês SEGUINTE (ex.:
+       * cobrança de 15/09 gravada na competência de outubro) e ainda assim
+       * pertencer a esta fatura: varremos também o mês seguinte.
+       */
+      const scanCompetences = effectiveCycle
+        ? [addMonths(competence, -1), competence, addMonths(competence, 1)]
+        : candidateChargeCompetences(competence);
+      for (const chargeCompetence of scanCompetences) {
         const monthRows = sameCompetence(chargeCompetence, competence)
           ? currentRows
           : buildMonthRows({ items: cardItems, occurrences, competence: chargeCompetence, fallbackRate, rules });
@@ -1105,16 +1141,25 @@ export function buildStatementGroups(params: {
           // Cadastro inativo sem fato real não compõe fatura nenhuma.
           if (!isOperationalRow(row)) continue;
           if (row.cardItemId !== card.id) continue;
-          const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
           // Competência REAL da cobrança (charge_date), não a do loop.
           const actualChargeCompetence = chargeDateCompetence(row.chargeDate, chargeCompetence);
-          const resolved = resolveStatementForCharge({
-            chargeDay,
-            competence: actualChargeCompetence,
-            card: cycle,
-          });
-          if (resolved.incomplete || !resolved.statementCompetence) continue;
-          if (!sameCompetence(resolved.statementCompetence, competence)) continue;
+          if (effectiveCycle) {
+            /**
+             * JANELA EFETIVA manda: a cobrança entra pela `charge_date` dentro
+             * de [início, fim] (limites inclusivos), independentemente da
+             * competência em que o fato foi arquivado. `fim + 1` já é a próxima.
+             */
+            if (!chargeDateInCycle(row.chargeDate, effectiveCycle)) continue;
+          } else {
+            const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
+            const resolved = resolveStatementForCharge({
+              chargeDay,
+              competence: actualChargeCompetence,
+              card: cycle,
+            });
+            if (resolved.incomplete || !resolved.statementCompetence) continue;
+            if (!sameCompetence(resolved.statementCompetence, competence)) continue;
+          }
           /**
            * Fato real tem identidade PRÓPRIA (a PK da ocorrência): dois fatos
            * do mesmo item no mesmo dia (renovação + recarga) são cobranças
@@ -1183,7 +1228,13 @@ export function buildStatementGroups(params: {
         statementRow?.dueDate ??
         (card.statement_due_day != null ? dateInMonth(competence, card.statement_due_day) : null),
       closingDate:
-        card.statement_closing_day != null ? dateInMonth(competence, card.statement_closing_day) : null,
+        effectiveCycle?.cycleEnd ??
+        (card.statement_closing_day != null ? dateInMonth(competence, card.statement_closing_day) : null),
+      /** `true` só quando o fechamento foi INFORMADO (não é previsão). */
+      closingIsActual:
+        effectiveCycle?.closingDateIsActual ??
+        statementRow?.occurrence?.statement_closing_date != null,
+      cycleStart: effectiveCycle?.cycleStart ?? null,
       paid: !!statementRow?.paid,
     };
   });
