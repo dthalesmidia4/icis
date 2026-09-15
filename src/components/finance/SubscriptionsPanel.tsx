@@ -82,6 +82,31 @@ function nextCharge(item: FinanceItem, competence: Competence): string | null {
   return dateInMonth(competence, day);
 }
 
+/**
+ * Linha da DATA do fato exibido. Projeção passada nunca é "próxima cobrança"
+ * nem atraso de fatura: é previsão ainda não confirmada.
+ */
+function chargeLine(entry: SubscriptionEntry, competence: Competence, today: string): string | null {
+  const row = entry.row;
+  const fallback = nextCharge(entry.item, competence);
+  const projectedText = (date: string) =>
+    date >= today
+      ? `Cobrança prevista em ${formatDayMonth(date)}`
+      : `Cobrança prevista para ${formatDayMonth(date)} · não confirmada`;
+
+  if (row && isCardCharge(row)) {
+    if (!row.projected && row.chargeDate) return `Cobrado em ${formatDayMonth(row.chargeDate)}`;
+    const date = row.chargeDate ?? fallback;
+    return date ? projectedText(date) : null;
+  }
+  if (row) {
+    const date = row.dueDate ?? fallback;
+    if (!date) return null;
+    return date < today ? `Venceu em ${formatDayMonth(date)}` : `Vence em ${formatDayMonth(date)}`;
+  }
+  return fallback ? projectedText(fallback) : null;
+}
+
 export default function SubscriptionsPanel({
   items,
   cards,
