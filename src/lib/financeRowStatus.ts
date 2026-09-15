@@ -179,6 +179,11 @@ export interface RowStatusContext {
   safeStatementStatuses?: SafeStatementStatusMap;
   /** Competência exibida na tela (`YYYY-MM-01`), chave do mapa seguro. */
   competenceMonth?: string;
+  /**
+   * JANELAS EFETIVAS de fatura (servidor). Quando presentes, elas — e não o
+   * fechamento padrão — dizem a qual fatura a cobrança pertence.
+   */
+  statementCycles?: StatementCycleMap | null;
 }
 
 
