@@ -1140,7 +1140,15 @@ export function buildStatementGroups(params: {
        * arquivada em outra competência. O fato real sempre vence a projeção.
        */
       const byChargeIdentity = new Map<string, MonthRow>();
-      for (const chargeCompetence of candidateChargeCompetences(competence)) {
+      /**
+       * Com janela efetiva, o fato pode estar arquivado no mês SEGUINTE (ex.:
+       * cobrança de 15/09 gravada na competência de outubro) e ainda assim
+       * pertencer a esta fatura: varremos também o mês seguinte.
+       */
+      const scanCompetences = effectiveCycle
+        ? [addMonths(competence, -1), competence, addMonths(competence, 1)]
+        : candidateChargeCompetences(competence);
+      for (const chargeCompetence of scanCompetences) {
         const monthRows = sameCompetence(chargeCompetence, competence)
           ? currentRows
           : buildMonthRows({ items: cardItems, occurrences, competence: chargeCompetence, fallbackRate, rules });
@@ -1148,16 +1156,25 @@ export function buildStatementGroups(params: {
           // Cadastro inativo sem fato real não compõe fatura nenhuma.
           if (!isOperationalRow(row)) continue;
           if (row.cardItemId !== card.id) continue;
-          const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
           // Competência REAL da cobrança (charge_date), não a do loop.
           const actualChargeCompetence = chargeDateCompetence(row.chargeDate, chargeCompetence);
-          const resolved = resolveStatementForCharge({
-            chargeDay,
-            competence: actualChargeCompetence,
-            card: cycle,
-          });
-          if (resolved.incomplete || !resolved.statementCompetence) continue;
-          if (!sameCompetence(resolved.statementCompetence, competence)) continue;
+          if (effectiveCycle) {
+            /**
+             * JANELA EFETIVA manda: a cobrança entra pela `charge_date` dentro
+             * de [início, fim] (limites inclusivos), independentemente da
+             * competência em que o fato foi arquivado. `fim + 1` já é a próxima.
+             */
+            if (!chargeDateInCycle(row.chargeDate, effectiveCycle)) continue;
+          } else {
+            const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
+            const resolved = resolveStatementForCharge({
+              chargeDay,
+              competence: actualChargeCompetence,
+              card: cycle,
+            });
+            if (resolved.incomplete || !resolved.statementCompetence) continue;
+            if (!sameCompetence(resolved.statementCompetence, competence)) continue;
+          }
           /**
            * Fato real tem identidade PRÓPRIA (a PK da ocorrência): dois fatos
            * do mesmo item no mesmo dia (renovação + recarga) são cobranças
