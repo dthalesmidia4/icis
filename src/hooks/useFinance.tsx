@@ -434,6 +434,73 @@ export function useFinance(competence: Competence) {
   );
 
   /**
+   * OBTÉM (ou cria) a ocorrência da FATURA do cartão na competência aberta.
+   *
+   * A fatura projetada não tem fato no banco, então informar o fechamento ou
+   * pagar exigiria um ID inexistente. Aqui a linha nasce SEM valor
+   * (`is_estimated`), preservando `actualTotal` nulo até a confirmação — nunca
+   * herdando a projeção. Identidade: tenant + cadastro + competência, com
+   * `scheduled_date` nulo e `entry_role` regular.
+   */
+  const ensureStatementOccurrence = useCallback(
+    async (row: MonthRow, dueDate?: string | null): Promise<FinanceOccurrence | null> => {
+      if (!agencyId) return null;
+      if (row.occurrence) return row.occurrence;
+      const competenceIso = competenceToISO(normalized);
+      const readExisting = async (): Promise<FinanceOccurrence | null> => {
+        const { data } = await supabase
+          .from("finance_occurrences")
+          .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
+          .eq("tenant_id", agencyId)
+          .eq("item_id", row.item.id)
+          .eq("competence_month", competenceIso)
+          .eq("entry_role", "regular")
+          .is("scheduled_date", null)
+          .maybeSingle();
+        return (data as any as FinanceOccurrence) ?? null;
+      };
+      const existing = await readExisting();
+      if (existing) return existing;
+      const { data, error } = await supabase
+        .from("finance_occurrences")
+        .insert({
+          tenant_id: agencyId,
+          item_id: row.item.id,
+          competence_month: competenceIso,
+          scheduled_date: null,
+          charge_date: null,
+          due_date: dueDate ?? row.dueDate ?? null,
+          currency: "BRL",
+          amount_brl: null,
+          amount_original: null,
+          exchange_rate: null,
+          paid_at: null,
+          is_estimated: true,
+          entry_role: "regular",
+          created_by: user?.id ?? null,
+        } as any)
+        .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
+        .maybeSingle();
+      if (error) {
+        // Corrida de duplo clique: a identidade única já existe, então reusa.
+        if ((error as any).code === "23505") {
+          const again = await readExisting();
+          if (again) return again;
+        }
+        toast.error(error.message || "Não foi possível abrir a fatura deste mês");
+        return null;
+      }
+      if (!data) {
+        toast.error("Não foi possível abrir a fatura deste mês");
+        return null;
+      }
+      await fetchAll();
+      return data as any as FinanceOccurrence;
+    },
+    [agencyId, normalized, user?.id, fetchAll],
+  );
+
+  /**
    * REGISTRA um lançamento SUPLEMENTAR (recarga/extra) do mesmo cadastro.
    * Vai pela RPC segura: ela valida acesso, tenant, natureza do cadastro e
    * decide a data do fato (cobrança no cartão x vencimento direto).
@@ -946,6 +1013,7 @@ export function useFinance(competence: Competence) {
     settings,
     refresh: fetchAll,
     saveOccurrence,
+    ensureStatementOccurrence,
     createSupplementalOccurrence,
     skipOccurrence,
     restoreOccurrence,

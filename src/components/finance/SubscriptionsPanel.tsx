@@ -62,6 +62,15 @@ interface Props {
   canManage?: boolean;
 }
 
+/**
+ * Encurta o status PROJETADO só na apresentação desta tela — o cálculo de
+ * `resolveRowStatus` continua intacto.
+ */
+function shortProjectionLabel(label: string): string {
+  const match = /^Prevista na fatura de (.+)$/i.exec(label.trim());
+  return match ? `Fatura prevista: ${match[1]}` : label;
+}
+
 function nextCharge(item: FinanceItem, competence: Competence): string | null {
   const day = item.charge_day ?? item.due_day ?? null;
   if (day == null || item.recurrence_type === "one_off") return null;
@@ -71,6 +80,31 @@ function nextCharge(item: FinanceItem, competence: Competence): string | null {
     return dateInMonth({ year: competence.year, month }, day);
   }
   return dateInMonth(competence, day);
+}
+
+/**
+ * Linha da DATA do fato exibido. Projeção passada nunca é "próxima cobrança"
+ * nem atraso de fatura: é previsão ainda não confirmada.
+ */
+function chargeLine(entry: SubscriptionEntry, competence: Competence, today: string): string | null {
+  const row = entry.row;
+  const fallback = nextCharge(entry.item, competence);
+  const projectedText = (date: string) =>
+    date >= today
+      ? `Cobrança prevista em ${formatDayMonth(date)}`
+      : `Cobrança prevista para ${formatDayMonth(date)} · não confirmada`;
+
+  if (row && isCardCharge(row)) {
+    if (!row.projected && row.chargeDate) return `Cobrado em ${formatDayMonth(row.chargeDate)}`;
+    const date = row.chargeDate ?? fallback;
+    return date ? projectedText(date) : null;
+  }
+  if (row) {
+    const date = row.dueDate ?? fallback;
+    if (!date) return null;
+    return date < today ? `Venceu em ${formatDayMonth(date)}` : `Vence em ${formatDayMonth(date)}`;
+  }
+  return fallback ? projectedText(fallback) : null;
 }
 
 export default function SubscriptionsPanel({
@@ -143,10 +177,13 @@ export default function SubscriptionsPanel({
 
   const renderEntry = (entry: SubscriptionEntry) => {
     const item = entry.item;
-    const next = nextCharge(item, competence);
+    const dateLine = chargeLine(entry, competence, statusContext.today);
     const row = entry.row;
     const status = row ? resolveRowStatus(row, statusContext) : null;
     const showPay = !!row && !!status && status.canPayDirectly && !isCardCharge(row);
+    /** Alerta real fica em pílula; projeção/neutro vira texto discreto. */
+    const badgeStatus = status && status.tone !== "neutral" ? status : null;
+    const quietStatus = status && status.tone === "neutral" ? shortProjectionLabel(status.label) : null;
 
     return (
       <div key={item.id} className="border-t first:border-t-0">
@@ -164,18 +201,18 @@ export default function SubscriptionsPanel({
                   Já incluída em {overlaps.get(item.id)!.join(", ")}
                 </Badge>
               )}
-              {status && (
+              {badgeStatus && (
                 <Badge
                   variant="outline"
                   className={
-                    status.tone === "danger"
+                    badgeStatus.tone === "danger"
                       ? "bg-destructive/10 text-destructive border-destructive/40 text-sm"
-                      : status.tone === "positive"
+                      : badgeStatus.tone === "positive"
                         ? "bg-primary/10 text-primary border-primary/30 text-sm"
                         : "text-sm"
                   }
                 >
-                  {status.label}
+                  {badgeStatus.label}
                 </Badge>
               )}
             </div>
@@ -185,11 +222,14 @@ export default function SubscriptionsPanel({
                 item.purpose || item.category || null,
                 COST_CENTER_LABELS[item.cost_center] ?? item.cost_center,
                 RECURRENCE_LABELS[item.recurrence_type],
-                next ? `Próxima cobrança em ${formatDayMonth(next)}` : null,
+                dateLine,
               ]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            {quietStatus && (
+              <p className="text-xs text-muted-foreground font-normal">{quietStatus}</p>
+            )}
           </div>
 
           <div className="text-right">
