@@ -1099,6 +1099,12 @@ export function buildStatementGroups(params: {
   fallbackRate?: number | null;
   /** Versões de regra de recorrência (histórico). Opcional. */
   rules?: FinanceRecurrenceRule[];
+  /**
+   * JANELA EFETIVA por cartão+competência (servidor). Quando existe, ela é a
+   * autoridade do recorte — inclusive quando o fechamento foi informado à mão.
+   * Ausente, cai no padrão do cadastro (`statement_closing_day`).
+   */
+  cycles?: StatementCycleMap | null;
 }): StatementGroup[] {
   const { items, occurrences, competence } = params;
   const fallbackRate = params.fallbackRate ?? null;
@@ -1109,6 +1115,7 @@ export function buildStatementGroups(params: {
 
   return cards.map((card) => {
     const cycle = { closingDay: card.statement_closing_day, dueDay: card.statement_due_day };
+    const effectiveCycle = cycleFor(params.cycles, card.id, competence);
     const configIncomplete = card.statement_closing_day == null || card.statement_due_day == null;
 
     // Snapshots podem mover uma cobrança para outro cartão no mês: por isso o
