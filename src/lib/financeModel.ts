@@ -1226,8 +1226,30 @@ export function buildStatementGroups(params: {
              * de [início, fim] (limites inclusivos), independentemente da
              * competência em que o fato foi arquivado. `fim + 1` já é a próxima.
              */
-            if (!chargeDateInCycle(row.chargeDate, effectiveCycle)) continue;
+            const inCycle = chargeDateInCycle(row.chargeDate, effectiveCycle);
+            const isRealFact = !!row.occurrence && !row.projected;
+            /** Exceção: FATO cobrado após o fechamento previsto, até o vencimento. */
+            const claimedHere =
+              isRealFact &&
+              !!ownClaim &&
+              !!row.chargeDate &&
+              row.chargeDate >= ownClaim.start &&
+              row.chargeDate <= ownClaim.end &&
+              ownClaim.itemIds.has(row.item.id);
+            if (!inCycle && !claimedHere) continue;
+            /** Reivindicado pelo mês anterior ainda aberto: nem fato nem projeção equivalente. */
+            if (
+              !claimedHere &&
+              previousClaim &&
+              row.chargeDate &&
+              row.chargeDate >= previousClaim.start &&
+              row.chargeDate <= previousClaim.end &&
+              previousClaim.itemIds.has(row.item.id)
+            ) {
+              continue;
+            }
           } else {
+
             const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
             const resolved = resolveStatementForCharge({
               chargeDay,
