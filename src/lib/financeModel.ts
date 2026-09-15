@@ -1076,6 +1076,72 @@ export interface StatementGroup {
   paid: boolean;
 }
 
+
+/**
+ * REIVINDICAÇÃO PROVISÓRIA (fatura aberta e sem fechamento informado).
+ *
+ * Enquanto a fatura da competência não tem `statement_closing_date` REAL e não
+ * está paga, um FATO cobrado depois do fechamento PREVISTO e até o vencimento,
+ * dentro do próprio mês, compõe provisoriamente essa fatura. Quando o
+ * fechamento real chega (ou a fatura é paga), volta a valer só a janela.
+ */
+interface StatementClaimWindow {
+  start: string;
+  end: string;
+  /** Itens com FATO real cobrado dentro da janela (a projeção equivalente cai junto). */
+  itemIds: Set<string>;
+}
+
+function provisionalClaimWindow(params: {
+  card: FinanceItem;
+  competence: Competence;
+  cycles: StatementCycleMap | null | undefined;
+  items: FinanceItem[];
+  occurrences: FinanceOccurrence[];
+}): StatementClaimWindow | null {
+  const { card, competence, cycles, items, occurrences } = params;
+  const cycle = cycleFor(cycles, card.id, competence);
+  if (!cycle || cycle.closingDateIsActual) return null;
+
+  const monthISO = competenceToISO(competence).slice(0, 7);
+  const statement = occurrences.find(
+    (o) => o.item_id === card.id && String(o.competence_month ?? "").slice(0, 7) === monthISO,
+  );
+  if (statement?.paid_at) return null;
+  if (statement?.statement_closing_date) return null;
+
+  const dueDate =
+    statement?.due_date ??
+    (card.statement_due_day != null ? dateInMonth(competence, card.statement_due_day) : null);
+  if (!dueDate) return null;
+
+  const monthStart = dateInMonth(competence, 1);
+  const monthEnd = dateInMonth(competence, 31);
+  const start = maxISO(addDaysISO(cycle.cycleEnd, 1), monthStart);
+  const end = minISO(dueDate, monthEnd);
+  if (end < start) return null;
+
+  const itemsById = new Map(items.map((i) => [i.id, i]));
+  const itemIds = new Set<string>();
+  for (const occ of occurrences) {
+    const chargeDate = occ.charge_date ?? null;
+    if (!chargeDate || chargeDate < start || chargeDate > end) continue;
+    const cardId = occ.card_item_id_snapshot ?? itemsById.get(occ.item_id)?.card_item_id ?? null;
+    if (cardId !== card.id) continue;
+    itemIds.add(occ.item_id);
+  }
+  if (itemIds.size === 0) return null;
+  return { start, end, itemIds };
+}
+
+function maxISO(a: string, b: string): string {
+  return a >= b ? a : b;
+}
+function minISO(a: string, b: string): string {
+  return a <= b ? a : b;
+}
+
+
 /**
  * Monta os grupos de fatura do mês.
  * Quando o cartão tem fechamento/vencimento cadastrados, as cobranças são
@@ -1106,7 +1172,18 @@ export function buildStatementGroups(params: {
   return cards.map((card) => {
     const cycle = { closingDay: card.statement_closing_day, dueDay: card.statement_due_day };
     const effectiveCycle = cycleFor(params.cycles, card.id, competence);
+    /** Fatos que ESTA fatura aberta reivindica provisoriamente. */
+    const ownClaim = provisionalClaimWindow({ card, competence, cycles: params.cycles, items, occurrences });
+    /** Fatos já reivindicados pela fatura ANTERIOR ainda aberta (não repetir aqui). */
+    const previousClaim = provisionalClaimWindow({
+      card,
+      competence: addMonths(competence, -1),
+      cycles: params.cycles,
+      items,
+      occurrences,
+    });
     const configIncomplete = card.statement_closing_day == null || card.statement_due_day == null;
+
 
     // Snapshots podem mover uma cobrança para outro cartão no mês: por isso o
     // recorte do mês anterior parte de TODOS os itens e filtra por `cardItemId`.
@@ -1149,8 +1226,30 @@ export function buildStatementGroups(params: {
              * de [início, fim] (limites inclusivos), independentemente da
              * competência em que o fato foi arquivado. `fim + 1` já é a próxima.
              */
-            if (!chargeDateInCycle(row.chargeDate, effectiveCycle)) continue;
+            const inCycle = chargeDateInCycle(row.chargeDate, effectiveCycle);
+            const isRealFact = !!row.occurrence && !row.projected;
+            /** Exceção: FATO cobrado após o fechamento previsto, até o vencimento. */
+            const claimedHere =
+              isRealFact &&
+              !!ownClaim &&
+              !!row.chargeDate &&
+              row.chargeDate >= ownClaim.start &&
+              row.chargeDate <= ownClaim.end &&
+              ownClaim.itemIds.has(row.item.id);
+            if (!inCycle && !claimedHere) continue;
+            /** Reivindicado pelo mês anterior ainda aberto: nem fato nem projeção equivalente. */
+            if (
+              !claimedHere &&
+              previousClaim &&
+              row.chargeDate &&
+              row.chargeDate >= previousClaim.start &&
+              row.chargeDate <= previousClaim.end &&
+              previousClaim.itemIds.has(row.item.id)
+            ) {
+              continue;
+            }
           } else {
+
             const chargeDay = chargeDayFrom(row.chargeDate, row.item.charge_day);
             const resolved = resolveStatementForCharge({
               chargeDay,
