@@ -1087,7 +1087,12 @@ export interface StatementGroup {
   configIncomplete: boolean;
   incompleteReason: string | null;
   dueDate: string | null;
+  /** Fechamento efetivo desta fatura (informado quando houver, senão previsto). */
   closingDate: string | null;
+  /** `true` quando o fechamento é FATO informado; `false` = previsão. */
+  closingIsActual?: boolean;
+  /** Início da janela efetiva, quando o servidor a informou. */
+  cycleStart?: string | null;
   paid: boolean;
 }
 
