@@ -319,8 +319,9 @@ function FinancialCockpit() {
       settlement,
       safeStatementStatuses,
       competenceMonth: competenceMonthISO(competence),
+      statementCycles: finance.statementCycles,
     }),
-    [rows, today, cardsById, statementRows, settlement, safeStatementStatuses, competence],
+    [rows, today, cardsById, statementRows, settlement, safeStatementStatuses, competence, finance.statementCycles],
   );
 
 
