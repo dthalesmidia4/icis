@@ -90,11 +90,20 @@ export function isSubscriptionRelevantForCompetence(
 
 export interface SubscriptionEntry {
   item: FinanceItem;
-  /** Linha do mês (fato real ou projeção). `null` quando ainda não há linha. */
+  /**
+   * Linha PRINCIPAL do cadastro no mês (renovação/projeção). Mantida para
+   * compatibilidade das ações que já existiam.
+   */
   row: MonthRow | null;
+  /**
+   * TODAS as linhas do cadastro no mês: renovação + suplementares (recarga,
+   * extra). Um cadastro pode ter vários fatos no mesmo mês e nenhum deles pode
+   * desaparecer da tela nem do total.
+   */
+  rows: MonthRow[];
   /** Recursos incluídos do pacote — nunca somam custo. */
   children: FinanceItem[];
-  /** Valor considerado no total do mês (BRL). */
+  /** Valor considerado no total do mês (BRL): soma de TODAS as linhas. */
   amountBrl: number;
 }
 
