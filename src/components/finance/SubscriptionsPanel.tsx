@@ -62,6 +62,15 @@ interface Props {
   canManage?: boolean;
 }
 
+/**
+ * Encurta o status PROJETADO só na apresentação desta tela — o cálculo de
+ * `resolveRowStatus` continua intacto.
+ */
+function shortProjectionLabel(label: string): string {
+  const match = /^Prevista na fatura de (.+)$/i.exec(label.trim());
+  return match ? `Fatura prevista: ${match[1]}` : label;
+}
+
 function nextCharge(item: FinanceItem, competence: Competence): string | null {
   const day = item.charge_day ?? item.due_day ?? null;
   if (day == null || item.recurrence_type === "one_off") return null;
