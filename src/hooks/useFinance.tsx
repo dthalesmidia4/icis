@@ -19,6 +19,8 @@ import {
   normalizeCompetence,
 } from "@/lib/financeCardCycle";
 import { isTrackedCompetence } from "@/lib/financeTrackingPeriod";
+import type { StatementCycleMap } from "@/lib/financeStatementCycles";
+import { fetchStatementCycles } from "@/lib/financeStatementCyclesRpc";
 
 import {
   FinanceItem,
@@ -98,6 +100,11 @@ export function useFinance(competence: Competence) {
    */
   const [monthItems, setMonthItems] = useState<FinanceItem[]>([]);
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
+  /**
+   * JANELA EFETIVA de cada fatura (cartão + competência), vinda do servidor.
+   * É a MESMA janela usada pela reconciliação — UI e servidor nunca divergem.
+   */
+  const [statementCycles, setStatementCycles] = useState<StatementCycleMap>(new Map());
 
   /** Versões da regra de recorrência (histórico por cadastro). */
   const [rules, setRules] = useState<FinanceRecurrenceRule[]>([]);
@@ -143,6 +150,7 @@ export function useFinance(competence: Competence) {
         itemValues,
         occValues,
         tenantValues,
+        cycles,
       ] = await Promise.all([
         supabase
           .from("finance_items")
@@ -194,6 +202,7 @@ export function useFinance(competence: Competence) {
         fetchSecureItemValues(agencyId),
         fetchSecureOccurrenceValues(agencyId, competenceToISO(prev), competenceToISO(next)),
         fetchSecureTenantValues(agencyId),
+        fetchStatementCycles(agencyId, normalized),
       ]);
 
       /**
@@ -214,6 +223,7 @@ export function useFinance(competence: Competence) {
         setPaymentRules([]);
         setBatches([]);
         setBatchEntries([]);
+        setStatementCycles(new Map());
         setLoadError(message);
         return;
       }
@@ -227,6 +237,7 @@ export function useFinance(competence: Competence) {
       setPaymentRules(((payRulesRes?.data as any[]) ?? []) as FinancePaymentRule[]);
       setBatches(((batchesRes?.data as any[]) ?? []) as FinancePaymentBatch[]);
       setBatchEntries(((batchEntriesRes?.data as any[]) ?? []) as FinancePaymentBatchEntry[]);
+      setStatementCycles(cycles);
       setSettings({
         monthlyBudgetBrl: tenantValues.monthlyBudgetBrl,
         defaultUsdRate: tenantValues.defaultUsdRate,
@@ -247,6 +258,7 @@ export function useFinance(competence: Competence) {
       setPaymentRules([]);
       setBatches([]);
       setBatchEntries([]);
+      setStatementCycles(new Map());
       setSettings({ monthlyBudgetBrl: null, defaultUsdRate: null });
       setLoadError(message);
     } finally {
@@ -333,9 +345,10 @@ export function useFinance(competence: Competence) {
             competence: normalized,
             fallbackRate: settings.defaultUsdRate,
             rules,
+            cycles: statementCycles,
           })
         : [],
-    [monthItems, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, tracked],
+    [monthItems, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, statementCycles, tracked],
   );
 
   /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
@@ -498,6 +511,30 @@ export function useFinance(competence: Competence) {
       return data as any as FinanceOccurrence;
     },
     [agencyId, normalized, user?.id, fetchAll],
+  );
+
+  /**
+   * FECHAMENTO REAL DESTA FATURA (`statement_closing_date`).
+   *
+   * Só grava a data: valores, IOF e liquidação continuam sendo decididos na
+   * confirmação do fechamento/pagamento. O trigger do banco valida cartão,
+   * ordem dos ciclos e fatura já paga — aqui a falha é sempre explícita.
+   */
+  const saveStatementClosingDate = useCallback(
+    async (occurrenceId: string, closingDate: string | null) => {
+      const { error } = await supabase
+        .from("finance_occurrences")
+        .update({ statement_closing_date: closingDate } as any)
+        .eq("id", occurrenceId);
+      if (error) {
+        toast.error(error.message || "Não foi possível salvar o fechamento desta fatura");
+        return false;
+      }
+      toast.success(closingDate ? "Fechamento desta fatura salvo" : "Fechamento desta fatura removido");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
   );
 
   /**
@@ -1012,8 +1049,10 @@ export function useFinance(competence: Competence) {
     packages,
     settings,
     refresh: fetchAll,
+    statementCycles,
     saveOccurrence,
     ensureStatementOccurrence,
+    saveStatementClosingDate,
     createSupplementalOccurrence,
     skipOccurrence,
     restoreOccurrence,
