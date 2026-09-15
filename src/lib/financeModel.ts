@@ -1074,7 +1074,71 @@ export interface StatementGroup {
   /** Início da janela efetiva, quando o servidor a informou. */
   cycleStart?: string | null;
   paid: boolean;
+
+/**
+ * REIVINDICAÇÃO PROVISÓRIA (fatura aberta e sem fechamento informado).
+ *
+ * Enquanto a fatura da competência não tem `statement_closing_date` REAL e não
+ * está paga, um FATO cobrado depois do fechamento PREVISTO e até o vencimento,
+ * dentro do próprio mês, compõe provisoriamente essa fatura. Quando o
+ * fechamento real chega (ou a fatura é paga), volta a valer só a janela.
+ */
+interface StatementClaimWindow {
+  start: string;
+  end: string;
+  /** Itens com FATO real cobrado dentro da janela (a projeção equivalente cai junto). */
+  itemIds: Set<string>;
 }
+
+function provisionalClaimWindow(params: {
+  card: FinanceItem;
+  competence: Competence;
+  cycles: StatementCycleMap | null | undefined;
+  items: FinanceItem[];
+  occurrences: FinanceOccurrence[];
+}): StatementClaimWindow | null {
+  const { card, competence, cycles, items, occurrences } = params;
+  const cycle = cycleFor(cycles, card.id, competence);
+  if (!cycle || cycle.closingDateIsActual) return null;
+
+  const monthISO = competenceToISO(competence).slice(0, 7);
+  const statement = occurrences.find(
+    (o) => o.item_id === card.id && String(o.competence_month ?? "").slice(0, 7) === monthISO,
+  );
+  if (statement?.paid_at) return null;
+  if (statement?.statement_closing_date) return null;
+
+  const dueDate =
+    statement?.due_date ??
+    (card.statement_due_day != null ? dateInMonth(competence, card.statement_due_day) : null);
+  if (!dueDate) return null;
+
+  const monthStart = dateInMonth(competence, 1);
+  const monthEnd = dateInMonth(competence, 31);
+  const start = maxISO(addDaysISO(cycle.cycleEnd, 1), monthStart);
+  const end = minISO(dueDate, monthEnd);
+  if (end < start) return null;
+
+  const itemsById = new Map(items.map((i) => [i.id, i]));
+  const itemIds = new Set<string>();
+  for (const occ of occurrences) {
+    const chargeDate = occ.charge_date ?? null;
+    if (!chargeDate || chargeDate < start || chargeDate > end) continue;
+    const cardId = occ.card_item_id_snapshot ?? itemsById.get(occ.item_id)?.card_item_id ?? null;
+    if (cardId !== card.id) continue;
+    itemIds.add(occ.item_id);
+  }
+  if (itemIds.size === 0) return null;
+  return { start, end, itemIds };
+}
+
+function maxISO(a: string, b: string): string {
+  return a >= b ? a : b;
+}
+function minISO(a: string, b: string): string {
+  return a <= b ? a : b;
+}
+
 
 /**
  * Monta os grupos de fatura do mês.
