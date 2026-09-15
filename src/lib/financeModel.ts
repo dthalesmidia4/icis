@@ -1074,6 +1074,8 @@ export interface StatementGroup {
   /** Início da janela efetiva, quando o servidor a informou. */
   cycleStart?: string | null;
   paid: boolean;
+}
+
 
 /**
  * REIVINDICAÇÃO PROVISÓRIA (fatura aberta e sem fechamento informado).
