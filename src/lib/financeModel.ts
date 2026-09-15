@@ -750,6 +750,18 @@ export function buildMonthRows(params: {
     if (occ) {
       if (isSkippedOccurrence(occ)) continue;
       rows.push(rowFromOccurrence(item, occ, fallbackRate));
+      /**
+       * FATO DE OUTRO MÊS ARQUIVADO AQUI: a competência é contábil, a DATA é o
+       * fato. Um fato datado em 15/07 arquivado em agosto não é o fato de
+       * agosto — sem isso ele ocuparia o slot e a previsão do ciclo que
+       * realmente falta desapareceria do mês.
+       */
+      if (
+        isOutOfMonthFact(occ, competence) &&
+        isProjectableInMonth(item, competence, rules)
+      ) {
+        rows.push(rowFromProjection(item, competence, fallbackRate));
+      }
     } else if (isProjectableInMonth(item, competence, rules)) {
       rows.push(rowFromProjection(item, competence, fallbackRate));
     }
