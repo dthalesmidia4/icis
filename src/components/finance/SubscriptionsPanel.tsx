@@ -177,10 +177,13 @@ export default function SubscriptionsPanel({
 
   const renderEntry = (entry: SubscriptionEntry) => {
     const item = entry.item;
-    const next = nextCharge(item, competence);
+    const dateLine = chargeLine(entry, competence, statusContext.today);
     const row = entry.row;
     const status = row ? resolveRowStatus(row, statusContext) : null;
     const showPay = !!row && !!status && status.canPayDirectly && !isCardCharge(row);
+    /** Alerta real fica em pílula; projeção/neutro vira texto discreto. */
+    const badgeStatus = status && status.tone !== "neutral" ? status : null;
+    const quietStatus = status && status.tone === "neutral" ? shortProjectionLabel(status.label) : null;
 
     return (
       <div key={item.id} className="border-t first:border-t-0">
