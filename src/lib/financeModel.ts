@@ -770,17 +770,11 @@ export function buildMonthRows(params: {
       if (isSkippedOccurrence(occ)) continue;
       rows.push(rowFromOccurrence(item, occ, fallbackRate));
       /**
-       * FATO DE OUTRO MÊS ARQUIVADO AQUI: a competência é contábil, a DATA é o
-       * fato. Um fato datado em 15/07 arquivado em agosto não é o fato de
-       * agosto — sem isso ele ocuparia o slot e a previsão do ciclo que
-       * realmente falta desapareceria do mês.
+       * FATO ARQUIVADO AQUI COM DATA DE OUTRO MÊS (ex.: cobrança de 15/07 na
+       * competência de agosto) continua sendo O FATO DO MÊS — regra canônica
+       * (regressão AVISA-API). Nenhuma previsão extra é criada: o recorte da
+       * fatura passou a ser feito pela `charge_date` dentro da janela.
        */
-      if (
-        isOutOfMonthFact(occ, competence) &&
-        isProjectableInMonth(item, competence, rules)
-      ) {
-        rows.push(rowFromProjection(item, competence, fallbackRate));
-      }
     } else if (isProjectableInMonth(item, competence, rules)) {
       rows.push(rowFromProjection(item, competence, fallbackRate));
     }
