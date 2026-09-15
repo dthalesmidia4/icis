@@ -670,20 +670,6 @@ export function isSkippedOccurrence(occ: FinanceOccurrence | null | undefined): 
 }
 
 /**
- * O fato está arquivado NESTA competência mas tem data REAL em outro mês?
- * (ex.: cobrança de 15/07 gravada na competência de agosto). Nunca inventamos
- * data: só comparamos o mês da data real com o mês da competência.
- */
-export function isOutOfMonthFact(
-  occ: FinanceOccurrence,
-  competence: Competence,
-): boolean {
-  const factDate = occ.charge_date ?? occ.due_date ?? null;
-  if (!factDate) return false;
-  return factDate.slice(0, 7) !== competenceToISO(competence).slice(0, 7);
-}
-
-/**
  * Constrói as linhas do mês combinando ocorrências reais e projeções.
  * Nunca cria nada no banco.
  *
