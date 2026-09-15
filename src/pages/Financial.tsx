@@ -213,7 +213,7 @@ function FinancialCockpit() {
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     skipped, skipOccurrence, restoreOccurrence,
-    saveOccurrence, togglePaid, payStatement, updateStatementClosure, saveSettings, saveItem, setItemActive, refresh,
+    saveOccurrence, ensureStatementOccurrence, togglePaid, payStatement, updateStatementClosure, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
 
