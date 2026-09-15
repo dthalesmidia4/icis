@@ -162,6 +162,11 @@ export interface FinanceOccurrence {
 
   charge_date?: string | null;
   due_date?: string | null;
+  /**
+   * Fechamento REAL desta fatura (apenas ocorrências de cartão). `null` = usar
+   * o padrão do cadastro (`statement_closing_day`) como PREVISÃO.
+   */
+  statement_closing_date?: string | null;
   amount_original?: number | null;
   currency: FinanceCurrency;
   exchange_rate?: number | null;
