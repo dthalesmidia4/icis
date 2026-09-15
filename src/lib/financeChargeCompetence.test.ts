@@ -305,7 +305,7 @@ describe("reivindicação provisória da fatura aberta (sem fechamento informado
   });
 
   it("fechamento REAL em 13/09 devolve o fato de 15/09 para outubro", () => {
-    expect(group(SEP, "2026-09-13", true).components.some((c) => c.item.id === "smartvety")).toBe(false);
+    expect(group(SEP, "2026-09-13", true).components.some((c) => c.chargeDate === "2026-09-15")).toBe(false);
     expect(group(OCT, "2026-09-13", true).components.some((c) => c.occurrence?.id === "occ-smartvety")).toBe(true);
   });
 
