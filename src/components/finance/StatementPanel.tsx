@@ -278,7 +278,7 @@ export default function StatementPanel({
                   variant="outline"
                   size="sm"
                   className="min-h-10"
-                  disabled={!group.statementRow?.occurrence}
+                  disabled={!group.statementRow || !!processing}
                   onClick={() => onOpenStatement(group)}
                 >
                   {statementClosureButtonLabel(group)}
@@ -287,7 +287,7 @@ export default function StatementPanel({
                   <Button
                     size="sm"
                     className="min-h-10"
-                    disabled={!group.statementRow?.occurrence}
+                    disabled={!group.statementRow || !!processing}
                     onClick={() => onPayStatement(group)}
                   >
                     Pagar fatura
