@@ -268,6 +268,8 @@ function FinancialCockpit() {
   const [closureGroup, setClosureGroup] = useState<StatementGroup | null>(null);
   /** Cadastro que vai receber um lançamento SUPLEMENTAR (recarga/extra). */
   const [supplementalItem, setSupplementalItem] = useState<FinanceItem | null>(null);
+  /** Trava de duplo clique ao materializar/abrir a fatura do mês. */
+  const [statementBusy, setStatementBusy] = useState(false);
   const [focusCardId, setFocusCardId] = useState<string | null>(null);
   const [highlightIncomplete, setHighlightIncomplete] = useState(false);
 
@@ -619,10 +621,30 @@ function FinancialCockpit() {
       ? Math.min(100, Math.round((totals.expected / settings.monthlyBudgetBrl) * 100))
       : null;
 
+  /**
+   * A fatura PROJETADA também precisa ser informada e paga: a ocorrência é
+   * materializada ao abrir o modal, sem valor, e só a confirmação grava o total
+   * ou o pagamento.
+   */
+  const resolveStatementGroup = async (group: StatementGroup): Promise<StatementGroup | null> => {
+    const row = group.statementRow;
+    if (!row) return null;
+    if (row.occurrence) return group;
+    const occurrence = await ensureStatementOccurrence(row, group.dueDate ?? null);
+    if (!occurrence) return null;
+    return { ...group, statementRow: { ...row, occurrence } };
+  };
+
   /** Pagamento da fatura pede a DATA REAL — nunca assume `now()`. */
-  const handlePayStatement = (group: StatementGroup) => {
-    if (!group.statementRow?.occurrence) return;
-    setPayingGroup(group);
+  const handlePayStatement = async (group: StatementGroup) => {
+    if (!group.statementRow || statementBusy) return;
+    setStatementBusy(true);
+    try {
+      const resolved = await resolveStatementGroup(group);
+      if (resolved) setPayingGroup(resolved);
+    } finally {
+      setStatementBusy(false);
+    }
   };
 
   const confirmPayStatement = async ({
@@ -663,8 +685,15 @@ function FinancialCockpit() {
 
 
   /** Fatura só tem UM lugar de dados do fechamento: total e IOF juntos. */
-  const handleOpenStatement = (group: StatementGroup) => {
-    if (group.statementRow?.occurrence) setClosureGroup(group);
+  const handleOpenStatement = async (group: StatementGroup) => {
+    if (!group.statementRow || statementBusy) return;
+    setStatementBusy(true);
+    try {
+      const resolved = await resolveStatementGroup(group);
+      if (resolved) setClosureGroup(resolved);
+    } finally {
+      setStatementBusy(false);
+    }
   };
 
   const handleInsightAction = (insight: AttentionInsight) => {
