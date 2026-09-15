@@ -1172,7 +1172,18 @@ export function buildStatementGroups(params: {
   return cards.map((card) => {
     const cycle = { closingDay: card.statement_closing_day, dueDay: card.statement_due_day };
     const effectiveCycle = cycleFor(params.cycles, card.id, competence);
+    /** Fatos que ESTA fatura aberta reivindica provisoriamente. */
+    const ownClaim = provisionalClaimWindow({ card, competence, cycles: params.cycles, items, occurrences });
+    /** Fatos já reivindicados pela fatura ANTERIOR ainda aberta (não repetir aqui). */
+    const previousClaim = provisionalClaimWindow({
+      card,
+      competence: addMonths(competence, -1),
+      cycles: params.cycles,
+      items,
+      occurrences,
+    });
     const configIncomplete = card.statement_closing_day == null || card.statement_due_day == null;
+
 
     // Snapshots podem mover uma cobrança para outro cartão no mês: por isso o
     // recorte do mês anterior parte de TODOS os itens e filtra por `cardItemId`.
