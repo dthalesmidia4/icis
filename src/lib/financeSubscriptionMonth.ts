@@ -170,12 +170,20 @@ export function buildSubscriptionMonthView(params: {
     // A busca também encontra o pacote pelo nome de um recurso incluído.
     const matched = matchesTerm(item, term) || children.some((c) => matchesTerm(c, term));
     if (!matched) continue;
-    const row = rows.find((r) => r.item.id === item.id) ?? null;
+    /**
+     * TODAS as linhas do cadastro no mês (renovação + suplementares). Pegar só
+     * a primeira escondia recargas e subestimava o total do grupo.
+     */
+    const itemRows = rows.filter((r) => r.item.id === item.id);
+    const row = itemRows.find((r) => !r.supplemental) ?? itemRows[0] ?? null;
     entries.push({
       item,
       row,
+      rows: itemRows,
       children,
-      amountBrl: row?.amountBrl ?? item.default_amount_brl ?? 0,
+      amountBrl: itemRows.length
+        ? Number(itemRows.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0).toFixed(2))
+        : item.default_amount_brl ?? 0,
     });
   }
 
