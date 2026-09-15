@@ -76,3 +76,21 @@ export function parseStatementCycles(rows: any[] | null | undefined): StatementC
   }
   return map;
 }
+
+/**
+ * Qual FATURA (competência) recebe uma cobrança feita em `chargeDate`, segundo
+ * as janelas efetivas do cartão. `null` quando nenhuma janela conhecida cobre a
+ * data — nada é afirmado sem prova.
+ */
+export function findCycleForChargeDate(
+  cycles: StatementCycleMap | null | undefined,
+  cardId: string | null | undefined,
+  chargeDate: string | null | undefined,
+): StatementCycle | null {
+  if (!cycles || !cardId || !chargeDate) return null;
+  for (const cycle of cycles.values()) {
+    if (cycle.cardId !== cardId) continue;
+    if (chargeDateInCycle(chargeDate, cycle)) return cycle;
+  }
+  return null;
+}
