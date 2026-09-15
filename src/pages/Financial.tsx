@@ -1334,6 +1334,7 @@ function FinancialCockpit() {
                 labels={occurrenceLabels}
                 onOpenStatement={handleOpenStatement}
                 onPayStatement={handlePayStatement}
+                processing={statementBusy}
                 onEditCard={(card) => openItemModal(card)}
                 linkedItems={linkedByCard}
                 onEditItem={(item) => openItemModal(item)}

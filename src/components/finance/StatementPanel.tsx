@@ -71,6 +71,8 @@ interface Props {
    */
   linkedItems?: Record<string, LinkedCardItem[]>;
   onEditItem?: (item: FinanceItem) => void;
+  /** Materializando/abrindo a fatura: evita duplo clique. */
+  processing?: boolean;
 }
 
 function Fact({ label, value, tone, hint }: { label: string; value: string; tone?: "muted" | "warning"; hint?: string }) {
@@ -102,6 +104,7 @@ export default function StatementPanel({
   linkedItems,
   onEditItem,
   labels,
+  processing,
 }: Props) {
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
