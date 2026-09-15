@@ -28,7 +28,7 @@ export default function FinanceToolsCockpit() {
   const [competence, setCompetence] = useState(clampToTrackingStart(currentCompetence()));
   const today = todayISO();
   const {
-    items, rows, cards, packages, overlaps, loadError, refresh, statementStatuses,
+    items, rows, cards, packages, overlaps, loadError, refresh, statementStatuses, statementCycles,
     saveOccurrence, togglePaid, saveItem, setItemActive,
   } = useFinanceTools(competence);
 
@@ -93,8 +93,9 @@ export default function FinanceToolsCockpit() {
       settlement,
       safeStatementStatuses: statementStatuses,
       competenceMonth,
+      statementCycles,
     }),
-    [rows, today, cardsById, settlement, statementStatuses, competenceMonth],
+    [rows, today, cardsById, settlement, statementStatuses, competenceMonth, statementCycles],
   );
 
 
