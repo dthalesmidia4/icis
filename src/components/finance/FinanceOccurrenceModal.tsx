@@ -956,7 +956,11 @@ export default function FinanceOccurrenceModal({
                 onClick={handleSave}
                 disabled={saving || uploading || (!rowClosed && !canSubmit)}
               >
-                {saving ? "Salvando..." : "Salvar lançamento"}
+                {saving
+                  ? "Salvando..."
+                  : cardRow && row.projected && !row.occurrence
+                    ? "Confirmar cobrança"
+                    : "Salvar lançamento"}
               </Button>
             )}
 
