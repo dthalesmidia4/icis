@@ -236,6 +236,7 @@ export function useFinance(competence: Competence) {
         toast.error(message);
         setItems([]);
         setMonthItems([]);
+        setMonthItemsByCompetence(new Map());
         setOccurrences([]);
         setRules([]);
         setPaymentRules([]);
