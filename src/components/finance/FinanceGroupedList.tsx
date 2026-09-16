@@ -11,7 +11,7 @@
  * Os grupos vêm de `buildCompositionGroups`, então o total de um grupo é a soma
  * exata das suas linhas e a soma dos grupos é o total da lista.
  */
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,12 @@ export interface FinanceGroupedListProps<E extends FinanceGroupedEntry> {
   countLabel?: (count: number) => string;
   /** Linha secundária discreta abaixo do valor (ex.: divergência pago x lançado). */
   valueSecondary?: (entry: E) => ReactNode;
+  /**
+   * Une os vários lançamentos do MESMO cadastro no mês em um item principal
+   * (soma + contagem + expansão), como na tela de assinaturas e ferramentas.
+   * Cadastro com um único lançamento continua sendo uma linha normal.
+   */
+  mergeByItem?: boolean;
 }
 
 const TONE_ICON: Record<StatusTone, typeof Clock> = {
