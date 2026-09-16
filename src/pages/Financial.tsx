@@ -100,6 +100,7 @@ import {
   filterByCostCenter,
   isStatementRow,
 } from "@/lib/financeModel";
+import { isSubscriptionsDomainItem } from "@/lib/financeRowStatus";
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
 import { financeBackTarget } from "@/lib/financeBackTarget";
 import PayStatementModal from "@/components/finance/PayStatementModal";
