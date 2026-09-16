@@ -38,6 +38,8 @@ interface Props {
   groupBy?: CompositionGroupBy;
   expanded: Record<string, boolean>;
   onToggleGroup: (key: string) => void;
+  /** Une vários lançamentos do mesmo cadastro num item principal expansível. */
+  mergeByItem?: boolean;
 }
 
 export default function MonthAccountsList({
