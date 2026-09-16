@@ -1111,6 +1111,7 @@ export function useFinance(competence: Competence) {
 
     payStatement,
     updateStatementClosure,
+    saveUsdReconciliationDraft,
     savePaymentRule,
     createPaymentBatch,
     payPaymentBatch,
