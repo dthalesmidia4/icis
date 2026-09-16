@@ -358,11 +358,18 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
                 inputMode="decimal"
                 className="w-full min-w-0 max-w-full"
                 value={iof}
-                onChange={(e) => setIof(e.target.value)}
+                onChange={(e) => {
+                  setIofTouched(true);
+                  setIof(e.target.value);
+                }}
                 placeholder="0,00"
               />
               {iofMessage ? (
                 <p className="text-xs text-destructive">{iofMessage}</p>
+              ) : usdComponents.length > 0 && suggestedIof != null ? (
+                <p className="text-xs text-muted-foreground">
+                  Sugestão automática de 3,5% sobre {formatBRL(confirmedUsdBrl)} em compras em moeda estrangeira. Você pode ajustar manualmente.
+                </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
                   IOF cobrado pelo banco junto com esta fatura. Use 0 quando não houver.
