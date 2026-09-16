@@ -138,3 +138,20 @@ export function reconciliationPayload(entries: ReconciliationEntry[]) {
     charge_date: e.chargeDate,
   }));
 }
+
+/**
+ * Payload do SALVAMENTO PARCIAL da conferência (fatura permanece aberta).
+ * Igual ao do pagamento, mais `scheduled_date` quando a linha tiver — assim o
+ * servidor materializa a projeção na data certa sem liquidar nada.
+ */
+export function reconciliationDraftPayload(entries: ReconciliationEntry[]) {
+  return entries.map((e) => ({
+    item_id: e.itemId,
+    occurrence_id: e.occurrenceId,
+    amount_original: e.amountOriginal,
+    amount_brl: e.amountBrl,
+    exchange_rate: e.exchangeRate,
+    charge_date: e.chargeDate,
+    ...(e.scheduledDate ? { scheduled_date: e.scheduledDate } : {}),
+  }));
+}
