@@ -279,6 +279,7 @@ export function useFinance(competence: Competence) {
       // Nunca deixar dados parciais no ar: zeros virariam “informação”.
       setItems([]);
       setMonthItems([]);
+      setMonthItemsByCompetence(new Map());
       setOccurrences([]);
       setRules([]);
       setPaymentRules([]);
