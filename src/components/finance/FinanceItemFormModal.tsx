@@ -1269,7 +1269,8 @@ export default function FinanceItemFormModal({
                 !name.trim() ||
                 !installmentsValid ||
                 !oneOffDateValid ||
-                !!chargeDueConflict
+                !!chargeDueConflict ||
+                paymentMethodUnselected
               }
             >
 
