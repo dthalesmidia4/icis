@@ -732,6 +732,28 @@ export function useFinance(competence: Competence) {
   );
 
   /**
+   * SALVAMENTO PARCIAL da conferência cambial: grava os valores reais em reais
+   * das compras em dólar (materializando projeções quando preciso) e mantém a
+   * fatura EM ABERTO — nada de `paid_at`.
+   */
+  const saveUsdReconciliationDraft = useCallback(
+    async (occurrenceId: string, usdComponents: unknown[]) => {
+      const { error } = await supabase.rpc("save_finance_statement_usd_reconciliation_draft", {
+        _occurrence_id: occurrenceId,
+        _usd_components: usdComponents,
+      } as any);
+      if (error) {
+        toast.error(error.message || "Não foi possível salvar os valores em reais");
+        return false;
+      }
+      toast.success("Valores em reais salvos — a fatura continua em aberto");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
+  /**
    * FECHAMENTO da fatura: total e IOF gravados na MESMA intenção, sem tocar em
    * `paid_at`/`paid_amount_brl`. Total `null` preserva o total já conhecido.
    */
@@ -1089,6 +1111,7 @@ export function useFinance(competence: Competence) {
 
     payStatement,
     updateStatementClosure,
+    saveUsdReconciliationDraft,
     savePaymentRule,
     createPaymentBatch,
     payPaymentBatch,

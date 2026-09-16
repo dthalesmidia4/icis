@@ -52,6 +52,7 @@ import {
 } from "@/lib/financeStatementClosure";
 import {
   buildReconciliation,
+  reconciliationDraftPayload,
   reconciliationPayload,
   usdComponentsOf,
 } from "@/lib/financeReconciliation";
@@ -74,13 +75,30 @@ interface Props {
     /** Total do FECHAMENTO informado aqui (null = mantém o total conhecido). */
     statementAmountBrl: number | null;
   }) => Promise<boolean>;
+  /**
+   * Salva SOMENTE a conferência cambial, mantendo a fatura em aberto.
+   * `true` = gravado no banco.
+   */
+  onSaveUsdDraft?: (params: {
+    group: StatementGroup;
+    usdComponents: unknown[];
+  }) => Promise<boolean>;
 }
 
-export default function PayStatementModal({ open, onOpenChange, group, today, onConfirm }: Props) {
+export default function PayStatementModal({
+  open,
+  onOpenChange,
+  group,
+  today,
+  onConfirm,
+  onSaveUsdDraft,
+}: Props) {
   const [date, setDate] = useState(today);
   /** Total do fechamento (o mesmo valor que será pago). */
   const [total, setTotal] = useState("");
   const [saving, setSaving] = useState(false);
+  /** `true` enquanto grava apenas a conferência cambial (sem pagar). */
+  const [savingDraft, setSavingDraft] = useState(false);
   /** IOF é SEMPRE perguntado, com padrão 0 — exista ou não compra em dólar. */
   const [iof, setIof] = useState("0");
   /**
@@ -207,6 +225,24 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
       if (ok) onOpenChange(false);
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Só a conferência: a fatura continua em aberto, nada é liquidado. */
+  const canSaveDraft =
+    !!onSaveUsdDraft && usdComponents.length > 0 && reconciliation.state === "ok";
+
+  const submitDraft = async () => {
+    if (!onSaveUsdDraft || !group || reconciliation.state !== "ok") return;
+    setSavingDraft(true);
+    try {
+      // Os valores digitados são preservados: o modal permanece aberto.
+      await onSaveUsdDraft({
+        group,
+        usdComponents: reconciliationDraftPayload(reconciliation.entries),
+      });
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -429,10 +465,15 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
         </div>
 
         <DialogFooter className="flex-wrap gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || savingDraft}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={saving || !canSubmit}>
+          {canSaveDraft && (
+            <Button variant="secondary" onClick={submitDraft} disabled={saving || savingDraft}>
+              {savingDraft ? "Salvando..." : "Salvar valores em reais"}
+            </Button>
+          )}
+          <Button onClick={submit} disabled={saving || savingDraft || !canSubmit}>
             {saving ? "Registrando..." : "Confirmar pagamento"}
           </Button>
         </DialogFooter>

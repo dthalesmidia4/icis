@@ -26,6 +26,8 @@ export interface UsdComponent {
   amountOriginal: number | null;
   /** Estimativa atual em reais, quando existir — informação secundária. */
   estimatedBrl: number | null;
+  /** Data agendada da linha, quando existir (ajuda a materializar projeções). */
+  scheduledDate: string | null;
   projected: boolean;
 }
 
@@ -42,6 +44,7 @@ export function usdComponentsOf(group: StatementGroup | null): UsdComponent[] {
       chargeDate: row.chargeDate ?? null,
       amountOriginal: row.amountOriginal ?? null,
       estimatedBrl: row.amountBrl ?? null,
+      scheduledDate: row.scheduledDate ?? null,
       projected: row.projected,
     }))
     .sort((a, b) => (a.chargeDate ?? "").localeCompare(b.chargeDate ?? ""));
@@ -63,6 +66,8 @@ export interface ReconciliationEntry {
   /** Prévia local; o banco recalcula e persiste o valor autoritativo. */
   exchangeRate: number | null;
   chargeDate: string | null;
+  /** Data agendada da linha, quando existir. */
+  scheduledDate?: string | null;
 }
 
 export type ReconciliationState =
@@ -106,6 +111,7 @@ export function buildReconciliation(
       amountBrl: Number(parsed.toFixed(2)),
       exchangeRate: computeUsdRate(parsed, comp.amountOriginal),
       chargeDate: comp.chargeDate,
+      scheduledDate: comp.scheduledDate,
     });
   }
 
@@ -130,5 +136,22 @@ export function reconciliationPayload(entries: ReconciliationEntry[]) {
     amount_brl: e.amountBrl,
     exchange_rate: e.exchangeRate,
     charge_date: e.chargeDate,
+  }));
+}
+
+/**
+ * Payload do SALVAMENTO PARCIAL da conferência (fatura permanece aberta).
+ * Igual ao do pagamento, mais `scheduled_date` quando a linha tiver — assim o
+ * servidor materializa a projeção na data certa sem liquidar nada.
+ */
+export function reconciliationDraftPayload(entries: ReconciliationEntry[]) {
+  return entries.map((e) => ({
+    item_id: e.itemId,
+    occurrence_id: e.occurrenceId,
+    amount_original: e.amountOriginal,
+    amount_brl: e.amountBrl,
+    exchange_rate: e.exchangeRate,
+    charge_date: e.chargeDate,
+    ...(e.scheduledDate ? { scheduled_date: e.scheduledDate } : {}),
   }));
 }
