@@ -1505,6 +1505,7 @@ export type Database = {
           source_updated_at: string | null
           statement_closing_day: number | null
           statement_due_day: number | null
+          statement_label: string | null
           subscription_date: string | null
           supplemental_entry_kind: string | null
           supports_supplemental_entries: boolean | null
@@ -1550,6 +1551,7 @@ export type Database = {
           source_updated_at?: string | null
           statement_closing_day?: number | null
           statement_due_day?: number | null
+          statement_label?: string | null
           subscription_date?: string | null
           supplemental_entry_kind?: string | null
           supports_supplemental_entries?: boolean | null
@@ -1595,6 +1597,7 @@ export type Database = {
           source_updated_at?: string | null
           statement_closing_day?: number | null
           statement_due_day?: number | null
+          statement_label?: string | null
           subscription_date?: string | null
           supplemental_entry_kind?: string | null
           supports_supplemental_entries?: boolean | null
@@ -1652,6 +1655,7 @@ export type Database = {
           recurrence_weekday: number | null
           statement_closing_day: number | null
           statement_due_day: number | null
+          statement_label: string | null
           subscription_date: string | null
           supplemental_entry_kind: string | null
           supports_supplemental_entries: boolean
@@ -1698,6 +1702,7 @@ export type Database = {
           recurrence_weekday?: number | null
           statement_closing_day?: number | null
           statement_due_day?: number | null
+          statement_label?: string | null
           subscription_date?: string | null
           supplemental_entry_kind?: string | null
           supports_supplemental_entries?: boolean
@@ -1744,6 +1749,7 @@ export type Database = {
           recurrence_weekday?: number | null
           statement_closing_day?: number | null
           statement_due_day?: number | null
+          statement_label?: string | null
           subscription_date?: string | null
           supplemental_entry_kind?: string | null
           supports_supplemental_entries?: boolean
@@ -4299,6 +4305,7 @@ export type Database = {
           recurrence_weekday: number
           statement_closing_day: number
           statement_due_day: number
+          statement_label: string
           subscription_date: string
           supplemental_entry_kind: string
           supports_supplemental_entries: boolean
