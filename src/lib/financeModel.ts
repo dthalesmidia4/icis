@@ -1161,6 +1161,13 @@ export function buildStatementGroups(params: {
    * Ausente, cai no padrão do cadastro (`statement_closing_day`).
    */
   cycles?: StatementCycleMap | null;
+  /**
+   * VERSÃO DO CADASTRO VÁLIDA EM CADA COMPETÊNCIA (chave = competência ISO).
+   * A fatura varre mais de um mês: cada mês precisa ser lido com o cadastro
+   * vigente NELE — senão um cadastro criado depois projeta cobrança retroativa.
+   * Ausente para um mês, cai no cadastro recebido em `items`.
+   */
+  itemsByCompetence?: Map<string, FinanceItem[]> | null;
 }): StatementGroup[] {
   const { items, occurrences, competence } = params;
   const fallbackRate = params.fallbackRate ?? null;
@@ -1211,10 +1218,18 @@ export function buildStatementGroups(params: {
         ? [addMonths(competence, -1), competence, addMonths(competence, 1)]
         : candidateChargeCompetences(competence);
       for (const chargeCompetence of scanCompetences) {
+        /**
+         * Cadastro VIGENTE naquele mês: o que existia em agosto compõe o ciclo
+         * 14/08–13/09; o que só passou a existir em setembro não retroage.
+         */
+        const monthCatalog = (
+          params.itemsByCompetence?.get(competenceToISO(chargeCompetence)) ?? cardItems
+        ).filter((i) => isCostBearing(i));
         const monthRows = sameCompetence(chargeCompetence, competence)
           ? currentRows
-          : buildMonthRows({ items: cardItems, occurrences, competence: chargeCompetence, fallbackRate, rules });
-        for (const row of monthRows) {
+          : buildMonthRows({ items: monthCatalog, occurrences, competence: chargeCompetence, fallbackRate, rules });
+        for (const rawRow of monthRows) {
+          let row = rawRow;
           // Cadastro inativo sem fato real não compõe fatura nenhuma.
           if (!isOperationalRow(row)) continue;
           if (row.cardItemId !== card.id) continue;
@@ -1236,7 +1251,22 @@ export function buildStatementGroups(params: {
               row.chargeDate >= ownClaim.start &&
               row.chargeDate <= ownClaim.end &&
               ownClaim.itemIds.has(row.item.id);
-            if (!inCycle && !claimedHere) continue;
+            if (!inCycle && !claimedHere) {
+              /**
+               * FATO ANTIGO DO MÊS (cobrança de outro ciclo, ex.: 14/07
+               * arquivado em agosto) não pode APAGAR a cobrança prevista deste
+               * ciclo: a assinatura já existia e volta a cobrar dentro da
+               * janela. A linha do mês é então substituída pela PROJEÇÃO desse
+               * mês — e o fato real, quando existir dentro da janela, continua
+               * prevalecendo sobre ela no dedupe.
+               */
+              const substitute =
+                isRealFact && !row.supplemental && isProjectableInMonth(row.item, chargeCompetence, rules)
+                  ? rowFromProjection(row.item, chargeCompetence, fallbackRate)
+                  : null;
+              if (!substitute || !chargeDateInCycle(substitute.chargeDate, effectiveCycle)) continue;
+              row = substitute;
+            }
             /** Reivindicado pelo mês anterior ainda aberto: nem fato nem projeção equivalente. */
             if (
               !claimedHere &&

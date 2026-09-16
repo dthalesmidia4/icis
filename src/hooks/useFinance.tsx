@@ -99,6 +99,13 @@ export function useFinance(competence: Competence) {
    * `monthItems` é o que explica o passado e nunca é reescrito pelo presente.
    */
   const [monthItems, setMonthItems] = useState<FinanceItem[]>([]);
+  /**
+   * Cadastro vigente nos meses ADJACENTES (chave = competência ISO). A fatura
+   * varre mais de um mês; cada mês precisa do cadastro que existia nele.
+   */
+  const [monthItemsByCompetence, setMonthItemsByCompetence] = useState<Map<string, FinanceItem[]>>(
+    new Map(),
+  );
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
   /**
    * JANELA EFETIVA de cada fatura (cartão + competência), vinda do servidor.
@@ -142,6 +149,8 @@ export function useFinance(competence: Competence) {
       const [
         itemsRes,
         monthItemsRes,
+        prevItemsRes,
+        nextItemsRes,
         occRes,
         rulesRes,
         payRulesRes,
@@ -164,6 +173,15 @@ export function useFinance(competence: Competence) {
         (supabase as any).rpc("finance_read_items_for_competence", {
           _tenant_id: agencyId,
           _competence: competenceToISO(normalized),
+        }),
+        // Cadastro vigente nos meses adjacentes: alimenta o ciclo da fatura.
+        (supabase as any).rpc("finance_read_items_for_competence", {
+          _tenant_id: agencyId,
+          _competence: competenceToISO(prev),
+        }),
+        (supabase as any).rpc("finance_read_items_for_competence", {
+          _tenant_id: agencyId,
+          _competence: competenceToISO(next),
         }),
         supabase
           .from("finance_occurrences")
@@ -218,6 +236,7 @@ export function useFinance(competence: Competence) {
         toast.error(message);
         setItems([]);
         setMonthItems([]);
+        setMonthItemsByCompetence(new Map());
         setOccurrences([]);
         setRules([]);
         setPaymentRules([]);
@@ -230,6 +249,13 @@ export function useFinance(competence: Competence) {
 
       setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
       setMonthItems(((monthItemsRes?.data as any[]) ?? []) as FinanceItem[]);
+      setMonthItemsByCompetence(
+        new Map<string, FinanceItem[]>([
+          [competenceToISO(prev), ((prevItemsRes?.data as any[]) ?? []) as FinanceItem[]],
+          [competenceToISO(normalized), ((monthItemsRes?.data as any[]) ?? []) as FinanceItem[]],
+          [competenceToISO(next), ((nextItemsRes?.data as any[]) ?? []) as FinanceItem[]],
+        ]),
+      );
       setOccurrences(
         mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
       );
@@ -253,6 +279,7 @@ export function useFinance(competence: Competence) {
       // Nunca deixar dados parciais no ar: zeros virariam “informação”.
       setItems([]);
       setMonthItems([]);
+      setMonthItemsByCompetence(new Map());
       setOccurrences([]);
       setRules([]);
       setPaymentRules([]);
@@ -346,9 +373,10 @@ export function useFinance(competence: Competence) {
             fallbackRate: settings.defaultUsdRate,
             rules,
             cycles: statementCycles,
+            itemsByCompetence: monthItemsByCompetence,
           })
         : [],
-    [monthItems, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, statementCycles, tracked],
+    [monthItems, monthItemsByCompetence, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, statementCycles, tracked],
   );
 
   /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
