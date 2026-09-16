@@ -125,7 +125,6 @@ import {
   buildPaymentQueue,
   mergeGroupedPaymentsIntoQueue,
   formatDayMonth,
-  isDirectPayableRow,
   isSubscriptionsDomainItem,
   monthFullLabel,
   overdueDirectRows,
@@ -148,7 +147,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   },
   accounts: {
     title: "Contas e despesas",
-    subtitle: "Pix, boletos, transferências e outras despesas pagas fora do cartão.",
+    subtitle: "Todas as despesas do mês, independentemente da forma de pagamento.",
   },
   cards: {
     title: "Cartões e faturas",
@@ -238,6 +237,9 @@ function FinancialCockpit() {
   const [accountsExpanded, setAccountsExpanded] = useState<Record<string, boolean>>({});
   const toggleAccountsGroup = (key: string) =>
     setAccountsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  const [subscriptionAccountsExpanded, setSubscriptionAccountsExpanded] = useState<Record<string, boolean>>({});
+  const toggleSubscriptionAccountsGroup = (key: string) =>
+    setSubscriptionAccountsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const [compositionFiltersOpen, setCompositionFiltersOpen] = useState(false);
   /**
@@ -326,7 +328,8 @@ function FinancialCockpit() {
 
 
   const operationalRows = useMemo(() => rows.filter((row) => !isStatementRow(row)), [rows]);
-  const accountRows = useMemo(() => operationalRows.filter(isDirectPayableRow), [operationalRows]);
+  // Contas e despesas reúne todas as despesas do mês, inclusive cobranças no cartão.
+  const accountRows = useMemo(() => operationalRows, [operationalRows]);
   const subscriptionRows = useMemo(
     () => operationalRows.filter((row) => isSubscriptionsDomainItem(row.item)),
     [operationalRows],
@@ -527,28 +530,51 @@ function FinancialCockpit() {
   /** Total das linhas visíveis (inclui os repasses de IOF exibidos). */
   const visibleRowsTotal = useMemo(() => sumRowsBrl(visibleRows), [visibleRows]);
 
+  const nonSubscriptionVisibleRows = useMemo(
+    () => visibleRows.filter((row) => !isSubscriptionsDomainItem(row.item)),
+    [visibleRows],
+  );
+  const subscriptionVisibleRows = useMemo(
+    () => visibleRows.filter((row) => isSubscriptionsDomainItem(row.item)),
+    [visibleRows],
+  );
+
   /**
    * Expansão dos grupos de `Contas e despesas` — mesma mecânica da composição:
    * vazio = todos fechados, e trocar `Agrupar por` fecha tudo de novo.
    */
   const accountsEntries = useMemo(
-    () => visibleRows.map((row) => ({ row, value: row.amountBrl ?? 0 })),
-    [visibleRows],
+    () => nonSubscriptionVisibleRows.map((row) => ({ row, value: row.amountBrl ?? 0 })),
+    [nonSubscriptionVisibleRows],
   );
   const accountsGroups = useMemo(
     () => buildCompositionGroups(accountsEntries, accountsGroupBy),
     [accountsEntries, accountsGroupBy],
   );
+  const subscriptionAccountsEntries = useMemo(
+    () => subscriptionVisibleRows.map((row) => ({ row, value: row.amountBrl ?? 0 })),
+    [subscriptionVisibleRows],
+  );
+  const subscriptionAccountsGroups = useMemo(
+    () => buildCompositionGroups(subscriptionAccountsEntries, accountsGroupBy),
+    [subscriptionAccountsEntries, accountsGroupBy],
+  );
   const accountsAllOpen =
-    accountsGroups.length > 0 && accountsGroups.every((g) => !!accountsExpanded[g.key]);
+    (accountsGroups.length === 0 || accountsGroups.every((g) => !!accountsExpanded[g.key])) &&
+    (subscriptionAccountsGroups.length === 0 ||
+      subscriptionAccountsGroups.every((g) => !!subscriptionAccountsExpanded[g.key]));
   const toggleAllAccountsGroups = () => {
     if (accountsAllOpen) {
       setAccountsExpanded({});
+      setSubscriptionAccountsExpanded({});
       return;
     }
     const next: Record<string, boolean> = {};
     for (const group of accountsGroups) next[group.key] = true;
     setAccountsExpanded(next);
+    const nextSub: Record<string, boolean> = {};
+    for (const group of subscriptionAccountsGroups) nextSub[group.key] = true;
+    setSubscriptionAccountsExpanded(nextSub);
   };
 
 
@@ -1283,26 +1309,67 @@ function FinancialCockpit() {
               <p className="text-sm font-semibold">Total: {money(visibleRowsTotal)}</p>
             </div>
 
-            <MonthAccountsList
-              rows={visibleRows}
-              statusContext={statusContext}
-              cards={cards}
-              overlaps={overlaps}
-              today={today}
-              loading={loading}
-              emptyMessage={
-                mainView === "to_pay"
-                  ? "Nada pendente com esses filtros neste mês."
-                  : "Nenhuma conta para este filtro neste mês."
-              }
-              onOpenRow={setOccurrenceRow}
-              labels={occurrenceLabels}
-              onTogglePaid={togglePaid}
-              onEditItem={(item) => openItemModal(item)}
-              groupBy={accountsGroupBy}
-              expanded={accountsExpanded}
-              onToggleGroup={toggleAccountsGroup}
-            />
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Outras contas e despesas
+              </h3>
+              <MonthAccountsList
+                rows={nonSubscriptionVisibleRows}
+                statusContext={statusContext}
+                cards={cards}
+                overlaps={overlaps}
+                today={today}
+                loading={loading}
+                emptyMessage={
+                  mainView === "to_pay"
+                    ? "Nada pendente com esses filtros neste mês."
+                    : "Nenhuma conta para este filtro neste mês."
+                }
+                onOpenRow={setOccurrenceRow}
+                labels={occurrenceLabels}
+                onTogglePaid={togglePaid}
+                onEditItem={(item) => openItemModal(item)}
+                groupBy={accountsGroupBy}
+                expanded={accountsExpanded}
+                onToggleGroup={toggleAccountsGroup}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Assinaturas e ferramentas
+                </h3>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-sm"
+                  onClick={() => goTo("subscriptions")}
+                >
+                  Gerenciar assinaturas e ferramentas
+                </Button>
+              </div>
+              <MonthAccountsList
+                rows={subscriptionVisibleRows}
+                statusContext={statusContext}
+                cards={cards}
+                overlaps={overlaps}
+                today={today}
+                loading={loading}
+                emptyMessage={
+                  mainView === "to_pay"
+                    ? "Nada pendente com esses filtros neste mês."
+                    : "Nenhuma assinatura ou ferramenta neste recorte."
+                }
+                onOpenRow={setOccurrenceRow}
+                labels={occurrenceLabels}
+                onTogglePaid={togglePaid}
+                onEditItem={(item) => openItemModal(item)}
+                groupBy={accountsGroupBy}
+                expanded={subscriptionAccountsExpanded}
+                onToggleGroup={toggleSubscriptionAccountsGroup}
+              />
+            </div>
 
             {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
             <SkippedEntriesPanel entries={skipped} onRestore={restoreOccurrence} />
