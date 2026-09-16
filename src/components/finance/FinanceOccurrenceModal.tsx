@@ -183,7 +183,7 @@ interface Props {
 /** Seção do modal: título discreto + conteúdo, sem accordion obrigatório. */
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3 min-w-0">
+    <section className="space-y-3 min-w-0 break-inside-avoid">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
       {children}
     </section>
@@ -587,7 +587,7 @@ export default function FinanceOccurrenceModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="min-w-0">
           <DialogTitle className="break-words pr-8">{occurrenceDisplayName(row, labels)}</DialogTitle>
           <DialogDescription className="break-words">
@@ -610,7 +610,7 @@ export default function FinanceOccurrenceModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-1 min-w-0">
+        <div className="columns-1 lg:columns-2 gap-6 py-1 min-w-0 [&>*]:break-inside-avoid [&>*]:mb-5">
           {/*
             TRANSIÇÃO INCOERENTE: o cadastro virou cartão, mas o fato ficou com
             vencimento direto + pagamento próprio e sem data de cobrança. Sem

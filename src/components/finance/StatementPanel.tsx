@@ -414,13 +414,18 @@ export default function StatementPanel({
                       const statementLabel = row.item.statement_label?.trim();
                       const suffix = occurrenceDisplaySuffix(row, itemLabels);
                       /**
+                       * `occurrenceDisplaySuffix` cai no nome do cadastro quando não
+                       * há sufixo real; descartamos esse fallback para não repetir.
                        * statement_label vazio: comportamento atual (nome + sufixo embutido).
                        * statement_label preenchido: ele é o nome principal; sufixo
-                       * (Renovação/Recarga) fica no meio; name atual aparece depois,
-                       * discreto, sem repetir o nome.
+                       * real (Renovação/Recarga/numeração) fica no meio; name atual
+                       * aparece uma única vez, discreto.
                        */
+                      const realSuffix = suffix && suffix !== row.item.name ? suffix : null;
                       const lineLabel = statementLabel
-                        ? `${statementLabel}${suffix && suffix !== statementLabel ? ` · ${suffix}` : ""} · ${row.item.name}`
+                        ? `${statementLabel}${realSuffix ? ` · ${realSuffix}` : ""}${
+                            statementLabel === row.item.name ? "" : ` · ${row.item.name}`
+                          }`
                         : occurrenceDisplayName(row, itemLabels);
                       return (
                         <button

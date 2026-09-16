@@ -571,7 +571,7 @@ export default function FinanceItemFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {item ? "Editar cadastro" : step === "intent" ? "O que você quer adicionar?" : "Novo cadastro"}
@@ -601,7 +601,7 @@ export default function FinanceItemFormModal({
             ))}
           </div>
         ) : (
-        <div className="space-y-4 py-2">
+        <div className="columns-1 lg:columns-2 gap-6 py-2 [&>*]:break-inside-avoid [&>*]:mb-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <Label>Nome *</Label>
