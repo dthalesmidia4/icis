@@ -755,16 +755,22 @@ export default function FinanceItemFormModal({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label>Forma de pagamento</Label>
+                    <Label>Forma de pagamento *</Label>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={NONE}>Não definida</SelectItem>
+                        <SelectItem value={UNSELECTED} disabled>Selecione a forma de pagamento</SelectItem>
+                        <SelectItem value={NONE}>Sem forma definida por enquanto</SelectItem>
                         {PAYMENT_METHODS.map((m) => (
                           <SelectItem key={m} value={m}>{m}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {paymentMethodUnselected && (
+                      <p className="text-xs text-destructive mt-1">
+                        Escolha uma forma ou marque “Sem forma definida por enquanto”.
+                      </p>
+                    )}
                   </div>
                   {onCard && (
                     <div>
