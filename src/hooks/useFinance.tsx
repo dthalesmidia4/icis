@@ -99,6 +99,13 @@ export function useFinance(competence: Competence) {
    * `monthItems` é o que explica o passado e nunca é reescrito pelo presente.
    */
   const [monthItems, setMonthItems] = useState<FinanceItem[]>([]);
+  /**
+   * Cadastro vigente nos meses ADJACENTES (chave = competência ISO). A fatura
+   * varre mais de um mês; cada mês precisa do cadastro que existia nele.
+   */
+  const [monthItemsByCompetence, setMonthItemsByCompetence] = useState<Map<string, FinanceItem[]>>(
+    new Map(),
+  );
   const [occurrences, setOccurrences] = useState<FinanceOccurrence[]>([]);
   /**
    * JANELA EFETIVA de cada fatura (cartão + competência), vinda do servidor.
