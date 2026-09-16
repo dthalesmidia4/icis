@@ -373,9 +373,10 @@ export function useFinance(competence: Competence) {
             fallbackRate: settings.defaultUsdRate,
             rules,
             cycles: statementCycles,
+            itemsByCompetence: monthItemsByCompetence,
           })
         : [],
-    [monthItems, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, statementCycles, tracked],
+    [monthItems, monthItemsByCompetence, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, statementCycles, tracked],
   );
 
   /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
