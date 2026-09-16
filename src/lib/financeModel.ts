@@ -1218,10 +1218,18 @@ export function buildStatementGroups(params: {
         ? [addMonths(competence, -1), competence, addMonths(competence, 1)]
         : candidateChargeCompetences(competence);
       for (const chargeCompetence of scanCompetences) {
+        /**
+         * Cadastro VIGENTE naquele mês: o que existia em agosto compõe o ciclo
+         * 14/08–13/09; o que só passou a existir em setembro não retroage.
+         */
+        const monthCatalog = (
+          params.itemsByCompetence?.get(competenceToISO(chargeCompetence)) ?? cardItems
+        ).filter((i) => isCostBearing(i));
         const monthRows = sameCompetence(chargeCompetence, competence)
           ? currentRows
-          : buildMonthRows({ items: cardItems, occurrences, competence: chargeCompetence, fallbackRate, rules });
-        for (const row of monthRows) {
+          : buildMonthRows({ items: monthCatalog, occurrences, competence: chargeCompetence, fallbackRate, rules });
+        for (const rawRow of monthRows) {
+          let row = rawRow;
           // Cadastro inativo sem fato real não compõe fatura nenhuma.
           if (!isOperationalRow(row)) continue;
           if (row.cardItemId !== card.id) continue;
