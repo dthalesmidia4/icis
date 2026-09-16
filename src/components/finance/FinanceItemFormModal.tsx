@@ -172,6 +172,8 @@ export default function FinanceItemFormModal({
   const costCenterOptions = COST_CENTERS.filter((c) => allowedCostCentersForScope(scope).includes(c));
   const [kind, setKind] = useState<FinanceKind>("expense");
   const [name, setName] = useState("");
+  /** Nome alternativo exibido na fatura do cartão (ex.: OPENAI). */
+  const [statementLabel, setStatementLabel] = useState("");
   const [purpose, setPurpose] = useState("");
   const [category, setCategory] = useState("");
   const [costCenter, setCostCenter] = useState<FinanceCostCenter>("administrativo");
@@ -247,6 +249,7 @@ export default function FinanceItemFormModal({
 
     setKind((item?.kind as FinanceKind) ?? initialKind ?? (scope === "tools" ? "tool" : "expense"));
     setName(item?.name ?? "");
+    setStatementLabel(item?.statement_label ?? "");
     setPurpose(item?.purpose ?? "");
     setCategory(item?.category ?? "");
     setCostCenter(
@@ -471,6 +474,7 @@ export default function FinanceItemFormModal({
     const payload: Partial<FinanceItem> = {
       kind,
       name: name.trim(),
+      statement_label: statementLabel.trim() || null,
       purpose: purpose.trim() || null,
       category: category.trim() || null,
       cost_center: costCenter,
@@ -598,7 +602,7 @@ export default function FinanceItemFormModal({
           </div>
         ) : (
         <div className="space-y-4 py-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <Label>Nome *</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: ChatGPT Plus" />
@@ -608,6 +612,17 @@ export default function FinanceItemFormModal({
                   assim, mas confira se não é a mesma despesa.
                 </p>
               )}
+            </div>
+            <div>
+              <Label>Como aparece na fatura</Label>
+              <Input
+                value={statementLabel}
+                onChange={(e) => setStatementLabel(e.target.value)}
+                placeholder="Ex: OPENAI"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Opcional. Se preenchido, aparece como nome principal na fatura do cartão.
+              </p>
             </div>
             <div>
               <Label>Tipo *</Label>

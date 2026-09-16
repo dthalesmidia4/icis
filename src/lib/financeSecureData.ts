@@ -67,6 +67,8 @@ export const FINANCE_ITEM_METADATA_COLUMNS = [
   "tenant_id",
   "kind",
   "name",
+  // Nome alternativo exibido na fatura do cartão.
+  "statement_label",
   "purpose",
   "category",
   "cost_center",
