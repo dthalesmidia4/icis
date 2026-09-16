@@ -333,6 +333,8 @@ export default function FinanceItemFormModal({
   const isCard = kind === "card";
   const isIncluded = kind === "included_resource";
   const onCard = paymentMethod === CARD_PAYMENT_METHOD;
+  /** Novos cadastros precisam escolher explicitamente uma forma (ou "não definida"). */
+  const paymentMethodUnselected = !isCard && paymentMethod === UNSELECTED;
   const usdState: UsdConversionState = { original: amount, rate, brl: brlCharged };
   /** Aplica a edição e propaga só os campos DERIVADOS. */
   const editUsd = (field: UsdConversionField, value: string) => {
