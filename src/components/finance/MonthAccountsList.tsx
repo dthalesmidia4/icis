@@ -38,6 +38,8 @@ interface Props {
   groupBy?: CompositionGroupBy;
   expanded: Record<string, boolean>;
   onToggleGroup: (key: string) => void;
+  /** Une vários lançamentos do mesmo cadastro num item principal expansível. */
+  mergeByItem?: boolean;
 }
 
 export default function MonthAccountsList({
@@ -55,6 +57,7 @@ export default function MonthAccountsList({
   groupBy = "category",
   expanded,
   onToggleGroup,
+  mergeByItem = false,
 }: Props) {
   /** Entries com a MESMA forma da composição: valor em BRL da linha. */
   const entries = rows.map((row) => ({ row, value: row.amountBrl ?? 0 }));
@@ -91,6 +94,7 @@ export default function MonthAccountsList({
   return (
     <FinanceGroupedList
       entries={entries}
+      mergeByItem={mergeByItem}
       groupBy={groupBy}
       expanded={expanded}
       onToggleGroup={onToggleGroup}

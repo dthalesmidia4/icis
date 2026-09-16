@@ -1368,6 +1368,7 @@ function FinancialCockpit() {
                 groupBy={accountsGroupBy}
                 expanded={subscriptionAccountsExpanded}
                 onToggleGroup={toggleSubscriptionAccountsGroup}
+                mergeByItem
               />
             </div>
 

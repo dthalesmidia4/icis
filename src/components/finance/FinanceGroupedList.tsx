@@ -11,7 +11,7 @@
  * Os grupos vêm de `buildCompositionGroups`, então o total de um grupo é a soma
  * exata das suas linhas e a soma dos grupos é o total da lista.
  */
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,12 @@ export interface FinanceGroupedListProps<E extends FinanceGroupedEntry> {
   countLabel?: (count: number) => string;
   /** Linha secundária discreta abaixo do valor (ex.: divergência pago x lançado). */
   valueSecondary?: (entry: E) => ReactNode;
+  /**
+   * Une os vários lançamentos do MESMO cadastro no mês em um item principal
+   * (soma + contagem + expansão), como na tela de assinaturas e ferramentas.
+   * Cadastro com um único lançamento continua sendo uma linha normal.
+   */
+  mergeByItem?: boolean;
 }
 
 const TONE_ICON: Record<StatusTone, typeof Clock> = {
@@ -142,6 +148,25 @@ function sortGroupedEntries<E extends FinanceGroupedEntry>(entries: E[]): E[] {
 }
 
 
+/**
+ * Blocos de lançamentos do MESMO cadastro, já em ordem cronológica.
+ * Sem `mergeByItem` cada lançamento é o seu próprio bloco.
+ */
+function itemBlocks<E extends FinanceGroupedEntry>(entries: E[], merge: boolean): E[][] {
+  const sorted = sortGroupedEntries(entries);
+  if (!merge) return sorted.map((entry) => [entry]);
+  const blocks: E[][] = [];
+  for (const entry of sorted) {
+    const last = blocks[blocks.length - 1];
+    if (last && last[0].row.item.id === entry.row.item.id) last.push(entry);
+    else blocks.push([entry]);
+  }
+  return blocks;
+}
+
+const entriesCountLabel = (count: number) =>
+  count === 1 ? "1 lançamento" : `${count} lançamentos`;
+
 export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
   entries,
   groupBy,
@@ -160,7 +185,13 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
   action,
   countLabel = defaultCountLabel,
   valueSecondary,
+  mergeByItem = false,
 }: FinanceGroupedListProps<E>) {
+  /** Expansão dos itens com vários lançamentos — pura apresentação. */
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+  const toggleItem = (key: string) =>
+    setOpenItems((prev) => ({ ...prev, [key]: !prev[key] }));
+
   if (loading) {
     return (
       <Card className="flex justify-center py-16">
@@ -179,6 +210,106 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
 
   const groups = buildCompositionGroups(entries, groupBy);
   const locked = (row: MonthRow) => (rowLocked ? rowLocked(row) : false);
+  const blockTotal = (block: E[]) =>
+    Number(block.reduce((sum, entry) => sum + entry.value, 0).toFixed(2));
+
+  const desktopEntryRow = (entry: E, indentClass: string) => {
+    const row = entry.row;
+    const rowStatus = status(entry);
+    const isLocked = locked(row);
+    return (
+      <TableRow
+        key={row.key}
+        tabIndex={isLocked ? undefined : 0}
+        className={
+          isLocked
+            ? ""
+            : "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        }
+        onClick={() => (isLocked ? undefined : onOpenRow(row))}
+        onKeyDown={(e) => {
+          if (isLocked) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpenRow(row);
+          }
+        }}
+      >
+        <TableCell className={`py-3 ${indentClass}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-[15px] font-semibold text-foreground">
+              {occurrenceDisplayName(row, labels)}
+            </span>
+            {nameExtras?.(row)}
+          </div>
+          <p className="text-sm text-muted-foreground">{descriptionText(row)}</p>
+        </TableCell>
+        <TableCell className="whitespace-nowrap text-sm">{dateText(row)}</TableCell>
+        <TableCell className="text-sm">{originNode(row)}</TableCell>
+        <TableCell className="text-right whitespace-nowrap">
+          <span className="text-[15px] font-semibold">{formatBRL(entry.value)}</span>
+          {row.currency === "USD" && (
+            <p className="text-sm text-muted-foreground">
+              {formatCurrencyValue(row.amountOriginal, "USD")}
+            </p>
+          )}
+          {valueSecondary?.(entry)}
+        </TableCell>
+        <TableCell>
+          <FinanceStatusBadge status={rowStatus} />
+        </TableCell>
+        {action && (
+          <TableCell className="text-right whitespace-nowrap">
+            {action.desktop(row, rowStatus, isLocked)}
+          </TableCell>
+        )}
+      </TableRow>
+    );
+  };
+
+  const mobileEntryCard = (entry: E, indentClass: string) => {
+    const row = entry.row;
+    const rowStatus = status(entry);
+    const isLocked = locked(row);
+    return (
+      <Card
+        key={row.key}
+        role={isLocked ? undefined : "button"}
+        tabIndex={isLocked ? undefined : 0}
+        className={`${indentClass} p-4 space-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+        onClick={() => (isLocked ? undefined : onOpenRow(row))}
+        onKeyDown={(e) => {
+          if (isLocked) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpenRow(row);
+          }
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[15px] font-semibold text-foreground">
+              {occurrenceDisplayName(row, labels)}
+            </p>
+            <p className="text-sm text-muted-foreground">{descriptionText(row)}</p>
+            {nameExtras?.(row)}
+          </div>
+          <div className="text-right">
+            <span className="block text-[15px] font-semibold whitespace-nowrap">
+              {formatBRL(entry.value)}
+            </span>
+            {valueSecondary?.(entry)}
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">{originNode(row)}</p>
+        <div className="flex flex-wrap items-center gap-2 justify-between">
+          <span className="text-sm text-muted-foreground">{dateText(row)}</span>
+          <FinanceStatusBadge status={rowStatus} />
+        </div>
+        {action?.mobile?.(row, rowStatus, isLocked)}
+      </Card>
+    );
+  };
 
   return (
     <>
@@ -234,57 +365,57 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
                   </TableRow>
 
                   {open &&
-                    sortGroupedEntries(group.entries).map((entry) => {
-                      const row = entry.row;
-                      const rowStatus = status(entry);
-                      const isLocked = locked(row);
+                    itemBlocks(group.entries, mergeByItem).map((block) => {
+                      if (block.length === 1) return desktopEntryRow(block[0], "pl-10");
+
+                      const first = block[0];
+                      const itemKey = `${group.key}:${first.row.item.id}`;
+                      const itemOpen = !!openItems[itemKey];
                       return (
-                        <TableRow
-                          key={row.key}
-                          tabIndex={isLocked ? undefined : 0}
-                          className={
-                            isLocked
-                              ? ""
-                              : "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                          }
-                          onClick={() => (isLocked ? undefined : onOpenRow(row))}
-                          onKeyDown={(e) => {
-                            if (isLocked) return;
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              onOpenRow(row);
-                            }
-                          }}
-                        >
-                          <TableCell className="py-3 pl-10">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[15px] font-semibold text-foreground">
-                                {occurrenceDisplayName(row, labels)}
-                              </span>
-                              {nameExtras?.(row)}
-                            </div>
-                            <p className="text-sm text-muted-foreground">{descriptionText(row)}</p>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-sm">{dateText(row)}</TableCell>
-                          <TableCell className="text-sm">{originNode(row)}</TableCell>
-                          <TableCell className="text-right whitespace-nowrap">
-                            <span className="text-[15px] font-semibold">{formatBRL(entry.value)}</span>
-                            {row.currency === "USD" && (
-                              <p className="text-sm text-muted-foreground">
-                                {formatCurrencyValue(row.amountOriginal, "USD")}
+                        <Fragment key={itemKey}>
+                          <TableRow
+                            tabIndex={0}
+                            aria-expanded={itemOpen}
+                            className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                            onClick={() => toggleItem(itemKey)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggleItem(itemKey);
+                              }
+                            }}
+                          >
+                            <TableCell className="py-3 pl-10">
+                              <div className="flex items-center gap-2">
+                                {itemOpen ? (
+                                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                )}
+                                <span className="text-[15px] font-semibold text-foreground">
+                                  {first.row.item.name}
+                                </span>
+                                <span className="text-sm text-muted-foreground">
+                                  {entriesCountLabel(block.length)}
+                                </span>
+                                {nameExtras?.(first.row)}
+                              </div>
+                              <p className="text-sm text-muted-foreground pl-6">
+                                {descriptionText(first.row)}
                               </p>
-                            )}
-                            {valueSecondary?.(entry)}
-                          </TableCell>
-                          <TableCell>
-                            <FinanceStatusBadge status={rowStatus} />
-                          </TableCell>
-                          {action && (
-                            <TableCell className="text-right whitespace-nowrap">
-                              {action.desktop(row, rowStatus, isLocked)}
                             </TableCell>
-                          )}
-                        </TableRow>
+                            <TableCell className="whitespace-nowrap text-sm">
+                              {dateText(first.row)}
+                            </TableCell>
+                            <TableCell className="text-sm">{originNode(first.row)}</TableCell>
+                            <TableCell className="text-right whitespace-nowrap text-[15px] font-semibold">
+                              {formatBRL(blockTotal(block))}
+                            </TableCell>
+                            <TableCell />
+                            {action && <TableCell />}
+                          </TableRow>
+                          {itemOpen && block.map((entry) => desktopEntryRow(entry, "pl-16"))}
+                        </Fragment>
                       );
                     })}
                 </Fragment>
@@ -328,47 +459,48 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
               </Card>
 
               {open &&
-                sortGroupedEntries(group.entries).map((entry) => {
-                  const row = entry.row;
-                  const rowStatus = status(entry);
-                  const isLocked = locked(row);
+                itemBlocks(group.entries, mergeByItem).map((block) => {
+                  if (block.length === 1) return mobileEntryCard(block[0], "ml-3");
+
+                  const first = block[0];
+                  const itemKey = `${group.key}:${first.row.item.id}`;
+                  const itemOpen = !!openItems[itemKey];
                   return (
-                    <Card
-                      key={row.key}
-                      role={isLocked ? undefined : "button"}
-                      tabIndex={isLocked ? undefined : 0}
-                      className="ml-3 p-4 space-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => (isLocked ? undefined : onOpenRow(row))}
-                      onKeyDown={(e) => {
-                        if (isLocked) return;
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onOpenRow(row);
-                        }
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[15px] font-semibold text-foreground">
-                            {occurrenceDisplayName(row, labels)}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{descriptionText(row)}</p>
-                          {nameExtras?.(row)}
-                        </div>
-                        <div className="text-right">
-                          <span className="block text-[15px] font-semibold whitespace-nowrap">
-                            {formatBRL(entry.value)}
+                    <div key={itemKey} className="space-y-2">
+                      <Card
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={itemOpen}
+                        className="ml-3 p-4 flex items-center justify-between gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => toggleItem(itemKey)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleItem(itemKey);
+                          }
+                        }}
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          {itemOpen ? (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                          )}
+                          <span className="min-w-0">
+                            <span className="block text-[15px] font-semibold truncate">
+                              {first.row.item.name}
+                            </span>
+                            <span className="block text-sm text-muted-foreground">
+                              {entriesCountLabel(block.length)}
+                            </span>
                           </span>
-                          {valueSecondary?.(entry)}
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{originNode(row)}</p>
-                      <div className="flex flex-wrap items-center gap-2 justify-between">
-                        <span className="text-sm text-muted-foreground">{dateText(row)}</span>
-                        <FinanceStatusBadge status={rowStatus} />
-                      </div>
-                      {action?.mobile?.(row, rowStatus, isLocked)}
-                    </Card>
+                        </span>
+                        <span className="text-[15px] font-semibold whitespace-nowrap">
+                          {formatBRL(blockTotal(block))}
+                        </span>
+                      </Card>
+                      {itemOpen && block.map((entry) => mobileEntryCard(entry, "ml-6"))}
+                    </div>
                   );
                 })}
             </div>
