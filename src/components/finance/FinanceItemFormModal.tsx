@@ -109,6 +109,7 @@ interface Props {
 const KIND_OPTIONS: FinanceKind[] = ["expense", "tool", "package", "card", "included_resource"];
 const COST_CENTERS: FinanceCostCenter[] = ["midia", "sistemas", "administrativo", "compartilhado"];
 const NONE = "__none__";
+const UNSELECTED = "__unselected__";
 
 /* ------------------- Tipo de cobrança em linguagem humana ------------------ */
 
@@ -310,7 +311,7 @@ export default function FinanceItemFormModal({
     setBrlCharged(item?.currency === "USD" ? seeded.brl : "");
     setChargeDay(item?.charge_day != null ? String(item.charge_day) : "");
     setDueDay(item?.due_day != null ? String(item.due_day) : "");
-    setPaymentMethod(item?.payment_method ?? NONE);
+    setPaymentMethod(item ? item.payment_method ?? NONE : UNSELECTED);
     setSupportsSupplemental(item?.supports_supplemental_entries === true);
     setSupplementalKind(item?.supplemental_entry_kind === "recharge" ? "recharge" : "extra");
     setCardItemId(item?.card_item_id ?? NONE);
@@ -332,6 +333,8 @@ export default function FinanceItemFormModal({
   const isCard = kind === "card";
   const isIncluded = kind === "included_resource";
   const onCard = paymentMethod === CARD_PAYMENT_METHOD;
+  /** Novos cadastros precisam escolher explicitamente uma forma (ou "não definida"). */
+  const paymentMethodUnselected = !isCard && paymentMethod === UNSELECTED;
   const usdState: UsdConversionState = { original: amount, rate, brl: brlCharged };
   /** Aplica a edição e propaga só os campos DERIVADOS. */
   const editUsd = (field: UsdConversionField, value: string) => {
@@ -469,6 +472,8 @@ export default function FinanceItemFormModal({
     if (!oneOffDateValid) return;
     // Ambiguidade de mês: validamos ANTES do request, com explicação.
     if (chargeDueConflict) return;
+    // Forma de pagamento é obrigatória em novos cadastros (pode ser "não definida").
+    if (paymentMethodUnselected) return;
     setSaving(true);
 
     const payload: Partial<FinanceItem> = {
@@ -497,7 +502,7 @@ export default function FinanceItemFormModal({
       charge_day: isCard || isInstallments ? null : chargeDayNumber,
       // Item no cartão: vencimento é da FATURA (`statement_due_day`).
       due_day: isCard || isInstallments || hideItemDueDay ? null : dueDayNumber,
-      payment_method: isCard || paymentMethod === NONE ? null : paymentMethod,
+      payment_method: isCard || paymentMethod === NONE || paymentMethod === UNSELECTED ? null : paymentMethod,
       card_item_id: !isCard && onCard && cardItemId !== NONE ? cardItemId : null,
       parent_item_id: isIncluded && parentItemId !== NONE ? parentItemId : null,
       bank_name: isCard ? bankName.trim() || null : null,
@@ -750,16 +755,22 @@ export default function FinanceItemFormModal({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label>Forma de pagamento</Label>
+                    <Label>Forma de pagamento *</Label>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={NONE}>Não definida</SelectItem>
+                        <SelectItem value={UNSELECTED} disabled>Selecione a forma de pagamento</SelectItem>
+                        <SelectItem value={NONE}>Sem forma definida por enquanto</SelectItem>
                         {PAYMENT_METHODS.map((m) => (
                           <SelectItem key={m} value={m}>{m}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {paymentMethodUnselected && (
+                      <p className="text-xs text-destructive mt-1">
+                        Escolha uma forma ou marque “Sem forma definida por enquanto”.
+                      </p>
+                    )}
                   </div>
                   {onCard && (
                     <div>
@@ -1258,7 +1269,8 @@ export default function FinanceItemFormModal({
                 !name.trim() ||
                 !installmentsValid ||
                 !oneOffDateValid ||
-                !!chargeDueConflict
+                !!chargeDueConflict ||
+                paymentMethodUnselected
               }
             >
 
