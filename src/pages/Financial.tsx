@@ -148,7 +148,7 @@ const VIEW_TITLES: Record<View, { title: string; subtitle: string }> = {
   },
   accounts: {
     title: "Contas e despesas",
-    subtitle: "Pix, boletos, transferências e outras despesas pagas fora do cartão.",
+    subtitle: "Todas as despesas do mês, independentemente da forma de pagamento.",
   },
   cards: {
     title: "Cartões e faturas",
