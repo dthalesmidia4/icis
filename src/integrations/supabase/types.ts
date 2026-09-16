@@ -4618,6 +4618,10 @@ export type Database = {
         }
         Returns: string
       }
+      save_finance_statement_usd_reconciliation_draft: {
+        Args: { _occurrence_id: string; _usd_components?: Json }
+        Returns: Json
+      }
       set_finance_password: {
         Args: { _password: string; _tenant_id: string }
         Returns: Json
