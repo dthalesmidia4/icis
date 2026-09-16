@@ -559,10 +559,6 @@ function FinancialCockpit() {
     () => buildCompositionGroups(subscriptionAccountsEntries, accountsGroupBy),
     [subscriptionAccountsEntries, accountsGroupBy],
   );
-  const combinedAccountsGroups = useMemo(
-    () => [...accountsGroups, ...subscriptionAccountsGroups],
-    [accountsGroups, subscriptionAccountsGroups],
-  );
   const accountsAllOpen =
     (accountsGroups.length === 0 || accountsGroups.every((g) => !!accountsExpanded[g.key])) &&
     (subscriptionAccountsGroups.length === 0 ||
