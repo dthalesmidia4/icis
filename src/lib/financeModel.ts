@@ -1276,7 +1276,7 @@ export function buildStatementGroups(params: {
                 (occ) =>
                   occ.item_id === row.item.id &&
                   !!occ.skipped_at &&
-                  (occ.charge_date ?? occ.due_date ?? null)?.slice(0, 10) ===
+                  (occ.scheduled_date ?? occ.charge_date ?? occ.due_date ?? null)?.slice(0, 10) ===
                     substitute.chargeDate?.slice(0, 10),
               );
               if (skippedSameCharge) continue;
