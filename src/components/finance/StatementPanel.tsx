@@ -394,19 +394,26 @@ export default function StatementPanel({
                     Nenhuma cobrança vinculada a este cartão nesta fatura.
                   </p>
                 ) : (
-                  groupStatementComponents(group.components).map((itemGroup) => {
-                    /**
-                     * ITEM LÓGICO: um mesmo cadastro pode ter várias cobranças
-                     * na MESMA fatura (renovação + recargas). Aqui elas viram
-                     * uma linha expansível — o total da fatura não muda.
-                     *
-                     * Ordem visual: chargeDate crescente, grupo na posição da
-                     * cobrança mais antiga, nome só desempata quando a data for
-                     * igual. Os rótulos são recalculados só com os componentes
-                     * desta fatura para evitar sufixos falsos.
-                     */
-                    if (!itemGroup.multiple) {
-                      const row = itemGroup.rows[0];
+                  /**
+                   * CADA TRANSAÇÃO EM SUA PRÓPRIA LINHA CRONOLÓGICA: renovação e
+                   * recarga do mesmo cadastro são fatos independentes, sem grupo
+                   * pai. Ordem: `chargeDate` crescente, nome só desempata.
+                   * Rótulos vêm só dos componentes desta fatura.
+                   */
+                  [...group.components]
+                    .sort((a, b) => {
+                      const da = a.chargeDate ?? "9999-99-99";
+                      const db = b.chargeDate ?? "9999-99-99";
+                      if (da !== db) return da.localeCompare(db);
+                      return a.item.name.localeCompare(b.item.name);
+                    })
+                    .map((row) => {
+                      /** Previsto no futuro segue previsto; data vencida sem fato não foi confirmada. */
+                      const projectedNote = !row.projected
+                        ? null
+                        : row.chargeDate && row.chargeDate < today
+                          ? " · não confirmada"
+                          : " · prevista";
                       return (
                         <button
                           key={row.key}
@@ -418,7 +425,9 @@ export default function StatementPanel({
                           </span>
                           <span className="truncate text-foreground">
                             {occurrenceDisplayName(row, itemLabels)}
-                            {row.projected && <span className="text-muted-foreground"> · prevista</span>}
+                            {projectedNote && (
+                              <span className="text-muted-foreground">{projectedNote}</span>
+                            )}
                           </span>
                           <span className="flex items-center gap-3 flex-shrink-0 justify-end">
                             {row.currency === "USD" && (
@@ -430,70 +439,7 @@ export default function StatementPanel({
                           </span>
                         </button>
                       );
-                    }
-                    const expanded = expandedItems[itemGroup.itemId] ?? false;
-                    const headerDate = itemGroup.rows[0]?.chargeDate;
-                    return (
-                      <div key={itemGroup.itemId}>
-                        <button
-                          onClick={() =>
-                            setExpandedItems((prev) => ({
-                              ...prev,
-                              [itemGroup.itemId]: !expanded,
-                            }))
-                          }
-                          className="w-full grid grid-cols-[80px_1fr_auto] items-center gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
-                        >
-                          <span className="text-muted-foreground">
-                            {headerDate ? formatDayMonth(headerDate) : "—"}
-                          </span>
-                          <span className="flex items-center gap-2 min-w-0 text-foreground">
-                            {expanded ? (
-                              <ChevronDown className="w-4 h-4 flex-shrink-0" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                            )}
-                            <span className="truncate">{itemGroup.itemName}</span>
-                            <span className="text-muted-foreground flex-shrink-0">
-                              · {itemGroup.rows.length} cobranças
-                            </span>
-                          </span>
-                          <span className="font-semibold flex-shrink-0 text-right">
-                            {formatBRL(itemGroup.totalBrl)}
-                          </span>
-                        </button>
-                        {expanded && (
-                          <div className="divide-y bg-muted/30">
-                            {itemGroup.rows.map((row) => (
-                              <button
-                                key={row.key}
-                                onClick={() => onOpenRow(row)}
-                                className="w-full grid grid-cols-[80px_1fr_auto] items-center gap-3 pl-10 pr-4 py-2.5 text-sm hover:bg-muted/50 text-left"
-                              >
-                                <span className="text-muted-foreground">
-                                  {row.chargeDate ? formatDayMonth(row.chargeDate) : "—"}
-                                </span>
-                                <span className="truncate text-foreground">
-                                  {occurrenceDisplaySuffix(row, itemLabels)}
-                                  {row.projected && (
-                                    <span className="text-muted-foreground"> · prevista</span>
-                                  )}
-                                </span>
-                                <span className="flex items-center gap-3 flex-shrink-0 justify-end">
-                                  {row.currency === "USD" && (
-                                    <span className="text-muted-foreground">
-                                      {formatCurrencyValue(row.amountOriginal, "USD")}
-                                    </span>
-                                  )}
-                                  <span className="font-semibold">{formatBRL(row.amountBrl)}</span>
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+                    })
                 )}
               </div>
             )}
