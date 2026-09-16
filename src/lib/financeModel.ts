@@ -57,6 +57,8 @@ export interface FinanceItem {
   tenant_id?: string;
   kind: FinanceKind;
   name: string;
+  /** Nome alternativo que aparece na fatura do cartão (ex: OPENAI). */
+  statement_label?: string | null;
   purpose?: string | null;
   category?: string | null;
   cost_center: FinanceCostCenter;
