@@ -474,6 +474,7 @@ export default function FinanceItemFormModal({
     const payload: Partial<FinanceItem> = {
       kind,
       name: name.trim(),
+      statement_label: statementLabel.trim() || null,
       purpose: purpose.trim() || null,
       category: category.trim() || null,
       cost_center: costCenter,
