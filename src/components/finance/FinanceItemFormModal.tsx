@@ -472,6 +472,8 @@ export default function FinanceItemFormModal({
     if (!oneOffDateValid) return;
     // Ambiguidade de mês: validamos ANTES do request, com explicação.
     if (chargeDueConflict) return;
+    // Forma de pagamento é obrigatória em novos cadastros (pode ser "não definida").
+    if (paymentMethodUnselected) return;
     setSaving(true);
 
     const payload: Partial<FinanceItem> = {
