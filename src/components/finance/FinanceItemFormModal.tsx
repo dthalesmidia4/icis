@@ -172,6 +172,8 @@ export default function FinanceItemFormModal({
   const costCenterOptions = COST_CENTERS.filter((c) => allowedCostCentersForScope(scope).includes(c));
   const [kind, setKind] = useState<FinanceKind>("expense");
   const [name, setName] = useState("");
+  /** Nome alternativo exibido na fatura do cartão (ex.: OPENAI). */
+  const [statementLabel, setStatementLabel] = useState("");
   const [purpose, setPurpose] = useState("");
   const [category, setCategory] = useState("");
   const [costCenter, setCostCenter] = useState<FinanceCostCenter>("administrativo");
