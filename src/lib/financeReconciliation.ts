@@ -111,6 +111,7 @@ export function buildReconciliation(
       amountBrl: Number(parsed.toFixed(2)),
       exchangeRate: computeUsdRate(parsed, comp.amountOriginal),
       chargeDate: comp.chargeDate,
+      scheduledDate: comp.scheduledDate,
     });
   }
 
