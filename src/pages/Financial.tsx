@@ -212,7 +212,7 @@ function FinancialCockpit() {
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     skipped, skipOccurrence, restoreOccurrence,
-    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, togglePaid, payStatement, updateStatementClosure, saveSettings, saveItem, setItemActive, refresh,
+    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
 
@@ -701,6 +701,19 @@ function FinancialCockpit() {
       iof,
       statementAmountBrl ?? null,
     );
+  };
+
+  /** Conferência cambial salva sozinha: a fatura NÃO é marcada como paga. */
+  const confirmUsdDraft = async ({
+    group,
+    usdComponents,
+  }: {
+    group: StatementGroup;
+    usdComponents: unknown[];
+  }): Promise<boolean> => {
+    const occ = group.statementRow?.occurrence;
+    if (!occ) return false;
+    return await saveUsdReconciliationDraft(occ.id, usdComponents);
   };
 
   const confirmStatementClosure = async (payload: {
@@ -1558,6 +1571,7 @@ function FinancialCockpit() {
         group={payingGroup}
         today={today}
         onConfirm={confirmPayStatement}
+        onSaveUsdDraft={confirmUsdDraft}
       />
 
       <StatementClosureModal
