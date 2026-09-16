@@ -410,11 +410,10 @@ export default function StatementPanel({
                         : row.chargeDate && row.chargeDate < today
                           ? " · não confirmada"
                           : " · prevista";
+                      const displayName = row.item.statement_label?.trim()
+                        ? `${row.item.statement_label.trim()} · ${row.item.name}`
+                        : row.item.name;
                       return (
-                        const displayName = row.item.statement_label?.trim()
-                          ? `${row.item.statement_label.trim()} · ${row.item.name}`
-                          : row.item.name;
-                        return (
                         <button
                           key={row.key}
                           onClick={() => onOpenRow(row)}
