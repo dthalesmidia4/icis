@@ -130,6 +130,9 @@ export interface StatementItemGroup {
 /**
  * Agrupa os componentes de uma fatura pelo ITEM LÓGICO, preservando a ordem de
  * cobrança. O total da fatura não muda: cada cobrança continua contada uma vez.
+ *
+ * Ordem visual: `chargeDate` crescente; grupo ocupa a posição da cobrança mais
+ * antiga dele; nome do cadastro só desempata quando a data for igual.
  */
 export function groupStatementComponents(components: MonthRow[]): StatementItemGroup[] {
   const groups = new Map<string, StatementItemGroup>();
@@ -149,5 +152,12 @@ export function groupStatementComponents(components: MonthRow[]): StatementItemG
       multiple: false,
     });
   }
-  return [...groups.values()].map((group) => ({ ...group, rows: sortRows(group.rows) }));
+  return [...groups.values()]
+    .map((group) => ({ ...group, rows: sortRows(group.rows) }))
+    .sort((a, b) => {
+      const aDate = a.rows[0]?.chargeDate ?? "9999-99-99";
+      const bDate = b.rows[0]?.chargeDate ?? "9999-99-99";
+      if (aDate !== bDate) return aDate.localeCompare(bDate);
+      return a.itemName.localeCompare(b.itemName);
+    });
 }
