@@ -228,6 +228,24 @@ export default function PayStatementModal({
     }
   };
 
+  /** Só a conferência: a fatura continua em aberto, nada é liquidado. */
+  const canSaveDraft =
+    !!onSaveUsdDraft && usdComponents.length > 0 && reconciliation.state === "ok";
+
+  const submitDraft = async () => {
+    if (!onSaveUsdDraft || !group || reconciliation.state !== "ok") return;
+    setSavingDraft(true);
+    try {
+      // Os valores digitados são preservados: o modal permanece aberto.
+      await onSaveUsdDraft({
+        group,
+        usdComponents: reconciliationDraftPayload(reconciliation.entries),
+      });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   if (!group) return null;
 
   return (
