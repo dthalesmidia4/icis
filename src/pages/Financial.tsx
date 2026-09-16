@@ -531,28 +531,58 @@ function FinancialCockpit() {
   /** Total das linhas visíveis (inclui os repasses de IOF exibidos). */
   const visibleRowsTotal = useMemo(() => sumRowsBrl(visibleRows), [visibleRows]);
 
+  const nonSubscriptionVisibleRows = useMemo(
+    () => visibleRows.filter((row) => !isSubscriptionsDomainItem(row.item)),
+    [visibleRows],
+  );
+  const subscriptionVisibleRows = useMemo(
+    () => visibleRows.filter((row) => isSubscriptionsDomainItem(row.item)),
+    [visibleRows],
+  );
+
   /**
    * Expansão dos grupos de `Contas e despesas` — mesma mecânica da composição:
    * vazio = todos fechados, e trocar `Agrupar por` fecha tudo de novo.
    */
   const accountsEntries = useMemo(
-    () => visibleRows.map((row) => ({ row, value: row.amountBrl ?? 0 })),
-    [visibleRows],
+    () => nonSubscriptionVisibleRows.map((row) => ({ row, value: row.amountBrl ?? 0 })),
+    [nonSubscriptionVisibleRows],
   );
   const accountsGroups = useMemo(
     () => buildCompositionGroups(accountsEntries, accountsGroupBy),
     [accountsEntries, accountsGroupBy],
   );
+  const subscriptionAccountsEntries = useMemo(
+    () => subscriptionVisibleRows.map((row) => ({ row, value: row.amountBrl ?? 0 })),
+    [subscriptionVisibleRows],
+  );
+  const subscriptionAccountsGroups = useMemo(
+    () => buildCompositionGroups(subscriptionAccountsEntries, accountsGroupBy),
+    [subscriptionAccountsEntries, accountsGroupBy],
+  );
+  const combinedAccountsGroups = useMemo(
+    () => [...accountsGroups, ...subscriptionAccountsGroups],
+    [accountsGroups, subscriptionAccountsGroups],
+  );
   const accountsAllOpen =
-    accountsGroups.length > 0 && accountsGroups.every((g) => !!accountsExpanded[g.key]);
+    combinedAccountsGroups.length > 0 &&
+    combinedAccountsGroups.every(
+      (g) =>
+        (!!accountsExpanded[g.key] || !accountsGroups.some((ag) => ag.key === g.key)) &&
+        (!!subscriptionAccountsExpanded[g.key] || !subscriptionAccountsGroups.some((sg) => sg.key === g.key)),
+    );
   const toggleAllAccountsGroups = () => {
     if (accountsAllOpen) {
       setAccountsExpanded({});
+      setSubscriptionAccountsExpanded({});
       return;
     }
     const next: Record<string, boolean> = {};
     for (const group of accountsGroups) next[group.key] = true;
     setAccountsExpanded(next);
+    const nextSub: Record<string, boolean> = {};
+    for (const group of subscriptionAccountsGroups) nextSub[group.key] = true;
+    setSubscriptionAccountsExpanded(nextSub);
   };
 
 
