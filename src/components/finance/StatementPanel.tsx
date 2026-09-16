@@ -399,6 +399,11 @@ export default function StatementPanel({
                      * ITEM LÓGICO: um mesmo cadastro pode ter várias cobranças
                      * na MESMA fatura (renovação + recargas). Aqui elas viram
                      * uma linha expansível — o total da fatura não muda.
+                     *
+                     * Ordem visual: chargeDate crescente, grupo na posição da
+                     * cobrança mais antiga, nome só desempata quando a data for
+                     * igual. Os rótulos são recalculados só com os componentes
+                     * desta fatura para evitar sufixos falsos.
                      */
                     if (!itemGroup.multiple) {
                       const row = itemGroup.rows[0];
@@ -406,16 +411,16 @@ export default function StatementPanel({
                         <button
                           key={row.key}
                           onClick={() => onOpenRow(row)}
-                          className="w-full flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
+                          className="w-full grid grid-cols-[80px_1fr_auto] items-center gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
                         >
+                          <span className="text-muted-foreground">
+                            {row.chargeDate ? formatDayMonth(row.chargeDate) : "—"}
+                          </span>
                           <span className="truncate text-foreground">
-                            {occurrenceDisplayName(row, labels)}
+                            {occurrenceDisplayName(row, itemLabels)}
                             {row.projected && <span className="text-muted-foreground"> · prevista</span>}
                           </span>
-                          <span className="flex items-center gap-3 flex-shrink-0">
-                            <span className={row.chargeDate ? "text-muted-foreground" : "text-destructive"}>
-                              {cardChargeDateLabel({ chargeDate: row.chargeDate, projected: row.projected })}
-                            </span>
+                          <span className="flex items-center gap-3 flex-shrink-0 justify-end">
                             {row.currency === "USD" && (
                               <span className="text-muted-foreground">
                                 {formatCurrencyValue(row.amountOriginal, "USD")}
@@ -427,6 +432,7 @@ export default function StatementPanel({
                       );
                     }
                     const expanded = expandedItems[itemGroup.itemId] ?? false;
+                    const headerDate = itemGroup.rows[0]?.chargeDate;
                     return (
                       <div key={itemGroup.itemId}>
                         <button
@@ -436,8 +442,11 @@ export default function StatementPanel({
                               [itemGroup.itemId]: !expanded,
                             }))
                           }
-                          className="w-full flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
+                          className="w-full grid grid-cols-[80px_1fr_auto] items-center gap-3 px-4 py-3 text-sm hover:bg-muted/50 text-left"
                         >
+                          <span className="text-muted-foreground">
+                            {headerDate ? formatDayMonth(headerDate) : "—"}
+                          </span>
                           <span className="flex items-center gap-2 min-w-0 text-foreground">
                             {expanded ? (
                               <ChevronDown className="w-4 h-4 flex-shrink-0" />
@@ -449,7 +458,7 @@ export default function StatementPanel({
                               · {itemGroup.rows.length} cobranças
                             </span>
                           </span>
-                          <span className="font-semibold flex-shrink-0">
+                          <span className="font-semibold flex-shrink-0 text-right">
                             {formatBRL(itemGroup.totalBrl)}
                           </span>
                         </button>
@@ -459,25 +468,18 @@ export default function StatementPanel({
                               <button
                                 key={row.key}
                                 onClick={() => onOpenRow(row)}
-                                className="w-full flex flex-wrap items-center justify-between gap-3 pl-10 pr-4 py-2.5 text-sm hover:bg-muted/50 text-left"
+                                className="w-full grid grid-cols-[80px_1fr_auto] items-center gap-3 pl-10 pr-4 py-2.5 text-sm hover:bg-muted/50 text-left"
                               >
+                                <span className="text-muted-foreground">
+                                  {row.chargeDate ? formatDayMonth(row.chargeDate) : "—"}
+                                </span>
                                 <span className="truncate text-foreground">
-                                  {occurrenceDisplaySuffix(row, labels)}
+                                  {occurrenceDisplaySuffix(row, itemLabels)}
                                   {row.projected && (
                                     <span className="text-muted-foreground"> · prevista</span>
                                   )}
                                 </span>
-                                <span className="flex items-center gap-3 flex-shrink-0">
-                                  <span
-                                    className={
-                                      row.chargeDate ? "text-muted-foreground" : "text-destructive"
-                                    }
-                                  >
-                                    {cardChargeDateLabel({
-                                      chargeDate: row.chargeDate,
-                                      projected: row.projected,
-                                    })}
-                                  </span>
+                                <span className="flex items-center gap-3 flex-shrink-0 justify-end">
                                   {row.currency === "USD" && (
                                     <span className="text-muted-foreground">
                                       {formatCurrencyValue(row.amountOriginal, "USD")}
