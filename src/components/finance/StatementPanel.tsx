@@ -48,9 +48,7 @@ import { paymentTimestampToDate } from "@/lib/financePaymentDate";
 import {
   type OccurrenceLabel,
   buildOccurrenceLabels,
-  groupStatementComponents,
   occurrenceDisplayName,
-  occurrenceDisplaySuffix,
 } from "@/lib/financeOccurrenceLabels";
 
 interface Props {
