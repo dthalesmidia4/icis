@@ -115,8 +115,6 @@ export default function StatementPanel({
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [linkedOpen, setLinkedOpen] = useState<Record<string, boolean>>({});
-  /** Expansão das cobranças múltiplas de um MESMO cadastro dentro da fatura. */
-  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   /** Rascunho do fechamento por cartão (só existe enquanto está sendo editado). */
   const [closingDraft, setClosingDraft] = useState<Record<string, string>>({});
   const [savingClosing, setSavingClosing] = useState<string | null>(null);
