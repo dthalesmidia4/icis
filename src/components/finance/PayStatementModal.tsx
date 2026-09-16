@@ -115,18 +115,6 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
     setUsdInputs(usdSeed);
   }, [open, today, group, usdComponents]);
 
-  const suggestedIof =
-    usdComponents.length > 0 && reconciliation?.state === "ok"
-      ? Number((reconciliation.totalBrl * 0.035).toFixed(2))
-      : null;
-
-  // IOF automático: 3,5% da base em reais das compras USD. Pára de atualizar
-  // assim que o usuário toca no campo.
-  useEffect(() => {
-    if (iofTouched || suggestedIof == null) return;
-    setIof(String(suggestedIof));
-  }, [iofTouched, suggestedIof]);
-
   if (!group) return null;
 
   const closure = resolveStatementClosure({ total, iof, knownTotalBrl: knownTotal });
