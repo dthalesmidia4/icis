@@ -140,6 +140,7 @@ export default function StatementPanel({
         const gap = cycleGapLabel(card);
         const linked = linkedItems?.[card.id] ?? [];
         const linkedIsOpen = !!linkedOpen[card.id];
+        const itemLabels = buildOccurrenceLabels(group.components);
         const needsFix = linked.filter((l) => l.needsChargeDateCorrection).length;
         const limit = card.card_limit_brl ?? null;
         const usageBase = group.actualTotal ?? (group.projectedTotal > 0 ? group.projectedTotal : null);
