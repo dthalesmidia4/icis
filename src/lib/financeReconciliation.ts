@@ -26,6 +26,8 @@ export interface UsdComponent {
   amountOriginal: number | null;
   /** Estimativa atual em reais, quando existir — informação secundária. */
   estimatedBrl: number | null;
+  /** Data agendada da linha, quando existir (ajuda a materializar projeções). */
+  scheduledDate: string | null;
   projected: boolean;
 }
 
