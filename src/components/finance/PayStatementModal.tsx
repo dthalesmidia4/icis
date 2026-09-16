@@ -85,11 +85,20 @@ interface Props {
   }) => Promise<boolean>;
 }
 
-export default function PayStatementModal({ open, onOpenChange, group, today, onConfirm }: Props) {
+export default function PayStatementModal({
+  open,
+  onOpenChange,
+  group,
+  today,
+  onConfirm,
+  onSaveUsdDraft,
+}: Props) {
   const [date, setDate] = useState(today);
   /** Total do fechamento (o mesmo valor que será pago). */
   const [total, setTotal] = useState("");
   const [saving, setSaving] = useState(false);
+  /** `true` enquanto grava apenas a conferência cambial (sem pagar). */
+  const [savingDraft, setSavingDraft] = useState(false);
   /** IOF é SEMPRE perguntado, com padrão 0 — exista ou não compra em dólar. */
   const [iof, setIof] = useState("0");
   /**
