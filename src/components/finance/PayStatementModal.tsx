@@ -465,10 +465,15 @@ export default function PayStatementModal({
         </div>
 
         <DialogFooter className="flex-wrap gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || savingDraft}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={saving || !canSubmit}>
+          {canSaveDraft && (
+            <Button variant="secondary" onClick={submitDraft} disabled={saving || savingDraft}>
+              {savingDraft ? "Salvando..." : "Salvar valores em reais"}
+            </Button>
+          )}
+          <Button onClick={submit} disabled={saving || savingDraft || !canSubmit}>
             {saving ? "Registrando..." : "Confirmar pagamento"}
           </Button>
         </DialogFooter>
