@@ -1267,6 +1267,19 @@ export function buildStatementGroups(params: {
                   ? rowFromProjection(row.item, chargeCompetence, fallbackRate)
                   : null;
               if (!substitute || !chargeDateInCycle(substitute.chargeDate, effectiveCycle)) continue;
+              /**
+               * IGNORADO É DECISÃO EXPLÍCITA: se existe ocorrência ignorada do
+               * mesmo item para aquela data de cobrança, a projeção substituta
+               * não pode ressuscitar a cobrança na fatura.
+               */
+              const skippedSameCharge = occurrences.some(
+                (occ) =>
+                  occ.item_id === row.item.id &&
+                  !!occ.skipped_at &&
+                  (occ.charge_date ?? occ.due_date ?? null)?.slice(0, 10) ===
+                    substitute.chargeDate?.slice(0, 10),
+              );
+              if (skippedSameCharge) continue;
               row = substitute;
             }
             /** Reivindicado pelo mês anterior ainda aberto: nem fato nem projeção equivalente. */
