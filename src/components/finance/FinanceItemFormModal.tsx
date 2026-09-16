@@ -502,7 +502,7 @@ export default function FinanceItemFormModal({
       charge_day: isCard || isInstallments ? null : chargeDayNumber,
       // Item no cartão: vencimento é da FATURA (`statement_due_day`).
       due_day: isCard || isInstallments || hideItemDueDay ? null : dueDayNumber,
-      payment_method: isCard || paymentMethod === NONE ? null : paymentMethod,
+      payment_method: isCard || paymentMethod === NONE || paymentMethod === UNSELECTED ? null : paymentMethod,
       card_item_id: !isCard && onCard && cardItemId !== NONE ? cardItemId : null,
       parent_item_id: isIncluded && parentItemId !== NONE ? parentItemId : null,
       bank_name: isCard ? bankName.trim() || null : null,
