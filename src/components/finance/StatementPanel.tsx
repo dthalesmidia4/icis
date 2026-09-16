@@ -47,6 +47,7 @@ import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/finan
 import { paymentTimestampToDate } from "@/lib/financePaymentDate";
 import {
   type OccurrenceLabel,
+  buildOccurrenceLabels,
   groupStatementComponents,
   occurrenceDisplayName,
   occurrenceDisplaySuffix,
