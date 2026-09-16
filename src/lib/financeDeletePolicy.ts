@@ -65,7 +65,8 @@ export function parseItemDeleteDecision(raw: unknown): ItemDeleteDecision | null
 }
 
 export const ITEM_DECISION_HINTS: Record<ItemDeleteAction, string> = {
-  delete: "Este cadastro nunca teve lançamento — pode ser excluído definitivamente.",
+  delete:
+    "Este cadastro pode ser excluído definitivamente. Eventuais lançamentos em aberto também serão excluídos.",
   inactivate:
     "Este cadastro já tem histórico. Inativar preserva os meses anteriores e interrompe as projeções futuras.",
   keep_history:
