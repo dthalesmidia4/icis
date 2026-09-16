@@ -565,12 +565,9 @@ function FinancialCockpit() {
     [accountsGroups, subscriptionAccountsGroups],
   );
   const accountsAllOpen =
-    combinedAccountsGroups.length > 0 &&
-    combinedAccountsGroups.every(
-      (g) =>
-        (!!accountsExpanded[g.key] || !accountsGroups.some((ag) => ag.key === g.key)) &&
-        (!!subscriptionAccountsExpanded[g.key] || !subscriptionAccountsGroups.some((sg) => sg.key === g.key)),
-    );
+    (accountsGroups.length === 0 || accountsGroups.every((g) => !!accountsExpanded[g.key])) &&
+    (subscriptionAccountsGroups.length === 0 ||
+      subscriptionAccountsGroups.every((g) => !!subscriptionAccountsExpanded[g.key]));
   const toggleAllAccountsGroups = () => {
     if (accountsAllOpen) {
       setAccountsExpanded({});
