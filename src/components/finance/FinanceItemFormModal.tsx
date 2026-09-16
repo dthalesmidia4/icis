@@ -249,6 +249,7 @@ export default function FinanceItemFormModal({
 
     setKind((item?.kind as FinanceKind) ?? initialKind ?? (scope === "tools" ? "tool" : "expense"));
     setName(item?.name ?? "");
+    setStatementLabel(item?.statement_label ?? "");
     setPurpose(item?.purpose ?? "");
     setCategory(item?.category ?? "");
     setCostCenter(
