@@ -83,6 +83,11 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   const [saving, setSaving] = useState(false);
   /** IOF é SEMPRE perguntado, com padrão 0 — exista ou não compra em dólar. */
   const [iof, setIof] = useState("0");
+  /**
+   * `true` quando o usuário editou o IOF manualmente. Enquanto `false`, o campo
+   * é preenchido automaticamente com 3,5% sobre a base em reais das compras USD.
+   */
+  const [iofTouched, setIofTouched] = useState(false);
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
   const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
 
