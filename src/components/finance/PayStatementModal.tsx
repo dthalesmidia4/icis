@@ -115,8 +115,6 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
     setUsdInputs(usdSeed);
   }, [open, today, group, usdComponents]);
 
-  if (!group) return null;
-
   const closure = resolveStatementClosure({ total, iof, knownTotalBrl: knownTotal });
   const closureMessage = statementClosureMessage(closure);
   const iofResult = parseIofInput(iof);
@@ -124,7 +122,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
   /** Total confirmado no fechamento; sem digitação, cai no total conhecido. */
   const closureTotalBrl = closure.state === "ok" ? closure.totalBrl : null;
-  const suggested = closureTotalBrl ?? knownTotal ?? group.projectedTotal;
+  const suggested = closureTotalBrl ?? knownTotal ?? group?.projectedTotal;
   /**
    * O `Valor pago` NÃO é um campo próprio: a fatura é paga por inteiro, então
    * ele é sempre o total do fechamento acima.
@@ -162,7 +160,7 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   const classifiedComponentsBrl =
     reconciliation.state === "ok"
       ? Number(
-          group.components
+          (group?.components ?? [])
             .reduce((sum, row) => {
               if (row.currency !== "USD") return sum + (row.amountBrl ?? 0);
               const typed = usdInputs[row.key] ?? "";
@@ -211,6 +209,8 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
       setSaving(false);
     }
   };
+
+  if (!group) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
