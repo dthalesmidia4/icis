@@ -94,7 +94,7 @@ export default function FinanceItemDeleteModal({ open, onOpenChange, item, onDon
               <p className="text-sm font-medium">Este cadastro já está inativo.</p>
             )}
             <p className="text-sm text-muted-foreground">{ITEM_DECISION_HINTS[decision.action]}</p>
-            {decision.occurrence_count > 0 && (
+            {decision.occurrence_count > 0 && decision.action !== "delete" && (
               <p className="text-sm flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                 <span>
@@ -102,6 +102,16 @@ export default function FinanceItemDeleteModal({ open, onOpenChange, item, onDon
                     ? "1 lançamento registrado"
                     : `${decision.occurrence_count} lançamentos registrados`}{" "}
                   serão preservados.
+                </span>
+              </p>
+            )}
+            {decision.occurrence_count > 0 && decision.action === "delete" && (
+              <p className="text-sm flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                <span>
+                  {decision.occurrence_count === 1
+                    ? "1 lançamento em aberto será excluído junto com o cadastro."
+                    : `${decision.occurrence_count} lançamentos em aberto serão excluídos junto com o cadastro.`}
                 </span>
               </p>
             )}
