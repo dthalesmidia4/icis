@@ -316,3 +316,102 @@ describe("reivindicação provisória da fatura aberta (sem fechamento informado
   });
 });
 
+
+/**
+ * REGRESSÃO REAL — Itaú 7587, setembro/2026 (ciclo 14/08–13/09).
+ *
+ * Assinaturas que JÁ EXISTIAM em agosto projetam a cobrança do ciclo mesmo
+ * tendo um fato antigo arquivado em agosto (cobrança do ciclo anterior). Um
+ * cadastro criado só em setembro NÃO retroage para 25/08. Fato real dentro da
+ * janela continua prevalecendo sobre a projeção.
+ */
+describe("cadastro vigente por competência no ciclo da fatura", () => {
+  const SEP = { year: 2026, month: 9 };
+
+  const itau = item({
+    id: "itau",
+    name: "Itaú ••••7587",
+    kind: "card",
+    cost_center: "compartilhado",
+    statement_closing_day: 13,
+    statement_due_day: 25,
+  });
+  const sub = (id: string, name: string, chargeDay: number) =>
+    item({ id, name, default_amount_brl: 100, charge_day: chargeDay, card_item_id: "itau" });
+
+  const adobe = sub("adobe", "Adobe", 14);
+  const canva = sub("canva", "Canva", 20);
+  const chatgpt = sub("chatgpt", "ChatGPT", 25);
+  const suno = sub("suno", "SUNO", 25);
+  const lovable = sub("lovable", "Lovable", 20);
+
+  /** Fatos ANTIGOS arquivados em agosto (cobranças do ciclo de julho). */
+  const oldFacts = [
+    occ({ id: "old-adobe", item_id: "adobe", competence_month: "2026-08-01", amount_brl: 100, charge_date: "2026-07-14" }),
+    occ({ id: "old-canva", item_id: "canva", competence_month: "2026-08-01", amount_brl: 100, charge_date: "2026-07-20" }),
+  ];
+  /** Fato REAL dentro da janela: prevalece sobre a projeção. */
+  const lovableFact = occ({
+    id: "occ-lovable",
+    item_id: "lovable",
+    competence_month: "2026-08-01",
+    amount_brl: 137,
+    charge_date: "2026-08-20",
+  });
+
+  const augCatalog = [itau, adobe, canva, chatgpt, lovable];
+  const sepCatalog = [...augCatalog, suno];
+
+  const cycles = new Map([
+    [
+      "itau|2026-09-01",
+      {
+        cardId: "itau",
+        competenceMonth: "2026-09-01",
+        cycleStart: "2026-08-14",
+        cycleEnd: "2026-09-13",
+        closingDateIsActual: true,
+      },
+    ],
+  ]) as never;
+
+  const sep = buildStatementGroups({
+    items: sepCatalog,
+    occurrences: [...oldFacts, lovableFact],
+    competence: SEP,
+    cycles,
+    itemsByCompetence: new Map([
+      ["2026-08-01", augCatalog],
+      ["2026-09-01", sepCatalog],
+    ]),
+  })[0];
+
+  it("Adobe 14/08, Canva 20/08 e ChatGPT 25/08 compõem a fatura de setembro", () => {
+    const dates = new Map(sep.components.map((c) => [c.item.id, c.chargeDate]));
+    expect(dates.get("adobe")).toBe("2026-08-14");
+    expect(dates.get("canva")).toBe("2026-08-20");
+    expect(dates.get("chatgpt")).toBe("2026-08-25");
+  });
+
+  it("cada assinatura entra uma única vez", () => {
+    for (const id of ["adobe", "canva", "chatgpt", "lovable"]) {
+      expect(sep.components.filter((c) => c.item.id === id)).toHaveLength(1);
+    }
+  });
+
+  it("SUNO, criada em setembro, não gera cobrança retroativa em 25/08", () => {
+    expect(sep.components.some((c) => c.item.id === "suno")).toBe(false);
+  });
+
+  it("fato real de 20/08 prevalece sobre a projeção do Lovable", () => {
+    const row = sep.components.find((c) => c.item.id === "lovable")!;
+    expect(row.projected).toBe(false);
+    expect(row.occurrence?.id).toBe("occ-lovable");
+    expect(row.amountBrl).toBe(137);
+  });
+
+  it("fatos antigos de julho não entram na fatura", () => {
+    expect(sep.components.some((c) => c.occurrence?.id === "old-adobe")).toBe(false);
+    expect(sep.components.some((c) => c.occurrence?.id === "old-canva")).toBe(false);
+  });
+});
