@@ -1314,26 +1314,67 @@ function FinancialCockpit() {
               <p className="text-sm font-semibold">Total: {money(visibleRowsTotal)}</p>
             </div>
 
-            <MonthAccountsList
-              rows={visibleRows}
-              statusContext={statusContext}
-              cards={cards}
-              overlaps={overlaps}
-              today={today}
-              loading={loading}
-              emptyMessage={
-                mainView === "to_pay"
-                  ? "Nada pendente com esses filtros neste mês."
-                  : "Nenhuma conta para este filtro neste mês."
-              }
-              onOpenRow={setOccurrenceRow}
-              labels={occurrenceLabels}
-              onTogglePaid={togglePaid}
-              onEditItem={(item) => openItemModal(item)}
-              groupBy={accountsGroupBy}
-              expanded={accountsExpanded}
-              onToggleGroup={toggleAccountsGroup}
-            />
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Outras contas e despesas
+              </h3>
+              <MonthAccountsList
+                rows={nonSubscriptionVisibleRows}
+                statusContext={statusContext}
+                cards={cards}
+                overlaps={overlaps}
+                today={today}
+                loading={loading}
+                emptyMessage={
+                  mainView === "to_pay"
+                    ? "Nada pendente com esses filtros neste mês."
+                    : "Nenhuma conta para este filtro neste mês."
+                }
+                onOpenRow={setOccurrenceRow}
+                labels={occurrenceLabels}
+                onTogglePaid={togglePaid}
+                onEditItem={(item) => openItemModal(item)}
+                groupBy={accountsGroupBy}
+                expanded={accountsExpanded}
+                onToggleGroup={toggleAccountsGroup}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Assinaturas e ferramentas
+                </h3>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-sm"
+                  onClick={() => goTo("subscriptions")}
+                >
+                  Gerenciar assinaturas e ferramentas
+                </Button>
+              </div>
+              <MonthAccountsList
+                rows={subscriptionVisibleRows}
+                statusContext={statusContext}
+                cards={cards}
+                overlaps={overlaps}
+                today={today}
+                loading={loading}
+                emptyMessage={
+                  mainView === "to_pay"
+                    ? "Nada pendente com esses filtros neste mês."
+                    : "Nenhuma assinatura ou ferramenta neste recorte."
+                }
+                onOpenRow={setOccurrenceRow}
+                labels={occurrenceLabels}
+                onTogglePaid={togglePaid}
+                onEditItem={(item) => openItemModal(item)}
+                groupBy={accountsGroupBy}
+                expanded={subscriptionAccountsExpanded}
+                onToggleGroup={toggleSubscriptionAccountsGroup}
+              />
+            </div>
 
             {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
             <SkippedEntriesPanel entries={skipped} onRestore={restoreOccurrence} />
