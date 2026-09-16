@@ -326,7 +326,8 @@ function FinancialCockpit() {
 
 
   const operationalRows = useMemo(() => rows.filter((row) => !isStatementRow(row)), [rows]);
-  const accountRows = useMemo(() => operationalRows.filter(isDirectPayableRow), [operationalRows]);
+  // Contas e despesas reúne todas as despesas do mês, inclusive cobranças no cartão.
+  const accountRows = useMemo(() => operationalRows, [operationalRows]);
   const subscriptionRows = useMemo(
     () => operationalRows.filter((row) => isSubscriptionsDomainItem(row.item)),
     [operationalRows],
