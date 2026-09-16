@@ -248,6 +248,13 @@ export function useFinance(competence: Competence) {
 
       setItems(mergeItemValues(((itemsRes.data as any[]) ?? []) as FinanceItem[], itemValues));
       setMonthItems(((monthItemsRes?.data as any[]) ?? []) as FinanceItem[]);
+      setMonthItemsByCompetence(
+        new Map<string, FinanceItem[]>([
+          [competenceToISO(prev), ((prevItemsRes?.data as any[]) ?? []) as FinanceItem[]],
+          [competenceToISO(normalized), ((monthItemsRes?.data as any[]) ?? []) as FinanceItem[]],
+          [competenceToISO(next), ((nextItemsRes?.data as any[]) ?? []) as FinanceItem[]],
+        ]),
+      );
       setOccurrences(
         mergeOccurrenceValues(((occRes.data as any[]) ?? []) as FinanceOccurrence[], occValues),
       );
