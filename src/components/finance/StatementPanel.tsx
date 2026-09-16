@@ -49,6 +49,7 @@ import {
   type OccurrenceLabel,
   buildOccurrenceLabels,
   occurrenceDisplayName,
+  occurrenceDisplaySuffix,
 } from "@/lib/financeOccurrenceLabels";
 
 interface Props {
