@@ -237,7 +237,7 @@ function FinancialCockpit() {
   const [accountsGroupBy, setAccountsGroupBy] = useState<CompositionGroupBy>("category");
   const [accountsExpanded, setAccountsExpanded] = useState<Record<string, boolean>>({});
   const toggleAccountsGroup = (key: string) =>
-    setAccountsExpanded((prev) => ({ ...prev, [key]: !prev[key }));
+    setAccountsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   const [subscriptionAccountsExpanded, setSubscriptionAccountsExpanded] = useState<Record<string, boolean>>({});
   const toggleSubscriptionAccountsGroup = (key: string) =>
     setSubscriptionAccountsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
