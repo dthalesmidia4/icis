@@ -613,6 +613,17 @@ export default function FinanceItemFormModal({
               )}
             </div>
             <div>
+              <Label>Como aparece na fatura</Label>
+              <Input
+                value={statementLabel}
+                onChange={(e) => setStatementLabel(e.target.value)}
+                placeholder="Ex: OPENAI"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Opcional. Se preenchido, aparece como nome principal na fatura do cartão.
+              </p>
+            </div>
+            <div>
               <Label>Tipo *</Label>
               <Select value={kind} onValueChange={(v) => setKind(v as FinanceKind)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
