@@ -1251,7 +1251,22 @@ export function buildStatementGroups(params: {
               row.chargeDate >= ownClaim.start &&
               row.chargeDate <= ownClaim.end &&
               ownClaim.itemIds.has(row.item.id);
-            if (!inCycle && !claimedHere) continue;
+            if (!inCycle && !claimedHere) {
+              /**
+               * FATO ANTIGO DO MÊS (cobrança de outro ciclo, ex.: 14/07
+               * arquivado em agosto) não pode APAGAR a cobrança prevista deste
+               * ciclo: a assinatura já existia e volta a cobrar dentro da
+               * janela. A linha do mês é então substituída pela PROJEÇÃO desse
+               * mês — e o fato real, quando existir dentro da janela, continua
+               * prevalecendo sobre ela no dedupe.
+               */
+              const substitute =
+                isRealFact && !row.supplemental && isProjectableInMonth(row.item, chargeCompetence, rules)
+                  ? rowFromProjection(row.item, chargeCompetence, fallbackRate)
+                  : null;
+              if (!substitute || !chargeDateInCycle(substitute.chargeDate, effectiveCycle)) continue;
+              row = substitute;
+            }
             /** Reivindicado pelo mês anterior ainda aberto: nem fato nem projeção equivalente. */
             if (
               !claimedHere &&
