@@ -33,8 +33,6 @@ import { interpretStatementCompositionDifference } from "@/lib/financeStatementD
 
 import { statementClosureButtonLabel } from "@/lib/financeStatementClosure";
 import {
-  CARD_CHARGE_DATE_MISSING,
-  cardChargeDateLabel,
   CARD_CLOSING_FACT_LABEL,
   CARD_DUE_FACT_LABEL,
 } from "@/lib/financeCardLabels";
