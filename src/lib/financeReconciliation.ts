@@ -44,6 +44,7 @@ export function usdComponentsOf(group: StatementGroup | null): UsdComponent[] {
       chargeDate: row.chargeDate ?? null,
       amountOriginal: row.amountOriginal ?? null,
       estimatedBrl: row.amountBrl ?? null,
+      scheduledDate: row.scheduledDate ?? null,
       projected: row.projected,
     }))
     .sort((a, b) => (a.chargeDate ?? "").localeCompare(b.chargeDate ?? ""));
