@@ -311,7 +311,7 @@ export default function FinanceItemFormModal({
     setBrlCharged(item?.currency === "USD" ? seeded.brl : "");
     setChargeDay(item?.charge_day != null ? String(item.charge_day) : "");
     setDueDay(item?.due_day != null ? String(item.due_day) : "");
-    setPaymentMethod(item?.payment_method ?? NONE);
+    setPaymentMethod(item ? item.payment_method ?? NONE : UNSELECTED);
     setSupportsSupplemental(item?.supports_supplemental_entries === true);
     setSupplementalKind(item?.supplemental_entry_kind === "recharge" ? "recharge" : "extra");
     setCardItemId(item?.card_item_id ?? NONE);
