@@ -1310,8 +1310,13 @@ export default function SystemsCommercialWorkspace({
                                             isCustomer && "bg-emerald-500/5",
                                           )}
                                         >
-                                          <td className="py-2 pl-2 pr-3 font-semibold">
-                                            {client.name}
+                                          <td className="py-2 pl-2 pr-3">
+                                            <div className="font-semibold">{client.name}</div>
+                                            {client.phone && (
+                                              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                                {client.phone}
+                                              </div>
+                                            )}
                                           </td>
                                           {/*
                                             SITUAÇÃO É LIFECYCLE: virar cliente usa
