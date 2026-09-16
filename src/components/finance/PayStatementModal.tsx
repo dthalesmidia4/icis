@@ -52,6 +52,7 @@ import {
 } from "@/lib/financeStatementClosure";
 import {
   buildReconciliation,
+  reconciliationDraftPayload,
   reconciliationPayload,
   usdComponentsOf,
 } from "@/lib/financeReconciliation";
@@ -73,6 +74,14 @@ interface Props {
     iofBrl: number;
     /** Total do FECHAMENTO informado aqui (null = mantém o total conhecido). */
     statementAmountBrl: number | null;
+  }) => Promise<boolean>;
+  /**
+   * Salva SOMENTE a conferência cambial, mantendo a fatura em aberto.
+   * `true` = gravado no banco.
+   */
+  onSaveUsdDraft?: (params: {
+    group: StatementGroup;
+    usdComponents: unknown[];
   }) => Promise<boolean>;
 }
 
