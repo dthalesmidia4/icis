@@ -411,6 +411,10 @@ export default function StatementPanel({
                           ? " · não confirmada"
                           : " · prevista";
                       return (
+                        const displayName = row.item.statement_label?.trim()
+                          ? `${row.item.statement_label.trim()} · ${row.item.name}`
+                          : row.item.name;
+                        return (
                         <button
                           key={row.key}
                           onClick={() => onOpenRow(row)}
@@ -424,6 +428,8 @@ export default function StatementPanel({
                             {projectedNote && (
                               <span className="text-muted-foreground">{projectedNote}</span>
                             )}
+                            {" · "}
+                            <span className="text-muted-foreground">{displayName}</span>
                           </span>
                           <span className="flex items-center gap-3 flex-shrink-0 justify-end">
                             {row.currency === "USD" && (
