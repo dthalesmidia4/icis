@@ -67,9 +67,11 @@ export function buildOccurrenceLabels(rows: MonthRow[]): Map<string, OccurrenceL
     const hasSupplemental = group.some((r) => r.supplemental);
 
     // ---- lançamentos do cronograma
+    // Avulso não "renova": o lançamento do cadastro é o Principal.
+    const regularWord = group[0].item.recurrence_type === "one_off" ? "Principal" : "Renovação";
     regulars.forEach((row, index) => {
       let suffix: string | null = null;
-      if (hasSupplemental) suffix = "Renovação";
+      if (hasSupplemental) suffix = regularWord;
       else if (regulars.length > 1) suffix = `${index + 1}/${regulars.length}`;
       out.set(row.key, {
         itemName,
