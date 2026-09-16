@@ -3,9 +3,10 @@
  *
  * O modal não decide nada por conta própria: pergunta ao banco
  * (`finance_item_delete_decision`) e oferece exatamente a ação permitida.
- * Cadastro nunca usado pode desaparecer; cadastro com histórico só é inativado,
- * porque apagá-lo levaria as ocorrências junto (FK em cascata) e destruiria
- * meses já fechados.
+ * Cadastro sem histórico fechado pode ser excluído definitivamente
+ * (lançamentos em aberto do mês atual também são excluídos); cadastro com
+ * histórico fechado só é inativado, porque apagá-lo levaria as ocorrências
+ * junto (FK em cascata) e destruiria meses já fechados.
  */
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
