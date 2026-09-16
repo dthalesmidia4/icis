@@ -279,6 +279,23 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
                 );
               })}
 
+              {reconciliation.state === "ok" && (
+                <div className="rounded-md bg-muted/40 p-2 text-xs space-y-1">
+                  <p className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Total em dólar</span>
+                    <span className="font-medium">US$ {totalUsdOriginal.toFixed(2)}</span>
+                  </p>
+                  <p className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Total confirmado em reais</span>
+                    <span className="font-medium">{formatBRL(confirmedUsdBrl)}</span>
+                  </p>
+                  <p className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Sugestão de IOF (3,5%)</span>
+                    <span className="font-medium">{formatBRL(suggestedIof)}</span>
+                  </p>
+                </div>
+              )}
+
               {reconciliation.state === "incomplete" && (
                 <p className="text-xs text-destructive">
                   Falta o valor real de: {reconciliation.missing.join(", ")}
