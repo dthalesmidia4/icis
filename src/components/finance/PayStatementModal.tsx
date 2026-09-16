@@ -138,6 +138,27 @@ export default function PayStatementModal({ open, onOpenChange, group, today, on
   const amountMessage = statementPaymentAmountMessage(amountResult);
   const dateValid = isValidPaymentDate(date);
   const reconciliation = buildReconciliation(usdComponents, usdInputs);
+
+  /** Base em reais das compras USD confirmadas. Usada no resumo e no IOF. */
+  const confirmedUsdBrl = reconciliation.state === "ok" ? reconciliation.totalBrl : null;
+  /** Soma dos valores originais em dólar das compras desta fatura. */
+  const totalUsdOriginal = usdComponents.reduce(
+    (sum, c) => sum + (c.amountOriginal ?? 0),
+    0,
+  );
+  /** Sugestão de IOF: 3,5% da base em reais, arredondada em centavos. */
+  const suggestedIof =
+    usdComponents.length > 0 && confirmedUsdBrl != null
+      ? Number((confirmedUsdBrl * 0.035).toFixed(2))
+      : null;
+
+  // IOF automático: 3,5% da base em reais das compras USD. Pára de atualizar
+  // assim que o usuário toca no campo.
+  useEffect(() => {
+    if (iofTouched || suggestedIof == null) return;
+    setIof(String(suggestedIof));
+  }, [iofTouched, suggestedIof]);
+
   const classifiedComponentsBrl =
     reconciliation.state === "ok"
       ? Number(
