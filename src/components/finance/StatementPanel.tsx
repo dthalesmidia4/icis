@@ -410,9 +410,17 @@ export default function StatementPanel({
                         : row.chargeDate && row.chargeDate < today
                           ? " · não confirmada"
                           : " · prevista";
-                      const displayName = row.item.statement_label?.trim()
-                        ? `${row.item.statement_label.trim()} · ${row.item.name}`
-                        : row.item.name;
+                      const statementLabel = row.item.statement_label?.trim();
+                      const suffix = occurrenceDisplaySuffix(row, itemLabels);
+                      /**
+                       * statement_label vazio: comportamento atual (nome + sufixo embutido).
+                       * statement_label preenchido: ele é o nome principal; sufixo
+                       * (Renovação/Recarga) fica no meio; name atual aparece depois,
+                       * discreto, sem repetir o nome.
+                       */
+                      const lineLabel = statementLabel
+                        ? `${statementLabel}${suffix && suffix !== statementLabel ? ` · ${suffix}` : ""} · ${row.item.name}`
+                        : occurrenceDisplayName(row, itemLabels);
                       return (
                         <button
                           key={row.key}
@@ -423,12 +431,10 @@ export default function StatementPanel({
                             {row.chargeDate ? formatDayMonth(row.chargeDate) : "—"}
                           </span>
                           <span className="truncate text-foreground">
-                            {occurrenceDisplayName(row, itemLabels)}
+                            {lineLabel}
                             {projectedNote && (
                               <span className="text-muted-foreground">{projectedNote}</span>
                             )}
-                            {" · "}
-                            <span className="text-muted-foreground">{displayName}</span>
                           </span>
                           <span className="flex items-center gap-3 flex-shrink-0 justify-end">
                             {row.currency === "USD" && (
