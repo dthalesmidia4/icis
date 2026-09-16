@@ -897,8 +897,12 @@ export default function FinanceOccurrenceModal({
             <span className="hidden sm:block" />
           )}
           <div className="flex flex-wrap justify-end gap-2 min-w-0">
-            {/* Exceção do mês: só faz sentido em data prevista e ainda não paga. */}
-            {onSkip && row.scheduledDate && !row.paid && !readOnlyFact ? (
+            {/*
+              Exceção do mês: data prevista e ainda não paga. Numa cobrança
+              PREVISTA no cartão a mesma ação diz o que aconteceu de fato:
+              a cobrança não veio neste ciclo.
+            */}
+            {onSkip && (row.scheduledDate || (cardRow && row.projected)) && !row.paid && !readOnlyFact ? (
               <Button
                 variant="ghost"
                 onClick={async () => {
@@ -910,7 +914,11 @@ export default function FinanceOccurrenceModal({
                 disabled={saving || removing || skipping}
               >
                 <CalendarOff className="w-4 h-4 mr-2 flex-shrink-0" />
-                {skipping ? "Ignorando..." : "Ignorar este lançamento"}
+                {skipping
+                  ? "Ignorando..."
+                  : cardRow && row.projected
+                    ? "Não foi cobrado neste ciclo"
+                    : "Ignorar este lançamento"}
               </Button>
             ) : null}
             {/* Fato ADICIONAL do mesmo cadastro (recarga/extra) neste mês. */}
