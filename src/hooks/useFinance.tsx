@@ -172,6 +172,15 @@ export function useFinance(competence: Competence) {
           _tenant_id: agencyId,
           _competence: competenceToISO(normalized),
         }),
+        // Cadastro vigente nos meses adjacentes: alimenta o ciclo da fatura.
+        (supabase as any).rpc("finance_read_items_for_competence", {
+          _tenant_id: agencyId,
+          _competence: competenceToISO(prev),
+        }),
+        (supabase as any).rpc("finance_read_items_for_competence", {
+          _tenant_id: agencyId,
+          _competence: competenceToISO(next),
+        }),
         supabase
           .from("finance_occurrences")
           .select(FINANCE_OCCURRENCE_METADATA_COLUMNS)
