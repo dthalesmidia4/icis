@@ -1161,6 +1161,13 @@ export function buildStatementGroups(params: {
    * Ausente, cai no padrão do cadastro (`statement_closing_day`).
    */
   cycles?: StatementCycleMap | null;
+  /**
+   * VERSÃO DO CADASTRO VÁLIDA EM CADA COMPETÊNCIA (chave = competência ISO).
+   * A fatura varre mais de um mês: cada mês precisa ser lido com o cadastro
+   * vigente NELE — senão um cadastro criado depois projeta cobrança retroativa.
+   * Ausente para um mês, cai no cadastro recebido em `items`.
+   */
+  itemsByCompetence?: Map<string, FinanceItem[]> | null;
 }): StatementGroup[] {
   const { items, occurrences, competence } = params;
   const fallbackRate = params.fallbackRate ?? null;
