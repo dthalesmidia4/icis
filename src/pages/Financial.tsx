@@ -281,16 +281,11 @@ function FinancialCockpit() {
   }, [settings.monthlyBudgetBrl, settings.defaultUsdRate]);
 
   /**
-   * Rótulos dinâmicos de TODAS as linhas do mês (inclui as cobranças dentro das
-   * faturas), calculados num ponto só para tela, composição e fatura nunca
-   * divergirem.
+   * Rótulos dinâmicos das linhas mensais (`rows`). A tela de fatura calcula
+   * seus próprios rótulos localmente a partir dos componentes da fatura, sem
+   * misturar representações — isso evita que a mesma cobrança vire `2/2`.
    */
-  const occurrenceLabels = useMemo(() => {
-    const all = new Map<string, MonthRow>();
-    for (const row of rows) all.set(row.key, row);
-    for (const group of statements) for (const row of group.components) all.set(row.key, row);
-    return buildOccurrenceLabels([...all.values()]);
-  }, [rows, statements]);
+  const occurrenceLabels = useMemo(() => buildOccurrenceLabels(rows), [rows]);
 
   const cardsById = useMemo(() => new Map(cards.map((c) => [c.id, c])), [cards]);
   /** Assinaturas só precisam de rótulo/ciclo do cartão — nunca limite ou fatura. */
