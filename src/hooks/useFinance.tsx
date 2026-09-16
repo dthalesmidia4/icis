@@ -149,6 +149,8 @@ export function useFinance(competence: Competence) {
       const [
         itemsRes,
         monthItemsRes,
+        prevItemsRes,
+        nextItemsRes,
         occRes,
         rulesRes,
         payRulesRes,
