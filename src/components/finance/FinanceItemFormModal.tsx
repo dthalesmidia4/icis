@@ -109,6 +109,7 @@ interface Props {
 const KIND_OPTIONS: FinanceKind[] = ["expense", "tool", "package", "card", "included_resource"];
 const COST_CENTERS: FinanceCostCenter[] = ["midia", "sistemas", "administrativo", "compartilhado"];
 const NONE = "__none__";
+const UNSELECTED = "__unselected__";
 
 /* ------------------- Tipo de cobrança em linguagem humana ------------------ */
 
