@@ -125,7 +125,6 @@ import {
   buildPaymentQueue,
   mergeGroupedPaymentsIntoQueue,
   formatDayMonth,
-  isDirectPayableRow,
   isSubscriptionsDomainItem,
   monthFullLabel,
   overdueDirectRows,
