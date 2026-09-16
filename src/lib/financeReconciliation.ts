@@ -66,6 +66,8 @@ export interface ReconciliationEntry {
   /** Prévia local; o banco recalcula e persiste o valor autoritativo. */
   exchangeRate: number | null;
   chargeDate: string | null;
+  /** Data agendada da linha, quando existir. */
+  scheduledDate?: string | null;
 }
 
 export type ReconciliationState =
