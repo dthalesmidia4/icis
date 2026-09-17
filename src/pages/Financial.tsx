@@ -658,7 +658,20 @@ function FinancialCockpit() {
       const resolved = await resolveStatementGroup(group);
       const occurrenceId = resolved?.statementRow?.occurrence?.id;
       if (!occurrenceId) return false;
+      /**
+       * CONGELA antes de fechar: o fechamento real transforma a composição em
+       * histórico. Remover o fechamento (`null`) volta ao recorte dinâmico e
+       * portanto NÃO congela nada.
+       */
+      if (closingDate) {
+        const frozen = await freezeStatementComponents(
+          occurrenceId,
+          frozenStatementComponents(group.components),
+        );
+        if (!frozen) return false;
+      }
       return await saveStatementClosingDate(occurrenceId, closingDate);
+
     } finally {
       setStatementBusy(false);
     }
