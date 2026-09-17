@@ -22,6 +22,8 @@ import { Label } from "@/components/ui/label";
 import { StatementGroup, cardDisplayLabel, formatBRL } from "@/lib/financeModel";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { buildStatementConference } from "@/lib/financeIof";
+import { maskBrlFromNumber, maskBrlInput } from "@/lib/financeNumber";
+import { usdComponentsOf } from "@/lib/financeReconciliation";
 import {
   interpretStatementCompositionDifference,
   interpretStatementPayment,
