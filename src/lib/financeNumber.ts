@@ -95,6 +95,24 @@ export function maskBrlInput(raw: string | null | undefined): string {
   return frac == null ? int : `${int},${frac}`;
 }
 
+/**
+ * Máscara de DIGITAÇÃO monetária.
+ *
+ * Sem separador digitado, os números entram por centavos — `1` → `0,01`,
+ * `123` → `1,23`, `282119` → `2.821,19` — então a máscara nunca reinterpreta um
+ * ponto de milhar que ela mesma inseriu.
+ * Com separador explícito (digitado ou colado), o valor informado é preservado:
+ * `2821,19` / `2821.19` / `2.821,19` → `2.821,19`; `70.87` → `70,87`.
+ */
+export function maskBrlTyping(raw: string | null | undefined): string {
+  const cleaned = String(raw ?? "").replace(/[^\d.,]/g, "");
+  if (!cleaned) return "";
+  if (/[.,]/.test(cleaned)) return maskBrlInput(cleaned);
+
+  const digits = cleaned.replace(/^0+(?=\d)/, "").padStart(3, "0");
+  return `${groupThousands(digits.slice(0, -2))},${digits.slice(-2)}`;
+}
+
 /** Número → texto mascarado com 2 casas (`2821.19` → `2.821,19`). */
 export function maskBrlFromNumber(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "";
