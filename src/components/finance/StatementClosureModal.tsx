@@ -7,7 +7,7 @@
  * O que NÃO se ajusta aqui: data e valor pagos. Liquidação é outro fato — este
  * modal nunca escreve `paid_at`/`paid_amount_brl`.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
