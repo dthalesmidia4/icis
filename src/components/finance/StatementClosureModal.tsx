@@ -50,14 +50,15 @@ interface Props {
 
 export default function StatementClosureModal({ open, onOpenChange, group, onConfirm }: Props) {
   const [total, setTotal] = useState("");
-  const [iof, setIof] = useState("0");
+  /** `null` = nenhum ajuste manual; o IOF vem do fato salvo ou do cálculo. */
+  const [iofOverride, setIofOverride] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const seed = seedStatementClosure(group);
-    setTotal(seed.total);
-    setIof(seed.iof);
+    setTotal(maskBrlInput(seed.total));
+    setIofOverride(null);
   }, [open, group]);
 
   const knownTotal = group?.actualTotal ?? null;
@@ -69,7 +70,19 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
   const paidAt = paymentTimestampToDate(group?.statementRow?.occurrence?.paid_at);
   const paidAmount = group?.statementRow?.paidAmountBrl ?? null;
 
-  const closure = resolveStatementClosure({ total, iof, knownTotalBrl: knownTotal });
+  /** Base em reais das compras USD desta fatura (estimativa/valor da linha). */
+  const usdComponents = useMemo(() => usdComponentsOf(group), [group]);
+  const usdBaseBrl = usdComponents.length
+    ? Number(usdComponents.reduce((sum, c) => sum + (c.estimatedBrl ?? 0), 0).toFixed(2))
+    : null;
+  /** Referência automática: 3,5% sobre a base em reais das compras USD. */
+  const calculatedIof = usdBaseBrl != null ? Number((usdBaseBrl * 0.035).toFixed(2)) : null;
+  /** IOF salvo é FATO e prevalece; senão vale a referência automática. */
+  const automaticIofBrl = currentIof > 0 ? currentIof : calculatedIof ?? 0;
+  const adjustingIof = iofOverride !== null;
+  const iofSource = adjustingIof ? iofOverride ?? "" : String(automaticIofBrl);
+
+  const closure = resolveStatementClosure({ total, iof: iofSource, knownTotalBrl: knownTotal });
   const message = statementClosureMessage(closure);
   const effectiveTotal = closure.state === "ok" ? closure.totalBrl ?? knownTotal : knownTotal;
   const nextIof = closure.state === "ok" ? closure.iofBrl : currentIof;
