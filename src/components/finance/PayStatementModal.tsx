@@ -118,11 +118,9 @@ export default function PayStatementModal({
     setDate(today);
     const seed = seedStatementClosure(group);
     // Fechamento já conhecido abre predefinido: total real + IOF classificado.
-    setTotal(seed.total);
-    setIof(seed.iof);
-    // Se a fatura já tem IOF real salvo, preserve-o e pare de sobrescrever.
-    const savedIof = group?.statementRow?.occurrence?.iof_amount_brl;
-    setIofTouched(savedIof != null);
+    setTotal(maskBrlInput(seed.total));
+    // Nenhum ajuste manual ao abrir: o IOF salvo (fato) ou o cálculo manda.
+    setIofOverride(null);
     const usdSeed: Record<string, string> = {};
     for (const comp of usdComponents) {
       // Estimativa entra como ponto de partida; o usuário confirma o valor real.
