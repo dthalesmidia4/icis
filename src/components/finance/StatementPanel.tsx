@@ -140,7 +140,9 @@ export default function StatementPanel({
         const itemLabels = buildOccurrenceLabels(group.components);
         const needsFix = linked.filter((l) => l.needsChargeDateCorrection).length;
         const limit = card.card_limit_brl ?? null;
-        const usageBase = group.actualTotal ?? (group.projectedTotal > 0 ? group.projectedTotal : null);
+        const paidAmountBrl = group.statementRow?.occurrence?.paid_amount_brl ?? null;
+        const paidWithoutActualTotal = group.paid && group.actualTotal == null;
+        const usageBase = group.actualTotal ?? (!group.paid && group.projectedTotal > 0 ? group.projectedTotal : null);
         const valueLabel = statementValueLabel(group);
         const classifiedIof = statementIofBrl(group);
         // `Pago em` é FATO; `Vence em` é histórico. Os dois coexistem.
@@ -218,13 +220,21 @@ export default function StatementPanel({
                 />
                 <Fact
                   label={
-                    valueLabel.label === "Fatura"
+                    paidWithoutActualTotal
+                      ? "Total real da fatura"
+                      : valueLabel.label === "Fatura"
                       ? `Fatura de ${monthLabel}`
                       : valueLabel.label
                   }
-                  value={valueLabel.value != null ? formatBRL(valueLabel.value) : "Ainda não informada"}
-                  tone={valueLabel.value == null ? "muted" : undefined}
-                  hint={valueLabel.hint ?? undefined}
+                  value={paidWithoutActualTotal ? "não preservado" : valueLabel.value != null ? formatBRL(valueLabel.value) : "Ainda não informada"}
+                  tone={paidWithoutActualTotal || valueLabel.value == null ? "muted" : undefined}
+                  hint={
+                    paidWithoutActualTotal
+                      ? group.projectedTotal > 0
+                        ? `Projeção cadastrada: ${formatBRL(group.projectedTotal)}`
+                        : "O total real não ficou salvo nesta fatura."
+                      : valueLabel.hint ?? undefined
+                  }
                 />
                 <Fact
                   label={
@@ -237,6 +247,9 @@ export default function StatementPanel({
                 />
                 {group.paid && (
                   <Fact label="Pago em" value={paidOn ? formatDayMonth(paidOn) : "Data não registrada"} tone={paidOn ? undefined : "muted"} />
+                )}
+                {group.paid && paidAmountBrl != null && (
+                  <Fact label="Valor pago registrado" value={formatBRL(paidAmountBrl)} />
                 )}
                 {group.paid && classifiedIof > 0 && (
                   <Fact label="IOF incluído na fatura" value={formatBRL(classifiedIof)} />
@@ -369,7 +382,17 @@ export default function StatementPanel({
               </div>
             )}
 
-            {!group.configIncomplete && group.difference != null && Math.abs(group.difference) >= 0.01 && (() => {
+            {paidWithoutActualTotal ? (
+              <div className="flex items-start gap-2 px-4 py-3 bg-muted text-sm">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 text-muted-foreground mt-0.5" />
+                <span>
+                  <strong>Diferença da composição: Não calculável</strong>
+                  <span className="block text-muted-foreground text-xs">
+                    O total real da fatura não foi preservado, então a diferença não é calculada pela projeção nem pelo valor pago.
+                  </span>
+                </span>
+              </div>
+            ) : !group.configIncomplete && group.difference != null && Math.abs(group.difference) >= 0.01 && (() => {
               /* Interpretação do sinal vem do helper central — sem número cru negativo. */
               const reading = interpretStatementCompositionDifference(group.difference);
               return (
