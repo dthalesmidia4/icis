@@ -99,13 +99,11 @@ export default function PayStatementModal({
   const [saving, setSaving] = useState(false);
   /** `true` enquanto grava apenas a conferência cambial (sem pagar). */
   const [savingDraft, setSavingDraft] = useState(false);
-  /** IOF é SEMPRE perguntado, com padrão 0 — exista ou não compra em dólar. */
-  const [iof, setIof] = useState("0");
   /**
-   * `true` quando o usuário editou o IOF manualmente. Enquanto `false`, o campo
-   * é preenchido automaticamente com 3,5% sobre a base em reais das compras USD.
+   * IOF NÃO é digitado no fluxo normal: ele é 3,5% sobre a base em reais das
+   * compras USD confirmadas. `null` = nenhum ajuste manual em curso.
    */
-  const [iofTouched, setIofTouched] = useState(false);
+  const [iofOverride, setIofOverride] = useState<string | null>(null);
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
   const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
 
