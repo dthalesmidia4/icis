@@ -31,7 +31,7 @@ import {
 } from "@/lib/financeStatementPaymentForm";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { isValidPaymentDate } from "@/lib/financePaymentDate";
-import { parseLocalizedNumber } from "@/lib/financeNumber";
+import { maskBrlFromNumber, maskBrlInput, parseLocalizedNumber } from "@/lib/financeNumber";
 import {
   buildStatementConference,
   iofInputMessage,
