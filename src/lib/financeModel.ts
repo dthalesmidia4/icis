@@ -1236,7 +1236,37 @@ export function buildStatementGroups(params: {
     const cardItems = items.filter((i) => isCostBearing(i));
     const components: MonthRow[] = [];
 
-    if (configIncomplete) {
+    /**
+     * COMPOSIÇÃO HISTÓRICA: fatura com fechamento REAL informado ou já paga não
+     * pode ser remontada pelas regras de ciclo atuais. Quando existem lançamentos
+     * VINCULADOS a ela (`statement_occurrence_id`), eles são a composição.
+     * Sem vínculo explícito (faturas antigas), vale o comportamento legado.
+     */
+    const monthISOForCard = competenceToISO(competence).slice(0, 7);
+    const statementOccurrence =
+      occurrences.find(
+        (o) =>
+          o.item_id === card.id &&
+          String(o.competence_month ?? "").slice(0, 7) === monthISOForCard,
+      ) ?? null;
+    const statementFrozen =
+      !!statementOccurrence &&
+      (!!statementOccurrence.statement_closing_date || !!statementOccurrence.paid_at);
+    const linkedOccurrences = statementFrozen && statementOccurrence
+      ? occurrences.filter(
+          (o) => o.statement_occurrence_id === statementOccurrence.id && !o.skipped_at,
+        )
+      : [];
+    const itemsByIdAll = new Map(items.map((i) => [i.id, i]));
+
+    if (linkedOccurrences.length > 0) {
+      for (const occ of linkedOccurrences) {
+        const item = itemsByIdAll.get(occ.item_id);
+        if (!item || !isCostBearing(item)) continue;
+        components.push(rowFromOccurrence(item, occ, fallbackRate));
+      }
+    } else if (configIncomplete) {
+
       for (const row of currentRows) {
         if (!isOperationalRow(row)) continue;
         if (row.cardItemId === card.id) components.push(row);
