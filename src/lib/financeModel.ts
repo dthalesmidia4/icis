@@ -1145,6 +1145,43 @@ function minISO(a: string, b: string): string {
 
 
 /**
+ * COMPOSIÇÃO CONGELADA de fatura: o mínimo necessário para reproduzir a linha
+ * histórica sem depender das regras de ciclo atuais. Não calcula nada novo.
+ */
+export interface FrozenStatementComponent {
+  item_id: string;
+  occurrence_id: string | null;
+  charge_date: string | null;
+  due_date: string | null;
+  scheduled_date: string | null;
+  currency: FinanceCurrency;
+  amount_original: number | null;
+  exchange_rate: number | null;
+  amount_brl: number | null;
+  entry_role: string | null;
+}
+
+export function frozenStatementComponent(row: MonthRow): FrozenStatementComponent {
+  return {
+    item_id: row.item.id,
+    occurrence_id: row.occurrence?.id ?? null,
+    charge_date: row.chargeDate ?? null,
+    due_date: row.dueDate ?? null,
+    scheduled_date: row.scheduledDate ?? null,
+    currency: row.currency,
+    amount_original: row.amountOriginal ?? null,
+    exchange_rate: row.exchangeRate ?? null,
+    amount_brl: row.amountBrl ?? null,
+    entry_role: row.entryRole ?? null,
+  };
+}
+
+export function frozenStatementComponents(rows: MonthRow[]): FrozenStatementComponent[] {
+  return rows.map(frozenStatementComponent);
+}
+
+
+/**
  * Monta os grupos de fatura do mês.
  * Quando o cartão tem fechamento/vencimento cadastrados, as cobranças são
  * alocadas pelo ciclo real; caso contrário caem na própria competência e o
