@@ -129,9 +129,35 @@ export default function PayStatementModal({
     setUsdInputs(usdSeed);
   }, [open, today, group, usdComponents]);
 
-  const closure = resolveStatementClosure({ total, iof, knownTotalBrl: knownTotal });
+  const dateValid = isValidPaymentDate(date);
+  const reconciliation = buildReconciliation(usdComponents, usdInputs);
+
+  /** Base em reais das compras USD confirmadas. Usada no resumo e no IOF. */
+  const confirmedUsdBrl = reconciliation.state === "ok" ? reconciliation.totalBrl : null;
+  /** Soma dos valores originais em dólar das compras desta fatura. */
+  const totalUsdOriginal = usdComponents.reduce(
+    (sum, c) => sum + (c.amountOriginal ?? 0),
+    0,
+  );
+  /** Cálculo automático do IOF: 3,5% da base em reais, arredondado em centavos. */
+  const calculatedIof =
+    usdComponents.length > 0 && confirmedUsdBrl != null
+      ? Number((confirmedUsdBrl * 0.035).toFixed(2))
+      : null;
+  /** IOF já salvo na ocorrência: FATO histórico, prevalece ao abrir. */
+  const savedIofRaw = group?.statementRow?.occurrence?.iof_amount_brl ?? null;
+  const savedIof =
+    savedIofRaw != null && Number.isFinite(savedIofRaw) && savedIofRaw > 0
+      ? Number(savedIofRaw.toFixed(2))
+      : null;
+  /** Sem ajuste manual: fato salvo, senão o cálculo automático, senão 0. */
+  const automaticIofBrl = savedIof ?? calculatedIof ?? 0;
+  const adjustingIof = iofOverride !== null;
+  const iofSource = adjustingIof ? iofOverride ?? "" : String(automaticIofBrl);
+
+  const closure = resolveStatementClosure({ total, iof: iofSource, knownTotalBrl: knownTotal });
   const closureMessage = statementClosureMessage(closure);
-  const iofResult = parseIofInput(iof);
+  const iofResult = parseIofInput(iofSource);
   const iofMessage = iofInputMessage(iofResult);
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
   /** Total final digitado; quando vazio, preserva somente um total real conhecido. */
@@ -148,28 +174,7 @@ export default function PayStatementModal({
 
   const amountResult = resolveStatementPaymentAmount(amount, expected, { exactRequired });
   const amountMessage = statementPaymentAmountMessage(amountResult);
-  const dateValid = isValidPaymentDate(date);
-  const reconciliation = buildReconciliation(usdComponents, usdInputs);
 
-  /** Base em reais das compras USD confirmadas. Usada no resumo e no IOF. */
-  const confirmedUsdBrl = reconciliation.state === "ok" ? reconciliation.totalBrl : null;
-  /** Soma dos valores originais em dólar das compras desta fatura. */
-  const totalUsdOriginal = usdComponents.reduce(
-    (sum, c) => sum + (c.amountOriginal ?? 0),
-    0,
-  );
-  /** Sugestão de IOF: 3,5% da base em reais, arredondada em centavos. */
-  const suggestedIof =
-    usdComponents.length > 0 && confirmedUsdBrl != null
-      ? Number((confirmedUsdBrl * 0.035).toFixed(2))
-      : null;
-
-  // IOF automático: 3,5% da base em reais das compras USD. Pára de atualizar
-  // assim que o usuário toca no campo.
-  useEffect(() => {
-    if (iofTouched || suggestedIof == null) return;
-    setIof(String(suggestedIof));
-  }, [iofTouched, suggestedIof]);
 
   const classifiedComponentsBrl =
     reconciliation.state === "ok"
