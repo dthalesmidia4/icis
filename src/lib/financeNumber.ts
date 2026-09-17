@@ -54,6 +54,53 @@ export function parseLocalizedNumber(value: string | number | null | undefined):
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/* ------------------------------ Máscara pt-BR ------------------------------ */
+
+function groupThousands(digits: string): string {
+  const clean = digits.replace(/^0+(?=\d)/, "");
+  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/**
+ * Máscara de APRESENTAÇÃO/entrada em pt-BR para campos monetários.
+ *
+ * `2821,19` → `2.821,19` · `2821.19` → `2.821,19` · `70.87` → `70,87`.
+ * Máximo 2 casas decimais; `1.728` continua milhar (formato inequívoco).
+ * A máscara nunca altera o valor: o parser canônico segue sendo
+ * `parseLocalizedNumber`.
+ */
+export function maskBrlInput(raw: string | null | undefined): string {
+  if (raw == null) return "";
+  const cleaned = String(raw).replace(/[^\d.,]/g, "");
+  if (!cleaned) return "";
+
+  const lastSep = Math.max(cleaned.lastIndexOf("."), cleaned.lastIndexOf(","));
+  let intDigits = cleaned;
+  let frac: string | null = null;
+
+  if (lastSep !== -1) {
+    const after = cleaned.slice(lastSep + 1).replace(/[.,]/g, "");
+    const isComma = cleaned[lastSep] === ",";
+    const hasOtherSep = /[.,]/.test(cleaned.slice(0, lastSep));
+    // Ponto com exatamente 3 dígitos e sem outro separador = milhar (1.728).
+    const dotThousands = !isComma && after.length === 3 && !hasOtherSep;
+    const decimal = isComma || after.length <= 2;
+    if (decimal && !dotThousands) {
+      intDigits = cleaned.slice(0, lastSep);
+      frac = after.slice(0, 2);
+    }
+  }
+
+  const int = groupThousands(intDigits.replace(/[.,]/g, "") || "0");
+  return frac == null ? int : `${int},${frac}`;
+}
+
+/** Número → texto mascarado com 2 casas (`2821.19` → `2.821,19`). */
+export function maskBrlFromNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "";
+  return maskBrlInput(value.toFixed(2).replace(".", ","));
+}
+
 /** Inteiro positivo (dias, parcelas, intervalos) ou `null`. */
 export function parsePositiveInt(value: string | null | undefined): number | null {
   const parsed = parseLocalizedNumber(value ?? null);
