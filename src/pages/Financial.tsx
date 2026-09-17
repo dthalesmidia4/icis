@@ -706,8 +706,15 @@ function FinancialCockpit() {
   }): Promise<boolean> => {
     const occ = group.statementRow?.occurrence;
     if (!occ) return false;
+    /** Pagar fecha a fatura: a composição vira histórico ANTES da liquidação. */
+    const frozen = await freezeStatementComponents(
+      occ.id,
+      frozenStatementComponents(group.components),
+    );
+    if (!frozen) return false;
     // `due_date` não é enviado: o vencimento é histórico e não muda ao pagar.
     const iof = iofBrl ?? 0;
+
     return await payStatement(
       occ.id,
       paidAmountBrl ?? Number((group.actualTotal ?? group.projectedTotal).toFixed(2)),
