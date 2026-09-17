@@ -31,7 +31,7 @@ import {
 } from "@/lib/financeStatementPaymentForm";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { isValidPaymentDate } from "@/lib/financePaymentDate";
-import { maskBrlFromNumber, maskBrlInput, parseLocalizedNumber } from "@/lib/financeNumber";
+import { maskBrlFromNumber, maskBrlInput, maskBrlTyping, parseLocalizedNumber } from "@/lib/financeNumber";
 import {
   buildStatementConference,
   iofInputMessage,
@@ -398,7 +398,7 @@ export default function PayStatementModal({
                     inputMode="decimal"
                     className="w-full min-w-0 max-w-full"
                     value={iofOverride ?? ""}
-                    onChange={(e) => setIofOverride(maskBrlInput(e.target.value))}
+                    onChange={(e) => setIofOverride(maskBrlTyping(e.target.value))}
                     placeholder="0,00"
                   />
                   <div className="flex justify-between gap-2">
@@ -426,7 +426,7 @@ export default function PayStatementModal({
                 inputMode="decimal"
                 className="w-full min-w-0 max-w-full"
                 value={total}
-                onChange={(e) => setTotal(maskBrlInput(e.target.value))}
+                onChange={(e) => setTotal(maskBrlTyping(e.target.value))}
                 placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
               />
               <p className="text-xs text-muted-foreground">
