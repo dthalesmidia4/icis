@@ -1126,6 +1126,8 @@ export function useFinance(competence: Competence) {
     saveOccurrence,
     ensureStatementOccurrence,
     saveStatementClosingDate,
+    freezeStatementComponents,
+
     createSupplementalOccurrence,
     skipOccurrence,
     restoreOccurrence,
