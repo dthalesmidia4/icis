@@ -98,7 +98,9 @@ import {
   applyQuickFilter,
   cardDisplayLabel,
   filterByCostCenter,
+  frozenStatementComponents,
   isStatementRow,
+
 } from "@/lib/financeModel";
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
 import { financeBackTarget } from "@/lib/financeBackTarget";
