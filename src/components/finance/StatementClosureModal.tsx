@@ -133,20 +133,56 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="statement-closure-iof">{CLOSURE_IOF_LABEL}</Label>
-            <Input
-              id="statement-closure-iof"
-              inputMode="decimal"
-              className="w-full min-w-0 max-w-full"
-              value={iof}
-              onChange={(e) => setIof(e.target.value)}
-              placeholder="0,00"
-            />
-            <p className="text-xs text-muted-foreground">
-              Use 0 para remover uma classificação lançada incorretamente. O IOF já faz parte do total final e não deve ser somado novamente.
+          {/* IOF é resumo: fato salvo ou referência de 3,5% da base USD. */}
+          <div className="space-y-2 rounded-md bg-muted/40 p-2 text-xs">
+            <p className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Base das compras em USD</span>
+              <span className="font-medium">{formatBRL(usdBaseBrl ?? 0)}</span>
             </p>
+            <p className="flex justify-between gap-2">
+              <span className="text-muted-foreground">
+                {currentIof > 0 && !adjustingIof ? "IOF registrado" : "IOF calculado (3,5%)"}
+              </span>
+              <span className="font-medium">{formatBRL(nextIof)}</span>
+            </p>
+            {!adjustingIof && (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={() => setIofOverride(maskBrlFromNumber(automaticIofBrl))}
+              >
+                Ajustar IOF
+              </Button>
+            )}
+            {adjustingIof && (
+              <div className="space-y-2">
+                <Label htmlFor="statement-closure-iof">{CLOSURE_IOF_LABEL}</Label>
+                <Input
+                  id="statement-closure-iof"
+                  inputMode="decimal"
+                  className="w-full min-w-0 max-w-full"
+                  value={iofOverride ?? ""}
+                  onChange={(e) => setIofOverride(maskBrlInput(e.target.value))}
+                  placeholder="0,00"
+                />
+                <div className="flex justify-between gap-2">
+                  <p className="text-muted-foreground">
+                    Use o valor confirmado pelo banco. Ele já faz parte do total final.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto shrink-0 p-0 text-xs"
+                    onClick={() => setIofOverride(null)}
+                  >
+                    Voltar ao cálculo
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="statement-closure-total">{CLOSURE_TOTAL_LABEL}</Label>
