@@ -368,29 +368,54 @@ export default function PayStatementModal({
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pay-statement-iof">{CLOSURE_IOF_LABEL}</Label>
-              <Input
-                id="pay-statement-iof"
-                inputMode="decimal"
-                className="w-full min-w-0 max-w-full"
-                value={iof}
-                onChange={(e) => {
-                  setIofTouched(true);
-                  setIof(e.target.value);
-                }}
-                placeholder="0,00"
-              />
-              {iofMessage ? (
-                <p className="text-xs text-destructive">{iofMessage}</p>
-              ) : usdComponents.length > 0 && suggestedIof != null ? (
-                <p className="text-xs text-muted-foreground">
-                  Sugestão automática de 3,5% sobre {formatBRL(confirmedUsdBrl)} em compras em moeda estrangeira. Você pode ajustar manualmente. Esse IOF já faz parte do total final e não deve ser somado novamente.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Use 0 quando não houver. Esse IOF já faz parte do total final e não deve ser somado novamente.
-                </p>
+            {/* IOF é resumo, não campo: 3,5% da base USD confirmada. */}
+            <div className="space-y-2 rounded-md bg-muted/40 p-2 text-xs">
+              <p className="flex justify-between gap-2">
+                <span className="text-muted-foreground">Base das compras em USD</span>
+                <span className="font-medium">{formatBRL(confirmedUsdBrl ?? 0)}</span>
+              </p>
+              <p className="flex justify-between gap-2">
+                <span className="text-muted-foreground">
+                  {savedIof != null && !adjustingIof ? "IOF registrado" : "IOF calculado (3,5%)"}
+                </span>
+                <span className="font-medium">{formatBRL(iofBrl)}</span>
+              </p>
+              {!adjustingIof && (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-xs"
+                  onClick={() => setIofOverride(maskBrlFromNumber(automaticIofBrl))}
+                >
+                  Ajustar IOF
+                </Button>
+              )}
+              {adjustingIof && (
+                <div className="space-y-2">
+                  <Label htmlFor="pay-statement-iof">{CLOSURE_IOF_LABEL}</Label>
+                  <Input
+                    id="pay-statement-iof"
+                    inputMode="decimal"
+                    className="w-full min-w-0 max-w-full"
+                    value={iofOverride ?? ""}
+                    onChange={(e) => setIofOverride(maskBrlInput(e.target.value))}
+                    placeholder="0,00"
+                  />
+                  <div className="flex justify-between gap-2">
+                    <p className="text-muted-foreground">
+                      Use o valor exato confirmado pelo banco. Ele já faz parte do total final.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto shrink-0 p-0 text-xs"
+                      onClick={() => setIofOverride(null)}
+                    >
+                      Voltar ao cálculo
+                    </Button>
+                  </div>
+                  {iofMessage && <p className="text-destructive">{iofMessage}</p>}
+                </div>
               )}
             </div>
 
@@ -401,7 +426,7 @@ export default function PayStatementModal({
                 inputMode="decimal"
                 className="w-full min-w-0 max-w-full"
                 value={total}
-                onChange={(e) => setTotal(e.target.value)}
+                onChange={(e) => setTotal(maskBrlInput(e.target.value))}
                 placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
               />
               <p className="text-xs text-muted-foreground">
