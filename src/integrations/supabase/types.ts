@@ -4206,6 +4206,10 @@ export type Database = {
         Returns: string
       }
       finance_encryption_health: { Args: never; Returns: Json }
+      finance_freeze_statement_components: {
+        Args: { _components?: Json; _statement_occurrence_id: string }
+        Returns: Json
+      }
       finance_item_delete_decision: {
         Args: { _item_id: string }
         Returns: Json

@@ -1145,6 +1145,43 @@ function minISO(a: string, b: string): string {
 
 
 /**
+ * COMPOSIÇÃO CONGELADA de fatura: o mínimo necessário para reproduzir a linha
+ * histórica sem depender das regras de ciclo atuais. Não calcula nada novo.
+ */
+export interface FrozenStatementComponent {
+  item_id: string;
+  occurrence_id: string | null;
+  charge_date: string | null;
+  due_date: string | null;
+  scheduled_date: string | null;
+  currency: FinanceCurrency;
+  amount_original: number | null;
+  exchange_rate: number | null;
+  amount_brl: number | null;
+  entry_role: string | null;
+}
+
+export function frozenStatementComponent(row: MonthRow): FrozenStatementComponent {
+  return {
+    item_id: row.item.id,
+    occurrence_id: row.occurrence?.id ?? null,
+    charge_date: row.chargeDate ?? null,
+    due_date: row.dueDate ?? null,
+    scheduled_date: row.scheduledDate ?? null,
+    currency: row.currency,
+    amount_original: row.amountOriginal ?? null,
+    exchange_rate: row.exchangeRate ?? null,
+    amount_brl: row.amountBrl ?? null,
+    entry_role: row.entryRole ?? null,
+  };
+}
+
+export function frozenStatementComponents(rows: MonthRow[]): FrozenStatementComponent[] {
+  return rows.map(frozenStatementComponent);
+}
+
+
+/**
  * Monta os grupos de fatura do mês.
  * Quando o cartão tem fechamento/vencimento cadastrados, as cobranças são
  * alocadas pelo ciclo real; caso contrário caem na própria competência e o
@@ -1199,7 +1236,37 @@ export function buildStatementGroups(params: {
     const cardItems = items.filter((i) => isCostBearing(i));
     const components: MonthRow[] = [];
 
-    if (configIncomplete) {
+    /**
+     * COMPOSIÇÃO HISTÓRICA: fatura com fechamento REAL informado ou já paga não
+     * pode ser remontada pelas regras de ciclo atuais. Quando existem lançamentos
+     * VINCULADOS a ela (`statement_occurrence_id`), eles são a composição.
+     * Sem vínculo explícito (faturas antigas), vale o comportamento legado.
+     */
+    const monthISOForCard = competenceToISO(competence).slice(0, 7);
+    const statementOccurrence =
+      occurrences.find(
+        (o) =>
+          o.item_id === card.id &&
+          String(o.competence_month ?? "").slice(0, 7) === monthISOForCard,
+      ) ?? null;
+    const statementFrozen =
+      !!statementOccurrence &&
+      (!!statementOccurrence.statement_closing_date || !!statementOccurrence.paid_at);
+    const linkedOccurrences = statementFrozen && statementOccurrence
+      ? occurrences.filter(
+          (o) => o.statement_occurrence_id === statementOccurrence.id && !o.skipped_at,
+        )
+      : [];
+    const itemsByIdAll = new Map(items.map((i) => [i.id, i]));
+
+    if (linkedOccurrences.length > 0) {
+      for (const occ of linkedOccurrences) {
+        const item = itemsByIdAll.get(occ.item_id);
+        if (!item || !isCostBearing(item)) continue;
+        components.push(rowFromOccurrence(item, occ, fallbackRate));
+      }
+    } else if (configIncomplete) {
+
       for (const row of currentRows) {
         if (!isOperationalRow(row)) continue;
         if (row.cardItemId === card.id) components.push(row);

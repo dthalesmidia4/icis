@@ -566,6 +566,29 @@ export function useFinance(competence: Competence) {
   );
 
   /**
+   * CONGELA a composição desta fatura (RPC `finance_freeze_statement_components`).
+   *
+   * Chamado ANTES de gravar fechamento real ou pagamento: depois disso a fatura
+   * passa a exibir os lançamentos vinculados, não a remontagem do ciclo.
+   * O refresh fica por conta de quem grava o fato em seguida.
+   */
+  const freezeStatementComponents = useCallback(
+    async (statementOccurrenceId: string, components: unknown[]) => {
+      const { error } = await (supabase as any).rpc("finance_freeze_statement_components", {
+        _statement_occurrence_id: statementOccurrenceId,
+        _components: components,
+      });
+      if (error) {
+        toast.error(error.message || "Não foi possível congelar a composição desta fatura");
+        return false;
+      }
+      return true;
+    },
+    [],
+  );
+
+
+  /**
    * REGISTRA um lançamento SUPLEMENTAR (recarga/extra) do mesmo cadastro.
    * Vai pela RPC segura: ela valida acesso, tenant, natureza do cadastro e
    * decide a data do fato (cobrança no cartão x vencimento direto).
@@ -1103,6 +1126,8 @@ export function useFinance(competence: Competence) {
     saveOccurrence,
     ensureStatementOccurrence,
     saveStatementClosingDate,
+    freezeStatementComponents,
+
     createSupplementalOccurrence,
     skipOccurrence,
     restoreOccurrence,

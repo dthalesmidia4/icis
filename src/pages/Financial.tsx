@@ -98,7 +98,9 @@ import {
   applyQuickFilter,
   cardDisplayLabel,
   filterByCostCenter,
+  frozenStatementComponents,
   isStatementRow,
+
 } from "@/lib/financeModel";
 import { FINANCE_SHELL, FINANCE_SHELL_WIDTH } from "@/lib/financeShell";
 import { financeBackTarget } from "@/lib/financeBackTarget";
@@ -212,7 +214,7 @@ function FinancialCockpit() {
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     skipped, skipOccurrence, restoreOccurrence,
-    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, saveSettings, saveItem, setItemActive, refresh,
+    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, freezeStatementComponents, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
 
@@ -656,7 +658,20 @@ function FinancialCockpit() {
       const resolved = await resolveStatementGroup(group);
       const occurrenceId = resolved?.statementRow?.occurrence?.id;
       if (!occurrenceId) return false;
+      /**
+       * CONGELA antes de fechar: o fechamento real transforma a composição em
+       * histórico. Remover o fechamento (`null`) volta ao recorte dinâmico e
+       * portanto NÃO congela nada.
+       */
+      if (closingDate) {
+        const frozen = await freezeStatementComponents(
+          occurrenceId,
+          frozenStatementComponents(group.components),
+        );
+        if (!frozen) return false;
+      }
       return await saveStatementClosingDate(occurrenceId, closingDate);
+
     } finally {
       setStatementBusy(false);
     }
@@ -691,8 +706,15 @@ function FinancialCockpit() {
   }): Promise<boolean> => {
     const occ = group.statementRow?.occurrence;
     if (!occ) return false;
+    /** Pagar fecha a fatura: a composição vira histórico ANTES da liquidação. */
+    const frozen = await freezeStatementComponents(
+      occ.id,
+      frozenStatementComponents(group.components),
+    );
+    if (!frozen) return false;
     // `due_date` não é enviado: o vencimento é histórico e não muda ao pagar.
     const iof = iofBrl ?? 0;
+
     return await payStatement(
       occ.id,
       paidAmountBrl ?? Number((group.actualTotal ?? group.projectedTotal).toFixed(2)),
