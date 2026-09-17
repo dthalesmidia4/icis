@@ -441,7 +441,7 @@ export default function PayStatementModal({
                 <span className="text-muted-foreground">Total explicado (compras + IOF)</span>
                 <span className="font-semibold">{formatBRL(conference.classifiedBrl)}</span>
               </p>
-              {reading.state !== "balanced" && (
+              {finalTotalBrl != null && reading.state !== "balanced" && (
                 <>
                   <p className="flex justify-between gap-3">
                     <span className="text-muted-foreground">{reading.label}</span>
