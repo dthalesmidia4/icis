@@ -328,8 +328,8 @@ export default function PayStatementModal({
                     <span className="font-medium">{formatBRL(confirmedUsdBrl)}</span>
                   </p>
                   <p className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Sugestão de IOF (3,5%)</span>
-                    <span className="font-medium">{formatBRL(suggestedIof)}</span>
+                    <span className="text-muted-foreground">IOF calculado (3,5%)</span>
+                    <span className="font-medium">{formatBRL(calculatedIof)}</span>
                   </p>
                 </div>
               )}
