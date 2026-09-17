@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { StatementGroup, cardDisplayLabel, formatBRL } from "@/lib/financeModel";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { buildStatementConference } from "@/lib/financeIof";
-import { maskBrlFromNumber, maskBrlInput } from "@/lib/financeNumber";
+import { maskBrlFromNumber, maskBrlInput, maskBrlTyping } from "@/lib/financeNumber";
 import { usdComponentsOf } from "@/lib/financeReconciliation";
 import {
   interpretStatementCompositionDifference,
@@ -163,7 +163,7 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
                   inputMode="decimal"
                   className="w-full min-w-0 max-w-full"
                   value={iofOverride ?? ""}
-                  onChange={(e) => setIofOverride(maskBrlInput(e.target.value))}
+                  onChange={(e) => setIofOverride(maskBrlTyping(e.target.value))}
                   placeholder="0,00"
                 />
                 <div className="flex justify-between gap-2">
@@ -191,7 +191,7 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
               inputMode="decimal"
               className="w-full min-w-0 max-w-full"
               value={total}
-              onChange={(e) => setTotal(maskBrlInput(e.target.value))}
+              onChange={(e) => setTotal(maskBrlTyping(e.target.value))}
               placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
             />
             <p className="text-xs text-muted-foreground">
