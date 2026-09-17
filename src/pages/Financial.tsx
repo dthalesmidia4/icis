@@ -1417,7 +1417,11 @@ function FinancialCockpit() {
               apenas explicam o valor — elas não são somadas duas vezes no total do mês.
             </p>
 
-            {visibleStatements.length === 0 ? (
+            {loading ? (
+              <Card className="p-10 text-center">
+                <p className="text-sm text-muted-foreground">Carregando faturas deste mês...</p>
+              </Card>
+            ) : visibleStatements.length === 0 ? (
               <Card className="p-10 text-center space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Nenhum cartão cadastrado. Cadastre o cartão para acompanhar limite, fechamento,
