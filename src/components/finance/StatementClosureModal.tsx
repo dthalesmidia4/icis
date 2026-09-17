@@ -191,7 +191,7 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
               inputMode="decimal"
               className="w-full min-w-0 max-w-full"
               value={total}
-              onChange={(e) => setTotal(e.target.value)}
+              onChange={(e) => setTotal(maskBrlInput(e.target.value))}
               placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
             />
             <p className="text-xs text-muted-foreground">
