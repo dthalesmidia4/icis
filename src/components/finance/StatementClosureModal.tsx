@@ -7,7 +7,7 @@
  * O que NÃO se ajusta aqui: data e valor pagos. Liquidação é outro fato — este
  * modal nunca escreve `paid_at`/`paid_amount_brl`.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,8 @@ import { Label } from "@/components/ui/label";
 import { StatementGroup, cardDisplayLabel, formatBRL } from "@/lib/financeModel";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { buildStatementConference } from "@/lib/financeIof";
+import { maskBrlFromNumber, maskBrlInput } from "@/lib/financeNumber";
+import { usdComponentsOf } from "@/lib/financeReconciliation";
 import {
   interpretStatementCompositionDifference,
   interpretStatementPayment,
@@ -50,14 +52,15 @@ interface Props {
 
 export default function StatementClosureModal({ open, onOpenChange, group, onConfirm }: Props) {
   const [total, setTotal] = useState("");
-  const [iof, setIof] = useState("0");
+  /** `null` = nenhum ajuste manual; o IOF vem do fato salvo ou do cálculo. */
+  const [iofOverride, setIofOverride] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const seed = seedStatementClosure(group);
-    setTotal(seed.total);
-    setIof(seed.iof);
+    setTotal(maskBrlInput(seed.total));
+    setIofOverride(null);
   }, [open, group]);
 
   const knownTotal = group?.actualTotal ?? null;
@@ -69,7 +72,19 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
   const paidAt = paymentTimestampToDate(group?.statementRow?.occurrence?.paid_at);
   const paidAmount = group?.statementRow?.paidAmountBrl ?? null;
 
-  const closure = resolveStatementClosure({ total, iof, knownTotalBrl: knownTotal });
+  /** Base em reais das compras USD desta fatura (estimativa/valor da linha). */
+  const usdComponents = useMemo(() => usdComponentsOf(group), [group]);
+  const usdBaseBrl = usdComponents.length
+    ? Number(usdComponents.reduce((sum, c) => sum + (c.estimatedBrl ?? 0), 0).toFixed(2))
+    : null;
+  /** Referência automática: 3,5% sobre a base em reais das compras USD. */
+  const calculatedIof = usdBaseBrl != null ? Number((usdBaseBrl * 0.035).toFixed(2)) : null;
+  /** IOF salvo é FATO e prevalece; senão vale a referência automática. */
+  const automaticIofBrl = currentIof > 0 ? currentIof : calculatedIof ?? 0;
+  const adjustingIof = iofOverride !== null;
+  const iofSource = adjustingIof ? iofOverride ?? "" : String(automaticIofBrl);
+
+  const closure = resolveStatementClosure({ total, iof: iofSource, knownTotalBrl: knownTotal });
   const message = statementClosureMessage(closure);
   const effectiveTotal = closure.state === "ok" ? closure.totalBrl ?? knownTotal : knownTotal;
   const nextIof = closure.state === "ok" ? closure.iofBrl : currentIof;
@@ -118,20 +133,56 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="statement-closure-iof">{CLOSURE_IOF_LABEL}</Label>
-            <Input
-              id="statement-closure-iof"
-              inputMode="decimal"
-              className="w-full min-w-0 max-w-full"
-              value={iof}
-              onChange={(e) => setIof(e.target.value)}
-              placeholder="0,00"
-            />
-            <p className="text-xs text-muted-foreground">
-              Use 0 para remover uma classificação lançada incorretamente. O IOF já faz parte do total final e não deve ser somado novamente.
+          {/* IOF é resumo: fato salvo ou referência de 3,5% da base USD. */}
+          <div className="space-y-2 rounded-md bg-muted/40 p-2 text-xs">
+            <p className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Base das compras em USD</span>
+              <span className="font-medium">{formatBRL(usdBaseBrl ?? 0)}</span>
             </p>
+            <p className="flex justify-between gap-2">
+              <span className="text-muted-foreground">
+                {currentIof > 0 && !adjustingIof ? "IOF registrado" : "IOF calculado (3,5%)"}
+              </span>
+              <span className="font-medium">{formatBRL(nextIof)}</span>
+            </p>
+            {!adjustingIof && (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={() => setIofOverride(maskBrlFromNumber(automaticIofBrl))}
+              >
+                Ajustar IOF
+              </Button>
+            )}
+            {adjustingIof && (
+              <div className="space-y-2">
+                <Label htmlFor="statement-closure-iof">{CLOSURE_IOF_LABEL}</Label>
+                <Input
+                  id="statement-closure-iof"
+                  inputMode="decimal"
+                  className="w-full min-w-0 max-w-full"
+                  value={iofOverride ?? ""}
+                  onChange={(e) => setIofOverride(maskBrlInput(e.target.value))}
+                  placeholder="0,00"
+                />
+                <div className="flex justify-between gap-2">
+                  <p className="text-muted-foreground">
+                    Use o valor confirmado pelo banco. Ele já faz parte do total final.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto shrink-0 p-0 text-xs"
+                    onClick={() => setIofOverride(null)}
+                  >
+                    Voltar ao cálculo
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="statement-closure-total">{CLOSURE_TOTAL_LABEL}</Label>
@@ -140,7 +191,7 @@ export default function StatementClosureModal({ open, onOpenChange, group, onCon
               inputMode="decimal"
               className="w-full min-w-0 max-w-full"
               value={total}
-              onChange={(e) => setTotal(e.target.value)}
+              onChange={(e) => setTotal(maskBrlInput(e.target.value))}
               placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
             />
             <p className="text-xs text-muted-foreground">

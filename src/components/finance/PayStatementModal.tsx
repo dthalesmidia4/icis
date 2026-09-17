@@ -31,7 +31,7 @@ import {
 } from "@/lib/financeStatementPaymentForm";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { isValidPaymentDate } from "@/lib/financePaymentDate";
-import { parseLocalizedNumber } from "@/lib/financeNumber";
+import { maskBrlFromNumber, maskBrlInput, parseLocalizedNumber } from "@/lib/financeNumber";
 import {
   buildStatementConference,
   iofInputMessage,
@@ -99,13 +99,11 @@ export default function PayStatementModal({
   const [saving, setSaving] = useState(false);
   /** `true` enquanto grava apenas a conferência cambial (sem pagar). */
   const [savingDraft, setSavingDraft] = useState(false);
-  /** IOF é SEMPRE perguntado, com padrão 0 — exista ou não compra em dólar. */
-  const [iof, setIof] = useState("0");
   /**
-   * `true` quando o usuário editou o IOF manualmente. Enquanto `false`, o campo
-   * é preenchido automaticamente com 3,5% sobre a base em reais das compras USD.
+   * IOF NÃO é digitado no fluxo normal: ele é 3,5% sobre a base em reais das
+   * compras USD confirmadas. `null` = nenhum ajuste manual em curso.
    */
-  const [iofTouched, setIofTouched] = useState(false);
+  const [iofOverride, setIofOverride] = useState<string | null>(null);
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
   const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
 
@@ -120,11 +118,9 @@ export default function PayStatementModal({
     setDate(today);
     const seed = seedStatementClosure(group);
     // Fechamento já conhecido abre predefinido: total real + IOF classificado.
-    setTotal(seed.total);
-    setIof(seed.iof);
-    // Se a fatura já tem IOF real salvo, preserve-o e pare de sobrescrever.
-    const savedIof = group?.statementRow?.occurrence?.iof_amount_brl;
-    setIofTouched(savedIof != null);
+    setTotal(maskBrlInput(seed.total));
+    // Nenhum ajuste manual ao abrir: o IOF salvo (fato) ou o cálculo manda.
+    setIofOverride(null);
     const usdSeed: Record<string, string> = {};
     for (const comp of usdComponents) {
       // Estimativa entra como ponto de partida; o usuário confirma o valor real.
@@ -133,9 +129,35 @@ export default function PayStatementModal({
     setUsdInputs(usdSeed);
   }, [open, today, group, usdComponents]);
 
-  const closure = resolveStatementClosure({ total, iof, knownTotalBrl: knownTotal });
+  const dateValid = isValidPaymentDate(date);
+  const reconciliation = buildReconciliation(usdComponents, usdInputs);
+
+  /** Base em reais das compras USD confirmadas. Usada no resumo e no IOF. */
+  const confirmedUsdBrl = reconciliation.state === "ok" ? reconciliation.totalBrl : null;
+  /** Soma dos valores originais em dólar das compras desta fatura. */
+  const totalUsdOriginal = usdComponents.reduce(
+    (sum, c) => sum + (c.amountOriginal ?? 0),
+    0,
+  );
+  /** Cálculo automático do IOF: 3,5% da base em reais, arredondado em centavos. */
+  const calculatedIof =
+    usdComponents.length > 0 && confirmedUsdBrl != null
+      ? Number((confirmedUsdBrl * 0.035).toFixed(2))
+      : null;
+  /** IOF já salvo na ocorrência: FATO histórico, prevalece ao abrir. */
+  const savedIofRaw = group?.statementRow?.occurrence?.iof_amount_brl ?? null;
+  const savedIof =
+    savedIofRaw != null && Number.isFinite(savedIofRaw) && savedIofRaw > 0
+      ? Number(savedIofRaw.toFixed(2))
+      : null;
+  /** Sem ajuste manual: fato salvo, senão o cálculo automático, senão 0. */
+  const automaticIofBrl = savedIof ?? calculatedIof ?? 0;
+  const adjustingIof = iofOverride !== null;
+  const iofSource = adjustingIof ? iofOverride ?? "" : String(automaticIofBrl);
+
+  const closure = resolveStatementClosure({ total, iof: iofSource, knownTotalBrl: knownTotal });
   const closureMessage = statementClosureMessage(closure);
-  const iofResult = parseIofInput(iof);
+  const iofResult = parseIofInput(iofSource);
   const iofMessage = iofInputMessage(iofResult);
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
   /** Total final digitado; quando vazio, preserva somente um total real conhecido. */
@@ -152,28 +174,7 @@ export default function PayStatementModal({
 
   const amountResult = resolveStatementPaymentAmount(amount, expected, { exactRequired });
   const amountMessage = statementPaymentAmountMessage(amountResult);
-  const dateValid = isValidPaymentDate(date);
-  const reconciliation = buildReconciliation(usdComponents, usdInputs);
 
-  /** Base em reais das compras USD confirmadas. Usada no resumo e no IOF. */
-  const confirmedUsdBrl = reconciliation.state === "ok" ? reconciliation.totalBrl : null;
-  /** Soma dos valores originais em dólar das compras desta fatura. */
-  const totalUsdOriginal = usdComponents.reduce(
-    (sum, c) => sum + (c.amountOriginal ?? 0),
-    0,
-  );
-  /** Sugestão de IOF: 3,5% da base em reais, arredondada em centavos. */
-  const suggestedIof =
-    usdComponents.length > 0 && confirmedUsdBrl != null
-      ? Number((confirmedUsdBrl * 0.035).toFixed(2))
-      : null;
-
-  // IOF automático: 3,5% da base em reais das compras USD. Pára de atualizar
-  // assim que o usuário toca no campo.
-  useEffect(() => {
-    if (iofTouched || suggestedIof == null) return;
-    setIof(String(suggestedIof));
-  }, [iofTouched, suggestedIof]);
 
   const classifiedComponentsBrl =
     reconciliation.state === "ok"
@@ -327,8 +328,8 @@ export default function PayStatementModal({
                     <span className="font-medium">{formatBRL(confirmedUsdBrl)}</span>
                   </p>
                   <p className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Sugestão de IOF (3,5%)</span>
-                    <span className="font-medium">{formatBRL(suggestedIof)}</span>
+                    <span className="text-muted-foreground">IOF calculado (3,5%)</span>
+                    <span className="font-medium">{formatBRL(calculatedIof)}</span>
                   </p>
                 </div>
               )}
@@ -367,29 +368,54 @@ export default function PayStatementModal({
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pay-statement-iof">{CLOSURE_IOF_LABEL}</Label>
-              <Input
-                id="pay-statement-iof"
-                inputMode="decimal"
-                className="w-full min-w-0 max-w-full"
-                value={iof}
-                onChange={(e) => {
-                  setIofTouched(true);
-                  setIof(e.target.value);
-                }}
-                placeholder="0,00"
-              />
-              {iofMessage ? (
-                <p className="text-xs text-destructive">{iofMessage}</p>
-              ) : usdComponents.length > 0 && suggestedIof != null ? (
-                <p className="text-xs text-muted-foreground">
-                  Sugestão automática de 3,5% sobre {formatBRL(confirmedUsdBrl)} em compras em moeda estrangeira. Você pode ajustar manualmente. Esse IOF já faz parte do total final e não deve ser somado novamente.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Use 0 quando não houver. Esse IOF já faz parte do total final e não deve ser somado novamente.
-                </p>
+            {/* IOF é resumo, não campo: 3,5% da base USD confirmada. */}
+            <div className="space-y-2 rounded-md bg-muted/40 p-2 text-xs">
+              <p className="flex justify-between gap-2">
+                <span className="text-muted-foreground">Base das compras em USD</span>
+                <span className="font-medium">{formatBRL(confirmedUsdBrl ?? 0)}</span>
+              </p>
+              <p className="flex justify-between gap-2">
+                <span className="text-muted-foreground">
+                  {savedIof != null && !adjustingIof ? "IOF registrado" : "IOF calculado (3,5%)"}
+                </span>
+                <span className="font-medium">{formatBRL(iofBrl)}</span>
+              </p>
+              {!adjustingIof && (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-xs"
+                  onClick={() => setIofOverride(maskBrlFromNumber(automaticIofBrl))}
+                >
+                  Ajustar IOF
+                </Button>
+              )}
+              {adjustingIof && (
+                <div className="space-y-2">
+                  <Label htmlFor="pay-statement-iof">{CLOSURE_IOF_LABEL}</Label>
+                  <Input
+                    id="pay-statement-iof"
+                    inputMode="decimal"
+                    className="w-full min-w-0 max-w-full"
+                    value={iofOverride ?? ""}
+                    onChange={(e) => setIofOverride(maskBrlInput(e.target.value))}
+                    placeholder="0,00"
+                  />
+                  <div className="flex justify-between gap-2">
+                    <p className="text-muted-foreground">
+                      Use o valor exato confirmado pelo banco. Ele já faz parte do total final.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto shrink-0 p-0 text-xs"
+                      onClick={() => setIofOverride(null)}
+                    >
+                      Voltar ao cálculo
+                    </Button>
+                  </div>
+                  {iofMessage && <p className="text-destructive">{iofMessage}</p>}
+                </div>
               )}
             </div>
 
@@ -400,7 +426,7 @@ export default function PayStatementModal({
                 inputMode="decimal"
                 className="w-full min-w-0 max-w-full"
                 value={total}
-                onChange={(e) => setTotal(e.target.value)}
+                onChange={(e) => setTotal(maskBrlInput(e.target.value))}
                 placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
               />
               <p className="text-xs text-muted-foreground">
