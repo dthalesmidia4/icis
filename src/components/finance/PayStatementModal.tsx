@@ -138,9 +138,9 @@ export default function PayStatementModal({
   const iofResult = parseIofInput(iof);
   const iofMessage = iofInputMessage(iofResult);
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
-  /** Total confirmado no fechamento; sem digitação, cai no total conhecido. */
+  /** Total final digitado; quando vazio, preserva somente um total real conhecido. */
   const closureTotalBrl = closure.state === "ok" ? closure.totalBrl : null;
-  const suggested = closureTotalBrl ?? knownTotal ?? group?.projectedTotal;
+  const finalTotalBrl = closureTotalBrl ?? knownTotal;
   /**
    * O `Valor pago` NÃO é um campo próprio: a fatura é paga por inteiro, então
    * ele é sempre o total do fechamento acima.
@@ -148,7 +148,7 @@ export default function PayStatementModal({
   const amount = total.trim();
 
   /** Total da fatura: o IOF já está contido nele, não é somado por cima. */
-  const expected = suggested != null ? Number(suggested.toFixed(2)) : null;
+  const expected = finalTotalBrl != null ? Number(finalTotalBrl.toFixed(2)) : null;
 
   const amountResult = resolveStatementPaymentAmount(amount, expected, { exactRequired });
   const amountMessage = statementPaymentAmountMessage(amountResult);
@@ -189,7 +189,7 @@ export default function PayStatementModal({
         )
       : null;
   const conference = buildStatementConference({
-    statementBrl: suggested,
+    statementBrl: finalTotalBrl,
     componentsBrl: classifiedComponentsBrl,
     iofBrl,
     paidBrl: amountResult.state === "ok" ? amountResult.amountBrl ?? expected : null,
@@ -205,6 +205,7 @@ export default function PayStatementModal({
   const canSubmit =
     dateValid &&
     closure.state === "ok" &&
+    finalTotalBrl != null &&
     iofResult.state === "ok" &&
     amountResult.state === "ok" &&
     reconciliation.state === "ok";
@@ -367,27 +368,6 @@ export default function PayStatementModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pay-statement-amount">{CLOSURE_TOTAL_LABEL}</Label>
-              <Input
-                id="pay-statement-amount"
-                inputMode="decimal"
-                className="w-full min-w-0 max-w-full"
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
-                placeholder={suggested != null ? formatBRL(suggested) : "0,00"}
-              />
-              {closureMessage && <p className="text-xs text-destructive">{closureMessage}</p>}
-              {amountMessage && !closureMessage && (
-                <p className="text-xs text-destructive">{amountMessage}</p>
-              )}
-              {exactRequired && !closureMessage && !amountMessage && (
-                <p className="text-xs text-muted-foreground">
-                  A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="pay-statement-iof">{CLOSURE_IOF_LABEL}</Label>
               <Input
                 id="pay-statement-iof"
@@ -404,11 +384,38 @@ export default function PayStatementModal({
                 <p className="text-xs text-destructive">{iofMessage}</p>
               ) : usdComponents.length > 0 && suggestedIof != null ? (
                 <p className="text-xs text-muted-foreground">
-                  Sugestão automática de 3,5% sobre {formatBRL(confirmedUsdBrl)} em compras em moeda estrangeira. Você pode ajustar manualmente.
+                  Sugestão automática de 3,5% sobre {formatBRL(confirmedUsdBrl)} em compras em moeda estrangeira. Você pode ajustar manualmente. Esse IOF já faz parte do total final e não deve ser somado novamente.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  IOF cobrado pelo banco junto com esta fatura. Use 0 quando não houver.
+                  Use 0 quando não houver. Esse IOF já faz parte do total final e não deve ser somado novamente.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pay-statement-amount">{CLOSURE_TOTAL_LABEL}</Label>
+              <Input
+                id="pay-statement-amount"
+                inputMode="decimal"
+                className="w-full min-w-0 max-w-full"
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
+              />
+              <p className="text-xs text-muted-foreground">
+                Digite exatamente o valor final exibido na fatura do banco. Esse valor já inclui o IOF.
+              </p>
+              {closureMessage && <p className="text-xs text-destructive">{closureMessage}</p>}
+              {amountMessage && !closureMessage && (
+                <p className="text-xs text-destructive">{amountMessage}</p>
+              )}
+              {!closureMessage && !amountMessage && finalTotalBrl == null && (
+                <p className="text-xs text-destructive">Informe o total cobrado pelo banco</p>
+              )}
+              {exactRequired && !closureMessage && !amountMessage && (
+                <p className="text-xs text-muted-foreground">
+                  A fatura é paga por inteiro: o valor precisa ser o total de {formatBRL(expected)}.
                 </p>
               )}
             </div>
@@ -423,33 +430,31 @@ export default function PayStatementModal({
           {reconciliation.state === "ok" && (
             <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
               <p className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Total da fatura</span>
-                <span className="font-medium">{formatBRL(conference.statementBrl)}</span>
-              </p>
-              <p className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Compras identificadas</span>
                 <span className="font-medium">{formatBRL(conference.componentsBrl)}</span>
               </p>
-              {usdComponents.length > 0 && (
-                <p className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">Ajuste cambial identificado</span>
-                  <span className="font-medium">{formatBRL(reconciliation.drift)}</span>
-                </p>
-              )}
               <p className="flex justify-between gap-3">
-                <span className="text-muted-foreground">IOF da fatura</span>
+                <span className="text-muted-foreground">IOF classificado</span>
                 <span className="font-medium">{formatBRL(conference.iofBrl)}</span>
               </p>
-              <p className="flex justify-between gap-3 border-t pt-1">
-                <span className="text-muted-foreground">Compras + IOF</span>
+              <p className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Total explicado (compras + IOF)</span>
                 <span className="font-semibold">{formatBRL(conference.classifiedBrl)}</span>
               </p>
+              {finalTotalBrl != null && reading.state !== "balanced" && (
+                <>
+                  <p className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{reading.label}</span>
+                    <span className="font-medium">{formatBRL(reading.absoluteBrl)}</span>
+                  </p>
+                  <p className="pt-1 font-medium text-foreground">{reading.title}</p>
+                  <p className="text-muted-foreground">{reading.description}</p>
+                </>
+              )}
               <p className="flex justify-between gap-3 border-t pt-1">
-                <span className="text-muted-foreground">{reading.label}</span>
-                <span className="font-medium">{formatBRL(reading.absoluteBrl)}</span>
+                <span className="text-muted-foreground">Total cobrado pelo banco</span>
+                <span className="font-medium">{formatBRL(conference.statementBrl)}</span>
               </p>
-              <p className="pt-1 font-medium text-foreground">{reading.title}</p>
-              <p className="text-muted-foreground">{reading.description}</p>
 
               <div className="border-t pt-2 space-y-1">
                 <p className="font-medium text-foreground">Pagamento da fatura</p>

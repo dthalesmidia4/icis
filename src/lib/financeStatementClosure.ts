@@ -1,5 +1,5 @@
 /**
- * FECHAMENTO DA FATURA DO CARTÃO (lógica pura).
+ * CONFERÊNCIA DA FATURA DO CARTÃO (lógica pura).
  *
  * `Total da fatura` e `IOF incluído na fatura` são o MESMO dado: o fechamento
  * que o banco emitiu. Por isso não existem mais dois caminhos (`Ver detalhes`
@@ -8,7 +8,7 @@
  *
  * Este módulo concentra as regras puras:
  *  - parsing/validação do formulário de fechamento;
- *  - rótulos únicos (`Informar fechamento` / `Ver/ajustar fechamento`);
+ *  - rótulos únicos (`Informar fatura` / `Revisar fatura`);
  *  - montagem do patch que a RPC `finance_update_statement_closure` recebe.
  *
  * O que este módulo NUNCA faz: mexer em `paid_at`/`paid_amount_brl`. Fechamento
@@ -20,15 +20,15 @@ import { parseLocalizedNumber } from "./financeNumber";
 
 /* ------------------------------- Rótulos ---------------------------------- */
 
-export const CLOSURE_TOTAL_LABEL = "Total da fatura (R$)";
-export const CLOSURE_IOF_LABEL = "IOF incluído na fatura (R$)";
-export const CLOSURE_SECTION_LABEL = "Fechamento da fatura";
+export const CLOSURE_TOTAL_LABEL = "Total cobrado pelo banco (R$)";
+export const CLOSURE_IOF_LABEL = "IOF incluído nesse total (R$)";
+export const CLOSURE_SECTION_LABEL = "Conferência da fatura";
 
 /** Botão único do cartão: informar ou revisar o fechamento já conhecido. */
 export function statementClosureButtonLabel(group: StatementGroup): string {
   return group.actualTotal != null || group.paid
-    ? "Ver/ajustar fechamento"
-    : "Informar fechamento";
+    ? "Revisar fatura"
+    : "Informar fatura";
 }
 
 /* --------------------------- Estado do formulário -------------------------- */
