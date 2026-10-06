@@ -519,6 +519,171 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_voice_calls: {
+        Row: {
+          agent_id: string
+          agent_phone_number_id: string
+          analysis: Json | null
+          branch_id: string | null
+          call_success_score: number | null
+          call_successful: string | null
+          conversation_summary: string | null
+          created_at: string
+          direction: string
+          duration_seconds: number | null
+          dynamic_variables: Json
+          elevenlabs_conversation_id: string | null
+          ended_at: string | null
+          error_code: string | null
+          error_message: string | null
+          failure_payload: Json | null
+          failure_reason: string | null
+          from_number: string | null
+          id: string
+          initiated_at: string | null
+          initiated_by: string | null
+          last_webhook_at: string | null
+          last_webhook_type: string | null
+          manual_confirmation_at: string
+          provider: string
+          provider_metadata: Json | null
+          provider_status: string | null
+          started_at: string | null
+          status: string
+          system_client_id: string | null
+          tenant_company_id: string
+          tenant_id: string
+          termination_reason: string | null
+          to_number: string
+          touchpoint_id: string | null
+          transcript: Json | null
+          trigger_source: string
+          twilio_call_sid: string | null
+          updated_at: string
+          voicemail_detected: boolean | null
+        }
+        Insert: {
+          agent_id: string
+          agent_phone_number_id: string
+          analysis?: Json | null
+          branch_id?: string | null
+          call_success_score?: number | null
+          call_successful?: string | null
+          conversation_summary?: string | null
+          created_at?: string
+          direction?: string
+          duration_seconds?: number | null
+          dynamic_variables?: Json
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          failure_payload?: Json | null
+          failure_reason?: string | null
+          from_number?: string | null
+          id?: string
+          initiated_at?: string | null
+          initiated_by?: string | null
+          last_webhook_at?: string | null
+          last_webhook_type?: string | null
+          manual_confirmation_at?: string
+          provider?: string
+          provider_metadata?: Json | null
+          provider_status?: string | null
+          started_at?: string | null
+          status?: string
+          system_client_id?: string | null
+          tenant_company_id: string
+          tenant_id: string
+          termination_reason?: string | null
+          to_number: string
+          touchpoint_id?: string | null
+          transcript?: Json | null
+          trigger_source?: string
+          twilio_call_sid?: string | null
+          updated_at?: string
+          voicemail_detected?: boolean | null
+        }
+        Update: {
+          agent_id?: string
+          agent_phone_number_id?: string
+          analysis?: Json | null
+          branch_id?: string | null
+          call_success_score?: number | null
+          call_successful?: string | null
+          conversation_summary?: string | null
+          created_at?: string
+          direction?: string
+          duration_seconds?: number | null
+          dynamic_variables?: Json
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          failure_payload?: Json | null
+          failure_reason?: string | null
+          from_number?: string | null
+          id?: string
+          initiated_at?: string | null
+          initiated_by?: string | null
+          last_webhook_at?: string | null
+          last_webhook_type?: string | null
+          manual_confirmation_at?: string
+          provider?: string
+          provider_metadata?: Json | null
+          provider_status?: string | null
+          started_at?: string | null
+          status?: string
+          system_client_id?: string | null
+          tenant_company_id?: string
+          tenant_id?: string
+          termination_reason?: string | null
+          to_number?: string
+          touchpoint_id?: string | null
+          transcript?: Json | null
+          trigger_source?: string
+          twilio_call_sid?: string | null
+          updated_at?: string
+          voicemail_detected?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_voice_calls_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_voice_calls_system_client_id_fkey"
+            columns: ["system_client_id"]
+            isOneToOne: false
+            referencedRelation: "systems_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_voice_calls_tenant_company_id_fkey"
+            columns: ["tenant_company_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_voice_calls_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_voice_calls_touchpoint_id_fkey"
+            columns: ["touchpoint_id"]
+            isOneToOne: false
+            referencedRelation: "client_touchpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_mascot_images: {
         Row: {
           company_id: string
@@ -4180,6 +4345,10 @@ export type Database = {
       demand_stages_done_by_user: {
         Args: { _demand_id: string; _user_id: string }
         Returns: string[]
+      }
+      ensure_commercial_voice_call_touchpoint: {
+        Args: { p_summary: string; p_voice_call_id: string }
+        Returns: string
       }
       finance_access_scope: { Args: { _tenant_id: string }; Returns: string }
       finance_convert_occurrence_to_card_charge: {

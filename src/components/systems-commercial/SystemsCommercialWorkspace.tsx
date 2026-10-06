@@ -31,9 +31,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
+import {
   Check,
   Handshake,
   Loader2,
+  PhoneCall,
   Plus,
   Search,
   Users,
@@ -44,6 +56,7 @@ import {
   History,
   Megaphone,
 } from "lucide-react";
+
 
 
 import { toast } from "sonner";
@@ -170,6 +183,30 @@ const toLocalInput = (iso?: string | null) => {
 
 const fromLocalInput = (value: string) => (value ? new Date(value).toISOString() : null);
 
+/**
+ * Mensagem devolvida pela Edge Function: `FunctionsHttpError` traz a resposta em
+ * `context`. Sem corpo útil, devolve `null` para o chamador usar seu texto padrão.
+ */
+const edgeFunctionErrorMessage = async (error: unknown): Promise<string | null> => {
+  const response = (error as { context?: Response } | null)?.context;
+  if (!response || typeof response.text !== "function") return null;
+  try {
+    const raw = (await response.text()).trim();
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const value = parsed.error ?? parsed.message ?? parsed.detail;
+      if (typeof value === "string" && value.trim()) return value.trim();
+    } catch {
+      /* corpo não é JSON: mantém o texto cru */
+    }
+    return raw;
+  } catch {
+    return null;
+  }
+};
+
+
 interface DrawerForm {
   name: string;
   segment: string;
@@ -292,6 +329,10 @@ export default function SystemsCommercialWorkspace({
   const [history, setHistory] = useState<TouchpointRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [wonTarget, setWonTarget] = useState<SystemsClient | null>(null);
+  /** Chamada manual com a Gabi: alvo da confirmação e trava de duplo clique. */
+  const [callTarget, setCallTarget] = useState<SystemsClient | null>(null);
+  const [callStarting, setCallStarting] = useState(false);
+
   // Camada de campanha: o mesmo cadastro de cliente de Mídia alimenta o Comercial.
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   // Cidades/etapas do plano único: fonte de verdade da origem comercial.
@@ -724,6 +765,32 @@ export default function SystemsCommercialWorkspace({
     applyWonLocally(inlineWonTarget);
     setInlineWonTarget(null);
   };
+
+  /**
+   * ÚNICO caminho para `start-commercial-voice-call`: chamada manual, disparada
+   * exclusivamente pelo clique em "Iniciar chamada" na confirmação. Sem fila,
+   * retry, polling ou disparo automático em qualquer outro ponto.
+   */
+  const confirmStartCall = async () => {
+    if (!callTarget || callStarting) return;
+    setCallStarting(true);
+    const { error } = await supabase.functions.invoke("start-commercial-voice-call", {
+      body: {
+        client_id: callTarget.id,
+        trigger_source: "manual_ui",
+        confirmation: "CALL_NOW",
+      },
+    });
+    setCallStarting(false);
+    if (error) {
+      const detail = await edgeFunctionErrorMessage(error);
+      toast.error(detail || "Não foi possível iniciar a chamada.");
+      return;
+    }
+    toast.success("Chamada iniciada com a Gabi.");
+    setCallTarget(null);
+  };
+
 
   /**
    * Reabertura canônica: o cliente volta ao ciclo comercial preservando
@@ -1920,15 +1987,29 @@ export default function SystemsCommercialWorkspace({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={closeDrawer}>
-                  Fechar
-                </Button>
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Salvar
-                </Button>
+              <div className="flex items-center justify-between gap-2">
+                {selected.lifecycle === "prospect" && !!selected.phone?.trim() && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCallTarget(selected)}
+                    disabled={callStarting}
+                  >
+                    <PhoneCall className="h-4 w-4 mr-2" />
+                    Ligar com a Gabi
+                  </Button>
+                )}
+                <div className="ml-auto flex justify-end gap-2">
+                  <Button variant="ghost" onClick={closeDrawer}>
+                    Fechar
+                  </Button>
+                  <Button onClick={handleSave} disabled={saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salvar
+                  </Button>
+                </div>
               </div>
+
 
               {/* Registrar contato */}
               <div className="border-t pt-4 space-y-3">
@@ -2006,6 +2087,38 @@ export default function SystemsCommercialWorkspace({
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Confirmação explícita da chamada: nada é discado sem o clique em
+          "Iniciar chamada". */}
+      <AlertDialog
+        open={!!callTarget}
+        onOpenChange={(v) => !v && !callStarting && setCallTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ligar com a Gabi para {callTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Telefone: {callTarget?.phone}
+              <br />
+              Esta ação inicia uma chamada real e pode gerar custo de telefonia/ElevenLabs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={callStarting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmStartCall();
+              }}
+              disabled={callStarting}
+            >
+              {callStarting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Iniciar chamada
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Confirmação Ganho */}
       <Dialog open={!!wonTarget} onOpenChange={(v) => !v && setWonTarget(null)}>
