@@ -62,6 +62,13 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
+  formatCallDuration,
+  gabiCallStatusLabel,
+  loadLastGabiCall,
+  translateGabiCallError,
+  type GabiCallSummary,
+} from "@/lib/gabiCalls";
+import {
   FINAL_STAGES,
   STAGE_OPTIONS,
   hasMigrationAvailable,
@@ -332,6 +339,9 @@ export default function SystemsCommercialWorkspace({
   /** Chamada manual com a Gabi: alvo da confirmação e trava de duplo clique. */
   const [callTarget, setCallTarget] = useState<SystemsClient | null>(null);
   const [callStarting, setCallStarting] = useState(false);
+  /** Última ligação da Gabi: lida só ao abrir o drawer e após uma tentativa. */
+  const [lastCall, setLastCall] = useState<GabiCallSummary | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
 
   // Camada de campanha: o mesmo cadastro de cliente de Mídia alimenta o Comercial.
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
@@ -566,6 +576,13 @@ export default function SystemsCommercialWorkspace({
 
   const openDrawer = async (client: SystemsClient) => {
     setSelected(client);
+    selectedIdRef.current = client.id;
+    setLastCall(null);
+    if (client.lifecycle === "prospect") {
+      void loadLastGabiCall(client.id).then((c) => {
+        if (selectedIdRef.current === client.id) setLastCall(c);
+      });
+    }
     setForm(formFromClient(client));
     setTpType("ligacao");
     setTpDate(toLocalInput(new Date().toISOString()));
@@ -782,13 +799,20 @@ export default function SystemsCommercialWorkspace({
       },
     });
     setCallStarting(false);
+    const targetId = callTarget.id;
+    const refreshLastCall = () =>
+      loadLastGabiCall(targetId).then((c) => {
+        if (selectedIdRef.current === targetId) setLastCall(c);
+      });
     if (error) {
       const detail = await edgeFunctionErrorMessage(error);
-      toast.error(detail || "Não foi possível iniciar a chamada.");
+      toast.error(translateGabiCallError(detail));
+      void refreshLastCall();
       return;
     }
     toast.success("Chamada iniciada com a Gabi.");
     setCallTarget(null);
+    void refreshLastCall();
   };
 
 
@@ -1989,15 +2013,32 @@ export default function SystemsCommercialWorkspace({
 
               <div className="flex items-center justify-between gap-2">
                 {selected.lifecycle === "prospect" && !!selected.phone?.trim() && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCallTarget(selected)}
-                    disabled={callStarting}
-                  >
-                    <PhoneCall className="h-4 w-4 mr-2" />
-                    Ligar com a Gabi
-                  </Button>
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      onClick={() => setCallTarget(selected)}
+                      disabled={callStarting}
+                    >
+                      <PhoneCall className="h-4 w-4 mr-2" />
+                      Ligar com a Gabi
+                    </Button>
+                    {lastCall && (
+                      <div className="text-xs text-muted-foreground max-w-xs">
+                        <span>Última ligação da Gabi: </span>
+                        <span className="font-medium text-foreground">{gabiCallStatusLabel(lastCall)}</span>
+                        {formatCallDuration(lastCall.duration_seconds) && (
+                          <span> · {formatCallDuration(lastCall.duration_seconds)}</span>
+                        )}
+                        {lastCall.conversation_summary && (
+                          <p className="line-clamp-2" title={lastCall.conversation_summary}>
+                            {lastCall.conversation_summary}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
                 <div className="ml-auto flex justify-end gap-2">
                   <Button variant="ghost" onClick={closeDrawer}>
