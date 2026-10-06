@@ -292,6 +292,10 @@ export default function SystemsCommercialWorkspace({
   const [history, setHistory] = useState<TouchpointRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [wonTarget, setWonTarget] = useState<SystemsClient | null>(null);
+  /** Chamada manual com a Gabi: alvo da confirmação e trava de duplo clique. */
+  const [callTarget, setCallTarget] = useState<SystemsClient | null>(null);
+  const [callStarting, setCallStarting] = useState(false);
+
   // Camada de campanha: o mesmo cadastro de cliente de Mídia alimenta o Comercial.
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   // Cidades/etapas do plano único: fonte de verdade da origem comercial.
@@ -724,6 +728,32 @@ export default function SystemsCommercialWorkspace({
     applyWonLocally(inlineWonTarget);
     setInlineWonTarget(null);
   };
+
+  /**
+   * ÚNICO caminho para `start-commercial-voice-call`: chamada manual, disparada
+   * exclusivamente pelo clique em "Iniciar chamada" na confirmação. Sem fila,
+   * retry, polling ou disparo automático em qualquer outro ponto.
+   */
+  const confirmStartCall = async () => {
+    if (!callTarget || callStarting) return;
+    setCallStarting(true);
+    const { error } = await supabase.functions.invoke("start-commercial-voice-call", {
+      body: {
+        client_id: callTarget.id,
+        trigger_source: "manual_ui",
+        confirmation: "CALL_NOW",
+      },
+    });
+    setCallStarting(false);
+    if (error) {
+      const detail = await edgeFunctionErrorMessage(error);
+      toast.error(detail || "Não foi possível iniciar a chamada.");
+      return;
+    }
+    toast.success("Chamada iniciada com a Gabi.");
+    setCallTarget(null);
+  };
+
 
   /**
    * Reabertura canônica: o cliente volta ao ciclo comercial preservando
