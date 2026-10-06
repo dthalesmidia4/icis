@@ -1920,15 +1920,29 @@ export default function SystemsCommercialWorkspace({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={closeDrawer}>
-                  Fechar
-                </Button>
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Salvar
-                </Button>
+              <div className="flex items-center justify-between gap-2">
+                {selected.lifecycle === "prospect" && !!selected.phone?.trim() && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCallTarget(selected)}
+                    disabled={callStarting}
+                  >
+                    <PhoneCall className="h-4 w-4 mr-2" />
+                    Ligar com a Gabi
+                  </Button>
+                )}
+                <div className="ml-auto flex justify-end gap-2">
+                  <Button variant="ghost" onClick={closeDrawer}>
+                    Fechar
+                  </Button>
+                  <Button onClick={handleSave} disabled={saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salvar
+                  </Button>
+                </div>
               </div>
+
 
               {/* Registrar contato */}
               <div className="border-t pt-4 space-y-3">
@@ -2006,6 +2020,38 @@ export default function SystemsCommercialWorkspace({
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Confirmação explícita da chamada: nada é discado sem o clique em
+          "Iniciar chamada". */}
+      <AlertDialog
+        open={!!callTarget}
+        onOpenChange={(v) => !v && !callStarting && setCallTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ligar com a Gabi para {callTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Telefone: {callTarget?.phone}
+              <br />
+              Esta ação inicia uma chamada real e pode gerar custo de telefonia/ElevenLabs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={callStarting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmStartCall();
+              }}
+              disabled={callStarting}
+            >
+              {callStarting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Iniciar chamada
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Confirmação Ganho */}
       <Dialog open={!!wonTarget} onOpenChange={(v) => !v && setWonTarget(null)}>
