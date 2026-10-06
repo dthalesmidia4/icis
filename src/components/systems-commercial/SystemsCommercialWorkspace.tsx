@@ -170,6 +170,30 @@ const toLocalInput = (iso?: string | null) => {
 
 const fromLocalInput = (value: string) => (value ? new Date(value).toISOString() : null);
 
+/**
+ * Mensagem devolvida pela Edge Function: `FunctionsHttpError` traz a resposta em
+ * `context`. Sem corpo útil, devolve `null` para o chamador usar seu texto padrão.
+ */
+const edgeFunctionErrorMessage = async (error: unknown): Promise<string | null> => {
+  const response = (error as { context?: Response } | null)?.context;
+  if (!response || typeof response.text !== "function") return null;
+  try {
+    const raw = (await response.text()).trim();
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const value = parsed.error ?? parsed.message ?? parsed.detail;
+      if (typeof value === "string" && value.trim()) return value.trim();
+    } catch {
+      /* corpo não é JSON: mantém o texto cru */
+    }
+    return raw;
+  } catch {
+    return null;
+  }
+};
+
+
 interface DrawerForm {
   name: string;
   segment: string;
