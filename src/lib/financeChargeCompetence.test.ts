@@ -484,6 +484,10 @@ describe("duas ocorrências regulares do mesmo item na mesma competência", () =
     const groups = buildStatementGroups({ items, occurrences, competence: OUT });
     const out = groups.find((g) => g.dueDate === "2026-10-25");
     const adobeComponents = (out?.components ?? []).filter((c) => c.item.id === "adobe");
-    expect(adobeComponents).toHaveLength(0);
+    // Nenhum FATO real de 14/09 nem a ocorrência vinculada à fatura SET;
+    // uma projeção legítima de 14/10 pode existir e não é o bug.
+    expect(adobeComponents.filter((c) => !c.projected)).toHaveLength(0);
+    expect(adobeComponents.some((c) => c.chargeDate === "2026-09-14")).toBe(false);
+    expect(adobeComponents.some((c) => c.occurrence?.id === "occ-adobe-2")).toBe(false);
   });
 });
