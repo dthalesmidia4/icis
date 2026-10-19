@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -521,6 +521,8 @@ export type Database = {
       }
       commercial_voice_calls: {
         Row: {
+          action_token_expires_at: string | null
+          action_token_sha256: string | null
           agent_id: string
           agent_phone_number_id: string
           analysis: Json | null
@@ -542,6 +544,9 @@ export type Database = {
           id: string
           initiated_at: string | null
           initiated_by: string | null
+          last_agent_action: string | null
+          last_agent_action_at: string | null
+          last_agent_action_payload: Json | null
           last_webhook_at: string | null
           last_webhook_type: string | null
           manual_confirmation_at: string
@@ -563,6 +568,8 @@ export type Database = {
           voicemail_detected: boolean | null
         }
         Insert: {
+          action_token_expires_at?: string | null
+          action_token_sha256?: string | null
           agent_id: string
           agent_phone_number_id: string
           analysis?: Json | null
@@ -584,6 +591,9 @@ export type Database = {
           id?: string
           initiated_at?: string | null
           initiated_by?: string | null
+          last_agent_action?: string | null
+          last_agent_action_at?: string | null
+          last_agent_action_payload?: Json | null
           last_webhook_at?: string | null
           last_webhook_type?: string | null
           manual_confirmation_at?: string
@@ -605,6 +615,8 @@ export type Database = {
           voicemail_detected?: boolean | null
         }
         Update: {
+          action_token_expires_at?: string | null
+          action_token_sha256?: string | null
           agent_id?: string
           agent_phone_number_id?: string
           analysis?: Json | null
@@ -626,6 +638,9 @@ export type Database = {
           id?: string
           initiated_at?: string | null
           initiated_by?: string | null
+          last_agent_action?: string | null
+          last_agent_action_at?: string | null
+          last_agent_action_payload?: Json | null
           last_webhook_at?: string | null
           last_webhook_type?: string | null
           manual_confirmation_at?: string
