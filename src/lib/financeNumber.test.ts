@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDayOfMonth, parseLocalizedNumber, parsePositiveInt } from "./financeNumber";
+import { brlTypingStep, parseDayOfMonth, parseLocalizedNumber, parsePositiveInt } from "./financeNumber";
 import { FinanceItem, matchesRecurrenceInterval } from "./financeModel";
 
 describe("parseLocalizedNumber", () => {
@@ -71,5 +71,53 @@ describe("matchesRecurrenceInterval", () => {
   it("sem âncora não desaparece silenciosamente", () => {
     const item = { ...base, recurrence_interval_months: 4 };
     expect(matchesRecurrenceInterval(item, { year: 2026, month: 7 })).toBe(true);
+  });
+});
+
+describe("brlTypingStep (digitação estável por centavos)", () => {
+  it("sequência 1..6 formata sem perda de teclas", () => {
+    let v = "";
+    v = brlTypingStep(v, "1");
+    expect(v).toBe("0,01");
+    v = brlTypingStep(v, "0,012");
+    expect(v).toBe("0,12");
+    v = brlTypingStep(v, "0,123");
+    expect(v).toBe("1,23");
+    v = brlTypingStep(v, "1,234");
+    expect(v).toBe("12,34");
+    v = brlTypingStep(v, "12,345");
+    expect(v).toBe("123,45");
+    v = brlTypingStep(v, "123,456");
+    expect(v).toBe("1.234,56");
+  });
+
+  it("backspace apaga o último centavo", () => {
+    expect(brlTypingStep("1.234,56", "1.234,5")).toBe("123,45");
+    expect(brlTypingStep("0,12", "0,1")).toBe("0,01");
+    expect(brlTypingStep("0,01", "0,0")).toBe("");
+  });
+
+  it("colagem com separador preserva o valor informado", () => {
+    expect(brlTypingStep("", "2821,19")).toBe("2.821,19");
+    expect(brlTypingStep("", "2.821,19")).toBe("2.821,19");
+    expect(brlTypingStep("", "2821.19")).toBe("2.821,19");
+    expect(brlTypingStep("", "70,87")).toBe("70,87");
+    expect(brlTypingStep("", "70.87")).toBe("70,87");
+  });
+
+  it("colagem sem separador entra por centavos", () => {
+    expect(brlTypingStep("", "282119")).toBe("2.821,19");
+  });
+
+  it("seleção total substitui o valor", () => {
+    expect(brlTypingStep("1.234,56", "5")).toBe("0,05");
+  });
+
+  it("invariância: o texto exibido parseia para o valor correto", () => {
+    let v = "";
+    for (const raw of ["2", "28", "282", "2821", "28211", "282119"]) v = brlTypingStep(v, raw);
+    expect(v).toBe("2.821,19");
+    expect(parseLocalizedNumber(v)).toBe(2821.19);
+    expect(parseLocalizedNumber(brlTypingStep("", "2821,19"))).toBe(2821.19);
   });
 });

@@ -113,6 +113,53 @@ export function maskBrlTyping(raw: string | null | undefined): string {
   return `${groupThousands(digits.slice(0, -2))},${digits.slice(-2)}`;
 }
 
+function centsFromDigits(digits: string): string {
+  const clean = digits.replace(/^0+/, "");
+  if (!clean) return "";
+  const padded = clean.padStart(3, "0");
+  return `${groupThousands(padded.slice(0, -2))},${padded.slice(-2)}`;
+}
+
+/**
+ * PASSO DE DIGITAÇÃO monetária estável (teclado de centavos).
+ *
+ * Recebe o valor ANTERIOR já formatado e o valor BRUTO novo do input e decide
+ * a edição pela diferença de dígitos — nunca reinterpreta o separador que a
+ * própria formatação inseriu (bug: `0,01` + tecla `2` virava `0,012` e era
+ * truncado de volta para `0,01`).
+ *
+ * Semântica consistente:
+ * - Um dígito a mais no fim → append de centavo (`0,01` + `2` → `0,12`).
+ * - Um dígito a menos no fim → backspace apaga o último centavo.
+ * - Colagem/edição com separador explícito novo → preserva o valor informado
+ *   (`2821,19` / `2.821,19` / `2821.19` → `2.821,19`).
+ * - Substituição total ou edição no meio → os dígitos viram o novo valor em
+ *   centavos (comportamento de teclado de centavos, sem alterar dígitos).
+ *
+ * O parser canônico segue sendo `parseLocalizedNumber`; isto é só apresentação.
+ */
+export function brlTypingStep(prev: string | null | undefined, next: string | null | undefined): string {
+  const nextRaw = String(next ?? "").replace(/[^\d.,]/g, "");
+  if (!nextRaw) return "";
+  const prevDigits = String(prev ?? "").replace(/\D/g, "");
+  const nextDigits = nextRaw.replace(/\D/g, "");
+
+  // Append de UM dígito (tecla a tecla): centavos.
+  if (nextDigits.length === prevDigits.length + 1 && nextDigits.startsWith(prevDigits)) {
+    return centsFromDigits(nextDigits);
+  }
+  // Backspace de UM dígito no fim: apaga o último centavo.
+  if (nextDigits.length + 1 === prevDigits.length && prevDigits.startsWith(nextDigits)) {
+    return nextDigits ? centsFromDigits(nextDigits) : "";
+  }
+  // Colagem/edição com separador explícito e dígitos novos: preserva o valor.
+  if (/[.,]/.test(nextRaw) && nextDigits !== prevDigits) {
+    return maskBrlInput(nextRaw);
+  }
+  // Substituição total ou edição no meio: dígitos viram o valor em centavos.
+  return centsFromDigits(nextDigits);
+}
+
 /** Número → texto mascarado com 2 casas (`2821.19` → `2.821,19`). */
 export function maskBrlFromNumber(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "";

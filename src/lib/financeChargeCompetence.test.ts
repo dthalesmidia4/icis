@@ -415,3 +415,79 @@ describe("cadastro vigente por competência no ciclo da fatura", () => {
     expect(sep.components.some((c) => c.occurrence?.id === "old-canva")).toBe(false);
   });
 });
+
+describe("duas ocorrências regulares do mesmo item na mesma competência", () => {
+  const SET = { year: 2026, month: 9 };
+  const OUT = { year: 2026, month: 10 };
+  const adobe = item({
+    id: "adobe",
+    name: "Adobe Creative Cloud",
+    default_amount_brl: 280,
+    charge_day: 14,
+    card_item_id: "card-itau",
+  });
+  // Fatura SET/26 fechada de verdade em 14/09 e paga: composição congelada.
+  const stmtSet = occ({
+    id: "stmt-set",
+    item_id: "card-itau",
+    competence_month: "2026-09-01",
+    amount_brl: 560,
+    due_date: "2026-09-25",
+    statement_closing_date: "2026-09-14",
+    paid_at: "2026-09-20T12:00:00Z",
+    paid_amount_brl: 560,
+  });
+  const stmtOut = occ({
+    id: "stmt-out",
+    item_id: "card-itau",
+    competence_month: "2026-10-01",
+    due_date: "2026-10-25",
+  });
+  // Cobrança 14/08 (legada, sem scheduled_date) + cobrança 14/09 confirmada,
+  // ambas na competência SET e vinculadas à fatura SET.
+  const adobe1 = occ({
+    id: "occ-adobe-1",
+    item_id: "adobe",
+    competence_month: "2026-09-01",
+    amount_brl: 280,
+    charge_date: "2026-08-14",
+    statement_occurrence_id: "stmt-set",
+  });
+  const adobe2 = occ({
+    id: "occ-adobe-2",
+    item_id: "adobe",
+    competence_month: "2026-09-01",
+    amount_brl: 280,
+    charge_date: "2026-09-14",
+    scheduled_date: "2026-09-14",
+    statement_occurrence_id: "stmt-set",
+  });
+  const items = [card, adobe];
+  const occurrences = [stmtSet, stmtOut, adobe1, adobe2];
+
+  it("buildMonthRows produz as duas linhas reais de Adobe em SET", () => {
+    const rows = buildMonthRows({ items, occurrences, competence: SET });
+    const adobeRows = rows.filter((r) => r.item.id === "adobe");
+    expect(adobeRows).toHaveLength(2);
+    expect(adobeRows.every((r) => !r.projected)).toBe(true);
+    expect(adobeRows.map((r) => r.chargeDate).sort()).toEqual(["2026-08-14", "2026-09-14"]);
+  });
+
+  it("fatura SET paga/fechada mostra as duas cobranças vinculadas", () => {
+    const groups = buildStatementGroups({ items, occurrences, competence: SET });
+    const set = groups.find((g) => g.dueDate === "2026-09-25")!;
+    const adobeComponents = set.components.filter((c) => c.item.id === "adobe");
+    expect(adobeComponents).toHaveLength(2);
+  });
+
+  it("fatura OUT não ganha artificialmente a cobrança Adobe de 14/09", () => {
+    const groups = buildStatementGroups({ items, occurrences, competence: OUT });
+    const out = groups.find((g) => g.dueDate === "2026-10-25");
+    const adobeComponents = (out?.components ?? []).filter((c) => c.item.id === "adobe");
+    // Nenhum FATO real de 14/09 nem a ocorrência vinculada à fatura SET;
+    // uma projeção legítima de 14/10 pode existir e não é o bug.
+    expect(adobeComponents.filter((c) => !c.projected)).toHaveLength(0);
+    expect(adobeComponents.some((c) => c.chargeDate === "2026-09-14")).toBe(false);
+    expect(adobeComponents.some((c) => c.occurrence?.id === "occ-adobe-2")).toBe(false);
+  });
+});
