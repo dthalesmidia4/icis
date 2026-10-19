@@ -291,6 +291,40 @@ export default function PayStatementModal({
         </DialogHeader>
 
         <div className="space-y-4 min-w-0">
+          {/* COMPRAS EM REAIS: só leitura. O que se ajusta segue sendo USD e total. */}
+          {brlRows.length > 0 && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Compras em reais desta fatura</p>
+                <p className="text-xs text-muted-foreground">
+                  Valores já cobrados em reais. Nada é alterado aqui.
+                </p>
+              </div>
+
+              <ul className="space-y-1">
+                {brlRows.map((row) => (
+                  <li
+                    key={row.key}
+                    className="grid grid-cols-[5.5rem_1fr_auto] items-baseline gap-2 text-sm"
+                  >
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {row.chargeDate ? formatDayMonth(row.chargeDate) : "—"}
+                    </span>
+                    <span className="min-w-0 break-words">
+                      {row.item.name}
+                      {row.projected ? (
+                        <span className="text-xs text-muted-foreground"> (previsto)</span>
+                      ) : null}
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {row.amountBrl != null ? formatBRL(row.amountBrl) : "Valor não informado"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {usdComponents.length > 0 && (
             <div className="space-y-3 rounded-lg border p-3">
               <div>
