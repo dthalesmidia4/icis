@@ -24,7 +24,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { StatementGroup, cardDisplayLabel, formatBRL } from "@/lib/financeModel";
+import {
+  MonthRow,
+  StatementGroup,
+  cardDisplayLabel,
+  formatBRL,
+} from "@/lib/financeModel";
 import {
   resolveStatementPaymentAmount,
   statementPaymentAmountMessage,
@@ -57,6 +62,27 @@ import {
   usdComponentsOf,
 } from "@/lib/financeReconciliation";
 
+
+/**
+ * COMPRAS EM REAIS desta fatura (leitura pura, sem edição).
+ *
+ * Só transparência: o usuário não ajusta nada aqui — o que se confirma são as
+ * compras em dólar e o total do fechamento. Ordenado por data de cobrança e,
+ * em empate, pelo nome. Fatos reais nunca somem da lista; projeções aparecem
+ * marcadas como previstas.
+ */
+export function brlComponentsOf(group: StatementGroup | null): MonthRow[] {
+  if (!group) return [];
+  return group.components
+    .filter((row) => row.currency === "BRL")
+    .slice()
+    .sort((a, b) => {
+      const da = a.chargeDate ?? "9999-99-99";
+      const db = b.chargeDate ?? "9999-99-99";
+      if (da !== db) return da < db ? -1 : 1;
+      return (a.item.name ?? "").localeCompare(b.item.name ?? "");
+    });
+}
 
 interface Props {
   open: boolean;
@@ -112,6 +138,8 @@ export default function PayStatementModal({
   const exactRequired = group?.actualTotal != null;
 
   const usdComponents = useMemo(() => usdComponentsOf(group), [group]);
+  /** Linhas BRL da fatura, apenas para exibição: nada aqui é editável. */
+  const brlRows = useMemo(() => brlComponentsOf(group), [group]);
 
   useEffect(() => {
     if (!open) return;
@@ -263,6 +291,40 @@ export default function PayStatementModal({
         </DialogHeader>
 
         <div className="space-y-4 min-w-0">
+          {/* COMPRAS EM REAIS: só leitura. O que se ajusta segue sendo USD e total. */}
+          {brlRows.length > 0 && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Compras em reais desta fatura</p>
+                <p className="text-xs text-muted-foreground">
+                  Valores já cobrados em reais. Nada é alterado aqui.
+                </p>
+              </div>
+
+              <ul className="space-y-1">
+                {brlRows.map((row) => (
+                  <li
+                    key={row.key}
+                    className="grid grid-cols-[5.5rem_1fr_auto] items-baseline gap-2 text-sm"
+                  >
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {row.chargeDate ? formatDayMonth(row.chargeDate) : "—"}
+                    </span>
+                    <span className="min-w-0 break-words">
+                      {row.item.name}
+                      {row.projected ? (
+                        <span className="text-xs text-muted-foreground"> (previsto)</span>
+                      ) : null}
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {row.amountBrl != null ? formatBRL(row.amountBrl) : "Valor não informado"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {usdComponents.length > 0 && (
             <div className="space-y-3 rounded-lg border p-3">
               <div>
