@@ -24,7 +24,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { StatementGroup, cardDisplayLabel, formatBRL } from "@/lib/financeModel";
+import {
+  MonthRow,
+  StatementGroup,
+  cardDisplayLabel,
+  formatBRL,
+} from "@/lib/financeModel";
 import {
   resolveStatementPaymentAmount,
   statementPaymentAmountMessage,
