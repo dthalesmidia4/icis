@@ -67,7 +67,7 @@ import {
  * COMPRAS EM REAIS desta fatura (leitura pura, sem edição).
  *
  * Só transparência: o usuário não ajusta nada aqui — o que se confirma são as
- * compras em dólar e o total do fechamento.ordenar por data de cobrança e,
+ * compras em dólar e o total do fechamento. Ordenado por data de cobrança e,
  * em empate, pelo nome. Fatos reais nunca somem da lista; projeções aparecem
  * marcadas como previstas.
  */
