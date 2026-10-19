@@ -475,14 +475,14 @@ describe("duas ocorrências regulares do mesmo item na mesma competência", () =
 
   it("fatura SET paga/fechada mostra as duas cobranças vinculadas", () => {
     const groups = buildStatementGroups({ items, occurrences, competence: SET });
-    const set = groups.find((g) => g.competence.month === 9)!;
+    const set = groups.find((g) => g.dueDate === "2026-09-25")!;
     const adobeComponents = set.components.filter((c) => c.item.id === "adobe");
     expect(adobeComponents).toHaveLength(2);
   });
 
   it("fatura OUT não ganha artificialmente a cobrança Adobe de 14/09", () => {
     const groups = buildStatementGroups({ items, occurrences, competence: OUT });
-    const out = groups.find((g) => g.competence.month === 10);
+    const out = groups.find((g) => g.dueDate === "2026-10-25");
     const adobeComponents = (out?.components ?? []).filter((c) => c.item.id === "adobe");
     expect(adobeComponents).toHaveLength(0);
   });

@@ -114,8 +114,10 @@ export function maskBrlTyping(raw: string | null | undefined): string {
 }
 
 function centsFromDigits(digits: string): string {
-  const clean = digits.replace(/^0+(?=\d)/, "").padStart(3, "0");
-  return `${groupThousands(clean.slice(0, -2))},${clean.slice(-2)}`;
+  const clean = digits.replace(/^0+(?=\d)/, "");
+  if (!clean) return "";
+  const padded = clean.padStart(3, "0");
+  return `${groupThousands(padded.slice(0, -2))},${padded.slice(-2)}`;
 }
 
 /**
