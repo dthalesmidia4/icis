@@ -748,15 +748,22 @@ export function buildMonthRows(params: {
       continue;
     }
 
-    // ---- Demais naturezas: no máximo uma linha por competência (inalterado).
-    const scheduledFallback = [...byScheduled.entries()].find(
-      ([identity, occ]) => occ.item_id === item.id && !consumed.has(identity),
-    );
-    const occ = byItem.get(item.id) ?? scheduledFallback?.[1];
-    if (scheduledFallback) consumed.add(scheduledFallback[0]);
-    if (occ) {
-      if (isSkippedOccurrence(occ)) continue;
-      rows.push(rowFromOccurrence(item, occ, fallbackRate));
+    // ---- Demais naturezas: fato regular legado (sem scheduled_date) E todas
+    // as ocorrências regulares COM scheduled_date do mesmo mês coexistem como
+    // linhas próprias (ex.: duas cobranças reais do mesmo item na competência).
+    const regulars: FinanceOccurrence[] = [];
+    const legacy = byItem.get(item.id);
+    if (legacy) regulars.push(legacy);
+    for (const [identity, occ] of byScheduled) {
+      if (occ.item_id !== item.id || consumed.has(identity)) continue;
+      consumed.add(identity);
+      regulars.push(occ);
+    }
+    if (regulars.length > 0) {
+      for (const occ of regulars) {
+        if (isSkippedOccurrence(occ)) continue;
+        rows.push(rowFromOccurrence(item, occ, fallbackRate));
+      }
       /**
        * FATO ARQUIVADO AQUI COM DATA DE OUTRO MÊS (ex.: cobrança de 15/07 na
        * competência de agosto) continua sendo O FATO DO MÊS — regra canônica
