@@ -138,6 +138,8 @@ export default function PayStatementModal({
   const exactRequired = group?.actualTotal != null;
 
   const usdComponents = useMemo(() => usdComponentsOf(group), [group]);
+  /** Linhas BRL da fatura, apenas para exibição: nada aqui é editável. */
+  const brlRows = useMemo(() => brlComponentsOf(group), [group]);
 
   useEffect(() => {
     if (!open) return;
