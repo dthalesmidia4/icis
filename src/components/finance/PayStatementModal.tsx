@@ -63,6 +63,27 @@ import {
 } from "@/lib/financeReconciliation";
 
 
+/**
+ * COMPRAS EM REAIS desta fatura (leitura pura, sem edição).
+ *
+ * Só transparência: o usuário não ajusta nada aqui — o que se confirma são as
+ * compras em dólar e o total do fechamento.ordenar por data de cobrança e,
+ * em empate, pelo nome. Fatos reais nunca somem da lista; projeções aparecem
+ * marcadas como previstas.
+ */
+export function brlComponentsOf(group: StatementGroup | null): MonthRow[] {
+  if (!group) return [];
+  return group.components
+    .filter((row) => row.currency === "BRL")
+    .slice()
+    .sort((a, b) => {
+      const da = a.chargeDate ?? "9999-99-99";
+      const db = b.chargeDate ?? "9999-99-99";
+      if (da !== db) return da < db ? -1 : 1;
+      return (a.item.name ?? "").localeCompare(b.item.name ?? "");
+    });
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
