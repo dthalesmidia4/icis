@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDayOfMonth, parseLocalizedNumber, parsePositiveInt } from "./financeNumber";
+import { brlTypingStep, parseDayOfMonth, parseLocalizedNumber, parsePositiveInt } from "./financeNumber";
 import { FinanceItem, matchesRecurrenceInterval } from "./financeModel";
 
 describe("parseLocalizedNumber", () => {
