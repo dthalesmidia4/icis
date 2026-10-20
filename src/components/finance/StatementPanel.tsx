@@ -157,6 +157,12 @@ export default function StatementPanel({
         const classifiedIof = statementIofBrl(group);
         // `Pago em` é FATO; `Vence em` é histórico. Os dois coexistem.
         const paidOn = paymentTimestampToDate(group.statementRow?.occurrence?.paid_at);
+        const statementOccurrenceId = group.statementRow?.occurrence?.id ?? null;
+        const paidDateValue = paidDateDraft[card.id] ?? paidOn ?? "";
+        const paidDateValid = isValidPaymentDate(paidDateValue) && paidDateValue <= today;
+        const paidDateSaving = savingPaidDate === card.id;
+        const canCorrectPaidDate =
+          group.paid && !!paidOn && !!statementOccurrenceId && !!onCorrectPaidDate;
         /**
          * Enquanto a data está suja/salvando, fechar ou pagar usaria a janela
          * ANTIGA — as duas ações ficam bloqueadas até a fatura ser recarregada.
