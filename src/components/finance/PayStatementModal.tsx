@@ -90,6 +90,30 @@ export function brlComponentsOf(group: StatementGroup | null): MonthRow[] {
     });
 }
 
+/** Compras USD ainda sem valor real confirmado (projeção ou estimativa salva). */
+export function usdEstimatedComponents(group: StatementGroup | null): MonthRow[] {
+  if (!group) return [];
+  return group.components.filter(
+    (row) => row.currency === "USD" && (row.projected || row.estimated),
+  );
+}
+
+/**
+ * SUGESTÃO de total a partir da composição: `projectedTotal` (só componentes)
+ * + IOF estimado de 3,5% SOMENTE sobre as compras USD ainda estimadas — as
+ * que já têm valor real em reais já incluem o imposto, então somar IOF sobre
+ * elas duplicaria o tributo. `null` quando não há composição para estimar.
+ */
+export function statementTotalEstimate(group: StatementGroup | null): number | null {
+  if (!group || !(group.projectedTotal > 0)) return null;
+  const estimatedUsdBrl = usdEstimatedComponents(group).reduce(
+    (sum, row) => sum + (row.amountBrl ?? 0),
+    0,
+  );
+  const iof = Number((estimatedUsdBrl * 0.035).toFixed(2));
+  return Number((group.projectedTotal + iof).toFixed(2));
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -138,8 +162,10 @@ export default function PayStatementModal({
    */
   const [iofOverride, setIofOverride] = useState<string | null>(null);
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
-  const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
+    const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
   const seededStatement = useRef<string | null>(null);
+  /** `true` depois que o usuário toca no total: a sugestão nunca o sobrescreve. */
+  const userEditedTotal = useRef(false);
 
   const knownTotal = group?.actualTotal ?? null;
   /** Fatura com valor real informado: o total é fato, não pode pagar parcial. */
@@ -158,9 +184,16 @@ export default function PayStatementModal({
     if (statementKey === seededStatement.current) return;
     seededStatement.current = statementKey;
     setDate(today);
+    userEditedTotal.current = false;
     const seed = seedStatementClosure(group);
     // Fechamento já conhecido abre predefinido: total real + IOF classificado.
-    setTotal(maskBrlInput(seed.total));
+    // Sem total real, a ESTIMATIVA da composição (componentes + IOF sobre o que
+    // ainda é estimativa) entra como sugestão — editável, nada é gravado.
+    setTotal(
+      knownTotal != null
+        ? maskBrlInput(seed.total)
+        : maskBrlFromNumber(statementTotalEstimate(group)),
+    );
     // Nenhum ajuste manual ao abrir: o IOF salvo (fato) ou o cálculo manda.
     setIofOverride(null);
     const usdSeed: Record<string, string> = {};
@@ -202,6 +235,32 @@ export default function PayStatementModal({
   const iofResult = parseIofInput(iofSource);
   const iofMessage = iofInputMessage(iofResult);
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
+
+  /**
+   * SUGESTÃO de total enquanto a fatura não tem valor real: componentes BRL +
+   * USD (confirmados na reconciliação; senão a estimativa) + IOF. O IOF entra
+   * UMA vez — nunca somado sobre um total que já o contém.
+   */
+  const suggestedTotalBrl = useMemo(() => {
+    if (knownTotal != null) return null;
+    const brlSubtotal = brlRows.reduce((sum, row) => sum + (row.amountBrl ?? 0), 0);
+    const usdBase =
+      confirmedUsdBrl ??
+      usdEstimatedComponents(group).reduce((sum, row) => sum + (row.amountBrl ?? 0), 0);
+    const base = brlSubtotal + (usdComponents.length > 0 ? usdBase : 0);
+    if (base <= 0) return null;
+    const iof = iofResult.state === "ok" ? iofBrl : automaticIofBrl;
+    return Number((base + iof).toFixed(2));
+  }, [knownTotal, brlRows, confirmedUsdBrl, group, usdComponents.length, iofResult.state, iofBrl, automaticIofBrl]);
+
+  // Enquanto o usuário não tocar no total, a sugestão acompanha USD/IOF.
+  useEffect(() => {
+    if (!open || userEditedTotal.current || suggestedTotalBrl == null) return;
+    setTotal((prev) => {
+      const next = maskBrlFromNumber(suggestedTotalBrl);
+      return prev === next ? prev : next;
+    });
+  }, [open, suggestedTotalBrl]);
   /** Total final digitado; quando vazio, preserva somente um total real conhecido. */
   const closureTotalBrl = closure.state === "ok" ? closure.totalBrl : null;
   const finalTotalBrl = closureTotalBrl ?? knownTotal;
@@ -507,12 +566,20 @@ export default function PayStatementModal({
                 inputMode="decimal"
                 className="w-full min-w-0 max-w-full"
                 value={total}
-                onChange={(e) => setTotal((prev) => brlTypingStep(prev, e.target.value))}
+                onChange={(e) => {
+                  userEditedTotal.current = true;
+                  setTotal((prev) => brlTypingStep(prev, e.target.value));
+                }}
                 placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
               />
               <p className="text-xs text-muted-foreground">
                 Digite exatamente o valor final exibido na fatura do banco. Esse valor já inclui o IOF.
               </p>
+              {knownTotal == null && !userEditedTotal.current && suggestedTotalBrl != null && (
+                <p className="text-xs text-muted-foreground">
+                  Estimativa do ICIS — confira o valor exato cobrado pelo banco antes de pagar
+                </p>
+              )}
               {closureMessage && <p className="text-xs text-destructive">{closureMessage}</p>}
               {amountMessage && !closureMessage && (
                 <p className="text-xs text-destructive">{amountMessage}</p>

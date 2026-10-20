@@ -214,7 +214,7 @@ function FinancialCockpit() {
   const {
     loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     skipped, skipOccurrence, restoreOccurrence,
-    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, freezeStatementComponents, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, saveSettings, saveItem, setItemActive, refresh,
+    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, freezeStatementComponents, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, correctPaidStatementDate, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
 
@@ -1446,6 +1446,7 @@ function FinancialCockpit() {
                 onPayStatement={handlePayStatement}
                 processing={statementBusy}
                 onSaveClosingDate={handleSaveClosingDate}
+                onCorrectPaidDate={correctPaidStatementDate}
                 onEditCard={(card) => openItemModal(card)}
                 onEditItem={(item) => openItemModal(item)}
               />

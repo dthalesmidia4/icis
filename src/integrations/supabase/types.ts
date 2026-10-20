@@ -4374,6 +4374,10 @@ export type Database = {
         Args: { _occurrence_id: string; _patch: Json }
         Returns: string
       }
+      finance_correct_paid_statement_date: {
+        Args: { _occurrence_id: string; _paid_date: string }
+        Returns: Json
+      }
       finance_create_supplemental_occurrence: {
         Args: {
           _amount_brl?: number
