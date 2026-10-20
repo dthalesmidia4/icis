@@ -12,7 +12,7 @@
  * banco recalcula e persiste esse câmbio — a tela só mostra a prévia.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -108,12 +108,13 @@ interface Props {
     statementAmountBrl: number | null;
   }) => Promise<boolean>;
   /**
-   * Salva SOMENTE a conferência cambial, mantendo a fatura em aberto.
+   * Salva SOMENTE a conferência cambial e o IOF, mantendo a fatura em aberto.
    * `true` = gravado no banco.
    */
   onSaveUsdDraft?: (params: {
     group: StatementGroup;
     usdComponents: unknown[];
+    iofBrl: number;
   }) => Promise<boolean>;
 }
 
@@ -138,6 +139,7 @@ export default function PayStatementModal({
   const [iofOverride, setIofOverride] = useState<string | null>(null);
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
   const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
+  const seededStatement = useRef<string | null>(null);
 
   const knownTotal = group?.actualTotal ?? null;
   /** Fatura com valor real informado: o total é fato, não pode pagar parcial. */
@@ -148,7 +150,13 @@ export default function PayStatementModal({
   const brlRows = useMemo(() => brlComponentsOf(group), [group]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      seededStatement.current = null;
+      return;
+    }
+    const statementKey = group?.statementRow?.occurrence?.id ?? group?.card.id ?? null;
+    if (statementKey === seededStatement.current) return;
+    seededStatement.current = statementKey;
     setDate(today);
     const seed = seedStatementClosure(group);
     // Fechamento já conhecido abre predefinido: total real + IOF classificado.
@@ -181,11 +189,11 @@ export default function PayStatementModal({
   /** IOF já salvo na ocorrência: FATO histórico, prevalece ao abrir. */
   const savedIofRaw = group?.statementRow?.occurrence?.iof_amount_brl ?? null;
   const savedIof =
-    savedIofRaw != null && Number.isFinite(savedIofRaw) && savedIofRaw > 0
+    savedIofRaw != null && Number.isFinite(savedIofRaw) && savedIofRaw >= 0
       ? Number(savedIofRaw.toFixed(2))
       : null;
   /** Sem ajuste manual: fato salvo, senão o cálculo automático, senão 0. */
-  const automaticIofBrl = savedIof ?? calculatedIof ?? 0;
+  const automaticIofBrl = savedIofRaw === null ? calculatedIof ?? 0 : savedIof ?? 0;
   const adjustingIof = iofOverride !== null;
   const iofSource = adjustingIof ? iofOverride ?? "" : String(automaticIofBrl);
 
@@ -266,16 +274,19 @@ export default function PayStatementModal({
 
   /** Só a conferência: a fatura continua em aberto, nada é liquidado. */
   const canSaveDraft =
-    !!onSaveUsdDraft && usdComponents.length > 0 && reconciliation.state === "ok";
+    !!onSaveUsdDraft && usdComponents.length > 0 && reconciliation.state === "ok" &&
+    closure.state === "ok" && iofResult.state === "ok";
 
   const submitDraft = async () => {
-    if (!onSaveUsdDraft || !group || reconciliation.state !== "ok") return;
+    if (!onSaveUsdDraft || !group || !canSaveDraft || reconciliation.state !== "ok" ||
+        closure.state !== "ok" || iofResult.state !== "ok" || savingDraft) return;
     setSavingDraft(true);
     try {
       // Os valores digitados são preservados: o modal permanece aberto.
       await onSaveUsdDraft({
         group,
         usdComponents: reconciliationDraftPayload(reconciliation.entries),
+        iofBrl,
       });
     } finally {
       setSavingDraft(false);
