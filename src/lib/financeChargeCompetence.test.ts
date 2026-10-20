@@ -491,3 +491,36 @@ describe("duas ocorrências regulares do mesmo item na mesma competência", () =
     expect(adobeComponents.some((c) => c.occurrence?.id === "occ-adobe-2")).toBe(false);
   });
 });
+
+describe("AVISA-API — cobrança 20/09 não cobrada (skipped) não reaparece em OUT", () => {
+  const SET = { year: 2026, month: 9 };
+  const OUT = { year: 2026, month: 10 };
+  const stmtSet = occ({
+    id: "stmt-set", item_id: "card-itau", competence_month: "2026-09-01",
+    amount_brl: 69, due_date: "2026-09-25", statement_closing_date: "2026-09-14",
+    paid_at: "2026-09-20T12:00:00Z", paid_amount_brl: 69,
+  });
+  const stmtOut = occ({ id: "stmt-out", item_id: "card-itau", competence_month: "2026-10-01", due_date: "2026-10-25" });
+  const real = occ({
+    id: "occ-avisa-0820", item_id: "avisa", competence_month: "2026-09-01",
+    amount_brl: 69, charge_date: "2026-08-20", statement_occurrence_id: "stmt-set",
+  });
+  const skipped = occ({
+    id: "occ-avisa-0920", item_id: "avisa", competence_month: "2026-09-01",
+    scheduled_date: "2026-09-20", skipped_at: "2026-10-01T12:00:00Z",
+  });
+  const items = [card, avisa];
+  const occurrences = [stmtSet, stmtOut, real, skipped];
+
+  it("fatura OUT não inclui AVISA", () => {
+    const out = buildStatementGroups({ items, occurrences, competence: OUT }).find((g) => g.dueDate === "2026-10-25");
+    expect((out?.components ?? []).filter((c) => c.item.id === "avisa")).toHaveLength(0);
+  });
+
+  it("fatura SET paga preserva a cobrança real de 20/08", () => {
+    const set = buildStatementGroups({ items, occurrences, competence: SET }).find((g) => g.dueDate === "2026-09-25")!;
+    const av = set.components.filter((c) => c.item.id === "avisa");
+    expect(av.map((c) => c.occurrence?.id)).toEqual(["occ-avisa-0820"]);
+    expect(set.paid).toBe(true);
+  });
+});
