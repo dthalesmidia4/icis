@@ -117,6 +117,7 @@ export default function StatementPanel({
   labels,
   processing,
   onSaveClosingDate,
+  onCorrectPaidDate,
 }: Props) {
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -124,6 +125,10 @@ export default function StatementPanel({
   /** Rascunho do fechamento por cartão (só existe enquanto está sendo editado). */
   const [closingDraft, setClosingDraft] = useState<Record<string, string>>({});
   const [savingClosing, setSavingClosing] = useState<string | null>(null);
+  /** Correção da data de pagamento (fatura paga): edição por cartão. */
+  const [paidDateEditing, setPaidDateEditing] = useState<string | null>(null);
+  const [paidDateDraft, setPaidDateDraft] = useState<Record<string, string>>({});
+  const [savingPaidDate, setSavingPaidDate] = useState<string | null>(null);
 
   useEffect(() => {
     if (focusCardId) setExpanded((prev) => ({ ...prev, [focusCardId]: true }));
