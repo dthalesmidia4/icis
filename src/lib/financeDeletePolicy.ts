@@ -82,6 +82,8 @@ export type OccurrenceDeleteAction =
   | "delete_statement"
   /** Avulso aberto e único fato do cadastro: apaga ocorrência + cadastro. */
   | "delete_one_off"
+  /** Recarga/extra aberto: exclui só este lançamento, preservando o cadastro. */
+  | "delete_supplemental"
   /** Recorrente/parcelado: o caminho é inativar o cadastro. */
   | "inactivate_item"
   /** Fato fechado: imutável. */
@@ -95,11 +97,14 @@ export interface OccurrenceDeleteInput {
   persisted: boolean;
   /** Pago diretamente OU liquidado por fatura paga (ver `effectivePaid`). */
   closed: boolean;
+  /** Papel do lançamento: extra/recharge nunca inativa o cadastro. */
+  entryRole?: string | null;
 }
 
 export function occurrenceDeleteAction(input: OccurrenceDeleteInput): OccurrenceDeleteAction {
   if (input.closed) return "blocked_closed";
   if (!input.persisted) return "nothing_to_delete";
+  if (input.entryRole === "extra" || input.entryRole === "recharge") return "delete_supplemental";
   if (input.item.kind === "card") return "delete_statement";
   if (input.item.recurrence_type === "one_off") return "delete_one_off";
   return "inactivate_item";
@@ -108,6 +113,7 @@ export function occurrenceDeleteAction(input: OccurrenceDeleteInput): Occurrence
 export const OCCURRENCE_ACTION_LABELS: Record<OccurrenceDeleteAction, string> = {
   delete_statement: "Excluir fatura informada",
   delete_one_off: "Excluir lançamento",
+  delete_supplemental: "Excluir este lançamento extra",
   inactivate_item: "Inativar cadastro",
   blocked_closed: "Registro fechado — preservado no histórico",
   nothing_to_delete: "Nada informado neste mês",
@@ -119,5 +125,12 @@ export function occurrenceDeleteActionForRow(row: MonthRow, closed: boolean): Oc
     item: row.item,
     persisted: !!row.occurrence,
     closed,
+    entryRole: row.entryRole,
   });
+}
+
+/** Rótulo do botão considerando o papel (recarga x extra). */
+export function occurrenceActionLabelForRow(action: OccurrenceDeleteAction, row: MonthRow | null): string {
+  if (action === "delete_supplemental" && row?.entryRole === "recharge") return "Excluir esta recarga";
+  return OCCURRENCE_ACTION_LABELS[action];
 }

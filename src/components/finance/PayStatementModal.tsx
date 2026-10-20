@@ -71,6 +71,13 @@ import {
  * em empate, pelo nome. Fatos reais nunca somem da lista; projeções aparecem
  * marcadas como previstas.
  */
+/** Texto "Na fatura" só quando preenchido e diferente do nome interno. */
+export function statementLabelHint(label: string | null | undefined, name: string): string | null {
+  const t = (label ?? "").trim();
+  if (!t || t.toLowerCase() === (name ?? "").trim().toLowerCase()) return null;
+  return t;
+}
+
 export function brlComponentsOf(group: StatementGroup | null): MonthRow[] {
   if (!group) return [];
   return group.components
@@ -315,6 +322,11 @@ export default function PayStatementModal({
                       {row.projected ? (
                         <span className="text-xs text-muted-foreground"> (previsto)</span>
                       ) : null}
+                      {statementLabelHint(row.item.statement_label, row.item.name) ? (
+                        <span className="block text-xs text-muted-foreground">
+                          Na fatura: {statementLabelHint(row.item.statement_label, row.item.name)}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="font-medium tabular-nums">
                       {row.amountBrl != null ? formatBRL(row.amountBrl) : "Valor não informado"}
@@ -353,6 +365,11 @@ export default function PayStatementModal({
                       <Label htmlFor={`usd-${comp.row.key}`} className="text-sm">
                         {comp.name}
                       </Label>
+                      {statementLabelHint(comp.row.item.statement_label, comp.name) ? (
+                        <p className="text-xs text-muted-foreground">
+                          Na fatura: {statementLabelHint(comp.row.item.statement_label, comp.name)}
+                        </p>
+                      ) : null}
                       <p className="text-xs text-muted-foreground">
                         {comp.chargeDate ? `Cobrança ${formatDayMonth(comp.chargeDate)} · ` : ""}
                         US$ {comp.amountOriginal ?? "—"}

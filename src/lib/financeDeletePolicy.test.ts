@@ -121,3 +121,23 @@ describe("aviso de cartão", () => {
     expect(page).toContain("visibleStatements.filter((g) => g.configIncomplete && g.card.active)");
   });
 });
+
+describe("recarga/extra nunca inativa o cadastro", () => {
+  for (const entryRole of ["extra", "recharge"] as const) {
+    it(`${entryRole} aberto => delete_supplemental`, () => {
+      expect(occurrenceDeleteAction({ item: item(), persisted: true, closed: false, entryRole })).toBe(
+        "delete_supplemental",
+      );
+    });
+    it(`${entryRole} fechado => bloqueado`, () => {
+      expect(occurrenceDeleteAction({ item: item(), persisted: true, closed: true, entryRole })).toBe(
+        "blocked_closed",
+      );
+    });
+  }
+  it("mensal regular aberto continua inactivate_item", () => {
+    expect(
+      occurrenceDeleteAction({ item: item(), persisted: true, closed: false, entryRole: "regular" }),
+    ).toBe("inactivate_item");
+  });
+});
