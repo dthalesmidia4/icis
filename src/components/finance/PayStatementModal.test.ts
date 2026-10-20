@@ -9,7 +9,7 @@
  * parte editável, e nenhum valor da fatura é alterado pela exibição.
  */
 import { describe, expect, it } from "vitest";
-import { brlComponentsOf } from "./PayStatementModal";
+import { brlComponentsOf, statementTotalEstimate, usdEstimatedComponents } from "./PayStatementModal";
 import { usdComponentsOf } from "@/lib/financeReconciliation";
 import type { FinanceItem, MonthRow, StatementGroup } from "@/lib/financeModel";
 
@@ -34,7 +34,7 @@ function row(p: Partial<MonthRow> & { key: string; name: string; currency: "BRL"
     cardItemId: p.cardItemId ?? "card-1",
     paymentMethod: "card",
     paymentOverridden: false,
-    estimated: false,
+    estimated: p.estimated ?? false,
     installmentNumber: null,
     installmentCount: null,
     scheduledDate: p.scheduledDate ?? null,
