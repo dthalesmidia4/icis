@@ -141,3 +141,60 @@ describe("compras em reais dentro do modal de pagamento", () => {
     expect(brlComponentsOf(g)).toEqual([]);
   });
 });
+
+describe("sugestão de total da fatura (sem valor real salvo)", () => {
+  it("BRL 189 + USD estimado 425,08: soma IOF de 3,5% => R$ 628,96", () => {
+    const g = group();
+    g.actualTotal = null;
+    g.components = [
+      row({ key: "brl-1", name: "ASSINATURA BRL", currency: "BRL", amountBrl: 189 }),
+      row({ key: "usd-1", name: "HEYGEN", currency: "USD", amountBrl: 425.08, projected: true }),
+    ];
+    g.projectedTotal = 614.08;
+    // 425,08 * 3,5% = 14,8778 -> 14,88; 614,08 + 14,88 = 628,96
+    expect(statementTotalEstimate(g)).toBe(628.96);
+  });
+
+  it("USD com valor real confirmado NÃO recebe IOF de novo (já está no valor)", () => {
+    const g = group();
+    g.actualTotal = null;
+    g.components = [
+      row({ key: "brl-1", name: "ASSINATURA BRL", currency: "BRL", amountBrl: 189 }),
+      row({
+        key: "usd-1",
+        name: "HEYGEN",
+        currency: "USD",
+        amountBrl: 425.08,
+        occurrence: { id: "o1" } as never,
+      }),
+    ];
+    g.projectedTotal = 614.08;
+    expect(usdEstimatedComponents(g)).toEqual([]);
+    expect(statementTotalEstimate(g)).toBe(614.08);
+  });
+
+  it("ocorrência USD marcada como estimada também entra no cálculo do IOF", () => {
+    const g = group();
+    g.actualTotal = null;
+    g.components = [
+      row({
+        key: "usd-1",
+        name: "HEYGEN",
+        currency: "USD",
+        amountBrl: 100,
+        estimated: true,
+        occurrence: { id: "o1" } as never,
+      }),
+    ];
+    g.projectedTotal = 100;
+    expect(statementTotalEstimate(g)).toBe(103.5);
+  });
+
+  it("fatura sem composição não gera sugestão", () => {
+    const g = group();
+    g.actualTotal = null;
+    g.components = [];
+    g.projectedTotal = 0;
+    expect(statementTotalEstimate(g)).toBeNull();
+  });
+});
