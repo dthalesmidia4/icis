@@ -729,13 +729,15 @@ function FinancialCockpit() {
   const confirmUsdDraft = async ({
     group,
     usdComponents,
+    iofBrl,
   }: {
     group: StatementGroup;
     usdComponents: unknown[];
+    iofBrl: number;
   }): Promise<boolean> => {
     const occ = group.statementRow?.occurrence;
     if (!occ) return false;
-    return await saveUsdReconciliationDraft(occ.id, usdComponents);
+    return await saveUsdReconciliationDraft(occ.id, usdComponents, iofBrl);
   };
 
   const confirmStatementClosure = async (payload: {

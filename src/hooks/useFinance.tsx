@@ -760,11 +760,12 @@ export function useFinance(competence: Competence) {
    * fatura EM ABERTO — nada de `paid_at`.
    */
   const saveUsdReconciliationDraft = useCallback(
-    async (occurrenceId: string, usdComponents: unknown[]) => {
-      const { error } = await supabase.rpc("save_finance_statement_usd_reconciliation_draft", {
+    async (occurrenceId: string, usdComponents: unknown[], iofBrl: number) => {
+      const { error } = await (supabase as any).rpc("save_finance_statement_usd_iof_draft", {
         _occurrence_id: occurrenceId,
         _usd_components: usdComponents,
-      } as any);
+        _iof_brl: iofBrl,
+      });
       if (error) {
         toast.error(error.message || "Não foi possível salvar os valores em reais");
         return false;
