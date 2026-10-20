@@ -193,7 +193,7 @@ export default function PayStatementModal({
       ? Number(savedIofRaw.toFixed(2))
       : null;
   /** Sem ajuste manual: fato salvo, senão o cálculo automático, senão 0. */
-  const automaticIofBrl = savedIof ?? calculatedIof ?? 0;
+  const automaticIofBrl = savedIofRaw === null ? calculatedIof ?? 0 : savedIof ?? 0;
   const adjustingIof = iofOverride !== null;
   const iofSource = adjustingIof ? iofOverride ?? "" : String(automaticIofBrl);
 
