@@ -44,7 +44,7 @@ import {
 } from "@/lib/financeCardLinkedItems";
 import { Competence } from "@/lib/financeCardCycle";
 import { formatDayMonth, monthFullLabel, statementValueLabel } from "@/lib/financeRowStatus";
-import { paymentTimestampToDate } from "@/lib/financePaymentDate";
+import { isValidPaymentDate, paymentTimestampToDate } from "@/lib/financePaymentDate";
 import {
   type OccurrenceLabel,
   buildOccurrenceLabels,
@@ -79,6 +79,11 @@ interface Props {
    * aparece (escopo sem permissão de escrita).
    */
   onSaveClosingDate?: (group: StatementGroup, closingDate: string | null) => Promise<boolean>;
+  /**
+   * Corrige SOMENTE a data de pagamento de uma fatura já paga (RPC segura,
+   * com auditoria; total/IOF/vínculos preservados). Ausente => sem botão.
+   */
+  onCorrectPaidDate?: (occurrenceId: string, paidDateISO: string) => Promise<boolean>;
 }
 
 function Fact({ label, value, tone, hint }: { label: string; value: string; tone?: "muted" | "warning"; hint?: string }) {
