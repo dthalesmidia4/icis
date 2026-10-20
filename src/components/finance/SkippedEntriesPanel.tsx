@@ -1,3 +1,4 @@
+import { financeItemDisplayName } from "@/lib/financeOccurrenceLabels";
 /**
  * EXCEÇÕES DO MÊS — lançamentos IGNORADOS.
  *
@@ -54,7 +55,7 @@ export default function SkippedEntriesPanel({ entries, onRestore }: Props) {
               className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{entry.item.name}</p>
+                <p className="truncate text-sm font-medium">{financeItemDisplayName(entry.item)}</p>
                 <p className="text-xs text-muted-foreground">
                   Previsto para {formatDay(entry.scheduledDate)}
                   {entry.reason ? ` — ${entry.reason}` : ""}

@@ -1278,6 +1278,24 @@ export function buildStatementGroups(params: {
             if (resolved.incomplete || !resolved.statementCompetence) continue;
             if (!sameCompetence(resolved.statementCompetence, competence)) continue;
           }
+          // Open forecasts use current currency/defaults only; their source date stays intact.
+          if (row.projected && !row.occurrence && !statementFrozen &&
+              !effectiveCycle?.closingDateIsActual &&
+              sameCompetence(chargeCompetence, addMonths(competence, -1))) {
+            const currentItem = itemsByIdAll.get(row.item.id);
+            if (currentItem && currentItem.card_item_id === card.id) {
+              const currentProjection = rowFromProjection(currentItem, chargeCompetence, fallbackRate);
+              row = {
+                ...row,
+                item: currentItem,
+                currency: currentProjection.currency,
+                amountBrl: currentProjection.amountBrl,
+                amountOriginal: currentProjection.amountOriginal,
+                exchangeRate: currentProjection.exchangeRate,
+                estimated: currentProjection.estimated,
+              };
+            }
+          }
           /**
            * Fato real tem identidade PRÓPRIA (a PK da ocorrência): dois fatos
            * do mesmo item no mesmo dia (renovação + recarga) são cobranças

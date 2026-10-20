@@ -41,7 +41,7 @@ import {
 import { Competence, dateInMonth } from "@/lib/financeCardCycle";
 import { RowStatusContext, formatDayMonth, isCardCharge, resolveRowStatus } from "@/lib/financeRowStatus";
 import { findSafeStatementStatus, groupStatementNotice } from "@/lib/financeSafeStatement";
-import { buildOccurrenceLabels, occurrenceDisplaySuffix } from "@/lib/financeOccurrenceLabels";
+import { buildOccurrenceLabels, occurrenceDisplayName, financeItemDisplayName } from "@/lib/financeOccurrenceLabels";
 
 import SubscriptionCatalogModal from "@/components/finance/SubscriptionCatalogModal";
 
@@ -159,7 +159,7 @@ export default function SubscriptionsPanel({
             {entry.children.map((child) => (
               <div key={child.id} className="flex items-center gap-2 px-3 py-2">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium truncate">{child.name}</span>
+                  <span className="block text-sm font-medium truncate">{financeItemDisplayName(child)}</span>
                   <span className="block text-sm text-muted-foreground">
                     Incluído no pacote — sem custo adicional
                   </span>
@@ -212,7 +212,7 @@ export default function SubscriptionsPanel({
         <div className="flex flex-wrap items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[15px] font-semibold text-foreground">{item.name}</span>
+              <span className="text-[15px] font-semibold text-foreground">{financeItemDisplayName(item)}</span>
               {item.kind === "package" && (
                 <Badge variant="outline" className="text-sm">
                   Pacote
@@ -335,7 +335,7 @@ export default function SubscriptionsPanel({
                     <div key={child.key} className="flex items-center gap-2 px-3 py-2">
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-medium truncate">
-                          {occurrenceDisplaySuffix(child, occurrenceLabels)}
+                          {occurrenceDisplayName(child, occurrenceLabels)}
                         </span>
                         <span className="block text-sm text-muted-foreground">
                           {childDate ? formatDayMonth(childDate) : "Sem data"}

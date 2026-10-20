@@ -1,3 +1,4 @@
+import { financeItemDisplayName } from "@/lib/financeOccurrenceLabels";
 /**
  * NOVO LANÇAMENTO SUPLEMENTAR (recarga/extra) do MESMO cadastro.
  *
@@ -139,7 +140,7 @@ export default function FinanceSupplementalEntryModal({
         <DialogHeader>
           <DialogTitle>{action.title}</DialogTitle>
           <DialogDescription>
-            {item.name} — fato adicional deste mês. O lançamento previsto do cadastro continua
+            {financeItemDisplayName(item)} — fato adicional deste mês. O lançamento previsto do cadastro continua
             valendo e não é substituído.
           </DialogDescription>
         </DialogHeader>

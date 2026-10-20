@@ -661,6 +661,11 @@ export default function FinanceOccurrenceModal({
                 {cardRow && (
                   <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DATE_HELP}</p>
                 )}
+                {cardRow && row.occurrence && !row.chargeDate && row.dueDate && !legacyDirectOnCard && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Este lançamento já salvo não tem data de cobrança no cartão. Editar o dia no cadastro não muda a data deste lançamento. Informe aqui a data real para vinculá-lo à fatura.
+                  </p>
+                )}
               </div>
 
               {/* Moeda DESTE fato: correção do mês, nunca do cadastro. */}
