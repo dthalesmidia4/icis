@@ -1225,16 +1225,6 @@ export function buildStatementGroups(params: {
   return cards.map((card) => {
     const cycle = { closingDay: card.statement_closing_day, dueDay: card.statement_due_day };
     const effectiveCycle = cycleFor(params.cycles, card.id, competence);
-    /** Fatos que ESTA fatura aberta reivindica provisoriamente. */
-    const ownClaim = provisionalClaimWindow({ card, competence, cycles: params.cycles, items, occurrences });
-    /** Fatos já reivindicados pela fatura ANTERIOR ainda aberta (não repetir aqui). */
-    const previousClaim = provisionalClaimWindow({
-      card,
-      competence: addMonths(competence, -1),
-      cycles: params.cycles,
-      items,
-      occurrences,
-    });
     const configIncomplete = card.statement_closing_day == null || card.statement_due_day == null;
 
 
@@ -1319,33 +1309,17 @@ export function buildStatementGroups(params: {
              */
             const inCycle = chargeDateInCycle(row.chargeDate, effectiveCycle);
             const isRealFact = !!row.occurrence && !row.projected;
-            /** Exceção: FATO cobrado após o fechamento previsto, até o vencimento. */
-            const claimedHere =
-              isRealFact &&
-              !!ownClaim &&
-              !!row.chargeDate &&
-              row.chargeDate >= ownClaim.start &&
-              row.chargeDate <= ownClaim.end &&
-              ownClaim.itemIds.has(row.item.id);
-            if (!inCycle && !claimedHere) {
+            if (!inCycle) {
               /**
-               * FATO ANTIGO DO MÊS (cobrança de outro ciclo, ex.: 14/07
-               * arquivado em agosto) não pode APAGAR a cobrança prevista deste
-               * ciclo: a assinatura já existia e volta a cobrar dentro da
-               * janela. A linha do mês é então substituída pela PROJEÇÃO desse
-               * mês — e o fato real, quando existir dentro da janela, continua
-               * prevalecendo sobre ela no dedupe.
+               * FATO ANTIGO DO MÊS (cobrança de outro ciclo) não pode APAGAR a
+               * cobrança prevista deste ciclo: substitui pela PROJEÇÃO do mês
+               * somente se ela cair DENTRO da janela estrita.
                */
               const substitute =
                 isRealFact && !row.supplemental && isProjectableInMonth(row.item, chargeCompetence, rules)
                   ? rowFromProjection(row.item, chargeCompetence, fallbackRate)
                   : null;
               if (!substitute || !chargeDateInCycle(substitute.chargeDate, effectiveCycle)) continue;
-              /**
-               * IGNORADO É DECISÃO EXPLÍCITA: se existe ocorrência ignorada do
-               * mesmo item para aquela data de cobrança, a projeção substituta
-               * não pode ressuscitar a cobrança na fatura.
-               */
               const skippedSameCharge = occurrences.some(
                 (occ) =>
                   occ.item_id === row.item.id &&
@@ -1355,17 +1329,6 @@ export function buildStatementGroups(params: {
               );
               if (skippedSameCharge) continue;
               row = substitute;
-            }
-            /** Reivindicado pelo mês anterior ainda aberto: nem fato nem projeção equivalente. */
-            if (
-              !claimedHere &&
-              previousClaim &&
-              row.chargeDate &&
-              row.chargeDate >= previousClaim.start &&
-              row.chargeDate <= previousClaim.end &&
-              previousClaim.itemIds.has(row.item.id)
-            ) {
-              continue;
             }
           } else {
 
