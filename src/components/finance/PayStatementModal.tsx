@@ -90,6 +90,30 @@ export function brlComponentsOf(group: StatementGroup | null): MonthRow[] {
     });
 }
 
+/** Compras USD ainda sem valor real confirmado (projeção ou estimativa salva). */
+export function usdEstimatedComponents(group: StatementGroup | null): MonthRow[] {
+  if (!group) return [];
+  return group.components.filter(
+    (row) => row.currency === "USD" && (row.projected || row.estimated),
+  );
+}
+
+/**
+ * SUGESTÃO de total a partir da composição: `projectedTotal` (só componentes)
+ * + IOF estimado de 3,5% SOMENTE sobre as compras USD ainda estimadas — as
+ * que já têm valor real em reais já incluem o imposto, então somar IOF sobre
+ * elas duplicaria o tributo. `null` quando não há composição para estimar.
+ */
+export function statementTotalEstimate(group: StatementGroup | null): number | null {
+  if (!group || !(group.projectedTotal > 0)) return null;
+  const estimatedUsdBrl = usdEstimatedComponents(group).reduce(
+    (sum, row) => sum + (row.amountBrl ?? 0),
+    0,
+  );
+  const iof = Number((estimatedUsdBrl * 0.035).toFixed(2));
+  return Number((group.projectedTotal + iof).toFixed(2));
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
