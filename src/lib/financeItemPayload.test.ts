@@ -10,10 +10,10 @@ import { parseDayOfMonth } from "./financeNumber";
 
 describe("dia real obrigatório para recorrência mensal/anual/custom no cartão", () => {
   it.each(["", "0", "32", "1.5", "abc"])("bloqueia dia inválido %s", (typed) => {
-    expect(recurringCardChargeDayValid(true, true, false, parseDayOfMonth(typed))).toBe(false);
+    expect(recurringCardChargeDayValid(true, true, false, parseDayOfMonth(typed), typed)).toBe(false);
   });
   it.each(["1", "23", "31"])("permite dia real %s", (typed) => {
-    expect(recurringCardChargeDayValid(true, true, false, parseDayOfMonth(typed))).toBe(true);
+    expect(recurringCardChargeDayValid(true, true, false, parseDayOfMonth(typed), typed)).toBe(true);
   });
   it("não exige dia em avulso/parcelado, diária/semanal ou pagamento direto", () => {
     expect(recurringCardChargeDayValid(true, false, false, null)).toBe(true);

@@ -380,7 +380,7 @@ export default function FinanceItemFormModal({
   const selectedCard = cardSelected ? cards.find((c) => c.id === cardItemId) ?? null : null;
   const chargeDayNumber = parseDayOfMonth(chargeDay);
   const dueDayNumber = parseDayOfMonth(dueDay);
-  const chargeDayValid = recurringCardChargeDayValid(onCard, isRecurring, isSubMonthly, chargeDayNumber);
+  const chargeDayValid = recurringCardChargeDayValid(onCard, isRecurring, isSubMonthly, chargeDayNumber, chargeDay);
   /**
    * Cobrança/vencimento no mesmo mês precisam ser coerentes. Não é regra de
    * banco: `due < charge` pode ser vencimento no mês seguinte, e não guardamos
@@ -733,11 +733,11 @@ export default function FinanceItemFormModal({
                 </div>
                 <div>
                   <Label>Dia de fechamento da fatura</Label>
-                  <Input value={closingDay} onChange={(e) => setClosingDay(e.target.value)} inputMode="numeric" />
+                  <Input value={closingDay} onChange={(e) => setClosingDay(e.target.value)} placeholder="10" inputMode="numeric" />
                 </div>
                 <div>
                   <Label>Dia de vencimento da fatura</Label>
-                  <Input value={statementDueDay} onChange={(e) => setStatementDueDay(e.target.value)} inputMode="numeric" />
+                  <Input value={statementDueDay} onChange={(e) => setStatementDueDay(e.target.value)} placeholder="17" inputMode="numeric" />
                 </div>
               </div>
             </div>
@@ -929,6 +929,7 @@ export default function FinanceItemFormModal({
                       value={factDayOfMonth}
                       onChange={(e) => setFactDayOfMonth(e.target.value)}
                       inputMode="numeric"
+                      placeholder="Ex.: 1"
                      
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -994,6 +995,7 @@ export default function FinanceItemFormModal({
                             value={paymentDayOfMonth}
                             onChange={(e) => setPaymentDayOfMonth(e.target.value)}
                             inputMode="numeric"
+                            placeholder="Ex.: 5"
                            
                           />
                         </div>
@@ -1097,7 +1099,7 @@ export default function FinanceItemFormModal({
                     {!hideItemDueDay && (
                       <div>
                         <Label>Dia de vencimento</Label>
-                        <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} inputMode="numeric" />
+                        <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="10" inputMode="numeric" />
                       </div>
                     )}
                   </>

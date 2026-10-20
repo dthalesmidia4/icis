@@ -18,9 +18,11 @@ export function recurringCardChargeDayValid(
   isRecurring: boolean,
   isSubMonthly: boolean,
   chargeDay: number | null,
+  typedDay?: string,
 ): boolean {
   return !onCard || !isRecurring || isSubMonthly ||
-    (chargeDay != null && Number.isInteger(chargeDay) && chargeDay >= 1 && chargeDay <= 31);
+    (chargeDay != null && Number.isInteger(chargeDay) && chargeDay >= 1 && chargeDay <= 31 &&
+      (typedDay === undefined || /^\d+$/.test(typedDay.trim())));
 }
 
 export interface RecurrenceIntervalInput {
