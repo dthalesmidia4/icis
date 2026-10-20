@@ -162,8 +162,10 @@ export default function PayStatementModal({
    */
   const [iofOverride, setIofOverride] = useState<string | null>(null);
   /** Valor exato em reais por compra USD, indexado pela chave da linha. */
-  const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
+    const [usdInputs, setUsdInputs] = useState<Record<string, string>>({});
   const seededStatement = useRef<string | null>(null);
+  /** `true` depois que o usuário toca no total: a sugestão nunca o sobrescreve. */
+  const userEditedTotal = useRef(false);
 
   const knownTotal = group?.actualTotal ?? null;
   /** Fatura com valor real informado: o total é fato, não pode pagar parcial. */
