@@ -235,6 +235,32 @@ export default function PayStatementModal({
   const iofResult = parseIofInput(iofSource);
   const iofMessage = iofInputMessage(iofResult);
   const iofBrl = iofResult.state === "ok" ? iofResult.value : 0;
+
+  /**
+   * SUGESTÃO de total enquanto a fatura não tem valor real: componentes BRL +
+   * USD (confirmados na reconciliação; senão a estimativa) + IOF. O IOF entra
+   * UMA vez — nunca somado sobre um total que já o contém.
+   */
+  const suggestedTotalBrl = useMemo(() => {
+    if (knownTotal != null) return null;
+    const brlSubtotal = brlRows.reduce((sum, row) => sum + (row.amountBrl ?? 0), 0);
+    const usdBase =
+      confirmedUsdBrl ??
+      usdEstimatedComponents(group).reduce((sum, row) => sum + (row.amountBrl ?? 0), 0);
+    const base = brlSubtotal + (usdComponents.length > 0 ? usdBase : 0);
+    if (base <= 0) return null;
+    const iof = iofResult.state === "ok" ? iofBrl : automaticIofBrl;
+    return Number((base + iof).toFixed(2));
+  }, [knownTotal, brlRows, confirmedUsdBrl, group, usdComponents.length, iofResult.state, iofBrl, automaticIofBrl]);
+
+  // Enquanto o usuário não tocar no total, a sugestão acompanha USD/IOF.
+  useEffect(() => {
+    if (!open || userEditedTotal.current || suggestedTotalBrl == null) return;
+    setTotal((prev) => {
+      const next = maskBrlFromNumber(suggestedTotalBrl);
+      return prev === next ? prev : next;
+    });
+  }, [open, suggestedTotalBrl]);
   /** Total final digitado; quando vazio, preserva somente um total real conhecido. */
   const closureTotalBrl = closure.state === "ok" ? closure.totalBrl : null;
   const finalTotalBrl = closureTotalBrl ?? knownTotal;
