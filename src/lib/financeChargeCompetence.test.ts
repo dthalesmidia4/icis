@@ -521,3 +521,63 @@ describe("AVISA-API — cobrança 20/09 não cobrada (skipped) não reaparece em
     expect(set.paid).toBe(true);
   });
 });
+
+describe("ciclo estrito OUT/26 (15/09–13/10) x NOV/26 (14/10–13/11), fatura OUT aberta", () => {
+  const OUT = { year: 2026, month: 10 };
+  const NOV = { year: 2026, month: 11 };
+  const itau = item({
+    id: "itau", name: "Itaú ••••7587", kind: "card", cost_center: "compartilhado",
+    statement_closing_day: 13, statement_due_day: 25,
+  });
+  const sub = (id: string, day: number, currency = "BRL") =>
+    item({ id, name: id, default_amount_brl: 100, charge_day: day, card_item_id: "itau", currency } as never);
+  const items = [
+    itau, sub("in-1509", 15), sub("in-0110", 1, "USD"), sub("in-1310", 13), sub("adobe", 14),
+    sub("openai", 15, "USD"), sub("adplane", 24), sub("late-2510", 25), sub("lovable", 1),
+  ];
+  const f = (id: string, itemId: string, date: string, extra: Record<string, unknown> = {}) =>
+    occ({ id, item_id: itemId, competence_month: "2026-10-01", amount_brl: 100, charge_date: date, ...extra } as never);
+  const occurrences = [
+    occ({ id: "stmt-out", item_id: "itau", competence_month: "2026-10-01", due_date: "2026-10-25" }),
+    f("o-1509", "in-1509", "2026-09-15"),
+    f("o-0110", "in-0110", "2026-10-01", { currency: "USD" }),
+    f("o-1310", "in-1310", "2026-10-13"),
+    f("o-adobe", "adobe", "2026-10-14"),
+    f("o-openai", "openai", "2026-10-15", { currency: "USD" }),
+    f("o-adplane", "adplane", "2026-10-24"),
+    f("o-2510", "late-2510", "2026-10-25"),
+    f("o-lov-reg", "lovable", "2026-10-01"),
+    f("o-lov-r1", "lovable", "2026-10-05", { entry_role: "recharge", amount_brl: 50 }),
+    f("o-lov-r2", "lovable", "2026-10-20", { entry_role: "recharge", amount_brl: 60 }),
+  ];
+  const cyc = (comp: string, s: string, e: string, actual: boolean) =>
+    [`itau|${comp}`, { cardId: "itau", competenceMonth: comp, cycleStart: s, cycleEnd: e, closingDateIsActual: actual }] as const;
+  const cycles = new Map([
+    cyc("2026-09-01", "2026-08-14", "2026-09-14", true),
+    cyc("2026-10-01", "2026-09-15", "2026-10-13", false),
+    cyc("2026-11-01", "2026-10-14", "2026-11-13", false),
+  ]) as never;
+  const g = (c: { year: number; month: number }) =>
+    buildStatementGroups({ items, occurrences, competence: c, cycles })[0];
+  const ids = (c: { year: number; month: number }) =>
+    g(c).components.filter((x) => !x.projected).map((x) => x.occurrence?.id);
+
+  it("OUT contém só fatos de 15/09, 01/10, 13/10 e recarga dentro do ciclo", () => {
+    const out = ids(OUT);
+    for (const id of ["o-1509", "o-0110", "o-1310", "o-lov-reg", "o-lov-r1"]) expect(out).toContain(id);
+    for (const id of ["o-adobe", "o-openai", "o-adplane", "o-2510", "o-lov-r2"]) expect(out).not.toContain(id);
+    expect(g(OUT).components.every((c) => !c.chargeDate || (c.chargeDate >= "2026-09-15" && c.chargeDate <= "2026-10-13"))).toBe(true);
+  });
+
+  it("NOV recebe fatos pós-fechamento 14/10, 15/10, 24/10, 25/10 e recarga 20/10", () => {
+    const nov = ids(NOV);
+    for (const id of ["o-adobe", "o-openai", "o-adplane", "o-2510", "o-lov-r2"]) expect(nov).toContain(id);
+  });
+
+  it("nenhum fato/recarga duplica dentro ou entre as faturas", () => {
+    const out = ids(OUT), nov = ids(NOV);
+    expect(new Set(out).size).toBe(out.length);
+    expect(new Set(nov).size).toBe(nov.length);
+    expect(out.filter((id) => nov.includes(id))).toHaveLength(0);
+  });
+});
