@@ -630,7 +630,7 @@ export default function FinanceItemFormModal({
                 placeholder="Ex: OPENAI"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Opcional. Se preenchido, aparece como nome principal na fatura do cartão.
+                Opcional. Se preenchido e diferente, aparece ao lado do nome do cadastro.
               </p>
             </div>
             <div>
