@@ -566,12 +566,20 @@ export default function PayStatementModal({
                 inputMode="decimal"
                 className="w-full min-w-0 max-w-full"
                 value={total}
-                onChange={(e) => setTotal((prev) => brlTypingStep(prev, e.target.value))}
+                onChange={(e) => {
+                  userEditedTotal.current = true;
+                  setTotal((prev) => brlTypingStep(prev, e.target.value));
+                }}
                 placeholder={knownTotal != null ? formatBRL(knownTotal) : "0,00"}
               />
               <p className="text-xs text-muted-foreground">
                 Digite exatamente o valor final exibido na fatura do banco. Esse valor já inclui o IOF.
               </p>
+              {knownTotal == null && !userEditedTotal.current && suggestedTotalBrl != null && (
+                <p className="text-xs text-muted-foreground">
+                  Estimativa do ICIS — confira o valor exato cobrado pelo banco antes de pagar
+                </p>
+              )}
               {closureMessage && <p className="text-xs text-destructive">{closureMessage}</p>}
               {amountMessage && !closureMessage && (
                 <p className="text-xs text-destructive">{amountMessage}</p>
