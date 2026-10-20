@@ -50,7 +50,7 @@ import {
 
 
 
-import { paymentDateToTimestamp } from "@/lib/financePaymentDate";
+import { isValidPaymentDate, paymentDateToTimestamp } from "@/lib/financePaymentDate";
 import {
   FINANCE_ITEM_METADATA_COLUMNS,
   FINANCE_OCCURRENCE_METADATA_COLUMNS,
@@ -778,6 +778,32 @@ export function useFinance(competence: Competence) {
   );
 
   /**
+   * CORREÇÃO da data de pagamento de uma fatura JÁ PAGA: somente `paid_at`
+   * muda, com auditoria no banco. Total, valor pago, IOF, fechamento,
+   * vencimento e vínculos são preservados pela RPC segura.
+   */
+  const correctPaidStatementDate = useCallback(
+    async (occurrenceId: string, paidDateISO: string) => {
+      if (!isValidPaymentDate(paidDateISO)) {
+        toast.error("Informe uma data de pagamento válida");
+        return false;
+      }
+      const { error } = await supabase.rpc("finance_correct_paid_statement_date", {
+        _occurrence_id: occurrenceId,
+        _paid_date: paidDateISO,
+      } as any);
+      if (error) {
+        toast.error(error.message || "Não foi possível corrigir a data de pagamento");
+        return false;
+      }
+      toast.success("Data de pagamento corrigida");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
+  /**
    * FECHAMENTO da fatura: total e IOF gravados na MESMA intenção, sem tocar em
    * `paid_at`/`paid_amount_brl`. Total `null` preserva o total já conhecido.
    */
@@ -1138,6 +1164,7 @@ export function useFinance(competence: Competence) {
     payStatement,
     updateStatementClosure,
     saveUsdReconciliationDraft,
+    correctPaidStatementDate,
     savePaymentRule,
     createPaymentBatch,
     payPaymentBatch,
