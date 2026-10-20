@@ -262,7 +262,77 @@ export default function StatementPanel({
                   tone={group.dueDate ? undefined : "muted"}
                 />
                 {group.paid && (
-                  <Fact label="Pago em" value={paidOn ? formatDayMonth(paidOn) : "Data não registrada"} tone={paidOn ? undefined : "muted"} />
+                  paidDateEditing === card.id ? (
+                    <div className="min-w-[130px] space-y-1">
+                      <p className="text-sm text-muted-foreground">Pago em</p>
+                      <FinanceDateInput
+                        value={paidDateValue}
+                        onChange={(iso) =>
+                          setPaidDateDraft((prev) => ({ ...prev, [card.id]: iso }))
+                        }
+                        aria-label="Nova data de pagamento"
+                      />
+                      {paidDateValue && paidDateValue > today && (
+                        <p className="text-xs text-destructive">A data não pode ser futura</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="min-h-8"
+                          disabled={!paidDateValid || paidDateSaving || paidDateValue === paidOn}
+                          onClick={async () => {
+                            if (!statementOccurrenceId || !onCorrectPaidDate || paidDateSaving) return;
+                            setSavingPaidDate(card.id);
+                            const ok = await onCorrectPaidDate(statementOccurrenceId, paidDateValue);
+                            setSavingPaidDate(null);
+                            if (ok) {
+                              setPaidDateEditing(null);
+                              setPaidDateDraft((prev) => {
+                                const next = { ...prev };
+                                delete next[card.id];
+                                return next;
+                              });
+                            }
+                          }}
+                        >
+                          {paidDateSaving ? "Salvando..." : "Salvar"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="min-h-8"
+                          disabled={paidDateSaving}
+                          onClick={() => {
+                            setPaidDateEditing(null);
+                            setPaidDateDraft((prev) => {
+                              const next = { ...prev };
+                              delete next[card.id];
+                              return next;
+                            });
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="min-w-[130px]">
+                      <Fact label="Pago em" value={paidOn ? formatDayMonth(paidOn) : "Data não registrada"} tone={paidOn ? undefined : "muted"} />
+                      {canCorrectPaidDate && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-1 py-0.5 text-xs text-muted-foreground"
+                          onClick={() => {
+                            setPaidDateDraft((prev) => ({ ...prev, [card.id]: paidOn! }));
+                            setPaidDateEditing(card.id);
+                          }}
+                        >
+                          <Pencil className="w-3 h-3 mr-1" /> Corrigir data
+                        </Button>
+                      )}
+                    </div>
+                  )
                 )}
                 {group.paid && paidAmountBrl != null && (
                   <Fact label="Valor pago registrado" value={formatBRL(paidAmountBrl)} />
