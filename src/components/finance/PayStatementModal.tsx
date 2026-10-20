@@ -184,9 +184,16 @@ export default function PayStatementModal({
     if (statementKey === seededStatement.current) return;
     seededStatement.current = statementKey;
     setDate(today);
+    userEditedTotal.current = false;
     const seed = seedStatementClosure(group);
     // Fechamento já conhecido abre predefinido: total real + IOF classificado.
-    setTotal(maskBrlInput(seed.total));
+    // Sem total real, a ESTIMATIVA da composição (componentes + IOF sobre o que
+    // ainda é estimativa) entra como sugestão — editável, nada é gravado.
+    setTotal(
+      knownTotal != null
+        ? maskBrlInput(seed.total)
+        : maskBrlFromNumber(statementTotalEstimate(group)),
+    );
     // Nenhum ajuste manual ao abrir: o IOF salvo (fato) ou o cálculo manda.
     setIofOverride(null);
     const usdSeed: Record<string, string> = {};
