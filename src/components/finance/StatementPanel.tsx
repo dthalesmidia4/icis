@@ -49,7 +49,7 @@ import {
   type OccurrenceLabel,
   buildOccurrenceLabels,
   occurrenceDisplayName,
-  occurrenceDisplaySuffix,
+  financeItemDisplayName,
 } from "@/lib/financeOccurrenceLabels";
 
 interface Props {
@@ -434,22 +434,7 @@ export default function StatementPanel({
                         : row.chargeDate && row.chargeDate < today
                           ? " · não confirmada"
                           : " · prevista";
-                      const statementLabel = row.item.statement_label?.trim();
-                      const suffix = occurrenceDisplaySuffix(row, itemLabels);
-                      /**
-                       * `occurrenceDisplaySuffix` cai no nome do cadastro quando não
-                       * há sufixo real; descartamos esse fallback para não repetir.
-                       * statement_label vazio: comportamento atual (nome + sufixo embutido).
-                       * statement_label preenchido: ele é o nome principal; sufixo
-                       * real (Renovação/Recarga/numeração) fica no meio; name atual
-                       * aparece uma única vez, discreto.
-                       */
-                      const realSuffix = suffix && suffix !== row.item.name ? suffix : null;
-                      const lineLabel = statementLabel
-                        ? `${statementLabel}${realSuffix ? ` · ${realSuffix}` : ""}${
-                            statementLabel === row.item.name ? "" : ` · ${row.item.name}`
-                          }`
-                        : occurrenceDisplayName(row, itemLabels);
+                      const lineLabel = occurrenceDisplayName(row, itemLabels);
                       return (
                         <button
                           key={row.key}
@@ -507,7 +492,7 @@ export default function StatementPanel({
                         className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-foreground">{entry.item.name}</p>
+                          <p className="truncate text-foreground">{financeItemDisplayName(entry.item)}</p>
                           <p
                             className={
                               entry.reason === "next_statement" || entry.reason === "other_statement"

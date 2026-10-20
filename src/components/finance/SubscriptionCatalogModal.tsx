@@ -1,3 +1,4 @@
+import { financeItemDisplayName } from "@/lib/financeOccurrenceLabels";
 /**
  * `Gerenciar cadastros` — catálogo de ferramentas, pacotes e recursos incluídos.
  *
@@ -87,7 +88,7 @@ export default function SubscriptionCatalogModal({
             <div key={item.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-[15px] font-medium truncate">{item.name}</span>
+                  <span className="text-[15px] font-medium truncate">{financeItemDisplayName(item)}</span>
                   <Badge variant="outline" className="text-sm">
                     {KIND_LABELS[item.kind]}
                   </Badge>

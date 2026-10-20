@@ -3,6 +3,8 @@ import {
   buildOccurrenceLabels,
   groupStatementComponents,
   occurrenceDisplayName,
+  financeItemDisplayName,
+  statementAliasForItem,
 } from "./financeOccurrenceLabels";
 import {
   buildMonthRows,
@@ -13,6 +15,52 @@ import {
 } from "./financeModel";
 
 const COMPETENCE = { year: 2026, month: 8 };
+
+describe("alias adjacente ao nome interno", () => {
+  it.each([
+    ["SEDANCE", " DREAMINA ", "SEDANCE · DREAMINA"],
+    ["OpenAi Créditos API Mídia", "OPENAI", "OpenAi Créditos API Mídia · OPENAI"],
+    ["SUNO", "SUNO INC", "SUNO · SUNO INC"],
+    ["SUNO", " suno ", "SUNO"],
+    ["SUNO", "  ", "SUNO"],
+    ["SUNO", null, "SUNO"],
+  ])("%s com alias %s", (name, statement_label, expected) => {
+    expect(financeItemDisplayName({ name, statement_label })).toBe(expected);
+  });
+
+  it("alias igual ignora case e espaços", () => {
+    expect(statementAliasForItem({ name: " SUNO ", statement_label: "suno" })).toBeNull();
+  });
+
+  it("preserva recarga, extra e ordinal sem repetir alias nem modificar mapa", () => {
+    const named = item({ id: "sedance", name: "SEDANCE", statement_label: "DREAMINA" });
+    const rows = buildMonthRows({
+      items: [named], competence: COMPETENCE,
+      occurrences: [
+        occurrence({ id: "r", item_id: named.id }),
+        occurrence({ id: "x1", item_id: named.id, entry_role: "recharge", due_date: "2026-08-02" }),
+        occurrence({ id: "x2", item_id: named.id, entry_role: "recharge", due_date: "2026-08-03" }),
+        occurrence({ id: "extra", item_id: named.id, entry_role: "extra" }),
+      ],
+    });
+    const labels = buildOccurrenceLabels(rows);
+    const before = [...labels.entries()].map(([key, value]) => [key, { ...value }]);
+    expect(rows.map((r) => occurrenceDisplayName(r, labels)).sort()).toEqual([
+      "SEDANCE · DREAMINA · Extra", "SEDANCE · DREAMINA · Recarga 1/2",
+      "SEDANCE · DREAMINA · Recarga 2/2", "SEDANCE · DREAMINA · Renovação",
+    ]);
+    expect([...labels.entries()]).toEqual(before);
+    const regularRows = buildMonthRows({ items: [named], competence: COMPETENCE, occurrences: [
+      occurrence({ id: "d1", item_id: named.id, scheduled_date: "2026-08-01" }),
+      occurrence({ id: "d2", item_id: named.id, scheduled_date: "2026-08-02" }),
+    ] });
+    const regularLabels = buildOccurrenceLabels(regularRows);
+    expect(regularRows.map((r) => occurrenceDisplayName(r, regularLabels))).toEqual([
+      "SEDANCE · DREAMINA 1/2", "SEDANCE · DREAMINA 2/2",
+    ]);
+    expect(occurrenceDisplayName(rows[0])).toBe("SEDANCE · DREAMINA");
+  });
+});
 
 function item(partial: Partial<FinanceItem> & { id: string; name: string }): FinanceItem {
   return {

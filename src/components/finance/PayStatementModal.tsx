@@ -34,6 +34,7 @@ import {
   resolveStatementPaymentAmount,
   statementPaymentAmountMessage,
 } from "@/lib/financeStatementPaymentForm";
+import { financeItemDisplayName, statementAliasForItem } from "@/lib/financeOccurrenceLabels";
 import { formatDayMonth } from "@/lib/financeRowStatus";
 import { isValidPaymentDate } from "@/lib/financePaymentDate";
 import { brlTypingStep, maskBrlFromNumber, maskBrlInput, parseLocalizedNumber } from "@/lib/financeNumber";
@@ -73,9 +74,7 @@ import {
  */
 /** Texto "Na fatura" só quando preenchido e diferente do nome interno. */
 export function statementLabelHint(label: string | null | undefined, name: string): string | null {
-  const t = (label ?? "").trim();
-  if (!t || t.toLowerCase() === (name ?? "").trim().toLowerCase()) return null;
-  return t;
+  return statementAliasForItem({ name, statement_label: label });
 }
 
 export function brlComponentsOf(group: StatementGroup | null): MonthRow[] {
@@ -318,15 +317,11 @@ export default function PayStatementModal({
                       {row.chargeDate ? formatDayMonth(row.chargeDate) : "—"}
                     </span>
                     <span className="min-w-0 break-words">
-                      {row.item.name}
+                      {financeItemDisplayName(row.item)}
                       {row.projected ? (
                         <span className="text-xs text-muted-foreground"> (previsto)</span>
                       ) : null}
-                      {statementLabelHint(row.item.statement_label, row.item.name) ? (
-                        <span className="block text-xs text-muted-foreground">
-                          Na fatura: {statementLabelHint(row.item.statement_label, row.item.name)}
-                        </span>
-                      ) : null}
+
                     </span>
                     <span className="font-medium tabular-nums">
                       {row.amountBrl != null ? formatBRL(row.amountBrl) : "Valor não informado"}
@@ -363,13 +358,9 @@ export default function PayStatementModal({
                   <div key={comp.row.key} className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
                     <div className="space-y-1">
                       <Label htmlFor={`usd-${comp.row.key}`} className="text-sm">
-                        {comp.name}
+                        {financeItemDisplayName(comp.row.item)}
                       </Label>
-                      {statementLabelHint(comp.row.item.statement_label, comp.name) ? (
-                        <p className="text-xs text-muted-foreground">
-                          Na fatura: {statementLabelHint(comp.row.item.statement_label, comp.name)}
-                        </p>
-                      ) : null}
+
                       <p className="text-xs text-muted-foreground">
                         {comp.chargeDate ? `Cobrança ${formatDayMonth(comp.chargeDate)} · ` : ""}
                         US$ {comp.amountOriginal ?? "—"}

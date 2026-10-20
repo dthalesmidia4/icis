@@ -58,9 +58,11 @@ import {
   chargeDueConflictMessage,
   itemDueDayIsMeaningless,
   resolveRecurrenceIntervals,
+  recurringCardChargeDayValid,
 } from "@/lib/financeItemPayload";
 import FinanceItemDeleteModal from "./FinanceItemDeleteModal";
 import FinanceDateInput from "./FinanceDateInput";
+import { financeItemDisplayName } from "@/lib/financeOccurrenceLabels";
 
 
 
@@ -378,6 +380,7 @@ export default function FinanceItemFormModal({
   const selectedCard = cardSelected ? cards.find((c) => c.id === cardItemId) ?? null : null;
   const chargeDayNumber = parseDayOfMonth(chargeDay);
   const dueDayNumber = parseDayOfMonth(dueDay);
+  const chargeDayValid = recurringCardChargeDayValid(onCard, isRecurring, isSubMonthly, chargeDayNumber, chargeDay);
   /**
    * Cobrança/vencimento no mesmo mês precisam ser coerentes. Não é regra de
    * banco: `due < charge` pode ser vencimento no mês seguinte, e não guardamos
@@ -470,6 +473,7 @@ export default function FinanceItemFormModal({
 
     if (!installmentsValid) return;
     if (!oneOffDateValid) return;
+    if (!chargeDayValid) return;
     // Ambiguidade de mês: validamos ANTES do request, com explicação.
     if (chargeDueConflict) return;
     // Forma de pagamento é obrigatória em novos cadastros (pode ser "não definida").
@@ -579,7 +583,7 @@ export default function FinanceItemFormModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {item ? "Editar cadastro" : step === "intent" ? "O que você quer adicionar?" : "Novo cadastro"}
+            {item ? `Editar cadastro · ${financeItemDisplayName(item)}` : step === "intent" ? "O que você quer adicionar?" : "Novo cadastro"}
           </DialogTitle>
           <DialogDescription>
             {step === "intent"
@@ -626,7 +630,7 @@ export default function FinanceItemFormModal({
                 placeholder="Ex: OPENAI"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Opcional. Se preenchido, aparece como nome principal na fatura do cartão.
+                Opcional. Se preenchido e diferente, aparece ao lado do nome do cadastro.
               </p>
             </div>
             <div>
@@ -926,6 +930,7 @@ export default function FinanceItemFormModal({
                       onChange={(e) => setFactDayOfMonth(e.target.value)}
                       inputMode="numeric"
                       placeholder="Ex.: 1"
+                     
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
                       É quando a despesa acontece — não precisa ser o dia em que você paga.
@@ -991,6 +996,7 @@ export default function FinanceItemFormModal({
                             onChange={(e) => setPaymentDayOfMonth(e.target.value)}
                             inputMode="numeric"
                             placeholder="Ex.: 5"
+                           
                           />
                         </div>
                       )}
@@ -1076,10 +1082,15 @@ export default function FinanceItemFormModal({
                 {!isInstallments && !isOneOff && (
                   <>
                     <div>
-                      <Label>
+                      <Label htmlFor="item-charge-day">
                         {onCard ? CARD_CHARGE_DAY_FIELD_LABEL : DIRECT_CHARGE_DAY_FIELD_LABEL}
                       </Label>
-                      <Input value={chargeDay} onChange={(e) => setChargeDay(e.target.value)} placeholder="23" inputMode="numeric" />
+                      <Input id="item-charge-day" value={chargeDay} onChange={(e) => setChargeDay(e.target.value)} inputMode="numeric" aria-invalid={!chargeDayValid} aria-describedby={!chargeDayValid ? "item-charge-day-error" : undefined} />
+                      {!chargeDayValid && (
+                        <p id="item-charge-day-error" className="text-xs text-destructive mt-1">
+                          Obrigatório: informe o dia real de cobrança no cartão (1 a 31).
+                        </p>
+                      )}
                       {onCard && (
                         <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DAY_HELP}</p>
                       )}
@@ -1269,6 +1280,7 @@ export default function FinanceItemFormModal({
                 !name.trim() ||
                 !installmentsValid ||
                 !oneOffDateValid ||
+                !chargeDayValid ||
                 !!chargeDueConflict ||
                 paymentMethodUnselected
               }

@@ -16,7 +16,17 @@
  * A numeração é de APRESENTAÇÃO: nunca é persistida e sempre recalculada a
  * partir das linhas visíveis do mês (ignorados já saíram antes).
  */
-import type { FinanceEntryRole, MonthRow } from "./financeModel";
+import type { FinanceEntryRole, FinanceItem, MonthRow } from "./financeModel";
+
+export function statementAliasForItem(item: Pick<FinanceItem, "name" | "statement_label">): string | null {
+  const alias = item.statement_label?.trim();
+  return alias && alias.toLowerCase() !== item.name.trim().toLowerCase() ? alias : null;
+}
+
+export function financeItemDisplayName(item: Pick<FinanceItem, "name" | "statement_label">): string {
+  const alias = statementAliasForItem(item);
+  return alias ? `${item.name} · ${alias}` : item.name;
+}
 
 export interface OccurrenceLabel {
   /** Nome do cadastro, sem enfeite. */
@@ -103,7 +113,9 @@ export function occurrenceDisplayName(
   row: MonthRow,
   labels?: Map<string, OccurrenceLabel> | null,
 ): string {
-  return labels?.get(row.key)?.label ?? row.item.name;
+  const found = labels?.get(row.key);
+  const name = financeItemDisplayName(row.item);
+  return found ? name + found.label.slice(found.itemName.length) : name;
 }
 
 /** Complemento curto da linha (usado dentro de um grupo já rotulado). */

@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MonthRow, formatBRL, formatCurrencyValue } from "@/lib/financeModel";
 import { RowStatus, StatusTone } from "@/lib/financeRowStatus";
 import { CompositionGroupBy, buildCompositionGroups } from "@/lib/financeGrouping";
-import { type OccurrenceLabel, occurrenceDisplayName } from "@/lib/financeOccurrenceLabels";
+import { type OccurrenceLabel, occurrenceDisplayName, financeItemDisplayName } from "@/lib/financeOccurrenceLabels";
 
 export interface FinanceGroupedEntry {
   row: MonthRow;
@@ -393,7 +393,7 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
                                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                                 )}
                                 <span className="text-[15px] font-semibold text-foreground">
-                                  {first.row.item.name}
+                                  {financeItemDisplayName(first.row.item)}
                                 </span>
                                 <span className="text-sm text-muted-foreground">
                                   {entriesCountLabel(block.length)}
@@ -488,7 +488,7 @@ export default function FinanceGroupedList<E extends FinanceGroupedEntry>({
                           )}
                           <span className="min-w-0">
                             <span className="block text-[15px] font-semibold truncate">
-                              {first.row.item.name}
+                              {financeItemDisplayName(first.row.item)}
                             </span>
                             <span className="block text-sm text-muted-foreground">
                               {entriesCountLabel(block.length)}

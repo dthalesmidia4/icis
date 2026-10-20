@@ -17,8 +17,82 @@ import {
 } from "./financeModel";
 import { buildStatementSettlementIndex, buildSafeSettlementIndex } from "./financeSettlement";
 import { resolveRowStatus, resolveStatementCompetenceForRow } from "./financeRowStatus";
+import { brlComponentsOf } from "@/components/finance/PayStatementModal";
+import { usdComponentsOf } from "./financeReconciliation";
+import type { StatementCycleMap } from "./financeStatementCycles";
 
 const AUG = { year: 2026, month: 8 };
+
+describe("projeções abertas atualizadas sem reescrever fatos ou ciclos", () => {
+  const SET = { year: 2026, month: 9 };
+  const OUT = { year: 2026, month: 10 };
+  const NOV = { year: 2026, month: 11 };
+  const itau = item({ id: "itau7587", name: "Itaú 7587", kind: "card", statement_closing_day: 13, statement_due_day: 25 });
+  const adplaneSet = item({ id: "adplane", name: "Adplane", card_item_id: itau.id, charge_day: 24, currency: "BRL", default_amount_brl: 40.3 });
+  const adplaneOut = { ...adplaneSet, currency: "USD" as const, default_amount_original: 7.34, default_amount_brl: 40.3, default_exchange_rate: 5.490463 };
+  const cycles: StatementCycleMap = new Map([
+    [`${itau.id}|2026-09-01`, { cardId: itau.id, competenceMonth: "2026-09-01", cycleStart: "2026-08-14", cycleEnd: "2026-09-14", closingDateIsActual: true }],
+    [`${itau.id}|2026-10-01`, { cardId: itau.id, competenceMonth: "2026-10-01", cycleStart: "2026-09-15", cycleEnd: "2026-10-13", closingDateIsActual: false }],
+    [`${itau.id}|2026-11-01`, { cardId: itau.id, competenceMonth: "2026-11-01", cycleStart: "2026-10-14", cycleEnd: "2026-11-13", closingDateIsActual: false }],
+  ]);
+  const realOct = occ({ id: "adplane-real-oct", item_id: adplaneSet.id, competence_month: "2026-10-01", charge_date: "2026-10-24", currency: "USD", amount_original: 7.34, amount_brl: 40.3 });
+  const catalogs = new Map([["2026-09-01", [itau, adplaneSet]], ["2026-10-01", [itau, adplaneOut]]]);
+
+  it("Adplane 24/09 projetado em OUT aberta é USD uma única vez; fato 24/10 só em NOV", () => {
+    const params = { items: [itau, adplaneOut], occurrences: [realOct], cycles, itemsByCompetence: catalogs };
+    const out = buildStatementGroups({ ...params, competence: OUT })[0];
+    expect(out.components).toHaveLength(1);
+    expect(out.components[0]).toMatchObject({ projected: true, occurrence: null, chargeDate: "2026-09-24", currency: "USD", amountOriginal: 7.34, amountBrl: 40.3 });
+    expect(brlComponentsOf(out)).toHaveLength(0);
+    expect(usdComponentsOf(out).map((c) => c.row.key)).toEqual([out.components[0].key]);
+    const nov = buildStatementGroups({ ...params, competence: NOV })[0];
+    expect(nov.components.filter((r) => r.occurrence?.id === realOct.id)).toHaveLength(1);
+    expect(nov.components.find((r) => r.occurrence?.id === realOct.id)?.currency).toBe("USD");
+  });
+
+  it("fato BRL permanece BRL mesmo em OUT aberta com cadastro atual USD", () => {
+    const real = occ({ id: "brl-sep", item_id: adplaneSet.id, competence_month: "2026-09-01", charge_date: "2026-09-24", amount_brl: 39.9, currency: "BRL" });
+    const out = buildStatementGroups({ items: [itau, adplaneOut], occurrences: [real], competence: OUT, cycles, itemsByCompetence: catalogs })[0];
+    expect(out.components).toHaveLength(1);
+    expect(out.components[0]).toMatchObject({ projected: false, currency: "BRL", amountBrl: 39.9 });
+  });
+
+  it.each([false, true])("SET fechada (paga=%s) preserva fato BRL vinculado", (paid) => {
+    const statement = occ({ id: "set-frozen", item_id: itau.id, competence_month: "2026-09-01", statement_closing_date: "2026-09-14", ...(paid ? { paid_at: "2026-09-25T12:00:00Z" } : {}) });
+    const real = occ({ id: "brl-aug", item_id: adplaneSet.id, competence_month: "2026-09-01", charge_date: "2026-08-24", amount_brl: 39.9, currency: "BRL", statement_occurrence_id: statement.id });
+    const set = buildStatementGroups({ items: [itau, adplaneOut], occurrences: [statement, real], competence: SET, cycles, itemsByCompetence: catalogs })[0];
+    expect(set.components).toHaveLength(1);
+    expect(set.components[0]).toMatchObject({ projected: false, currency: "BRL", amountBrl: 39.9, chargeDate: "2026-08-24" });
+  });
+
+  it("fechamento real preserva projeção histórica BRL no legado sem vínculos", () => {
+    const closedCycles = new Map(cycles);
+    const oct = closedCycles.get(`${itau.id}|2026-10-01`);
+    if (!oct) throw new Error("Ciclo OUT ausente");
+    closedCycles.set(`${itau.id}|2026-10-01`, { ...oct, closingDateIsActual: true });
+    const out = buildStatementGroups({ items: [itau, adplaneOut], occurrences: [], competence: OUT, cycles: closedCycles, itemsByCompetence: catalogs })[0];
+    expect(out.components[0]).toMatchObject({ projected: true, currency: "BRL", chargeDate: "2026-09-24" });
+  });
+
+  it("troca de cartão não atualiza projeção antiga com defaults de outro cartão", () => {
+    const moved = { ...adplaneOut, card_item_id: "outro-cartao" };
+    const out = buildStatementGroups({ items: [itau, moved], occurrences: [], competence: OUT, cycles, itemsByCompetence: catalogs })[0];
+    expect(out.components[0]).toMatchObject({ projected: true, currency: "BRL", chargeDate: "2026-09-24" });
+  });
+
+  it("SEDANCE real 23/10 pertence só a NOV; data real 23/09 pertence a OUT", () => {
+    const sedance = item({ id: "sedance", name: "SEDANCE", statement_label: "DREAMINA", card_item_id: itau.id, charge_day: 23, currency: "USD" });
+    for (const [date, expectedMonth] of [["2026-10-23", NOV], ["2026-09-23", OUT]] as const) {
+      const real = occ({ id: `sedance-${date}`, item_id: sedance.id, competence_month: "2026-10-01", charge_date: date, currency: "USD", amount_original: 78.14, amount_brl: 425.08 });
+      const params = { items: [itau, sedance], occurrences: [real], cycles };
+      const expected = buildStatementGroups({ ...params, competence: expectedMonth })[0];
+      const other = buildStatementGroups({ ...params, competence: expectedMonth.month === 10 ? NOV : OUT })[0];
+      expect(expected.components.filter((r) => r.occurrence?.id === real.id)).toHaveLength(1);
+      expect(other.components.some((r) => r.occurrence?.id === real.id)).toBe(false);
+      expect(real.charge_date).toBe(date);
+    }
+  });
+});
 
 function item(p: Partial<FinanceItem> & { id: string; name: string }): FinanceItem {
   return {

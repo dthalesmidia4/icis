@@ -1,0 +1,5 @@
+- [x] Validar dia obrigatório e retirar placeholder da cobrança no cartão.
+- [x] Aplicar nome interno + alias adjacente e aviso de data real ausente.
+- [x] Corrigir apenas dados de projeção anterior em fatura aberta e testar Adplane/SEDANCE.
+- [x] Rodar 72 testes focais e verificar aplicação com dados sintéticos; build OK.
+- [ ] Verificar fluxo financeiro autenticado real — bloqueado: Supabase externo sem sessão de teste gerenciável.
