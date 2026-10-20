@@ -12,6 +12,17 @@
 
 export type FinanceFrequency = "daily" | "weekly" | "monthly" | "custom" | "annual";
 
+/** Only month-based recurring card charges require an explicit real charge day. */
+export function recurringCardChargeDayValid(
+  onCard: boolean,
+  isRecurring: boolean,
+  isSubMonthly: boolean,
+  chargeDay: number | null,
+): boolean {
+  return !onCard || !isRecurring || isSubMonthly ||
+    (chargeDay != null && Number.isInteger(chargeDay) && chargeDay >= 1 && chargeDay <= 31);
+}
+
 export interface RecurrenceIntervalInput {
   /** É uma recorrência (não avulsa/parcelada/consumo)? */
   isRecurring: boolean;
