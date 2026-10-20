@@ -286,17 +286,14 @@ describe("reivindicação provisória da fatura aberta (sem fechamento informado
     return buildStatementGroups({ items, occurrences, competence, cycles: cycles(sepEnd, sepActual) })[0];
   }
 
-  it("fatura de setembro aberta recebe o fato de 15/09 uma única vez", () => {
-    const sep = group(SEP);
-    const found = sep.components.filter((c) => c.item.id === "smartvety");
-    expect(found).toHaveLength(1);
-    expect(found[0].occurrence?.id).toBe("occ-smartvety");
-    expect(found[0].projected).toBe(false);
+  it("ciclo estrito: fatura de setembro ABERTA não recebe o fato de 15/09", () => {
+    expect(group(SEP).components.some((c) => c.occurrence?.id === "occ-smartvety")).toBe(false);
   });
 
-  it("outubro não repete o fato reivindicado por setembro", () => {
-    const oct = group(OCT);
-    expect(oct.components.some((c) => c.item.id === "smartvety")).toBe(false);
+  it("outubro recebe o fato de 15/09 uma única vez", () => {
+    const found = group(OCT).components.filter((c) => c.item.id === "smartvety");
+    expect(found).toHaveLength(1);
+    expect(found[0].occurrence?.id).toBe("occ-smartvety");
   });
 
   it("projeção sem fato (Adobe 14/09) fica fora de setembro e pertence a outubro", () => {
