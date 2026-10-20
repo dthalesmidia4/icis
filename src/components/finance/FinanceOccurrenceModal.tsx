@@ -76,6 +76,7 @@ import {
 import {
   OCCURRENCE_ACTION_LABELS,
   occurrenceDeleteActionForRow,
+  occurrenceActionLabelForRow,
 } from "@/lib/financeDeletePolicy";
 import {
   deleteFinanceOccurrenceSafe,
@@ -267,6 +268,11 @@ export default function FinanceOccurrenceModal({
 
   const handleDestructive = async () => {
     if (!row) return;
+    if (
+      deleteAction === "delete_supplemental" &&
+      !window.confirm("Excluir somente este lançamento? O cadastro continua ativo.")
+    )
+      return;
     setRemoving(true);
     const result =
       deleteAction === "inactivate_item"
@@ -937,6 +943,7 @@ export default function FinanceOccurrenceModal({
             ) : null}
             {deleteAction === "delete_statement" ||
             deleteAction === "delete_one_off" ||
+            deleteAction === "delete_supplemental" ||
             deleteAction === "inactivate_item" ? (
               <Button
                 variant="ghost"
@@ -945,7 +952,7 @@ export default function FinanceOccurrenceModal({
                 disabled={saving || removing}
               >
                 <Trash2 className="w-4 h-4 mr-2 flex-shrink-0" />
-                {removing ? "Processando..." : OCCURRENCE_ACTION_LABELS[deleteAction]}
+                {removing ? "Processando..." : occurrenceActionLabelForRow(deleteAction, row)}
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
