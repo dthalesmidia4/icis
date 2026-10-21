@@ -29,3 +29,9 @@ describe('office stations', () => {
     const d = deskGrid(2), c = deskChairGrid(2); expect(c.y + .64).toBeLessThanOrEqual(d.y);
   });
 });
+import { paperSheets, walkDurationMs, deskSeatGrid } from './officeIso';
+describe('reference parity', () => {
+  it('sheets: one per demand up to 5, compressed after', () => { expect([0,4,30,59].map(paperSheets)).toEqual([0,4,11,18]); });
+  it('walk duration follows the reference', () => { expect(walkDurationMs({x:0,y:0},{x:0,y:0})).toBe(280); expect(walkDurationMs({x:0,y:0},{x:4,y:0})).toBe(1160); expect(walkDurationMs({x:0,y:0},{x:20,y:0})).toBe(2200); });
+  it('seat matches reference station anchor offset', () => { const s = deskSeatGrid(1); expect(s.x).toBeCloseTo(5.925); expect(s.y).toBeCloseTo(1.69); });
+});

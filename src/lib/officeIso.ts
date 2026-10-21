@@ -13,7 +13,7 @@ export const floorForDesks = (count: number) => ({ width: 13, height: Math.max(1
 export const ZONE_SPOTS = { planning: { x: 1.2, y: 2.9 }, review: { x: 1.95, y: 7.1 }, coffee: { x: 11.85, y: 2.4 }, meeting: { x: 8.25, y: 9.4 }, waiting: { x: 3.4, y: 2.4 } };
 export function anchorGrid(key: string, users: string[]): GridPoint {
   const [zone, seat] = key.split(':');
-  if (zone === 'desk') { const p = deskGrid(Math.max(0, users.indexOf(seat))); return { x: p.x + 1.45, y: p.y + 1.83 }; }
+  if (zone === 'desk') return deskSeatGrid(Math.max(0, users.indexOf(seat)));
   const p = ZONE_SPOTS[zone as keyof typeof ZONE_SPOTS] || ZONE_SPOTS.coffee;
   return { x: p.x + Number(seat || 0) * .65, y: p.y + 1.3 };
 }
@@ -37,3 +37,9 @@ export function avoidFurniture(pt: GridPoint, rects: GridRect[]): GridPoint {
   const hit = rects.find(r => pt.x > r.x0 && pt.x < r.x1 && pt.y > r.y0 && pt.y < r.y1);
   return hit ? { x: pt.x, y: hit.y1 + 0.25 } : pt;
 }
+/** Assento do dono: atrás do tampo, centralizado na tela (stationAnchors do HTML = mesa + (-.195,-.53)). */
+export const deskSeatGrid = (index: number): GridPoint => { const p = deskGrid(index); return { x: p.x - .195, y: p.y - .53 }; };
+/** Duração da caminhada, como no HTML: 290ms por unidade, entre 280ms e 2,2s. */
+export const walkDurationMs = (a: GridPoint, b: GridPoint) => Math.max(280, Math.min(2200, Math.hypot(b.x - a.x, b.y - a.y) * 290));
+/** Pilha física: até 5 uma folha por demanda, depois compressão controlada (máx. 20). */
+export const paperSheets = (count: number) => count <= 0 ? 0 : count <= 5 ? count : Math.min(20, 5 + Math.ceil((count - 5) * .23));
