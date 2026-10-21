@@ -1,15 +1,19 @@
 export interface GridPoint { x: number; y: number }
 export const FLOOR = { width: 18, height: 16 };
-export const iso = (x: number, y: number): GridPoint => ({ x: (x - y) * 42, y: (x + y) * 22 });
+export const iso = (x: number, y: number): GridPoint => ({ x: (x - y) * 52, y: (x + y) * 24 });
 export function inverseIso(pt: GridPoint, floor = FLOOR): GridPoint {
-  return { x: Math.max(0, Math.min(floor.width, (pt.x / 42 + pt.y / 22) / 2)), y: Math.max(0, Math.min(floor.height, (pt.y / 22 - pt.x / 42) / 2)) };
+  return { x: Math.max(0, Math.min(floor.width, (pt.x / 52 + pt.y / 24) / 2)), y: Math.max(0, Math.min(floor.height, (pt.y / 24 - pt.x / 52) / 2)) };
 }
-export const deskGrid = (index: number): GridPoint => ({ x: 5 + index % 3 * 3.4, y: 4 + Math.floor(index / 3) * 3 });
-export const floorForDesks = (count: number) => ({ width: 18, height: Math.max(16, 6 + Math.ceil(count / 3) * 3) });
-export const ZONE_SPOTS = { planning: { x: 1.7, y: 4 }, review: { x: 1.7, y: 9 }, coffee: { x: 14.8, y: 2 }, meeting: { x: 15, y: 8 }, waiting: { x: 15, y: 13 } };
+// Reference spacing: two staggered rows, extended by pairs for larger teams.
+export const deskGrid = (index: number): GridPoint => {
+ const sites=[{x:2.05,y:4.12},{x:6.12,y:2.22},{x:3.65,y:6.6},{x:9.3,y:3.75},{x:6.7,y:5.65},{x:9.8,y:6.7}];
+ return index<6?sites[index]:{x:2.05+(index-6)%3*3.3,y:10+Math.floor((index-6)/3)*2.9};
+};
+export const floorForDesks = (count: number) => ({ width: 13, height: Math.max(10, count>6?13+Math.floor((count-7)/3)*2.9:10) });
+export const ZONE_SPOTS = { planning: { x: 1.2, y: 2.9 }, review: { x: 1.95, y: 7.1 }, coffee: { x: 11.85, y: 2.4 }, meeting: { x: 8.25, y: 9.4 }, waiting: { x: 3.4, y: 2.4 } };
 export function anchorGrid(key: string, users: string[]): GridPoint {
   const [zone, seat] = key.split(':');
-  if (zone === 'desk') { const p = deskGrid(Math.max(0, users.indexOf(seat))); return { x: p.x + 0.8, y: p.y + 1.3 }; }
+  if (zone === 'desk') { const p = deskGrid(Math.max(0, users.indexOf(seat))); return { x: p.x + 1.45, y: p.y + 1.83 }; }
   const p = ZONE_SPOTS[zone as keyof typeof ZONE_SPOTS] || ZONE_SPOTS.coffee;
   return { x: p.x + Number(seat || 0) * .65, y: p.y + 1.3 };
 }

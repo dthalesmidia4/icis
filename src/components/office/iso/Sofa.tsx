@@ -1,0 +1,4 @@
+import {p,pp,poly,tilePoly,isoBox,esc,W} from './geometry';
+import {rug} from './Rug';
+export function sofa(){const x=2.7,y=2.1;let out=`<g class="interactive station" data-zone="relax">${rug(2.35,1.85,2.25,1.5,'hsl(var(--iso-c-f8dfdd))')}${isoBox(x,y,1.6,.8,18,'hsl(var(--iso-c-edb8b9))','hsl(var(--iso-c-d9909e))','hsl(var(--iso-c-ca8595))')}${isoBox(x,y,1.6,.23,57,'hsl(var(--iso-c-f4b5b8))','hsl(var(--iso-c-d78b95))','hsl(var(--iso-c-e59ea4))')}`;const l=p(x+.34,y+.50,22),r=p(x+1.19,y+.5,22);out+=`<g><rect x="${l.x-17}" y="${l.y-17}" width="35" height="24" rx="9" fill="hsl(var(--iso-c-fce6cd))" transform="rotate(-18 ${l.x} ${l.y})"/><rect x="${r.x-17}" y="${r.y-17}" width="35" height="24" rx="9" fill="hsl(var(--iso-c-fff0b8))" transform="rotate(20 ${r.x} ${r.y})"/></g>`;out+='</g>';return out}
+export default function Sofa({args=[]}:{args?:any[]}){return <g dangerouslySetInnerHTML={{__html:(sofa as (...args:any[])=>string)(...args)}} />;}
