@@ -1,4 +1,4 @@
-- [ ] Aplicar acabamento cartoon aos objetos existentes do escritório e validar geometria/interações sem dados reais.
+- [x] Aplicar acabamento cartoon aos objetos existentes do escritório; build OK, 69 testes, geometria idêntica em desktop/ultrawide/80%/mobile e cliques validados com dados sintéticos.
 - [x] Validar dia obrigatório e retirar placeholder da cobrança no cartão.
 - [x] Aplicar nome interno + alias adjacente e aviso de data real ausente.
 - [x] Corrigir apenas dados de projeção anterior em fatura aberta e testar Adplane/SEDANCE.
