@@ -96,7 +96,7 @@ describe("anulação auditada de lançamento direto pago", () => {
   it("motivo: 10 a 500 caracteres, espaços não contam", () => {
     expect(voidReasonValid("Pix pago em duplicidade")).toBe(true);
     expect(voidReasonValid("   pago em duplicidade   ")).toBe(true);
-    expect(voidReasonValid("pago duas vezes")).toBe(false); // 15 caracteres? não: 15 -> true
+    expect(voidReasonValid("x".repeat(10))).toBe(true);
   });
 
   it("motivo curto ou vazio é recusado", () => {
