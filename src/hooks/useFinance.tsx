@@ -52,6 +52,7 @@ import {
 
 
 import { isValidPaymentDate, paymentDateToTimestamp } from "@/lib/financePaymentDate";
+import { VOID_CONFIRMATION_TEXT, voidReasonValid } from "@/lib/financeVoidPaidDirect";
 import {
   FINANCE_ITEM_METADATA_COLUMNS,
   FINANCE_OCCURRENCE_METADATA_COLUMNS,
@@ -826,6 +827,34 @@ export function useFinance(competence: Competence) {
   );
 
   /**
+   * ANULAÇÃO auditada de um lançamento direto JÁ PAGO. A RPC segura marca
+   * `skipped_at` com o motivo informado, PRESERVA `paid_at` e os valores e
+   * grava a trilha em `finance_occurrence_corrections`. Nada é removido
+   * localmente: a tela é recarregada depois da resposta do banco.
+   */
+  const voidPaidDirectOccurrence = useCallback(
+    async (occurrenceId: string, reason: string) => {
+      if (!voidReasonValid(reason)) {
+        toast.error("Informe o motivo da anulação (mínimo de 10 caracteres)");
+        return false;
+      }
+      const { error } = await (supabase as any).rpc("finance_void_paid_direct_occurrence", {
+        _occurrence_id: occurrenceId,
+        _reason: reason.trim(),
+        _confirmation: VOID_CONFIRMATION_TEXT,
+      });
+      if (error) {
+        toast.error(error.message || "Não foi possível anular o lançamento");
+        return false;
+      }
+      toast.success("Lançamento anulado — a data de pagamento original foi preservada");
+      await fetchAll();
+      return true;
+    },
+    [fetchAll],
+  );
+
+  /**
    * FECHAMENTO da fatura: total e IOF gravados na MESMA intenção, sem tocar em
    * `paid_at`/`paid_amount_brl`. Total `null` preserva o total já conhecido.
    */
@@ -1189,6 +1218,7 @@ export function useFinance(competence: Competence) {
     updateStatementClosure,
     saveUsdReconciliationDraft,
     correctPaidStatementDate,
+    voidPaidDirectOccurrence,
     savePaymentRule,
     createPaymentBatch,
     payPaymentBatch,
