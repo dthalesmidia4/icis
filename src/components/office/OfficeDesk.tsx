@@ -140,6 +140,7 @@ export const OfficeDesk = memo(function OfficeDesk({
   return (
     <div
       data-office-desk-user={collaborator.userId}
+      style={{ "--office-furniture": `var(--office-${["lilac", "peach", "gold", "mint"][Array.from(collaborator.userId).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 4]})` } as React.CSSProperties}
       className={cn(
         "group/desk relative w-full select-none rounded-lg transition-shadow",
         canReceive && "ring-2 ring-primary/40",
@@ -215,9 +216,9 @@ export const OfficeDesk = memo(function OfficeDesk({
             disabled={!monitorCard}
             aria-label={monitorCard ? `Abrir card ${monitorCard.title}` : "Monitor em standby"}
             className={cn(
-              "relative w-full overflow-hidden rounded-[4px] border-[3px] bg-card px-1.5 py-1 text-left transition-[border-color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "relative w-full overflow-hidden rounded-[4px] border-[3px] bg-[hsl(var(--office-paper))] shadow-[var(--office-panel-relief)] px-1.5 py-1 text-left transition-[border-color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring",
               // Semântica única com a barra da mesa: azul normal, vermelho só em atraso.
-              working ? "border-primary/60" : "border-foreground/15",
+              working ? "border-primary/60" : "border-[hsl(var(--office-outline)/0.65)]",
               overdue && "border-destructive/60",
               monitorCard
                 ? "hover:border-primary/70 hover:shadow-[0_0_0_2px_hsl(var(--primary)/0.2)]"
@@ -286,12 +287,12 @@ export const OfficeDesk = memo(function OfficeDesk({
             {objectBySlot["center-side"] && (
               <DeskObject objectKey={objectBySlot["center-side"]} size={22} />
             )}
-            <span aria-hidden="true" className="h-1.5 w-4 bg-foreground/25" />
+            <span aria-hidden="true" className="h-1.5 w-4 bg-[hsl(var(--office-frame))]" />
           </div>
-          <span aria-hidden="true" className="h-[4px] w-14 rounded-sm bg-foreground/35" />
+          <span aria-hidden="true" className="h-[4px] w-14 rounded-sm bg-[hsl(var(--office-frame))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
           <span
             aria-hidden="true"
-            className="mt-[2px] h-[6px] w-[66%] rounded-[2px] bg-foreground/20 dark:bg-foreground/28"
+            className="mt-[2px] h-[6px] w-[66%] rounded-[2px] bg-[hsl(var(--office-frame)/0.6)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]"
           />
         </div>
 
@@ -318,13 +319,13 @@ export const OfficeDesk = memo(function OfficeDesk({
       <div className="relative z-20">
         <div
           aria-hidden="true"
-          className="h-[12px] rounded-t-[4px] bg-gradient-to-b from-foreground/38 to-foreground/22 dark:from-foreground/42 dark:to-foreground/26"
+          className="h-[12px] rounded-t-[4px] bg-[image:var(--office-top)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]"
           style={{ clipPath: "polygon(3% 0, 97% 0, 100% 100%, 0 100%)" }}
         />
-        <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/55 px-2 pb-1.5 pt-[4px] shadow-[0_10px_14px_-9px_hsl(var(--foreground)/0.8)]">
+        <div className="relative rounded-b-[5px] bg-[hsl(var(--office-furniture))] bg-[image:var(--office-material)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] px-2 pb-1.5 pt-[4px] shadow-[var(--office-relief)]">
           {/* plaquinha frontal com o nome + acesso à personalização (só o dono) */}
           <div className="flex items-center justify-center gap-1">
-            <p className="max-w-[70%] truncate rounded-[2px] border border-border/70 bg-background/70 px-1.5 text-[9px] font-semibold leading-4">
+            <p className="max-w-[70%] truncate rounded-[2px] border border-[hsl(var(--office-outline)/0.35)] bg-[hsl(var(--office-paper)/0.85)] px-1.5 text-[9px] font-semibold leading-4">
               {collaborator.fullName}
             </p>
             {onBreak && presence.returnsAt && (
@@ -374,13 +375,13 @@ export const OfficeDesk = memo(function OfficeDesk({
         </div>
         {/* pernas */}
         <div aria-hidden="true" className="flex justify-between px-3">
-          <span className="h-4 w-[4px] bg-foreground/30" />
-          <span className="h-4 w-[4px] bg-foreground/30" />
+          <span className="h-4 w-[4px] bg-[hsl(var(--office-outline))]" />
+          <span className="h-4 w-[4px] bg-[hsl(var(--office-outline))]" />
         </div>
         {/* sombra de contato */}
         <div
           aria-hidden="true"
-          className="mx-auto h-2 w-[88%] rounded-[50%] bg-foreground/20 blur-[2px] dark:bg-background/60"
+          className="mx-auto h-2 w-[88%] rounded-[50%] bg-[hsl(var(--office-outline)/0.16)]"
         />
       </div>
 

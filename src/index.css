@@ -41,6 +41,27 @@ All colors MUST be HSL.
     --radius: 0.75rem;
 
     /* folhagem decorativa do Escritório (planta 2D em CSS/SVG) */
+
+    /* Office miniature materials: colors only, never layout. */
+    --office-wall: 203.23 75.61% 91.96%;
+    --office-floor: 202.86 100.00% 95.88%;
+    --office-frame: 200.00 50.00% 69.41%;
+    --office-outline: 205.88 20.82% 48.04%;
+    --office-glass: 198.69 75.31% 84.12%;
+    --office-ivory: 41.74 100.00% 95.49%;
+    --office-paper: 0.00 0.00% 100.00%;
+    --office-lilac: 272.38 66.32% 81.37%;
+    --office-peach: 27.50 72.00% 80.39%;
+    --office-gold: 44.12 77.27% 74.12%;
+    --office-mint: 168.62 43.28% 73.73%;
+    --office-seat: 197.42 39.24% 69.02%;
+    --office-skin: 22.50 76.60% 81.57%;
+    --office-material: linear-gradient(180deg, hsl(var(--office-paper) / .35), transparent 48%, hsl(var(--office-outline) / .12));
+    --office-top: linear-gradient(180deg, hsl(var(--office-paper)), hsl(var(--office-ivory)));
+    --office-glazing: linear-gradient(130deg, transparent 26%, hsl(var(--office-paper) / .62) 27% 32%, transparent 33% 50%, hsl(var(--office-paper) / .35) 51% 57%, transparent 58%), linear-gradient(180deg, hsl(var(--office-glass)), hsl(var(--office-frame) / .5));
+    --office-relief: inset 0 1px 0 hsl(var(--office-paper) / .75), inset -2px -2px 0 hsl(var(--office-outline) / .15), 0 2px 0 hsl(var(--office-outline) / .25);
+    --office-contact: 0 3px 0 hsl(var(--office-outline) / .18);
+    --office-panel-relief: inset 0 2px 0 hsl(var(--office-paper) / .8), inset 0 -2px 0 hsl(var(--office-frame) / .3), 0 3px 0 hsl(var(--office-outline) / .25);
     --office-leaf: 152 44% 38%;
     --office-leaf-soft: 158 38% 46%;
     --office-leaf-deep: 150 42% 30%;
@@ -98,6 +119,19 @@ All colors MUST be HSL.
     --shadow-card: 0 2px 8px -2px hsl(0 0% 0% / 0.5);
     --shadow-elevated: 0 8px 24px -4px hsl(0 0% 0% / 0.6);
 
+    --office-wall: 204.00 20.41% 19.22%;
+    --office-floor: 205.26 20.00% 18.63%;
+    --office-frame: 200.95 27.75% 44.51%;
+    --office-outline: 201.54 21.55% 64.51%;
+    --office-glass: 198.10 34.05% 36.27%;
+    --office-ivory: 50.00 13.64% 74.12%;
+    --office-paper: 205.00 18.75% 25.10%;
+    --office-lilac: 276.82 18.18% 52.55%;
+    --office-peach: 24.41 23.89% 51.57%;
+    --office-gold: 46.83 32.80% 49.02%;
+    --office-mint: 169.47 24.89% 44.90%;
+    --office-seat: 197.89 25.11% 44.51%;
+    --office-skin: 21.82 36.67% 64.71%;
     --office-leaf: 152 36% 44%;
     --office-leaf-soft: 158 32% 52%;
     --office-leaf-deep: 150 34% 34%;

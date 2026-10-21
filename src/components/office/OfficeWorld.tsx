@@ -43,18 +43,18 @@ export default function OfficeWorld({
     <section
       ref={containerRef as RefObject<HTMLElement> as any}
       aria-label="Planta do escritório"
-      className="relative flex min-h-[calc(100vh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/70 via-muted/30 to-muted/55"
+      className="relative flex min-h-[calc(100vh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-[hsl(var(--office-floor))]"
     >
       {/* ---------- Parede (faixa decorativa acima + faixa funcional abaixo) ---------- */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-background/95 via-background/70 to-background/15"
+        className="pointer-events-none absolute inset-x-0 top-0 bg-[hsl(var(--office-wall))]"
         style={{ height: `${WALL_HEIGHT_PCT}%` }}
       />
       {/* moldura/junção parede-piso: rodapé + sombra de contato */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 h-[6px] bg-foreground/20"
+        className="pointer-events-none absolute inset-x-0 h-[6px] bg-[hsl(var(--office-frame))] shadow-[var(--office-relief)]"
         style={{ top: `${WALL_HEIGHT_PCT}%` }}
       />
       <div
@@ -76,10 +76,10 @@ export default function OfficeWorld({
             para leitura arquitetônica. A planta vive fora desta faixa: ela é
             objeto de PISO (ver abaixo), não de parede. */}
         <div className="absolute left-[31%] top-[18%]">
-          <div className="relative h-24 w-20 rounded-sm border-[3px] border-foreground/25 bg-gradient-to-br from-primary/25 to-background/70 shadow-[inset_0_2px_8px_hsl(var(--foreground)/0.12)]">
-            <span className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-foreground/25" />
-            <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-foreground/20" />
-            <span className="absolute -bottom-[4px] inset-x-[-3px] h-[4px] rounded-sm bg-foreground/25" />
+          <div className="relative h-24 w-20 rounded-sm border-[3px] border-[hsl(var(--office-frame))] bg-[image:var(--office-glazing)] shadow-[var(--office-panel-relief)]">
+            <span className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-[hsl(var(--office-frame))]" />
+            <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-[hsl(var(--office-frame))]" />
+            <span className="absolute -bottom-[4px] inset-x-[-3px] h-[4px] rounded-sm bg-[hsl(var(--office-ivory))] shadow-[var(--office-contact)]" />
           </div>
         </div>
 
@@ -89,7 +89,7 @@ export default function OfficeWorld({
             A antiga prateleira de pastas foi removida porque disputava a mesma
             leitura de "gráfico" e criava ambiguidade. */}
         <div className="absolute right-[18%] top-[24%] hidden md:block">
-          <div className="relative h-16 w-24 rounded-[3px] border-[3px] border-foreground/30 bg-background/90 shadow-[0_6px_10px_-10px_hsl(var(--foreground)/0.9)]">
+          <div className="relative h-16 w-24 rounded-[3px] border-[3px] border-[hsl(var(--office-frame))] bg-[hsl(var(--office-paper))] shadow-[var(--office-panel-relief)]">
             <div className="absolute inset-x-2 bottom-2 flex h-[70%] items-end justify-between">
               <span className="h-[42%] w-3 rounded-t-[2px] bg-primary/45" />
               <span className="h-[74%] w-3 rounded-t-[2px] bg-primary/70" />
@@ -105,7 +105,7 @@ export default function OfficeWorld({
         {/* luminária pendente */}
         <div className="absolute left-[44%] top-0 flex flex-col items-center">
           <span className="h-6 w-[2px] bg-foreground/30" />
-          <span className="h-2.5 w-12 rounded-b-full bg-foreground/35" />
+          <span className="h-2.5 w-12 rounded-b-full bg-[hsl(var(--office-gold))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.5)] shadow-[var(--office-relief)]" />
         </div>
       </div>
 
@@ -134,24 +134,24 @@ export default function OfficeWorld({
             <ellipse cx="34" cy="23" rx="7.5" ry="4.5" fill="hsl(var(--office-leaf))" transform="rotate(16 34 23)" />
           </g>
           {/* vaso neutro apoiado no piso */}
-          <path d="M14 34 H32 L29.5 50 H16.5 Z" fill="hsl(var(--muted-foreground) / 0.55)" />
-          <rect x="12.5" y="32" width="21" height="4" rx="1.5" fill="hsl(var(--muted-foreground) / 0.7)" />
+          <path d="M14 34 H32 L29.5 50 H16.5 Z" fill="hsl(var(--office-peach))" stroke="hsl(var(--office-outline)/0.55)" />
+          <rect x="12.5" y="32" width="21" height="4" rx="1.5" fill="hsl(var(--office-ivory))" stroke="hsl(var(--office-outline)/0.55)" />
           {/* contato com o chão: elipse curta e nítida, sem blur */}
           <ellipse cx="23" cy="50.5" rx="10" ry="1.8" fill="hsl(var(--foreground) / 0.18)" />
         </svg>
       </div>
       <div aria-hidden="true" className="pointer-events-none absolute right-[2.5%] top-[18%] hidden flex-col items-center sm:flex">
         <span className="h-9 w-1.5 rounded bg-foreground/35" />
-        <span className="-mt-10 h-8 w-8 -rotate-45 rounded-full bg-primary/40" />
-        <span className="-mt-4 ml-6 h-6 w-6 rotate-45 rounded-full bg-primary/32" />
-        <span className="mt-1 h-7 w-9 rounded-b-md bg-foreground/35" />
+        <span className="-mt-10 h-8 w-8 -rotate-45 rounded-full bg-[hsl(var(--office-leaf))]" />
+        <span className="-mt-4 ml-6 h-6 w-6 rotate-45 rounded-full bg-[hsl(var(--office-leaf-soft))]" />
+        <span className="mt-1 h-7 w-9 rounded-b-md bg-[hsl(var(--office-peach))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
         <span className="mx-auto block h-1.5 w-10 rounded-[50%] bg-foreground/15 blur-[2px]" />
       </div>
 
       {/* ---------- Piso ---------- */}
       <svg
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-auto w-full text-foreground/[0.13]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-auto w-full text-[hsl(var(--office-frame)/0.25)]"
         style={{ top: `${WALL_HEIGHT_PCT}%` }}
       >
         <defs>

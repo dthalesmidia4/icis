@@ -31,7 +31,7 @@ export const CoffeeCorner = memo(function CoffeeCorner({
       {/* ---------- tapete oval HORIZONTAL, sempre inteiro na zona ---------- */}
       <span
         aria-hidden="true"
-        className="absolute bottom-0 left-1/2 h-[54px] w-full -translate-x-1/2 rounded-[50%] border border-foreground/10 bg-foreground/[0.07] dark:bg-background/40"
+        className="absolute bottom-0 left-1/2 h-[54px] w-full -translate-x-1/2 rounded-[50%] border border-foreground/10 bg-[hsl(var(--office-frame)/0.12)]"
       />
 
       <div className="relative flex items-end justify-between gap-1">
@@ -54,12 +54,12 @@ export const CoffeeCorner = memo(function CoffeeCorner({
         <div aria-hidden="true" className="relative z-10 w-[92px] shrink-0">
           {/* objetos apoiados no tampo: cafeteira + jarra + canecas */}
           <div className="relative z-10 mb-[-2px] flex items-end justify-center gap-1.5">
-            <span className="relative block h-11 w-7 rounded-[4px] bg-foreground/65 shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
+            <span className="relative block h-11 w-7 rounded-[4px] bg-[hsl(var(--office-outline))] bg-[image:var(--office-material)] shadow-[var(--office-relief)] shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
               <span className="absolute left-1/2 top-1.5 h-3 w-4 -translate-x-1/2 rounded-[2px] bg-primary/75" />
               <span className="absolute left-1/2 top-[21px] h-1.5 w-2 -translate-x-1/2 rounded-b bg-background/75" />
               <span className="absolute bottom-1.5 left-1/2 h-3 w-4 -translate-x-1/2 rounded-b-[3px] bg-background/80" />
             </span>
-            <span className="relative block h-6 w-5 rounded-b-[6px] rounded-t-[3px] bg-primary/25 ring-1 ring-foreground/25">
+            <span className="relative block h-6 w-5 rounded-b-[6px] rounded-t-[3px] bg-[image:var(--office-glazing)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]">
               <span className="absolute inset-x-[3px] bottom-[3px] h-2.5 rounded-[2px] bg-primary/55" />
             </span>
             <span className="flex items-end gap-[3px]">
@@ -69,8 +69,8 @@ export const CoffeeCorner = memo(function CoffeeCorner({
           </div>
 
           {/* tampo + corpo do balcão (profundidade) */}
-          <span className="relative z-20 block h-[10px] rounded-t-[3px] bg-gradient-to-b from-foreground/40 to-foreground/24" />
-          <div className="relative rounded-b-[5px] bg-gradient-to-b from-muted to-muted/50 px-2 py-1.5 text-center shadow-[0_8px_12px_-8px_hsl(var(--foreground)/0.75)]">
+          <span className="relative z-20 block h-[10px] rounded-t-[3px] bg-[image:var(--office-top)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
+          <div className="relative rounded-b-[5px] bg-[hsl(var(--office-mint))] bg-[image:var(--office-material)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] px-2 py-1.5 text-center shadow-[0_8px_12px_-8px_hsl(var(--foreground)/0.75)]">
             <span className="absolute inset-y-1 left-2 w-[38%] rounded-[2px] border border-foreground/12" />
             <span className="absolute inset-y-1 right-2 w-[38%] rounded-[2px] border border-foreground/12" />
             <span className="relative text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
@@ -83,7 +83,7 @@ export const CoffeeCorner = memo(function CoffeeCorner({
             <span
               className={`flex flex-col items-center ${occupied > 0 ? "opacity-100" : "opacity-80"}`}
             >
-              <span className="h-[5px] w-7 rounded-[3px] bg-foreground/42" />
+              <span className="h-[5px] w-7 rounded-[3px] bg-[hsl(var(--office-seat))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
               <span className="h-4 w-[4px] bg-foreground/28" />
               <span className="h-[3px] w-5 rounded bg-foreground/28" />
             </span>

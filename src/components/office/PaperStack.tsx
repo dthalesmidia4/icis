@@ -55,7 +55,7 @@ export const PaperStack = memo(function PaperStack({
               {Array.from({ length: sheets }).map((_, i) => (
                 <span
                   key={i}
-                  className="block h-[3px] rounded-[2px] border border-border bg-card shadow-[0_1px_1px_-1px_hsl(var(--foreground)/0.5)]"
+                  className="block h-[3px] rounded-[2px] border border-[hsl(var(--office-outline)/0.45)] bg-[image:var(--office-top)] shadow-[var(--office-contact)]"
                   style={{ width: `${sheetWidth}px`, marginLeft: i % 2 === 0 ? 0 : 1 }}
                 />
               ))}
@@ -66,7 +66,7 @@ export const PaperStack = memo(function PaperStack({
               "inline-flex min-w-[18px] items-center justify-center rounded-full border px-1 text-[9px] font-bold leading-[13px] tabular-nums",
               overload
                 ? "border-destructive/60 bg-destructive text-destructive-foreground"
-                : "border-border bg-background/95 text-foreground",
+                : "border-[hsl(var(--office-outline)/0.55)] bg-[hsl(var(--office-paper))] text-foreground shadow-[var(--office-relief)]",
             )}
           >
             {queueCount}
