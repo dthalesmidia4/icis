@@ -94,7 +94,7 @@ export const ZONE_SEATS: Record<Exclude<OfficeZone, "desk" | "off_shift">, numbe
 };
 
 /**
- * Chave do anchor DOM onde o personagem deve ficar. Índice estável evita duas
+ * Chave do anchor de grade SVG onde o personagem deve ficar. Índice estável evita duas
  * pessoas sobrepostas no mesmo lugar da zona.
  */
 export function anchorKeyFor(zone: OfficeZone, userId: string, indexInZone: number): string | null {
