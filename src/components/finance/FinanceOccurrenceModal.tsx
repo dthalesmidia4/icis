@@ -373,7 +373,11 @@ export default function FinanceOccurrenceModal({
     else setOrigin(FOLLOW_ITEM);
     setCurrency(row.currency === "USD" ? "USD" : "BRL");
     // Nada de modo de correção: os campos factuais já abrem digitáveis.
-
+    // A anulação é uma intenção nova: nunca reaproveita o motivo já digitado.
+    setVoidOpen(false);
+    setVoidReason("");
+    setVoidConfirm("");
+    setVoiding(false);
   }, [open, row, defaultUsdRate, today]);
 
 
@@ -461,6 +465,29 @@ export default function FinanceOccurrenceModal({
   );
 
   const canSubmit = canSubmitOccurrence({ cardRow, paid, paymentDate });
+
+  /**
+   * Anulação auditada: o botão só aparece para o fato que o servidor aceita
+   * (persistido, pago, regular, sem fatura e sem cartão). A recusa do banco é
+   * mostrada como está — nada é retirado da tela antes da resposta dele.
+   */
+  const voidOccurrenceId = row?.occurrence?.id ?? null;
+  const voidable = !!onVoidPaidDirect && canVoidPaidDirectOccurrence(row);
+  const canSubmitVoid =
+    voidable &&
+    !!voidOccurrenceId &&
+    voidReasonValid(voidReason) &&
+    voidConfirmationValid(voidConfirm);
+
+  const handleVoid = async () => {
+    if (!onVoidPaidDirect || !voidOccurrenceId || !canSubmitVoid) return;
+    setVoiding(true);
+    const ok = await onVoidPaidDirect(voidOccurrenceId, voidReason);
+    setVoiding(false);
+    if (!ok) return;
+    setVoidOpen(false);
+    onOpenChange(false);
+  };
 
   const handleUpload = async (file: File) => {
     if (!row) return;
@@ -984,6 +1011,25 @@ export default function FinanceOccurrenceModal({
               >
                 <Trash2 className="w-4 h-4 mr-2 flex-shrink-0" />
                 {removing ? "Processando..." : occurrenceActionLabelForRow(deleteAction, row)}
+              </Button>
+            ) : null}
+            {/*
+              Anulação auditada de fato direto já pago: o banco preserva
+              `paid_at` e os valores e registra o motivo na trilha de correções.
+            */}
+            {voidable ? (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  setVoidReason("");
+                  setVoidConfirm("");
+                  setVoidOpen(true);
+                }}
+                disabled={saving || removing || voiding}
+              >
+                <Ban className="w-4 h-4 mr-2 flex-shrink-0" />
+                Anular lançamento
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
