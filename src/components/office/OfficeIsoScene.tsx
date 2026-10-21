@@ -89,7 +89,7 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  <g transform={`translate(${plate.x-66} ${plate.y-30})`} {...interactive(open,`Fila de ${s.collaborator.fullName}, ${count} demandas`)} className="iso-interactive" data-user-id={id}>
  <title>{`${s.collaborator.fullName}: ${count} demandas${late?`, ${late} atrasadas`:''}`}</title>
  <rect width="132" height="28" rx="7" fill={color('c-ffffff')} stroke={targetUserId===id?color('c-167fbf'):theme.color} strokeWidth={targetUserId===id?3:1.4}/>
- <circle cx="9" cy="10" r="3" fill={color(s.current?'c-22c3a0':s.presence.state==='desk'?'c-ffb744':'c-97acba')}/>
+ <circle cx="9" cy="10" r="3" fill={color(s.current?'c-22c3a0':s.presence.state==='working_now'?'c-ffb744':'c-97acba')}/>
  <text x="16" y="13" fontSize="10" fontWeight="900" fill={color('c-24445e')}>{s.collaborator.fullName.split(' ').slice(0,2).join(' ').slice(0,18)}</text>
  <text x="8" y="23" fontSize="7.5" fontWeight="700" fill={color('c-7590a3')}>{(s.current?s.current.stageLabel:'Sem demanda ativa').slice(0,26)}</text>
  <text x="125" y="13" textAnchor="end" fontSize="10" fontWeight="900" fill={color(late?'c-f17468':'c-167fbf')}>{count}</text>
