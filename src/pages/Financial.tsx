@@ -1419,8 +1419,13 @@ function FinancialCockpit() {
               />
             </div>
 
-            {/* Ausência explicada: o que foi ignorado fica registrado e reversível. */}
-            <SkippedEntriesPanel entries={skipped} onRestore={restoreOccurrence} />
+            {/* Ausência explicada: o que foi ignorado fica registrado e reversível.
+                Em "A pagar", vale o recorte do ciclo da fatura — o mesmo de
+                Composição > Em aberto; nas demais abas, a competência de lançamento. */}
+            <SkippedEntriesPanel
+              entries={mainView === "to_pay" ? statementSkipped : skipped}
+              onRestore={restoreOccurrence}
+            />
           </section>
         )}
 
