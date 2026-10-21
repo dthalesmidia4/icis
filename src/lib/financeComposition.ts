@@ -11,6 +11,9 @@
 import {
   FinanceItem,
   FinanceKind,
+  FinanceOccurrence,
+  SkippedEntry,
+  skippedEntriesInMonth,
   MonthRow,
   StatementGroup,
   effectivePaid,
@@ -26,6 +29,48 @@ import {
   resolveRowStatus,
 } from "./financeRowStatus";
 import { iofRowsFromMonthRows } from "./financeIof";
+import { Competence, competenceFromISO, competenceToISO } from "./financeCardCycle";
+import { StatementCycleMap, findCycleForChargeDate } from "./financeStatementCycles";
+
+/**
+ * Ignorados pelo MÊS DA FATURA: cobranças de cartão seguem o ciclo efetivo da
+ * `charge_date`; despesas diretas seguem `competence_month`. Fora dos totais.
+ */
+export function statementSkippedEntries(params: {
+  occurrences: FinanceOccurrence[];
+  itemsByCompetence?: Map<string, FinanceItem[]> | null;
+  fallbackItems: FinanceItem[];
+  competence: Competence;
+  cycles?: StatementCycleMap | null;
+}): SkippedEntry[] {
+  const target = competenceToISO(params.competence);
+  const months = new Set(params.occurrences.map((o) => o.competence_month).filter(Boolean));
+  const seen = new Map<string, SkippedEntry>();
+  for (const month of months) {
+    const items = params.itemsByCompetence?.get(month) ?? params.fallbackItems;
+    const entries = skippedEntriesInMonth({
+      items,
+      occurrences: params.occurrences,
+      competence: competenceFromISO(month),
+    });
+    for (const entry of entries) {
+      const occ = entry.occurrence;
+      if (seen.has(occ.id)) continue;
+      const cardId = occ.card_item_id_snapshot ?? entry.item.card_item_id ?? null;
+      let belongs: string;
+      if (!cardId) belongs = occ.competence_month;
+      else {
+        const date = occ.charge_date ?? occ.scheduled_date ?? occ.due_date ?? null;
+        const cycle = findCycleForChargeDate(params.cycles, cardId, date);
+        belongs = cycle
+          ? cycle.competenceMonth
+          : (occ.statement_competence_snapshot ?? occ.competence_month ?? "").slice(0, 10);
+      }
+      if (belongs === target) seen.set(occ.id, entry);
+    }
+  }
+  return [...seen.values()].sort((a, b) => (a.scheduledDate ?? "").localeCompare(b.scheduledDate ?? ""));
+}
 
 
 

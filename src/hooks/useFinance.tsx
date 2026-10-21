@@ -41,7 +41,7 @@ import {
   buildBatchSettlementIndex,
 } from "@/lib/financePaymentSchedule";
 import { buildStatementSettlementIndex, mergeSettlementIndexes } from "@/lib/financeSettlement";
-import { rowsForStatementMonth } from "@/lib/financeComposition";
+import { rowsForStatementMonth, statementSkippedEntries } from "@/lib/financeComposition";
 import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
 import {
   OneOffFact,
@@ -384,6 +384,21 @@ export function useFinance(competence: Competence) {
   const statementMonthRows = useMemo(
     () => rowsForStatementMonth(rows, statements),
     [rows, statements],
+  );
+
+  /** Ignorados pelo mês da fatura (Composição > Em aberto). */
+  const statementSkipped = useMemo(
+    () =>
+      tracked
+        ? statementSkippedEntries({
+            occurrences,
+            itemsByCompetence: monthItemsByCompetence,
+            fallbackItems: monthItems,
+            competence: normalized,
+            cycles: statementCycles,
+          })
+        : [],
+    [occurrences, monthItemsByCompetence, monthItems, normalized.year, normalized.month, statementCycles, tracked],
   );
 
   /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
@@ -1151,6 +1166,7 @@ export function useFinance(competence: Competence) {
     settlement,
     totals,
     skipped,
+    statementSkipped,
 
     overlaps,
     cards,
