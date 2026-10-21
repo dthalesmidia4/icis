@@ -212,7 +212,7 @@ function FinancialCockpit() {
 
   const finance = useFinance(competence);
   const {
-    loading, loadError, rows, statements, settlement, totals, overlaps, items, cards, packages, settings,
+    loading, loadError, rows, statementMonthRows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     skipped, skipOccurrence, restoreOccurrence,
     saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, freezeStatementComponents, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, correctPaidStatementDate, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
@@ -398,13 +398,13 @@ function FinancialCockpit() {
 
   /** Recorte bruto: reconcilia exatamente com os KPIs, sem filtros da UI. */
   const compositionEntries = useMemo(
-    () => buildMonthComposition({ rows, status: compositionStatus, settlement }),
-    [rows, compositionStatus, settlement],
+    () => buildMonthComposition({ rows: statementMonthRows, status: compositionStatus, settlement }),
+    [statementMonthRows, compositionStatus, settlement],
   );
 
   const compositionOrigins = useMemo(
-    () => compositionOriginOptions(rows, cardsById, cardDisplayLabel),
-    [rows, cardsById],
+    () => compositionOriginOptions(statementMonthRows, cardsById, cardDisplayLabel),
+    [statementMonthRows, cardsById],
   );
 
   const compositionCategories = useMemo(
