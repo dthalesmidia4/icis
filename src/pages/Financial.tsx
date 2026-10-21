@@ -214,7 +214,7 @@ function FinancialCockpit() {
   const {
     loading, loadError, rows, statementMonthRows, statements, settlement, totals, overlaps, items, cards, packages, settings,
     skipped, statementSkipped, skipOccurrence, restoreOccurrence,
-    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, freezeStatementComponents, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, correctPaidStatementDate, saveSettings, saveItem, setItemActive, refresh,
+    saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, freezeStatementComponents, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, correctPaidStatementDate, voidPaidDirectOccurrence, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
 
@@ -1593,6 +1593,7 @@ function FinancialCockpit() {
         onSave={saveOccurrence}
         onSkip={(row) => skipOccurrence(row)}
         onRefresh={refresh}
+        onVoidPaidDirect={voidPaidDirectOccurrence}
 
         onAddSupplemental={(item) => {
           setOccurrenceRow(null);

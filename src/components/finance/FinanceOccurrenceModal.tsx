@@ -18,8 +18,23 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CalendarOff, Paperclip, Pencil, PlusCircle, Trash2 } from "lucide-react";
+import { Ban, CalendarOff, Paperclip, Pencil, PlusCircle, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  VOID_CONFIRMATION_TEXT,
+  canVoidPaidDirectOccurrence,
+  voidConfirmationValid,
+  voidReasonValid,
+} from "@/lib/financeVoidPaidDirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -178,6 +193,11 @@ interface Props {
   onAddSupplemental?: (item: FinanceItem) => void;
   /** Rótulos dinâmicos das linhas do mês (renovação/recarga). */
   labels?: Map<string, OccurrenceLabel> | null;
+  /**
+   * ANULA um lançamento direto JÁ PAGO pela RPC auditada: o banco preserva
+   * `paid_at` e os valores e grava o motivo na trilha de correções.
+   */
+  onVoidPaidDirect?: (occurrenceId: string, reason: string) => Promise<boolean>;
 }
 
 
@@ -204,9 +224,15 @@ export default function FinanceOccurrenceModal({
   onSkip,
   onAddSupplemental,
   labels,
+  onVoidPaidDirect,
 }: Props) {
 
   const [skipping, setSkipping] = useState(false);
+  /** Diálogo de anulação auditada: motivo + digitação da confirmação. */
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidConfirm, setVoidConfirm] = useState("");
+  const [voiding, setVoiding] = useState(false);
 
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
@@ -347,7 +373,11 @@ export default function FinanceOccurrenceModal({
     else setOrigin(FOLLOW_ITEM);
     setCurrency(row.currency === "USD" ? "USD" : "BRL");
     // Nada de modo de correção: os campos factuais já abrem digitáveis.
-
+    // A anulação é uma intenção nova: nunca reaproveita o motivo já digitado.
+    setVoidOpen(false);
+    setVoidReason("");
+    setVoidConfirm("");
+    setVoiding(false);
   }, [open, row, defaultUsdRate, today]);
 
 
@@ -435,6 +465,29 @@ export default function FinanceOccurrenceModal({
   );
 
   const canSubmit = canSubmitOccurrence({ cardRow, paid, paymentDate });
+
+  /**
+   * Anulação auditada: o botão só aparece para o fato que o servidor aceita
+   * (persistido, pago, regular, sem fatura e sem cartão). A recusa do banco é
+   * mostrada como está — nada é retirado da tela antes da resposta dele.
+   */
+  const voidOccurrenceId = row?.occurrence?.id ?? null;
+  const voidable = !!onVoidPaidDirect && canVoidPaidDirectOccurrence(row);
+  const canSubmitVoid =
+    voidable &&
+    !!voidOccurrenceId &&
+    voidReasonValid(voidReason) &&
+    voidConfirmationValid(voidConfirm);
+
+  const handleVoid = async () => {
+    if (!onVoidPaidDirect || !voidOccurrenceId || !canSubmitVoid) return;
+    setVoiding(true);
+    const ok = await onVoidPaidDirect(voidOccurrenceId, voidReason);
+    setVoiding(false);
+    if (!ok) return;
+    setVoidOpen(false);
+    onOpenChange(false);
+  };
 
   const handleUpload = async (file: File) => {
     if (!row) return;
@@ -592,6 +645,7 @@ export default function FinanceOccurrenceModal({
         : "text-muted-foreground";
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="min-w-0">
@@ -960,6 +1014,25 @@ export default function FinanceOccurrenceModal({
                 {removing ? "Processando..." : occurrenceActionLabelForRow(deleteAction, row)}
               </Button>
             ) : null}
+            {/*
+              Anulação auditada de fato direto já pago: o banco preserva
+              `paid_at` e os valores e registra o motivo na trilha de correções.
+            */}
+            {voidable ? (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  setVoidReason("");
+                  setVoidConfirm("");
+                  setVoidOpen(true);
+                }}
+                disabled={saving || removing || voiding}
+              >
+                <Ban className="w-4 h-4 mr-2 flex-shrink-0" />
+                Anular lançamento
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
 
             {/* Fato fechado NÃO tem botão para destravar: o Save roteia sozinho. */}
@@ -983,5 +1056,69 @@ export default function FinanceOccurrenceModal({
 
       </DialogContent>
     </Dialog>
+
+    {/*
+      CONFIRMAÇÃO DA ANULAÇÃO: o banco só aceita o fato direto pago com motivo
+      descritivo e a digitação literal de ANULAR. Enquanto a RPC não responde,
+      nada muda na tela — a recusa é mostrada como veio.
+    */}
+    <AlertDialog
+      open={voidOpen}
+      onOpenChange={(next) => {
+        if (!voiding) setVoidOpen(next);
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Anular este lançamento?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Ele deixa de contar no mês, mas a data de pagamento original, os
+            valores e o cadastro continuam preservados. A operação fica
+            registrada na trilha de correções com o motivo informado.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="void-reason">Motivo da anulação</Label>
+            <Textarea
+              id="void-reason"
+              rows={3}
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="Ex.: o boleto já tinha sido quitado por Pix"
+              disabled={voiding}
+            />
+            <p className="text-xs text-muted-foreground">
+              {voidReasonValid(voidReason)
+                ? "O motivo será registrado na auditoria."
+                : "Obrigatório: descreva o motivo com pelo menos 10 caracteres."}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="void-confirm">
+              Digite {VOID_CONFIRMATION_TEXT} para confirmar
+            </Label>
+            <Input
+              id="void-confirm"
+              value={voidConfirm}
+              onChange={(e) => setVoidConfirm(e.target.value)}
+              placeholder={VOID_CONFIRMATION_TEXT}
+              autoComplete="off"
+              disabled={voiding}
+            />
+          </div>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={voiding}>Cancelar</AlertDialogCancel>
+          <Button variant="destructive" disabled={!canSubmitVoid || voiding} onClick={handleVoid}>
+            {voiding ? "Anulando..." : "Anular lançamento"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
