@@ -267,7 +267,7 @@ export default function Office() {
         <OfficeIsoScene stations={stations} people={people} myId={user?.id} mobile={isMobile}
           onQueue={setQueueUserId} onCard={setOpenCardId} startPress={startPress}
           consumeClickSuppression={consumeClickSuppression} targetUserId={drag?.targetUserId}
-          registerStack={registerStackAnchor} />
+          registerStack={registerStackAnchor} tenantId={tenantId} />
         <div className="pointer-events-none absolute left-4 right-4 top-4 flex flex-wrap items-start justify-between gap-3">
           {!isMobile && <OfficeMissionPanel level={pulse.level} missions={pulse.missions} doneCount={pulse.missionsDone} total={pulse.missionsTotal} />}
           <OfficeAgencyPanel deliveredToday={pulse.deliveredToday} inProgress={pulse.inProgress} atRisk={pulse.atRisk} awaitingClient={pulse.awaitingClient} progressPct={pulse.progressPct} width={isMobile ? 290 : 340} />
