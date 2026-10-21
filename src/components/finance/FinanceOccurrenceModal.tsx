@@ -645,6 +645,7 @@ export default function FinanceOccurrenceModal({
         : "text-muted-foreground";
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="min-w-0">
@@ -1055,5 +1056,69 @@ export default function FinanceOccurrenceModal({
 
       </DialogContent>
     </Dialog>
+
+    {/*
+      CONFIRMAÇÃO DA ANULAÇÃO: o banco só aceita o fato direto pago com motivo
+      descritivo e a digitação literal de ANULAR. Enquanto a RPC não responde,
+      nada muda na tela — a recusa é mostrada como veio.
+    */}
+    <AlertDialog
+      open={voidOpen}
+      onOpenChange={(next) => {
+        if (!voiding) setVoidOpen(next);
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Anular este lançamento?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Ele deixa de contar no mês, mas a data de pagamento original, os
+            valores e o cadastro continuam preservados. A operação fica
+            registrada na trilha de correções com o motivo informado.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="void-reason">Motivo da anulação</Label>
+            <Textarea
+              id="void-reason"
+              rows={3}
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="Ex.: o boleto já tinha sido quitado por Pix"
+              disabled={voiding}
+            />
+            <p className="text-xs text-muted-foreground">
+              {voidReasonValid(voidReason)
+                ? "O motivo será registrado na auditoria."
+                : "Obrigatório: descreva o motivo com pelo menos 10 caracteres."}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="void-confirm">
+              Digite {VOID_CONFIRMATION_TEXT} para confirmar
+            </Label>
+            <Input
+              id="void-confirm"
+              value={voidConfirm}
+              onChange={(e) => setVoidConfirm(e.target.value)}
+              placeholder={VOID_CONFIRMATION_TEXT}
+              autoComplete="off"
+              disabled={voiding}
+            />
+          </div>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={voiding}>Cancelar</AlertDialogCancel>
+          <Button variant="destructive" disabled={!canSubmitVoid || voiding} onClick={handleVoid}>
+            {voiding ? "Anulando..." : "Anular lançamento"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
