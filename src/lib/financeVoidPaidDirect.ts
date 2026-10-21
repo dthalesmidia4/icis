@@ -45,5 +45,11 @@ export function canVoidPaidDirectOccurrence(row: MonthRow | null | undefined): b
   if (occ.skipped_at) return false;
   if ((occ.entry_role ?? row.entryRole ?? "regular") !== "regular") return false;
   if (occ.statement_occurrence_id) return false;
+  /**
+   * O servidor compara `snapshot > cadastro`: um cartão gravado só neste mês
+   * também desqualifica o fato, mesmo que a linha ainda não o tenha resolvido.
+   */
+  if (occ.card_item_id_snapshot) return false;
+  if (/cart/i.test(occ.payment_method_snapshot ?? "")) return false;
   return isDirectObligation(row);
 }
