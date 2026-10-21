@@ -18,8 +18,23 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CalendarOff, Paperclip, Pencil, PlusCircle, Trash2 } from "lucide-react";
+import { Ban, CalendarOff, Paperclip, Pencil, PlusCircle, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  VOID_CONFIRMATION_TEXT,
+  canVoidPaidDirectOccurrence,
+  voidConfirmationValid,
+  voidReasonValid,
+} from "@/lib/financeVoidPaidDirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -178,6 +193,11 @@ interface Props {
   onAddSupplemental?: (item: FinanceItem) => void;
   /** Rótulos dinâmicos das linhas do mês (renovação/recarga). */
   labels?: Map<string, OccurrenceLabel> | null;
+  /**
+   * ANULA um lançamento direto JÁ PAGO pela RPC auditada: o banco preserva
+   * `paid_at` e os valores e grava o motivo na trilha de correções.
+   */
+  onVoidPaidDirect?: (occurrenceId: string, reason: string) => Promise<boolean>;
 }
 
 
@@ -204,9 +224,15 @@ export default function FinanceOccurrenceModal({
   onSkip,
   onAddSupplemental,
   labels,
+  onVoidPaidDirect,
 }: Props) {
 
   const [skipping, setSkipping] = useState(false);
+  /** Diálogo de anulação auditada: motivo + digitação da confirmação. */
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidConfirm, setVoidConfirm] = useState("");
+  const [voiding, setVoiding] = useState(false);
 
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
