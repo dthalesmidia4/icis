@@ -4569,6 +4569,10 @@ export type Database = {
         }
         Returns: Json
       }
+      finance_void_paid_direct_occurrence: {
+        Args: { _confirmation: string; _occurrence_id: string; _reason: string }
+        Returns: Json
+      }
       generate_demand_fingerprint: {
         Args: { p_channel: string; p_demand_type: string; p_title: string }
         Returns: string
