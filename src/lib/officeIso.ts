@@ -23,3 +23,17 @@ export function shouldCancelManualWalk(previous: WalkSignature, next: WalkSignat
   const normalize = (s: WalkSignature) => JSON.stringify([s.presenceZone, s.demands.map(d => [d.id, d.stage]).sort((a,b) => a[0].localeCompare(b[0]))]);
   return normalize(previous) !== normalize(next);
 }
+/** Cadeira atrás do tampo (lado da parede), sem invadir o tampo 2.25×1.58. */
+export const deskChairGrid = (index: number): GridPoint => { const p = deskGrid(index); return { x: p.x + 0.8, y: p.y - 0.78 }; };
+/** Altura física (px) da pilha: cresce com a fila real, comprimida nas grandes. */
+export const stackHeight = (count: number) => count <= 0 ? 0 : Math.min(48, Math.round(3 + 7 * Math.sqrt(count)));
+export interface GridRect { x0: number; y0: number; x1: number; y1: number }
+export const furnitureRects = (deskCount: number): GridRect[] => [
+  ...Array.from({ length: deskCount }, (_, i) => { const p = deskGrid(i); return { x0: p.x - .1, y0: p.y - .85, x1: p.x + 2.35, y1: p.y + 1.68 }; }),
+  { x0: 6.8, y0: 6.2, x1: 10, y1: 8.4 },
+];
+/** Destino manual nunca fica sobre mesa ou reunião: empurra para a frente do móvel. */
+export function avoidFurniture(pt: GridPoint, rects: GridRect[]): GridPoint {
+  const hit = rects.find(r => pt.x > r.x0 && pt.x < r.x1 && pt.y > r.y0 && pt.y < r.y1);
+  return hit ? { x: pt.x, y: hit.y1 + 0.25 } : pt;
+}

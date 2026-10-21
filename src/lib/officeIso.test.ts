@@ -12,3 +12,20 @@ describe('office isometric geometry', () => {
     expect(shouldCancelManualWalk(a,{...a,presenceZone:'coffee'})).toBe(true);
   });
 });
+import { stackHeight, avoidFurniture, furnitureRects, deskGrid, deskChairGrid } from './officeIso';
+describe('office stations', () => {
+  it('stack grows with real queue and compresses large ones', () => {
+    expect(stackHeight(0)).toBe(0);
+    expect(stackHeight(4)).toBeLessThan(stackHeight(30));
+    expect(stackHeight(30)).toBeLessThan(stackHeight(59));
+    expect(stackHeight(59)).toBeLessThanOrEqual(48);
+  });
+  it('never leaves a walker on a desk or the meeting table', () => {
+    const d = deskGrid(0); const p = avoidFurniture({ x: d.x + 1, y: d.y + .5 }, furnitureRects(4));
+    expect(p.y).toBeGreaterThan(d.y + 1.68);
+    expect(avoidFurniture({ x: 8.5, y: 7.5 }, furnitureRects(4)).y).toBeGreaterThan(8.4);
+  });
+  it('chair sits behind the desk top without overlapping it', () => {
+    const d = deskGrid(2), c = deskChairGrid(2); expect(c.y + .64).toBeLessThanOrEqual(d.y);
+  });
+});
