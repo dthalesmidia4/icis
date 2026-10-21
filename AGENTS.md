@@ -1,3 +1,4 @@
 - Finance display aliases belong in financeOccurrenceLabels helpers; consumers reuse them so suffixes and identities stay unchanged.
 - Previous-month projections in open statements may use current statement-competence catalog currency/default amounts for the same card; real facts and frozen statements retain historical semantics.
 - Finance KPIs and month composition share rowsForStatementMonth, using canonical statement components for configured cards with a statement row; operational lists retain raw month rows.
+- Office visual materials use scoped semantic CSS tokens and presentation-only surfaces; layout engines, measured anchors and interaction handlers stay unchanged so miniature styling cannot move stations or change operations.
