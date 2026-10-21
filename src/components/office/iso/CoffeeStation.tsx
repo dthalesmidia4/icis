@@ -1,5 +1,5 @@
 import {p,pp,poly,tilePoly,isoBox,esc,W} from './geometry';
 import {rug} from './Rug';
 export function coffeeStation(){let x=11.25,y=.8;let out=`<g class="interactive station" data-zone="coffee">${rug(10.5,.7,2.15,1.93,'hsl(var(--iso-c-f8debc))')}`;out+=isoBox(x,y,1.25,.74,61,'hsl(var(--iso-c-faf5ea))','hsl(var(--iso-c-daa977))','hsl(var(--iso-c-c48e65))');const m=p(x+.61,y+.37,68);out+=`<g transform="translate(${m.x} ${m.y})"><rect x="-32" y="-65" width="63" height="51" rx="11" fill="hsl(var(--iso-c-415f77))" stroke="hsl(var(--iso-c-7498b2))" stroke-width="4"/><rect x="-22" y="-54" width="45" height="22" rx="5" fill="hsl(var(--iso-c-b1deef))"/><path d="M-17 -19H16" stroke="hsl(var(--iso-c-92b8ce))" stroke-width="4"/><circle cx="-15" cy="-43" r="4" fill="hsl(var(--iso-c-37ccba))"/><circle cx="0" cy="-43" r="4" fill="hsl(var(--iso-c-ffb744))"/><rect x="-6" y="-9" width="16" height="14" rx="2" fill="hsl(var(--iso-c-fff))" stroke="hsl(var(--iso-c-a6c1d0))" stroke-width="2"/></g>`;
-out+=`<text x="${m.x}" y="${m.y-80}" text-anchor="middle" font-size="13" font-weight="1000" fill="hsl(var(--iso-c-94735a))">CAFÉ ☕</text>`;out+=`</g>`;return out}
+out+=`</g>`;return out}
 export default function CoffeeStation({args=[]}:{args?:any[]}){return <g dangerouslySetInnerHTML={{__html:(coffeeStation as (...args:any[])=>string)(...args)}} />;}
