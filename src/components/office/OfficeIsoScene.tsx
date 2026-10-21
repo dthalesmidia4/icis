@@ -86,6 +86,8 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
   return card&&j>=n-8?<g key={card.id} data-interactive="true" onPointerDown={e=>{e.stopPropagation();startPress(e,{id:card.id,title:card.title,fromUserId:id});}} onClick={e=>{e.stopPropagation();if(!consumeClickSuppression())onCard(card.id);}} className="iso-interactive"><title>{card.title}</title>{sheet}</g>:<g key={`f${j}`} pointerEvents="none">{sheet}</g>;})}
  {count>0&&<g {...interactive(open,`Fila de ${s.collaborator.fullName}, ${count} demandas`)} className="iso-interactive" transform={`translate(26 ${-h-6})`}><rect x="-2" y="-9" width={count>9?24:18} height="14" rx="7" fill={color('c-ffffff')} stroke={theme.paper}/><text x={count>9?10:7} y="1.5" textAnchor="middle" fontSize="9" fontWeight="900" fill={color(count>15?'c-f17468':'c-24445e')}>{count}</text></g>}
  </g>
+ </g>});
+ overlays.push(<g key={`plate-${id}`}>
  <g transform={`translate(${plate.x-66} ${plate.y-30})`} {...interactive(open,`Fila de ${s.collaborator.fullName}, ${count} demandas`)} className="iso-interactive" data-user-id={id}>
  <title>{`${s.collaborator.fullName}: ${count} demandas${late?`, ${late} atrasadas`:''}`}</title>
  <rect width="132" height="28" rx="7" fill={color('c-ffffff')} stroke={targetUserId===id?color('c-167fbf'):theme.color} strokeWidth={targetUserId===id?3:1.4}/>
@@ -95,7 +97,7 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  <text x="125" y="13" textAnchor="end" fontSize="10" fontWeight="900" fill={color(late?'c-f17468':'c-167fbf')}>{count}</text>
  {late>0&&<text x="125" y="23" textAnchor="end" fontSize="7" fontWeight="900" fill={color('c-f17468')}>{`${late} atras.`}</text>}
  </g>
- </g>});
+ </g>);
  });
  const zoneLabels={planning:'Planejamento',review:'Revisão',coffee:'Café',meeting:'Reunião',waiting:'Espera'};
  const zoneObjects={planning:<CreativeShelf/>,review:<ReviewStation/>,coffee:<CoffeeStation/>,meeting:<MeetingRoom/>,waiting:<Sofa/>};
