@@ -380,7 +380,7 @@ export function useFinance(competence: Competence) {
     [monthItems, monthItemsByCompetence, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, statementCycles, tracked],
   );
 
-  /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
+  /** Base compartilhada dos KPIs e da composição, sem alterar as listas operacionais. */
   const statementMonthRows = useMemo(
     () => rowsForStatementMonth(rows, statements),
     [rows, statements],

@@ -3,4 +3,4 @@
 - [x] Corrigir apenas dados de projeção anterior em fatura aberta e testar Adplane/SEDANCE.
 - [x] Rodar 72 testes focais e verificar aplicação com dados sintéticos; build OK.
 - [ ] Verificar fluxo financeiro autenticado real — bloqueado: Supabase externo sem sessão de teste gerenciável.
-- [ ] Alinhar KPIs e Composição à fatura canônica, preservando listas operacionais; validar regressão OUT/NOV.
+- [x] Alinhar KPIs e Composição à fatura canônica, preservando listas operacionais; regressão sintética OUT/NOV validada.
