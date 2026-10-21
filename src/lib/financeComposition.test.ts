@@ -278,7 +278,7 @@ describe("statementSkippedEntries", () => {
     statementSkippedEntries({ occurrences, fallbackItems: items, competence: { year: 2026, month }, cycles }).map((e) => e.occurrence.id);
 
   it("cartão segue o mês da fatura; direto segue a competência", () => {
-    expect(run(10)).toEqual(["f-out", "s-set"]);
+    expect(run(10)).toEqual(["s-set", "f-out"]);
     expect(run(11)).toEqual(["s-out"]);
   });
 
