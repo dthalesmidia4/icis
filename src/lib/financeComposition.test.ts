@@ -14,6 +14,7 @@ import {
   compositionTotal,
   normalizeCompositionStatus,
   rowsForStatementMonth,
+  statementSkippedEntries,
 } from "./financeComposition";
 import { buildStatementSettlementIndex } from "./financeSettlement";
 import type { StatementCycleMap } from "./financeStatementCycles";
@@ -246,3 +247,45 @@ describe("rowsForStatementMonth — OUT/NOV por composição canônica", () => {
 
 // tipagem: MonthRow importado para garantir compatibilidade da base
 export type _Row = MonthRow;
+
+describe("A pagar = Composição > Em aberto", () => {
+  it("fatura paga: só a despesa direta aberta entra, nada pago", () => {
+    const { rows } = scenario(true);
+    const open = buildMonthComposition({ rows, status: "open" });
+    expect(open.map((e) => e.row.item.name)).toEqual(["Aluguel"]);
+    expect(open.every((e) => !e.paid)).toBe(true);
+    expect(compositionTotal(open)).toBe(1000);
+  });
+});
+
+describe("statementSkippedEntries", () => {
+  const cycles: StatementCycleMap = new Map([
+    ["itau|2026-10-01", { cardId: "itau", competenceMonth: "2026-10-01", cycleStart: "2026-09-15", cycleEnd: "2026-10-14", closingDateIsActual: true }],
+    ["itau|2026-11-01", { cardId: "itau", competenceMonth: "2026-11-01", cycleStart: "2026-10-15", cycleEnd: "2026-11-13", closingDateIsActual: false }],
+  ]);
+  const items = [
+    item({ id: "canva", name: "Canva", kind: "tool", card_item_id: "itau" }),
+    item({ id: "faxina", name: "FAXINA", payment_method: "Pix" }),
+  ];
+  const skippedOcc = (id: string, item_id: string, month: string, date: string) =>
+    occ({ id, item_id, competence_month: month, scheduled_date: date, skipped_at: "2026-10-01T00:00:00Z" } as any);
+  const occurrences = [
+    skippedOcc("s-set", "canva", "2026-09-01", "2026-09-20"),
+    skippedOcc("s-out", "canva", "2026-10-01", "2026-10-20"),
+    skippedOcc("f-out", "faxina", "2026-10-01", "2026-10-07"),
+  ];
+  const run = (month: number) =>
+    statementSkippedEntries({ occurrences, fallbackItems: items, competence: { year: 2026, month }, cycles }).map((e) => e.occurrence.id);
+
+  it("cartão segue o mês da fatura; direto segue a competência", () => {
+    expect(run(10)).toEqual(["f-out", "s-set"]);
+    expect(run(11)).toEqual(["s-out"]);
+  });
+
+  it("ignorados não somam nos totais da composição", () => {
+    const { rows } = scenario(false);
+    expect(compositionTotal(buildMonthComposition({ rows, status: "open" }))).toBe(
+      computeTotals(rows).open,
+    );
+  });
+});
