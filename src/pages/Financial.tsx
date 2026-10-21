@@ -213,7 +213,7 @@ function FinancialCockpit() {
   const finance = useFinance(competence);
   const {
     loading, loadError, rows, statementMonthRows, statements, settlement, totals, overlaps, items, cards, packages, settings,
-    skipped, skipOccurrence, restoreOccurrence,
+    skipped, statementSkipped, skipOccurrence, restoreOccurrence,
     saveOccurrence, ensureStatementOccurrence, saveStatementClosingDate, freezeStatementComponents, togglePaid, payStatement, updateStatementClosure, saveUsdReconciliationDraft, correctPaidStatementDate, saveSettings, saveItem, setItemActive, refresh,
   } = finance;
 
@@ -481,12 +481,18 @@ function FinancialCockpit() {
     [advanced, costCenter],
   );
 
-  const visibleRows = useMemo(() => {
-    let result = accountRows;
+  /** `A pagar` = mesma base canônica de Composição > Em aberto (mês da fatura). */
+  const accountOpenEntries = useMemo(
+    () => buildMonthComposition({ rows: statementMonthRows, status: "open", settlement }),
+    [statementMonthRows, settlement],
+  );
+  const accountOpenRows = useMemo(() => accountOpenEntries.map((e) => e.row), [accountOpenEntries]);
+  const accountOpenLabels = useMemo(() => buildOccurrenceLabels(accountOpenRows), [accountOpenRows]);
 
-    if (mainView === "to_pay") {
-      result = result.filter((row) => resolveRowStatus(row, statusContext).kind !== "paid");
-    } else if (mainView === "paid") {
+  const visibleRows = useMemo(() => {
+    let result = mainView === "to_pay" ? accountOpenRows : accountRows;
+
+    if (mainView === "paid") {
       result = result.filter((row) => resolveRowStatus(row, statusContext).kind === "paid");
     }
 
@@ -522,7 +528,7 @@ function FinancialCockpit() {
       );
     }
     return result;
-  }, [accountRows, statements, mainView, advanced, costCenter, search, today, statusContext, settlement]);
+  }, [accountRows, accountOpenRows, statements, mainView, advanced, costCenter, search, today, statusContext, settlement]);
 
   /** Total das linhas visíveis (inclui os repasses de IOF exibidos). */
   const visibleRowsTotal = useMemo(() => sumRowsBrl(visibleRows), [visibleRows]);
@@ -578,11 +584,13 @@ function FinancialCockpit() {
   /* ------------------------- Números por domínio ------------------------- */
 
   const accountsSummary = useMemo(() => {
-    const pending = accountRows.filter((row) => resolveRowStatus(row, statusContext).kind !== "paid");
-    const overdue = overdueDirectRows(accountRows, statusContext);
-    const open = pending.reduce((sum, r) => sum + (r.amountBrl ?? 0), 0);
-    return { pending: pending.length, overdue: overdue.length, open };
-  }, [accountRows, statusContext]);
+    const overdue = overdueDirectRows(accountOpenRows, statusContext);
+    return {
+      pending: accountOpenRows.length,
+      overdue: overdue.length,
+      open: compositionTotal(accountOpenEntries),
+    };
+  }, [accountOpenRows, accountOpenEntries, statusContext]);
 
   const accountsPaidTotal = useMemo(
     () =>
@@ -1246,6 +1254,11 @@ function FinancialCockpit() {
               expanded={compositionExpanded}
               onToggleGroup={toggleCompositionGroup}
             />
+            {compositionStatus === "open" && (
+              <div className="mt-4">
+                <SkippedEntriesPanel entries={statementSkipped} onRestore={restoreOccurrence} />
+              </div>
+            )}
           </section>
         )}
 
@@ -1346,6 +1359,7 @@ function FinancialCockpit() {
                 Outras contas e despesas
               </h3>
               <MonthAccountsList
+                onlyOpen={mainView === "to_pay"}
                 rows={nonSubscriptionVisibleRows}
                 statusContext={statusContext}
                 cards={cards}
@@ -1358,7 +1372,7 @@ function FinancialCockpit() {
                     : "Nenhuma conta para este filtro neste mês."
                 }
                 onOpenRow={setOccurrenceRow}
-                labels={occurrenceLabels}
+                labels={mainView === "to_pay" ? accountOpenLabels : occurrenceLabels}
                 onTogglePaid={togglePaid}
                 onEditItem={(item) => openItemModal(item)}
                 groupBy={accountsGroupBy}
@@ -1382,6 +1396,7 @@ function FinancialCockpit() {
                 </Button>
               </div>
               <MonthAccountsList
+                onlyOpen={mainView === "to_pay"}
                 rows={subscriptionVisibleRows}
                 statusContext={statusContext}
                 cards={cards}
@@ -1394,7 +1409,7 @@ function FinancialCockpit() {
                     : "Nenhuma assinatura ou ferramenta neste recorte."
                 }
                 onOpenRow={setOccurrenceRow}
-                labels={occurrenceLabels}
+                labels={mainView === "to_pay" ? accountOpenLabels : occurrenceLabels}
                 onTogglePaid={togglePaid}
                 onEditItem={(item) => openItemModal(item)}
                 groupBy={accountsGroupBy}

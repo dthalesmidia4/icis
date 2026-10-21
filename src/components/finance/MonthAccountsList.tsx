@@ -18,6 +18,7 @@ import { COST_CENTER_LABELS, FinanceItem, MonthRow } from "@/lib/financeModel";
 import { RowStatus, RowStatusContext, resolveRowStatus, whenLabel } from "@/lib/financeRowStatus";
 import type { CompositionGroupBy } from "@/lib/financeGrouping";
 import { isIofRow } from "@/lib/financeIof";
+import { compositionStatusLabel } from "@/lib/financeComposition";
 import { type OccurrenceLabel } from "@/lib/financeOccurrenceLabels";
 import FinanceGroupedList from "./FinanceGroupedList";
 
@@ -40,6 +41,8 @@ interface Props {
   onToggleGroup: (key: string) => void;
   /** Une vários lançamentos do mesmo cadastro num item principal expansível. */
   mergeByItem?: boolean;
+  /** Recorte `A pagar`: linhas sempre abertas (semântica da Composição > Em aberto). */
+  onlyOpen?: boolean;
 }
 
 export default function MonthAccountsList({
@@ -58,6 +61,7 @@ export default function MonthAccountsList({
   expanded,
   onToggleGroup,
   mergeByItem = false,
+  onlyOpen = false,
 }: Props) {
   /** Entries com a MESMA forma da composição: valor em BRL da linha. */
   const entries = rows.map((row) => ({ row, value: row.amountBrl ?? 0 }));
@@ -110,7 +114,11 @@ export default function MonthAccountsList({
           {originLabel(row)}
         </span>
       )}
-      status={(entry) => resolveRowStatus(entry.row, statusContext)}
+      status={(entry) =>
+        onlyOpen
+          ? compositionStatusLabel(entry.row, statusContext, { paid: false })
+          : resolveRowStatus(entry.row, statusContext)
+      }
       countLabel={(count) => (count === 1 ? "1 linha" : `${count} linhas`)}
       rowLocked={readOnly}
       nameExtras={(row) => {
