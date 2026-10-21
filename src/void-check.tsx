@@ -54,45 +54,35 @@ const base = (over: Partial<MonthRow> = {}): MonthRow =>
     ...over,
   }) as unknown as MonthRow;
 
-/** Fato direto pago (anulável) x fato em aberto (não anulável). */
-const paidDirect = base();
-const openDirect = base({
-  key: "k2",
-  paid: false,
-  occurrence: {
-    id: "o2",
-    item_id: "i1",
-    competence_month: "2026-10-01",
-    currency: "BRL",
-    entry_role: "regular",
-    paid_at: null,
-    due_date: "2026-10-05",
-  } as any,
-});
+/** `#aberto` troca o fato: direto pago (anulável) x direto em aberto. */
+const showOpen = window.location.hash === "#aberto";
+
+const row = showOpen
+  ? base({
+      key: "k2",
+      paid: false,
+      occurrence: {
+        id: "o2",
+        item_id: "i1",
+        competence_month: "2026-10-01",
+        currency: "BRL",
+        entry_role: "regular",
+        paid_at: null,
+        due_date: "2026-10-05",
+      } as any,
+    })
+  : base();
 
 createRoot(document.getElementById("root")!).render(
-  <div className="p-6 space-y-4">
-    <FinanceOccurrenceModal
-      open
-      onOpenChange={() => {}}
-      row={paidDirect}
-      defaultUsdRate={null}
-      onSave={async () => null}
-      onVoidPaidDirect={async (id, reason) => {
-        window.__voidCalls.push({ id, reason });
-        return true;
-      }}
-    />
-    <FinanceOccurrenceModal
-      open
-      onOpenChange={() => {}}
-      row={openDirect}
-      defaultUsdRate={null}
-      onSave={async () => null}
-      onVoidPaidDirect={async (id, reason) => {
-        window.__voidCalls.push({ id, reason });
-        return true;
-      }}
-    />
-  </div>,
+  <FinanceOccurrenceModal
+    open
+    onOpenChange={() => {}}
+    row={row}
+    defaultUsdRate={null}
+    onSave={async () => null}
+    onVoidPaidDirect={async (id, reason) => {
+      window.__voidCalls.push({ id, reason });
+      return true;
+    }}
+  />,
 );
