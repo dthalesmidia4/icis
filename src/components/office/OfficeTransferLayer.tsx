@@ -11,7 +11,7 @@ interface OfficeTransferLayerProps {
   /** Container do mundo (referência para calcular coordenadas relativas). */
   containerRef: RefObject<HTMLElement>;
   /** Âncora (pilha de papéis) de cada colaborador, por userId. */
-  anchors: RefObject<Map<string, HTMLElement>>;
+  anchors: RefObject<Map<string, Element>>;
   /** Lista append-only de transferências detectadas. */
   events: QueuedTransfer[];
 }
@@ -44,7 +44,7 @@ export default function OfficeTransferLayer({
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-    const pulse = (el: HTMLElement, kind: "nudge" | "bounce") => {
+    const pulse = (el: Element, kind: "nudge" | "bounce") => {
       el.classList.add(kind === "nudge" ? "office-nudge" : "office-bounce");
       const t = window.setTimeout(
         () => el.classList.remove(kind === "nudge" ? "office-nudge" : "office-bounce"),

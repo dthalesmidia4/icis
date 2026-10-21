@@ -1,35 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTenant } from "@/contexts/TenantContext";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOfficeOverview, type OfficeAreaFilter } from "@/hooks/useOfficeOverview";
-import {
-  agencyPanelWidthPx,
-  computeDeskSlots,
-  deskBaseWidth,
-  deskMonitorWidthPct,
-  richLeftZonePx,
-  richRightZonePx,
-  richZonesActive,
-  stageSize,
-  officeSceneScale,
-  WALL_HEIGHT_PCT,
-  agencyPanelTopPct,
-} from "@/lib/officeLayout";
-
-import OfficeWorld from "@/components/office/OfficeWorld";
-import OfficeDesk from "@/components/office/OfficeDesk";
+import OfficeIsoScene from "@/components/office/OfficeIsoScene";
 import OfficeQueueSheet from "@/components/office/OfficeQueueSheet";
 import OfficeCardOverlay from "@/components/office/OfficeCardOverlay";
-import CoffeeCorner from "@/components/office/CoffeeCorner";
-import PlanningZone from "@/components/office/PlanningZone";
-import ReviewZone from "@/components/office/ReviewZone";
-import MeetingZone from "@/components/office/MeetingZone";
-import WaitingZone from "@/components/office/WaitingZone";
 import OfficeAgencyPanel from "@/components/office/OfficeAgencyPanel";
 import OfficeMissionPanel from "@/components/office/OfficeMissionPanel";
-import OfficePeopleLayer, { type OfficePerson } from "@/components/office/OfficePeopleLayer";
+import { type OfficePerson } from "@/components/office/OfficePeopleLayer";
 import { anchorKeyFor, resolveOfficeZone, zoneIsVisible, zonePosture } from "@/lib/officeZone";
 import { useOfficeAgencyPulse } from "@/hooks/useOfficeAgencyPulse";
 import { nextStartLabel } from "@/lib/officePresence";
@@ -43,7 +22,6 @@ import {
   type AssignmentSnapshot,
   type TransferEvent,
 } from "@/lib/officeTransfers";
-import { useOfficeDeskPreferences } from "@/hooks/useOfficeDeskPreferences";
 import { useAuth } from "@/hooks/useAuth";
 import { toast as sonnerToast } from "sonner";
 import { smartAdministrativeReassign } from "@/lib/smartReassign";
@@ -93,7 +71,6 @@ export default function Office() {
   const { stations, cards, agencyCards, loading, refetch } = useOfficeOverview(tenantId, area, {
     onDemandEvent: handleDemandEvent,
   });
-  const { byUser: deskObjectsByUser, save: saveDeskObjects } = useOfficeDeskPreferences(tenantId);
   const { requestExit, dialog: exitGuardDialog } = useExecutionExitGuard();
 
   // ---------- arraste por ponteiro (fluxo canônico de reassign) ----------
@@ -193,24 +170,15 @@ export default function Office() {
   // ---------- animação de transferência (apenas representação visual) ----------
   // `roomRef` = sala inteira (medida); `worldRef` = PALCO LÓGICO (sistema de
   // coordenadas de personagens e animação — coeso também em ultrawide).
-  const roomRef = useRef<HTMLElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
-  const stackAnchors = useRef<Map<string, HTMLElement>>(new Map());
+  const stackAnchors = useRef<Map<string, Element>>(new Map());
   const snapshotRef = useRef<AssignmentSnapshot | null>(null);
   const recentRef = useRef<Record<string, number>>({});
   const [transfers, setTransfers] = useState<QueuedTransfer[]>([]);
 
-  const registerStackAnchor = useCallback((userId: string, el: HTMLElement | null) => {
+  const registerStackAnchor = useCallback((userId: string, el: SVGElement | null) => {
     if (el) stackAnchors.current.set(userId, el);
     else stackAnchors.current.delete(userId);
-  }, []);
-
-  // Anchors dos LUGARES das pessoas (mesas + zonas coletivas). A camada de
-  // personagens mede estes elementos: nada de offset mágico por zona.
-  const personAnchors = useRef<Map<string, HTMLElement>>(new Map());
-  const registerPersonAnchor = useCallback((key: string, el: HTMLElement | null) => {
-    if (el) personAnchors.current.set(key, el);
-    else personAnchors.current.delete(key);
   }, []);
 
   /** Enfileira eventos já detectados (dedupe compartilhado entre os 2 caminhos). */
@@ -282,63 +250,10 @@ export default function Office() {
     return out;
   }, [stations, zoneByUser]);
 
-  const coffeeCount = useMemo(
-    () => people.filter((p) => p.anchorKey.startsWith("coffee:")).length,
-    [people],
-  );
-  const coffeeOverflow = useMemo(
-    () =>
-      stations.filter((s) => zoneByUser.get(s.collaborator.userId) === "coffee").length - coffeeCount,
-    [stations, zoneByUser, coffeeCount],
-  );
-
   const activeStation = useMemo(
     () => stations.find((s) => s.collaborator.userId === queueUserId) || null,
     [stations, queueUserId],
   );
-
-  // Tamanho REAL do mundo (medido só no resize, nunca por frame): define o
-  // perfil responsivo das mesas (desktop / large / ultrawide).
-  const [roomSize, setRoomSize] = useState({ width: 1440, height: 860 });
-  useEffect(() => {
-    const el = roomRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect;
-      if (!rect) return;
-      const width = Math.round(rect.width);
-      const height = Math.round(rect.height);
-      setRoomSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Zonas laterais (planejamento/revisão à esquerda, café/reunião/espera à
-  // direita) só entram no desktop: em telas menores a operação vem primeiro.
-  /**
-   * PALCO LÓGICO: toda a matemática de composição (mesas, faixas laterais,
-   * painel) usa esta largura — nunca a largura bruta da viewport.
-   */
-  const worldSize = useMemo(() => stageSize(roomSize), [roomSize]);
-
-  const layoutOptions = useMemo(
-    () => ({ coffeeCorner: !isMobile, sideZones: !isMobile }),
-    [isMobile],
-  );
-  const slots = useMemo(
-    () => computeDeskSlots(stations.length, worldSize, layoutOptions),
-    [stations.length, worldSize, layoutOptions],
-  );
-  const monitorPct = useMemo(() => deskMonitorWidthPct(worldSize), [worldSize]);
-  /** Densidade do cenário por perfil (desktop normal nasce compacto). */
-  const sceneScale = useMemo(() => officeSceneScale(worldSize), [worldSize]);
-  const baseWidth = useMemo(
-    () => deskBaseWidth(stations.length, worldSize, layoutOptions),
-    [stations.length, worldSize, layoutOptions],
-  );
-  /** Zonas ricas ativas: define se as faixas laterais são exibidas. */
-  const richZones = !isMobile && richZonesActive(stations.length, layoutOptions);
 
   // Painel da agência: SEMPRE agency-wide (não muda com o filtro de área).
   const queueCounts = useMemo(() => stations.map((s) => s.queueCount), [stations]);
@@ -348,203 +263,22 @@ export default function Office() {
 
   return (
     <div>
-      {/* ---------- Cenário ---------- */}
-      <OfficeWorld
-        containerRef={roomRef}
-        stageRef={worldRef}
-        stageWidth={worldSize.width}
-        hud={
-          <>
-            {/* Apenas o filtro de área permanece no cenário (HUD de métricas
-                foi removido para reduzir poluição visual). */}
-            <div className="pointer-events-auto absolute bottom-2 right-2 z-40 flex rounded-lg border border-border/40 bg-background/45 p-0.5 opacity-70 backdrop-blur-[2px] transition-opacity hover:opacity-100">
-              {AREA_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setArea(tab.id)}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    area === tab.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </>
-        }
-        upperZone={
-          <>
-            {/* PAINEL DA AGÊNCIA na FAIXA FUNCIONAL da parede (sempre
-                agency-wide): abaixo de janelas/luminária e acima da 1ª fileira,
-                centralizado no PALCO LÓGICO (não na viewport bruta). */}
-            <div
-              className="pointer-events-none absolute left-1/2 z-30 hidden -translate-x-1/2 sm:block"
-              style={{ top: `${agencyPanelTopPct(worldSize)}%` }}
-            >
-              <OfficeAgencyPanel
-                deliveredToday={pulse.deliveredToday}
-                inProgress={pulse.inProgress}
-                atRisk={pulse.atRisk}
-                awaitingClient={pulse.awaitingClient}
-                progressPct={pulse.progressPct}
-                width={agencyPanelWidthPx(worldSize.width, worldSize)}
-              />
-            </div>
-
-            {/* QUADRO DE MISSÕES/XP montado na PAREDE superior esquerda: some da
-                faixa do piso para deixar de parecer card flutuante. */}
-            {richZones && (
-              <div
-                className="pointer-events-none absolute left-2 top-2 z-30 hidden sm:block"
-                style={{ width: richLeftZonePx(worldSize) - 16 }}
-              >
-                <OfficeMissionPanel
-                  level={pulse.level}
-                  missions={pulse.missions}
-                  doneCount={pulse.missionsDone}
-                  total={pulse.missionsTotal}
-                />
-              </div>
-            )}
-
-            {/* FAIXA ESQUERDA (piso): Planejamento + Revisão, com respiro. */}
-            {richZones && (
-              <div
-                className="pointer-events-none absolute bottom-4 left-2 z-30 hidden flex-col sm:flex"
-                style={{
-                  width: richLeftZonePx(worldSize) - 16,
-                  // Densidade por perfil: no desktop normal o respiro entre
-                  // Planejamento e Revisão também encolhe (nada de zoom 80%).
-                  gap: `${Math.round(28 * sceneScale)}px`,
-                }}
-              >
-                <PlanningZone register={registerPersonAnchor} />
-                <ReviewZone register={registerPersonAnchor} />
-              </div>
-            )}
-
-
-            {/* FAIXA DIREITA: café + reunião + sala de espera */}
-            <div
-              className="pointer-events-none absolute right-2 z-30 hidden flex-col items-end gap-4 sm:flex sm:right-3"
-              style={{
-                width: richRightZonePx(worldSize) - 16,
-                top: `calc(${WALL_HEIGHT_PCT}% + 10px)`,
-              }}
-            >
-              <CoffeeCorner
-                occupied={loading ? 0 : coffeeCount}
-                overflow={loading ? 0 : Math.max(0, coffeeOverflow)}
-                register={registerPersonAnchor}
-              />
-              {richZones && <MeetingZone />}
-              {richZones && <WaitingZone count={pulse.awaitingClient} />}
-            </div>
-          </>
-        }
-
-        overlay={
-          <OfficeTransferLayer
-            containerRef={worldRef}
-            anchors={stackAnchors}
-            events={transfers}
-          />
-        }
-      >
-
-
-        {loading ? (
-          <div className="grid h-full grid-cols-2 items-end gap-8 p-8 sm:grid-cols-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : stations.length === 0 ? (
-          <p className="py-24 text-center text-sm text-muted-foreground">
-            Nenhum colaborador encontrado neste tenant.
-          </p>
-        ) : isMobile ? (
-          // Mobile: estações empilhadas, sem posicionamento absoluto.
-          <div className="flex flex-col gap-6 px-4 pb-6 pt-10">
-            {stations.map((station) => (
-              <div key={station.collaborator.userId} className="mx-auto w-full max-w-[300px]">
-                <OfficeDesk
-                  station={station}
-                  onOpenCard={setOpenCardId}
-                  onOpenQueue={setQueueUserId}
-                  deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
-                  viewerUserId={user?.id ?? null}
-                  monitorPct={monitorPct}
-                  onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
-                  registerStackAnchor={registerStackAnchor}
-                  registerAnchor={registerPersonAnchor}
-                  personAway={zoneByUser.get(station.collaborator.userId) !== "desk"}
-                  draggingCardId={drag?.cardId ?? null}
-                  isDropTarget={drag?.targetUserId === station.collaborator.userId}
-                  onPressCard={startPress}
-                  consumeClickSuppression={consumeClickSuppression}
-                />
-              </div>
-            ))}
-            <OfficePeopleLayer
-              people={people}
-              containerRef={worldRef}
-              anchors={personAnchors}
-              layoutToken={`m:${stations.length}`}
-            />
-          </div>
-        ) : (
-          <div className="absolute inset-0">
-            {stations.map((station, index) => {
-              const slot = slots[index];
-              if (!slot) return null;
-              return (
-                <div
-                  key={station.collaborator.userId}
-                  className="absolute"
-                  style={{
-                    left: `${slot.leftPct}%`,
-                    top: `${slot.topPct}%`,
-                    width: baseWidth,
-                    zIndex: slot.z,
-                    transform: `translate(-50%, -100%) scale(${slot.scale})`,
-                    transformOrigin: "bottom center",
-                  }}
-                >
-                  <OfficeDesk
-                    station={station}
-                    onOpenCard={setOpenCardId}
-                    onOpenQueue={setQueueUserId}
-                    deskObjects={deskObjectsByUser[station.collaborator.userId] || []}
-                    viewerUserId={user?.id ?? null}
-                  monitorPct={monitorPct}
-                    onSaveDeskObjects={(objects) => saveDeskObjects(station.collaborator.userId, objects)}
-                  registerStackAnchor={registerStackAnchor}
-                  registerAnchor={registerPersonAnchor}
-                  personAway={zoneByUser.get(station.collaborator.userId) !== "desk"}
-                  draggingCardId={drag?.cardId ?? null}
-                  isDropTarget={drag?.targetUserId === station.collaborator.userId}
-                  onPressCard={startPress}
-                  consumeClickSuppression={consumeClickSuppression}
-                  />
-                </div>
-              );
-            })}
-
-            {/* CAMADA ÚNICA DE PERSONAGENS (posicionada pelos anchors medidos) */}
-            <OfficePeopleLayer
-              people={people}
-              containerRef={worldRef}
-              anchors={personAnchors}
-              layoutToken={`${worldSize.width}x${worldSize.height}:${stations.length}:${richZones}`}
-            />
-          </div>
-        )}
-      </OfficeWorld>
+      <div ref={worldRef} className="office-iso relative overflow-hidden rounded-2xl border border-border" style={{ height: 'max(720px, calc(100dvh - 100px))' }}>
+        <OfficeIsoScene stations={stations} people={people} myId={user?.id} mobile={isMobile}
+          onQueue={setQueueUserId} onCard={setOpenCardId} startPress={startPress}
+          consumeClickSuppression={consumeClickSuppression} targetUserId={drag?.targetUserId}
+          registerStack={registerStackAnchor} />
+        <div className="pointer-events-none absolute left-4 right-4 top-4 flex flex-wrap items-start justify-between gap-3">
+          {!isMobile && <OfficeMissionPanel level={pulse.level} missions={pulse.missions} doneCount={pulse.missionsDone} total={pulse.missionsTotal} />}
+          <OfficeAgencyPanel deliveredToday={pulse.deliveredToday} inProgress={pulse.inProgress} atRisk={pulse.atRisk} awaitingClient={pulse.awaitingClient} progressPct={pulse.progressPct} width={isMobile ? 290 : 340} />
+        </div>
+        <div className="absolute bottom-4 right-4 flex rounded-xl border bg-card p-1 shadow-lg">
+          {AREA_TABS.map(tab => <button key={tab.id} onClick={() => setArea(tab.id)} className={cn("rounded-lg px-3 py-2 text-xs", area === tab.id ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{tab.label}</button>)}
+        </div>
+        {loading && <p className="absolute bottom-20 left-4 rounded-lg bg-card p-3 text-sm">Carregando escritório…</p>}
+        {!loading && !stations.length && <p className="absolute bottom-20 left-4 rounded-lg bg-card p-3 text-sm">Nenhum colaborador encontrado neste tenant.</p>}
+        <OfficeTransferLayer containerRef={worldRef} anchors={stackAnchors} events={transfers} />
+      </div>
 
       <OfficeQueueSheet
         station={activeStation}

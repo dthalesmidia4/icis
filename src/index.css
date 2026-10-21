@@ -723,3 +723,23 @@ All colors MUST be HSL.
     border-radius: 3px;
   }
 }
+
+.office-iso {
+  --iso-ink: 208 52% 23%; --iso-line: 202 42% 78%;
+  --iso-wall: 204 57% 85%; --iso-wall-light: 203 76% 94%;
+  --iso-tile: 204 82% 95%; --iso-tile-alt: 202 70% 91%;
+  --iso-edge: 203 35% 65%; --iso-paper: 200 65% 99%;
+  --iso-glass: 201 80% 78%; --iso-wood: 33 66% 77%;
+  --iso-rug: 201 62% 80%; --iso-rug-alt: 266 50% 87%;
+  --iso-accent-0: 206 67% 72%; --iso-accent-1: 260 65% 79%;
+  --iso-accent-2: 28 79% 77%; --iso-accent-3: 169 45% 66%;
+  --iso-leaf: 157 45% 43%; --iso-skin: 24 68% 75%;
+  --iso-hair: 20 29% 28%; --iso-shadow: 205 25% 65%;
+  background: radial-gradient(ellipse at 55% 38%, hsl(var(--iso-paper)), hsl(var(--iso-wall)));
+  color: hsl(var(--iso-ink));
+}
+.office-iso-svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; cursor: grab; fill: hsl(var(--iso-ink)); font-family: 'Trebuchet MS', sans-serif; }
+.office-iso-svg:active { cursor: grabbing; }
+.office-iso-svg .iso-interactive { cursor: pointer; }
+.office-iso-svg .iso-interactive:hover { filter: brightness(1.06); }
+.office-iso-svg [role=button]:focus-visible { outline: 3px solid hsl(var(--iso-ink)); }
