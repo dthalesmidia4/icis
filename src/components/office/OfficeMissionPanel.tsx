@@ -25,12 +25,12 @@ export const OfficeMissionPanel = memo(function OfficeMissionPanel({
 }: OfficeMissionPanelProps) {
   const pct = Math.round((level.xpInLevel / level.nextLevelXp) * 100);
   return (
-    <div className="relative w-full max-w-[268px] rounded-[3px] border-2 border-[hsl(var(--office-outline)/0.6)] bg-[hsl(var(--office-frame))] p-[3px] shadow-[var(--office-panel-relief)]">
+    <div className="iso-mission-panel relative w-full max-w-[268px] rounded-[20px] border border-border bg-white p-3 shadow-[0_5px_0_hsl(var(--iso-line)/0.65)]">
       {/* parafusos de fixação na parede */}
-      <span aria-hidden="true" className="absolute left-1 top-1 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
-      <span aria-hidden="true" className="absolute right-1 top-1 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
+      <span aria-hidden="true" className="hidden absolute left-1 top-1 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
+      <span aria-hidden="true" className="hidden absolute right-1 top-1 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
 
-      <div className="rounded-[2px] bg-[hsl(var(--office-paper))] px-2 py-1.5">
+      <div className="rounded-xl bg-white px-2 py-1.5">
 
         {/* nível coletivo */}
         <div className="flex items-center justify-between" title={XP_LEGEND}>

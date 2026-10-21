@@ -56,7 +56,7 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
           atrás do quadro (z menor), sem capturar ponteiro e sem blur nos pés. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-full z-0 flex h-[clamp(32px,4vh,52px)] justify-between px-[16%]"
+        className="hidden pointer-events-none absolute inset-x-0 top-full z-0 flex h-[clamp(32px,4vh,52px)] justify-between px-[16%]"
       >
         {[0, 1].map((i) => (
           <span key={i} className="flex h-full flex-col items-center">
@@ -70,10 +70,10 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
       </div>
 
 
-      <div className="relative z-10 w-full rounded-[6px] border-[3px] border-[hsl(var(--office-frame))] bg-[hsl(var(--office-paper))] px-4 pb-2.5 pt-2 shadow-[var(--office-panel-relief)]">
+      <div className="relative z-10 w-full rounded-[20px] border border-border bg-white px-4 pb-3 pt-3 shadow-[0_5px_0_hsl(var(--iso-line)/0.65)]">
         {/* parafusos da moldura */}
-        <span aria-hidden="true" className="absolute left-2 top-1.5 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
-        <span aria-hidden="true" className="absolute right-2 top-1.5 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
+        <span aria-hidden="true" className="hidden absolute left-2 top-1.5 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
+        <span aria-hidden="true" className="hidden absolute right-2 top-1.5 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
 
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/80">

@@ -1,0 +1,3 @@
+import {p,pp,poly,tilePoly,isoBox,esc,W} from './geometry';
+export function mat(x,y,w,h,color,label=''){return `<g>${tilePoly(x,y,w,h,1,color,'stroke="hsl(var(--iso-c-ffffff))" stroke-opacity=".82" stroke-width="3" stroke-dasharray="8 8" opacity=".5"')}${label?`<text x="${p(x+w*.5,y+h*.5).x}" y="${p(x+w*.5,y+h*.5).y+8}" font-weight="900" font-size="13" text-anchor="middle" fill="hsl(var(--iso-c-32618b))" opacity=".23" transform="rotate(25 ${p(x+w*.5,y+h*.5).x} ${p(x+w*.5,y+h*.5).y})">${esc(label)}</text>`:''}</g>`}
+export default function Mat({args=[]}:{args?:any[]}){return <g dangerouslySetInnerHTML={{__html:(mat as (...args:any[])=>string)(...args)}} />;}
