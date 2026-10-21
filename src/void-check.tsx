@@ -1,3 +1,4 @@
+import "@/index.css";
 import { createRoot } from "react-dom/client";
 import FinanceOccurrenceModal from "@/components/finance/FinanceOccurrenceModal";
 import type { MonthRow } from "@/lib/financeModel";
