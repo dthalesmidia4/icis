@@ -60,8 +60,8 @@ export const OfficeCharacter = memo(function OfficeCharacter({
       {/* cabeça (foto do perfil quando existir) — tamanho idêntico com e sem foto */}
       <span
         className={cn(
-          "relative z-30 block shrink-0 overflow-hidden rounded-full border-2 bg-muted",
-          working ? "border-primary/70" : "border-border",
+          "relative z-30 block shrink-0 overflow-hidden rounded-full border-2 bg-muted shadow-[var(--office-contact)]",
+          working ? "border-primary/70" : "border-[hsl(var(--office-outline)/0.6)]",
         )}
         style={{ height: head, width: head, boxSizing: "border-box" }}
       >
@@ -85,16 +85,16 @@ export const OfficeCharacter = memo(function OfficeCharacter({
       {/* torso + braços chegando à altura do tampo/teclado */}
       <span
         className={cn(
-          "relative z-20 rounded-t-[45%] rounded-b-sm",
-          working ? "bg-primary/85" : "bg-muted-foreground/50",
+          "relative z-20 rounded-t-[45%] rounded-b-sm bg-[image:var(--office-material)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.55)] shadow-[var(--office-relief)]",
+          working ? "bg-primary/85" : "bg-[hsl(var(--office-mint))]",
         )}
         style={{ width: torsoW, height: torsoH, marginTop: -Math.round(head * 0.16) }}
       >
         <span className="absolute left-1/2 top-1 h-2 w-3 -translate-x-1/2 rounded-b-full bg-background/40" />
         <span
           className={cn(
-            "absolute rounded-full",
-            working ? "bg-primary/70" : "bg-muted-foreground/45",
+            "absolute rounded-full ring-1 ring-inset ring-[hsl(var(--office-outline)/0.4)] shadow-[var(--office-contact)]",
+            working ? "bg-primary/70" : "bg-[hsl(var(--office-mint))]",
             armsAnimate && "animate-office-typing motion-reduce:animate-none",
           )}
           style={{
@@ -108,8 +108,8 @@ export const OfficeCharacter = memo(function OfficeCharacter({
         />
         <span
           className={cn(
-            "absolute rounded-full",
-            working ? "bg-primary/70" : "bg-muted-foreground/45",
+            "absolute rounded-full ring-1 ring-inset ring-[hsl(var(--office-outline)/0.4)] shadow-[var(--office-contact)]",
+            working ? "bg-primary/70" : "bg-[hsl(var(--office-mint))]",
             armsAnimate && "animate-office-typing motion-reduce:animate-none",
           )}
           style={{
@@ -129,7 +129,7 @@ export const OfficeCharacter = memo(function OfficeCharacter({
         {holdingCup && (
           <span
             aria-hidden="true"
-            className="absolute z-30 animate-office-cup rounded-b-[2px] rounded-t-[1px] bg-primary/75 ring-1 ring-foreground/25 motion-reduce:animate-none"
+            className="absolute z-30 animate-office-cup rounded-b-[2px] rounded-t-[1px] bg-[hsl(var(--office-ivory))] ring-1 ring-[hsl(var(--office-outline)/0.5)] shadow-[var(--office-relief)] motion-reduce:animate-none"
             style={{
               right: -Math.round(size * 0.36),
               top: Math.round(torsoH * 0.3),
@@ -148,7 +148,7 @@ export const OfficeCharacter = memo(function OfficeCharacter({
             <span
               key={i}
               className={cn(
-                "block rounded-b-sm bg-muted-foreground/55",
+                "block rounded-b-sm bg-[hsl(var(--office-outline))] bg-[image:var(--office-material)] shadow-[var(--office-contact)]",
                 walking && "animate-office-typing motion-reduce:animate-none",
               )}
               style={{
@@ -165,7 +165,7 @@ export const OfficeCharacter = memo(function OfficeCharacter({
       {seated && (
         /* encosto da cadeira aparece atrás dos ombros */
         <span
-          className="absolute z-10 rounded-t-md bg-foreground/25 dark:bg-foreground/30"
+          className="absolute z-10 rounded-t-md bg-[hsl(var(--office-seat))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]"
           style={{
             width: Math.round(size * 0.86),
             height: Math.round(size * 0.46),

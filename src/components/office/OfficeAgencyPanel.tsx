@@ -70,10 +70,10 @@ export const OfficeAgencyPanel = memo(function OfficeAgencyPanel({
       </div>
 
 
-      <div className="relative z-10 w-full rounded-[6px] border-[3px] border-foreground/25 bg-background/95 px-4 pb-2.5 pt-2 shadow-[0_10px_18px_-16px_hsl(var(--foreground)/0.9)]">
+      <div className="relative z-10 w-full rounded-[6px] border-[3px] border-[hsl(var(--office-frame))] bg-[hsl(var(--office-paper))] px-4 pb-2.5 pt-2 shadow-[var(--office-panel-relief)]">
         {/* parafusos da moldura */}
-        <span aria-hidden="true" className="absolute left-2 top-1.5 h-1 w-1 rounded-full bg-foreground/25" />
-        <span aria-hidden="true" className="absolute right-2 top-1.5 h-1 w-1 rounded-full bg-foreground/25" />
+        <span aria-hidden="true" className="absolute left-2 top-1.5 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
+        <span aria-hidden="true" className="absolute right-2 top-1.5 h-1 w-1 rounded-full bg-[hsl(var(--office-outline))]" />
 
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/80">

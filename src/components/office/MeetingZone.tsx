@@ -14,21 +14,21 @@ export const MeetingZone = memo(function MeetingZone() {
         <span className="absolute inset-x-1 top-0 h-[3px] rounded-full bg-primary/35" />
         <span className="absolute inset-x-1 top-[3px] bottom-4 rounded-[6px] border border-primary/15 bg-primary/[0.05] backdrop-blur-[1px]" />
         {/* piso/tapete da sala */}
-        <span className="absolute inset-x-4 bottom-0 h-[34px] rounded-[46%] border border-foreground/10 bg-foreground/[0.07] dark:bg-background/40" />
+        <span className="absolute inset-x-4 bottom-0 h-[34px] rounded-[46%] border border-foreground/10 bg-[hsl(var(--office-frame)/0.12)]" />
 
         <div className="relative">
           {/* cadeiras do fundo */}
           <div className="flex justify-center gap-5">
             {[0, 1].map((i) => (
               <span key={i} className="flex flex-col items-center">
-                <span className="h-4 w-6 rounded-t-[4px] bg-foreground/30" />
+                <span className="h-4 w-6 rounded-t-[4px] bg-[hsl(var(--office-seat))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
                 <span className="h-[3px] w-7 rounded bg-foreground/20" />
               </span>
             ))}
           </div>
 
           {/* mesa oval com sombra de contato */}
-          <span className="mx-auto my-1 block h-9 w-[84%] rounded-[50%] bg-gradient-to-b from-muted to-muted/45 shadow-[0_8px_12px_-8px_hsl(var(--foreground)/0.85)] ring-1 ring-foreground/10">
+          <span className="mx-auto my-1 block h-9 w-[84%] rounded-[50%] bg-[image:var(--office-top)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)] shadow-[0_8px_12px_-8px_hsl(var(--foreground)/0.85)] ring-1 ring-foreground/10">
             <span className="mx-auto mt-3 block h-[3px] w-8 rounded bg-foreground/15" />
           </span>
 
@@ -37,7 +37,7 @@ export const MeetingZone = memo(function MeetingZone() {
             {[0, 1].map((i) => (
               <span key={i} className="flex flex-col items-center">
                 <span className="h-[3px] w-7 rounded bg-foreground/20" />
-                <span className="h-4 w-6 rounded-b-[4px] bg-foreground/30" />
+                <span className="h-4 w-6 rounded-b-[4px] bg-[hsl(var(--office-seat))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
               </span>
             ))}
           </div>

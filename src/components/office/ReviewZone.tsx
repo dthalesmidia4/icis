@@ -21,25 +21,25 @@ export const ReviewZone = memo(function ReviewZone({ register }: ReviewZoneProps
         {/* objetos de controle de qualidade sobre o tampo */}
         <div className="relative mx-3 flex items-end justify-start gap-2 pb-[3px] pt-2">
           {/* pilha de documentos */}
-          <span className="block h-10 w-8 -rotate-[5deg] rounded-[2px] border border-border/80 bg-background/95 shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
+          <span className="block h-10 w-8 -rotate-[5deg] rounded-[2px] border border-[hsl(var(--office-outline)/0.45)] bg-[hsl(var(--office-paper))] shadow-[var(--office-relief)] shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
             {[0, 1, 2].map((i) => (
-              <span key={i} className="mx-auto mt-[3px] block h-[2px] w-5 bg-foreground/30" />
+              <span key={i} className="mx-auto mt-[3px] block h-[2px] w-5 bg-[hsl(var(--office-seat))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
             ))}
           </span>
           {/* checklist aprovado */}
-          <span className="block h-11 w-8 rotate-[3deg] rounded-[2px] border border-border/80 bg-background/98 shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
+          <span className="block h-11 w-8 rotate-[3deg] rounded-[2px] border border-[hsl(var(--office-outline)/0.45)] bg-[hsl(var(--office-paper))] shadow-[var(--office-relief)] shadow-[0_3px_6px_-4px_hsl(var(--foreground)/0.9)]">
             {[0, 1, 2].map((i) => (
               <span key={i} className="mt-[4px] flex items-center gap-[3px] pl-[4px]">
                 <span
                   className={`block h-[4px] w-[4px] rounded-[1px] ${i < 2 ? "bg-primary/80" : "border border-foreground/30"}`}
                 />
-                <span className="block h-[2px] w-4 bg-foreground/25" />
+                <span className="block h-[2px] w-4 bg-[hsl(var(--office-mint))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
               </span>
             ))}
           </span>
           {/* lupa */}
           <span className="relative block h-7 w-7">
-            <span className="absolute inset-0 rounded-full border-[3px] border-primary/70 bg-background/40" />
+            <span className="absolute inset-0 rounded-full border-[3px] border-[hsl(var(--office-outline))] bg-[image:var(--office-glazing)]" />
             <span className="absolute -bottom-[3px] -right-[3px] h-[11px] w-[4px] rotate-45 rounded bg-primary/70" />
           </span>
           {/* selo de qualidade */}
@@ -47,15 +47,15 @@ export const ReviewZone = memo(function ReviewZone({ register }: ReviewZoneProps
         </div>
 
         {/* tampo + corpo da bancada com a placa integrada */}
-        <span className="block h-[9px] rounded-t-[3px] bg-gradient-to-b from-foreground/35 to-foreground/20" />
-        <div className="rounded-b-[5px] bg-gradient-to-b from-muted to-muted/55 px-2 py-1 text-center shadow-[0_8px_12px_-8px_hsl(var(--foreground)/0.75)]">
+        <span className="block h-[9px] rounded-t-[3px] bg-[image:var(--office-top)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
+        <div className="rounded-b-[5px] bg-[hsl(var(--office-mint))] bg-[image:var(--office-material)] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] px-2 py-1 text-center shadow-[0_8px_12px_-8px_hsl(var(--foreground)/0.75)]">
           <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
             Revisão
           </span>
         </div>
         <div className="flex justify-between px-4">
-          <span className="h-4 w-[4px] bg-foreground/30" />
-          <span className="h-4 w-[4px] bg-foreground/30" />
+          <span className="h-4 w-[4px] bg-[hsl(var(--office-seat))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
+          <span className="h-4 w-[4px] bg-[hsl(var(--office-seat))] ring-1 ring-inset ring-[hsl(var(--office-outline)/0.45)] shadow-[var(--office-relief)]" />
         </div>
         <span className="mx-auto block h-1.5 w-[82%] rounded-[50%] bg-foreground/15 blur-[2px] dark:bg-background/60" />
       </div>
