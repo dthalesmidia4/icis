@@ -41,6 +41,7 @@ import {
   buildBatchSettlementIndex,
 } from "@/lib/financePaymentSchedule";
 import { buildStatementSettlementIndex, mergeSettlementIndexes } from "@/lib/financeSettlement";
+import { rowsForStatementMonth } from "@/lib/financeComposition";
 import { financeSettingsRpcPayload } from "@/lib/financeSettingsPayload";
 import {
   OneOffFact,
@@ -379,6 +380,12 @@ export function useFinance(competence: Competence) {
     [monthItems, monthItemsByCompetence, occurrences, rules, normalized.year, normalized.month, settings.defaultUsdRate, statementCycles, tracked],
   );
 
+  /** Base compartilhada dos KPIs e da composição, sem alterar as listas operacionais. */
+  const statementMonthRows = useMemo(
+    () => rowsForStatementMonth(rows, statements),
+    [rows, statements],
+  );
+
   /** Exceções do mês (lançamentos ignorados) — fora de qualquer total. */
   const skipped = useMemo(
     () => (tracked ? skippedEntriesInMonth({ items: monthItems, occurrences, competence: normalized }) : []),
@@ -411,7 +418,7 @@ export function useFinance(competence: Competence) {
     [statementSettlement, batchSettlement],
   );
 
-  const totals = useMemo(() => computeTotals(rows, settlement), [rows, settlement]);
+  const totals = useMemo(() => computeTotals(statementMonthRows, settlement), [statementMonthRows, settlement]);
   const overlaps = useMemo(() => detectPackageOverlaps(items), [items]);
 
 
@@ -1139,6 +1146,7 @@ export function useFinance(competence: Competence) {
     batches,
     batchEntries,
     rows,
+    statementMonthRows,
     statements,
     settlement,
     totals,

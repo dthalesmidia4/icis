@@ -12,6 +12,7 @@ import {
   FinanceItem,
   FinanceKind,
   MonthRow,
+  StatementGroup,
   effectivePaid,
   isStatementRow,
 } from "./financeModel";
@@ -64,6 +65,26 @@ export interface CompositionEntry {
   paid: boolean;
   /** Valor que a linha contribui para o recorte exibido. */
   value: number;
+}
+
+/** Base dos KPIs/composição: cartões com fatura usam somente seus componentes canônicos. */
+export function rowsForStatementMonth(rows: MonthRow[], statements: StatementGroup[]): MonthRow[] {
+  const configured = statements.filter((group) => !group.configIncomplete && group.statementRow);
+  const cardIds = new Set(configured.map((group) => group.card.id));
+  const result = new Map<string, MonthRow>();
+  for (const row of rows) {
+    if (isStatementRow(row) || !row.cardItemId || !cardIds.has(row.cardItemId)) {
+      if (!result.has(row.key)) result.set(row.key, row);
+    }
+  }
+  for (const group of configured) {
+    for (const row of group.components) {
+      if (!isStatementRow(row) && row.cardItemId === group.card.id && !result.has(row.key)) {
+        result.set(row.key, row);
+      }
+    }
+  }
+  return [...result.values()];
 }
 
 /** Despesas que formam os KPIs: tudo menos a fatura. */
