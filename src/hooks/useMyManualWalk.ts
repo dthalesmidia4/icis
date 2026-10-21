@@ -27,5 +27,5 @@ export function useMyManualWalk(anchor: GridPoint | null, signature: WalkSignatu
     frame = requestAnimationFrame(tick); return () => cancelAnimationFrame(frame);
   }, [target?.x, target?.y]);
   const move = useCallback((target: GridPoint) => { if (anchor) setWalk({ target, signature }); }, [anchor, signature]);
-  return { position, move, manual: !!valid };
+  return { position, move, manual: !!valid, target };
 }

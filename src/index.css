@@ -745,6 +745,34 @@ All colors MUST be HSL.
 .office-iso-svg [role=button]:focus-visible { outline: 3px solid hsl(var(--iso-ink)); }
 
 .office-iso {
+  --iso-c-1d678d: 200.36 65.88% 33.33%;
+  --iso-c-265975: 201.27 50.97% 30.39%;
+  --iso-c-2d7395: 199.62 53.61% 38.04%;
+  --iso-c-397d9c: 198.79 46.48% 41.76%;
+  --iso-c-3d6680: 203.28 35.45% 37.06%;
+  --iso-c-447b9c: 202.50 39.29% 43.92%;
+  --iso-c-527d9c: 205.14 31.09% 46.67%;
+  --iso-c-55819e: 203.84 30.04% 47.65%;
+  --iso-c-5c7d92: 203.33 22.69% 46.67%;
+  --iso-c-7aa2bb: 203.08 32.34% 60.59%;
+  --iso-c-7ba8bf: 200.29 34.69% 61.57%;
+  --iso-c-86bcd8: 200.49 51.25% 68.63%;
+  --iso-c-88adc3: 202.37 32.96% 64.90%;
+  --iso-c-89aabd: 201.92 28.26% 63.92%;
+  --iso-c-8baec3: 202.50 31.82% 65.49%;
+  --iso-c-98755b: 25.57 25.10% 47.65%;
+  --iso-c-a6c3d5: 202.98 35.88% 74.31%;
+  --iso-c-a8c9da: 200.40 40.32% 75.69%;
+  --iso-c-a9cddd: 198.46 43.33% 76.47%;
+  --iso-c-aac7d7: 201.33 36.00% 75.49%;
+  --iso-c-b8cfdd: 202.70 35.24% 79.41%;
+  --iso-c-c6dfec: 200.53 50.00% 85.10%;
+  --iso-c-c9dfed: 203.33 50.00% 85.88%;
+  --iso-c-cbd8e2: 206.09 28.40% 84.12%;
+  --iso-c-dcecf5: 201.60 55.56% 91.18%;
+  --iso-c-e4f5fd: 199.20 86.21% 94.31%;
+  --iso-c-edf5fa: 203.08 56.52% 95.49%;
+  --iso-c-f9fcff: 210.00 100.00% 98.82%;
   --iso-c-000000: 0.00 0.00% 0.00%;
   --iso-c-0f5c89: 202.13 80.26% 29.80%;
   --iso-c-167fbf: 202.72 79.34% 41.76%;
@@ -954,3 +982,10 @@ All colors MUST be HSL.
 .office-iso .iso-interactive path[fill="hsl(var(--iso-c-2e80aa))"] { animation: screenblink 3s ease-in-out infinite alternate; }
 .office-iso .iso-interactive circle[fill="hsl(var(--iso-c-49e4b4))"] { animation: twinkle 1.6s infinite alternate; }
 @media (prefers-reduced-motion: reduce) { .office-iso *, .office-iso *::before, .office-iso *::after { animation: none !important; transition: none !important; } }
+
+/* Caminhada (escritório isométrico): pernas e braços alternados só durante o deslocamento. */
+.office-iso .av-leg, .office-iso .av-arm { transform-box: fill-box; transform-origin: 50% 0%; }
+.office-iso .is-walking .av-leg-l, .office-iso .is-walking .av-arm-r { animation: iso-step .36s ease-in-out infinite alternate; }
+.office-iso .is-walking .av-leg-r, .office-iso .is-walking .av-arm-l { animation: iso-step .36s ease-in-out infinite alternate-reverse; }
+@keyframes iso-step { from { transform: rotate(16deg); } to { transform: rotate(-16deg); } }
+@media (prefers-reduced-motion: reduce) { .office-iso .is-walking .av-leg, .office-iso .is-walking .av-arm { animation: none; } }
