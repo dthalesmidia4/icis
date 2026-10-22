@@ -21,12 +21,14 @@ export function useOfficeWalkSync(tenantId: string | null | undefined, myId: str
     let disposed=false, ch:ReturnType<typeof supabase.channel>|null=null, initialized=false;
     let pending:OfficeWalkEvent|null=null;
     const seen=new Map<string,string>();
-    const publish=()=>{
+    const publish=(changed=false)=>{
       if (!ch || !readyRef.current || disposed) return;
       const now=Date.now();
+      pending=eventRef.current || (changed ? {target:null,zone:'floor',timestamp:now,sequence:++sequence.current,expiresAt:now+600000,instance:instance.current,signature:''} : pending);
+      if(!pending)return;
       void ch.track(pending);
     };
-    publishRef.current=publish;
+    publishRef.current=()=>publish(true);
     const sync=(notify:boolean)=>{
       if(!ch||disposed)return;
       const out:Record<string,OfficeWalkEvent>={};
@@ -65,8 +67,6 @@ export function useOfficeWalkSync(tenantId: string | null | undefined, myId: str
     });
     const expiry=window.setInterval(()=>{
       sync(false);
-      // A return tombstone wins over still-open tabs until their older action expires.
-      if(pending&&pending.expiresAt<=Date.now()&&readyRef.current)publish();
     },1000);
     return ()=>{
       disposed=true;readyRef.current=false;publishRef.current=null;channelRef.current=null;
