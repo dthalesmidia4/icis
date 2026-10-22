@@ -18,7 +18,8 @@ import { appearance } from './iso/appearance';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { OfficeStationData } from '@/hooks/useOfficeOverview';
 import type { OfficePerson } from './OfficePeopleLayer';
-import { anchorGrid, avoidFurniture, deskSeatGrid, deskGrid, paperSheets, type GridPoint, floorForDesks, furnitureRects, inverseIso, iso, ZONE_SPOTS } from '@/lib/officeIso';
+import { anchorGrid, avoidFurniture, deskSeatGrid, deskGrid, paperSheets, type GridPoint, floorForDesks, furnitureRects, inverseIso, iso, ZONE_SPOTS, COFFEE_RUG } from '@/lib/officeIso';
+import { useOfficeWalkSync } from '@/hooks/useOfficeWalkSync';
 import DeskCustomizeDialog from './DeskCustomizeDialog';
 import { useOfficeDeskPreferences } from '@/hooks/useOfficeDeskPreferences';
 import type { DeskObjectKey } from '@/lib/officeDeskObjects';
@@ -54,7 +55,8 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  const anchor=myPerson?anchorGrid(myPerson.anchorKey,users):null;
  const signature={demands:(me?.queue||[]).map(c=>({id:c.id,stage:`${c.functionKey}:${c.stageLabel}`})),presenceZone:me?`${me.presence.state}:${resolveOfficeZone({state:me.presence.state,current:me.current})}`:'absent'};
  const walk=useMyManualWalk(anchor,signature,!me?.current||signature.presenceZone.includes('coffee'));
- const targets:Record<string,GridPoint>={};people.forEach(pp=>{targets[pp.userId]=pp.userId===myId&&walk.target?walk.target:anchorGrid(pp.anchorKey,users);});
+ const remoteWalks=useOfficeWalkSync(tenantId,myId,walk.manual?walk.target:null);
+ const targets:Record<string,GridPoint>={};people.forEach(pp=>{targets[pp.userId]=pp.userId===myId&&walk.target?walk.target:remoteWalks[pp.userId]||anchorGrid(pp.anchorKey,users);});
  const walkers=useOfficeWalkers(targets);
  const point=(x:number,y:number)=>{const s=svg.current!;const p=new DOMPoint(x,y);return p.matrixTransform(s.getScreenCTM()!.inverse());};
  const zoomAt=(factor:number,x:number,y:number)=>{const p=point(x,y);setCamera(old=>{const zoom=Math.max(.75,Math.min(1.9,old.zoom*factor));const ratio=old.zoom/zoom;return {zoom,x:p.x-base.x-(p.x-base.x-old.x)*ratio,y:p.y-base.y-(p.y-base.y-old.y)*ratio};});};
@@ -112,7 +114,7 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  entities.push({depth:2.7,key:'planning-wall',node:<g {...interactive(()=>setSelected(selected==='planning'?null:'planning'),'Planejamento')} className="iso-interactive"><PlanningWall/></g>});
  [{x:.7,y:3.4,s:.85},{x:4.6,y:1.6,s:1.05},{x:.42,y:7,s:.8},{x:11.45,y:floor.height-1.2,s:.9},{x:12.52,y:floor.height-1.2,s:.7}].forEach((p,i)=>entities.push({depth:p.x+p.y,key:`plant-${i}`,node:<g className="iso-plant"><Plant args={[p.x,p.y,p.s]}/></g>}));
  people.filter(person=>!deskPeople.has(person.userId)).forEach(person=>{const w=walkers[person.userId];if(!w)return;const p=w.pos,q=iso(p.x,p.y);
- const cup=Math.hypot(p.x-ZONE_SPOTS.coffee.x,p.y-ZONE_SPOTS.coffee.y-1.3)<1.4&&!w.walking;
+ const cup=p.x>=COFFEE_RUG.x0&&p.x<=COFFEE_RUG.x1&&p.y>=COFFEE_RUG.y0&&p.y<=COFFEE_RUG.y1+.3&&!w.walking;
  entities.push({depth:p.x+p.y+2.2,key:`person-${person.userId}`,node:<g data-user-id={person.userId} transform={`translate(${q.x} ${q.y+w.bob})`} {...interactive(()=>onQueue(person.userId),`Abrir fila de ${person.name}`)} className="iso-interactive"><AvatarSvg args={[person.userId,{...appearance(person.userId),name:person.name,team:''},person.userId===myId,{walking:w.walking,cup}]}/><NameTag x={0} y={0} name={person.name} working={person.working}/></g>});
  });
  return <><svg ref={svg} className="office-iso-svg" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} aria-label="Escritório virtual isométrico" onPointerDown={e=>{if(e.button!==0||(e.target as Element).closest('[data-interactive]'))return;const p=point(e.clientX,e.clientY);pan.current={id:e.pointerId,x:e.clientX,y:e.clientY,px:p.x,py:p.y,cx:camera.x,cy:camera.y,moved:false};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{const p=pan.current;if(!p||p.id!==e.pointerId)return;if(Math.hypot(e.clientX-p.x,e.clientY-p.y)>=6)p.moved=true;if(p.moved){const q=point(e.clientX,e.clientY);setCamera(c=>({...c,x:c.x+p.px-q.x,y:c.y+p.py-q.y}));}}} onPointerUp={e=>{const p=pan.current;pan.current=null;if(!p)return;if(!p.moved&&myPerson){const q=point(e.clientX,e.clientY);const raw={x:(q.x/52+q.y/24)/2,y:(q.y/24-q.x/52)/2};if(raw.x>=0&&raw.x<=floor.width&&raw.y>=0&&raw.y<=floor.height)walk.move(avoidFurniture(inverseIso(q,floor),rects));}e.currentTarget.releasePointerCapture(e.pointerId);}} onPointerCancel={()=>{pan.current=null;}}><RoomDefs/><MakeRoom args={[floor.height]}/><FloorDecors/><WallWindow args={[.65,0,'right']}/>{entities.sort((a,b)=>a.depth-b.depth).map(e=><g key={e.key}>{e.node}</g>)}<g className="iso-overlays">{overlays}</g></svg>
