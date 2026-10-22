@@ -125,6 +125,11 @@ export const sharedOfficeWalk = (e:OfficeWalkEvent):OfficeWalkEvent => ({target:
 export function acceptRemoteWalk(event:OfficeWalkEvent|undefined, hasStation:boolean):OfficeWalkEvent|null {
   return event&&event.target&&hasStation?event:null;
 }
+/** Own avatar: the newest action wins between this tab and other tabs of the same account; an explicit return (target null) can win. */
+export function newestOwnWalk(local:OfficeWalkEvent|null, remote:OfficeWalkEvent|undefined|null):OfficeWalkEvent|null {
+  const winner=!remote?local:!local?remote:(remote.timestamp>local.timestamp||(remote.timestamp===local.timestamp&&remote.sequence>local.sequence))?remote:local;
+  return winner&&winner.target?winner:null;
+}
 export function latestOfficeWalk(metas: unknown[], now:number, count:number): OfficeWalkEvent | null {
   const floor=floorForDesks(count);
   const valid=metas.filter((value):value is OfficeWalkEvent=>{

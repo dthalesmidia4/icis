@@ -6,7 +6,11 @@ export type OfficeWalkSyncStatus = 'connecting' | 'live' | 'error' | 'off';
 const DEBOUNCE_MS = 400;
 const log = (...a: unknown[]) => { if (import.meta.env.DEV) console.info('[office-walk]', ...a); };
 
-/** Private, ephemeral tenant Presence. Publish actions (deduplicated, debounced), never animation frames. */
+/**
+ * Private, ephemeral tenant Presence. Key = userId (one avatar per person); each tab/device is a
+ * separate meta tagged with a stable per-mount viewId. Only this tab's own metas are ignored, so
+ * other tabs of the same account are mirrored. Publishes actions (debounced), never frames.
+ */
 export function useOfficeWalkSync(tenantId: string | null | undefined, myId: string | undefined, myEvent: OfficeWalkEvent | null, deskCount: number) {
   const [remote, setRemote] = useState<Record<string, OfficeWalkEvent>>({});
   const [received, setReceived] = useState<{ userId:string; event:OfficeWalkEvent } | null>(null);
@@ -14,7 +18,7 @@ export function useOfficeWalkSync(tenantId: string | null | undefined, myId: str
   const eventRef = useRef(myEvent); eventRef.current = myEvent;
   const countRef = useRef(deskCount); countRef.current = deskCount;
   const publishRef = useRef<(() => void) | null>(null);
-  const instance = useRef(crypto.randomUUID());
+  const viewId = useRef(crypto.randomUUID());
   const sequence = useRef(0);
   const eventKey = myEvent ? officeWalkEventKey(myEvent) : 'return';
 
@@ -22,40 +26,56 @@ export function useOfficeWalkSync(tenantId: string | null | undefined, myId: str
     setRemote({}); setReceived(null);
     if (!tenantId || !myId) { setStatus('off'); return; }
     setStatus('connecting');
+    const view = viewId.current;
     let disposed=false, ch:ReturnType<typeof supabase.channel>|null=null, initialized=false, ready=false;
-    let current:OfficeWalkEvent|null=null, lastTracked='', inFlight=false, timer:number|undefined;
+    // current: what this tab publishes (null = nothing, i.e. a watching tab never sends anyone home).
+    let current:OfficeWalkEvent|null=null, currentSrc='', lastTracked='', inFlight=false, timer:number|undefined;
     const seen=new Map<string,string>();
-    const sentinel=():OfficeWalkEvent=>{const now=Date.now();return {target:null,zone:'floor',timestamp:now,sequence:++sequence.current,expiresAt:now+600000,instance:instance.current,signature:''};};
-    // Decide what our presence should be; only a new action key changes it.
-    const desired=()=>{
+    const othersOf=(uid:string)=>{
+      const metas=(ch?.presenceState()[uid]||[]) as unknown as OfficeWalkEvent[];
+      return metas.filter(m=>m&&m.instance!==view);
+    };
+    // Only a real local transition changes the desired payload.
+    const desired=():OfficeWalkEvent|null=>{
       const e=eventRef.current;
-      if(e){ if(!current||current.target===null||officeWalkEventKey(current)!==officeWalkEventKey(e)) current=sharedOfficeWalk(e); }
-      else if(!current||current.target!==null) current=sentinel();
+      if(e){
+        const src=officeWalkEventKey(e);
+        if(!current||current.target===null||currentSrc!==src){ current={...sharedOfficeWalk(e),instance:view}; currentSrc=src; }
+      } else if(current&&current.target!==null){
+        // Our walk ended: send the return only if this tab still authored the account's latest action.
+        const other=latestOfficeWalk(othersOf(myId),Date.now(),countRef.current);
+        const newer=!!other&&(other.timestamp>current.timestamp||(other.timestamp===current.timestamp&&other.sequence>current.sequence));
+        if(newer){ current=null; }
+        else { const now=Date.now(); current={target:null,zone:'floor',timestamp:now,sequence:++sequence.current,expiresAt:now+600000,instance:view,signature:''}; }
+        currentSrc='';
+      }
       return current;
     };
     const flush=async()=>{
       timer=undefined;
       if(!ch||!ready||disposed||inFlight)return;
-      const payload=desired(), k=officeWalkEventKey(payload);
+      const payload=desired(), k=payload?officeWalkEventKey(payload):'';
       if(k===lastTracked)return;
       inFlight=true;
       try{
-        const res=await ch.track(payload);
-        if(res==='ok'){lastTracked=k;log('track ok',payload.target?payload.zone:'return');}
-        else log('track failed',res);
+        if(!payload){ await ch.untrack(); lastTracked=''; log('untrack (superseded by another tab)'); }
+        else {
+          const res=await ch.track(payload);
+          if(res==='ok'){lastTracked=k;log('track ok',payload.target?payload.zone:'return');}
+          else log('track failed',res);
+        }
       }catch(err){log('track error',err);}
       finally{inFlight=false;}
-      // A newer action arrived during the request: publish it once more after the debounce.
-      if(!disposed&&ready&&officeWalkEventKey(desired())!==lastTracked)schedule();
+      if(!disposed&&ready){const d=desired();if((d?officeWalkEventKey(d):'')!==lastTracked)schedule();}
     };
     const schedule=()=>{if(timer===undefined)timer=window.setTimeout(()=>{void flush();},DEBOUNCE_MS);};
     publishRef.current=schedule;
     const sync=(notify:boolean)=>{
       if(!ch||disposed)return;
       const out:Record<string,OfficeWalkEvent>={};
-      for(const [uid,metas] of Object.entries(ch.presenceState())) {
-        if(uid===myId)continue;
-        const e=latestOfficeWalk(metas,Date.now(),countRef.current);
+      for(const uid of Object.keys(ch.presenceState())) {
+        // Includes uid===myId: other tabs of this account are mirrored; only this tab's echo is dropped.
+        const e=latestOfficeWalk(othersOf(uid),Date.now(),countRef.current);
         if(!e)continue;
         out[uid]=e;
         const k=officeWalkEventKey(e), old=seen.get(uid);
@@ -94,6 +114,7 @@ export function useOfficeWalkSync(tenantId: string | null | undefined, myId: str
     return ()=>{
       disposed=true;ready=false;publishRef.current=null;
       subscription.unsubscribe();clearInterval(expiry);if(timer!==undefined)clearTimeout(timer);
+      // Removing the channel drops only this connection's presence meta.
       if(ch)void supabase.removeChannel(ch);
     };
   },[tenantId,myId]);
