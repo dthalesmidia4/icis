@@ -18,7 +18,7 @@ import { appearance } from './iso/appearance';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { OfficeStationData } from '@/hooks/useOfficeOverview';
 import type { OfficePerson } from './OfficePeopleLayer';
-import { anchorGrid, deskSeatGrid, deskGrid, paperSheets, type GridPoint, floorForDesks, inverseIso, iso, ZONE_SPOTS, COFFEE_RUG, interactionSpot, freeWalkPoint, officeWalkEventKey, acceptRemoteWalk, type WalkZone, type OfficeWalkEvent } from '@/lib/officeIso';
+import { anchorGrid, deskSeatGrid, deskGrid, paperSheets, type GridPoint, floorForDesks, inverseIso, iso, ZONE_SPOTS, COFFEE_RUG, interactionSpot, freeWalkPoint, officeWalkEventKey, acceptRemoteWalk, newestOwnWalk, type WalkZone, type OfficeWalkEvent } from '@/lib/officeIso';
 import { useOfficeWalkSync } from '@/hooks/useOfficeWalkSync';
 import DeskCustomizeDialog from './DeskCustomizeDialog';
 import { useOfficeDeskPreferences } from '@/hooks/useOfficeDeskPreferences';
