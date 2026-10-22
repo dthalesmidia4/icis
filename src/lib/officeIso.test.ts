@@ -30,6 +30,46 @@ describe('office stations', () => {
   });
 });
 import { paperSheets, walkDurationMs, deskSeatGrid } from './officeIso';
+import { interactionSpot, freeWalkPoint, walkObstacles, walkRoute, latestOfficeWalk, walkSignatureKey, COFFEE_RUG } from './officeIso';
+describe('manual multiplayer walk rules', () => {
+  const event = { target:{x:11.55,y:2},zone:'coffee',timestamp:1000,sequence:1,expiresAt:46000,instance:'tab-a',signature:'state' };
+  it('selects newest tab, not array order, including return tombstones', () => {
+    const newer={...event,instance:'tab-b',timestamp:2000};
+    expect(latestOfficeWalk([newer,event],3000,4)).toEqual(newer);
+    expect(latestOfficeWalk([event,{...newer,target:null}],3000,4)?.target).toBeNull();
+  });
+  it('ignores expired Presence', () => { expect(latestOfficeWalk([event],46000,4)).toBeNull(); });
+  it('rejects invalid coordinates, action and future metadata', () => {
+    for(const change of [{target:{x:NaN,y:2}},{target:{x:14,y:2}},{zone:'other'},{timestamp:99000},{expiresAt:700000},{sequence:-1}])
+      expect(latestOfficeWalk([{...event,...change}],3000,4)).toBeNull();
+  });
+  it('uses stable operational identity, not object identity or queue order', () => {
+    const s={demands:[{id:'a',stage:'review'},{id:'b',stage:'create'}],presenceZone:'working_now:desk'};
+    expect(walkSignatureKey(s)).toBe(walkSignatureKey({...s,demands:[...s.demands].reverse()}));
+    expect(walkSignatureKey(s)).not.toBe(walkSignatureKey({...s,presenceZone:'available:coffee'}));
+  });
+  it('coffee anchors are on the real rug', () => {
+    for(let i=0;i<6;i++){const p=interactionSpot('coffee',i);expect(p.x).toBeGreaterThan(COFFEE_RUG.x0);expect(p.x).toBeLessThan(COFFEE_RUG.x1);expect(p.y).toBeGreaterThan(1.74);expect(p.y).toBeLessThanOrEqual(COFFEE_RUG.y1);}
+  });
+  it('waiting and meeting anchors match existing seats', () => {
+    expect(interactionSpot('waiting',0)).toEqual({x:3.04,y:2.6});
+    expect(interactionSpot('meeting',0).x).toBeCloseTo(7.42);
+    expect(interactionSpot('meeting',1).y).toBe(6.26);
+  });
+  it('routes to all zones and back without crossing table tops', () => {
+    const from=deskSeatGrid(0),rects=walkObstacles(4);
+    for(const zone of ['coffee','waiting','meeting','review','planning'] as const){
+      const to=freeWalkPoint(interactionSpot(zone),4);
+      for(const [a,b] of [[from,to],[to,from]]){
+        const path=walkRoute(a,b,4);expect(path.at(-1)).toEqual(b);expect(path.length).toBeGreaterThan(1);
+        for(const p of path)expect(rects.some(r=>p.x>r.x0&&p.x<r.x1&&p.y>r.y0&&p.y<r.y1)).toBe(false);
+      }
+    }
+  });
+  it('free floor clicks never resolve inside furniture', () => {
+    const p=freeWalkPoint({x:11.8,y:1},4);expect(walkObstacles(4).some(r=>p.x>r.x0&&p.x<r.x1&&p.y>r.y0&&p.y<r.y1)).toBe(false);
+  });
+});
 describe('reference parity', () => {
   it('sheets: one per demand up to 5, compressed after', () => { expect([0,4,30,59].map(paperSheets)).toEqual([0,4,11,18]); });
   it('walk duration follows the reference', () => { expect(walkDurationMs({x:0,y:0},{x:0,y:0})).toBe(280); expect(walkDurationMs({x:0,y:0},{x:4,y:0})).toBe(1160); expect(walkDurationMs({x:0,y:0},{x:20,y:0})).toBe(2200); });
