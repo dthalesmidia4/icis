@@ -24,7 +24,6 @@ export function useOfficeWalkSync(tenantId: string | null | undefined, myId: str
     const publish=()=>{
       if (!ch || !readyRef.current || disposed) return;
       const now=Date.now();
-      pending=eventRef.current || {target:null,zone:'floor',timestamp:now,sequence:++sequence.current,expiresAt:now+600000,instance:instance.current,signature:''};
       void ch.track(pending);
     };
     publishRef.current=publish;
@@ -39,7 +38,7 @@ export function useOfficeWalkSync(tenantId: string | null | undefined, myId: str
         const k=officeWalkEventKey(e), old=seen.get(uid);
         // First sync and reconnect seed the baseline silently; only a new live action emits.
         if(notify&&initialized&&old!==k&&e.target&&Date.now()-e.timestamp<10000) setReceived({userId:uid,event:e});
-        seen.set(uid,k);
+        if(notify)seen.set(uid,k);
       }
       setRemote(out);
       if(notify)initialized=true;
