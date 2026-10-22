@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { iso, inverseIso, manualStayMs, shouldCancelManualWalk } from './officeIso';
-import { sharedOfficeWalk, acceptRemoteWalk, latestOfficeWalk } from './officeIso';
+import { sharedOfficeWalk, acceptRemoteWalk } from './officeIso';
 describe('office isometric geometry', () => {
   it('roundtrips floor points', () => { for (const [x,y] of [[0,0],[5,8],[18,16],[1.25,4.75]]) { const p = inverseIso(iso(x,y)); expect(p.x).toBeCloseTo(x); expect(p.y).toBeCloseTo(y); } });
   it('clamps to the floor', () => { expect(inverseIso(iso(-4,40))).toEqual({x:0,y:16}); });
