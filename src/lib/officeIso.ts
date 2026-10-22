@@ -14,8 +14,15 @@ export const ZONE_SPOTS = { planning: { x: 1.2, y: 2.9 }, review: { x: 1.95, y: 
 export function anchorGrid(key: string, users: string[]): GridPoint {
   const [zone, seat] = key.split(':');
   if (zone === 'desk') return deskSeatGrid(Math.max(0, users.indexOf(seat)));
+  if (zone === 'coffee') return coffeeRugSpot(Number(seat || 0));
   const p = ZONE_SPOTS[zone as keyof typeof ZONE_SPOTS] || ZONE_SPOTS.coffee;
   return { x: p.x + Number(seat || 0) * .65, y: p.y + 1.3 };
+}
+/** Tapete do café: x 10.48–12.73, y .65–2.65; balcão ocupa y até ~1.66. Pessoas ficam na faixa livre do tapete. */
+export const COFFEE_RUG = { x0: 10.48, y0: .65, x1: 12.73, y1: 2.65 };
+export function coffeeRugSpot(seat: number): GridPoint {
+  const col = seat % 3, row = Math.floor(seat / 3) % 2;
+  return { x: 10.85 + col * .7, y: 2.0 + row * .45 };
 }
 export const manualStayMs = ({ idle }: { idle: boolean }) => idle ? 600000 : 45000;
 export interface WalkSignature { demands: { id: string; stage: string | null }[]; presenceZone: string }
