@@ -5,3 +5,5 @@
 - [x] Rodar 72 testes focais e verificar aplicação com dados sintéticos; build OK.
 - [ ] Verificar fluxo financeiro autenticado real — bloqueado: Supabase externo sem sessão de teste gerenciável.
 - [x] Alinhar KPIs e Composição à fatura canônica, preservando listas operacionais; regressão sintética OUT/NOV validada.
+- [ ] Patch focal multiplayer do Escritório: canal privado, destinos reais, caminhada/assentos e avisos; testes focais.
+- [ ] Validar duas sessões reais e isolamento de tenant — bloqueado: Supabase externo sem sessão gerenciável.
