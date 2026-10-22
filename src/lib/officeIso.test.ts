@@ -95,3 +95,17 @@ describe('office walk multiplayer payload', () => {
     expect(latestOfficeWalk([sharedOfficeWalk(ev)], 1500, 6)?.zone).toBe('coffee');
   });
 });
+
+import { newestOwnWalk } from './officeIso';
+describe('same account across tabs', () => {
+  const a = { target:{x:11,y:2}, zone:'coffee' as const, timestamp:1000, sequence:1, expiresAt:46000, instance:'view-a', signature:'' };
+  const b = { ...a, target:{x:3,y:2.6}, zone:'waiting' as const, timestamp:2000, instance:'view-b' };
+  it('newer action from another tab beats the older local walk', () => { expect(newestOwnWalk(a,b)?.zone).toBe('waiting'); });
+  it('a new local click beats the older remote action', () => { expect(newestOwnWalk({...a,timestamp:3000},b)?.zone).toBe('coffee'); });
+  it('a watching tab follows the other tab walk', () => { expect(newestOwnWalk(null,b)?.zone).toBe('waiting'); });
+  it('newer explicit return sends the single avatar home', () => { expect(newestOwnWalk(a,{...b,target:null})).toBeNull(); });
+  it('older return never cancels a newer local walk', () => { expect(newestOwnWalk({...a,timestamp:5000},{...b,target:null})?.zone).toBe('coffee'); });
+  it('another tab of the same account is not dropped as echo', () => {
+    expect(latestOfficeWalk([a,b].filter(m=>m.instance!=='view-a'),2500,4)?.instance).toBe('view-b');
+  });
+});
