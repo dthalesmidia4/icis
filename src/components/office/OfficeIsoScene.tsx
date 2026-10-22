@@ -56,14 +56,14 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  const signature={demands:(me?.queue||[]).map(c=>({id:c.id,stage:`${c.functionKey}:${c.stageLabel}`})),presenceZone:me?`${me.presence.state}:${resolveOfficeZone({state:me.presence.state,current:me.current})}`:'absent'};
   const canWalk=!!tenantId&&!!myId&&!!myPerson&&!!me&&me.presence.state!=='off_shift';
   const walk=useMyManualWalk(anchor,signature,!me?.current||signature.presenceZone.includes('coffee'),canWalk);
-  const {remote:remoteWalks,received}=useOfficeWalkSync(tenantId,myId,walk.event,stations.length);
-  const actions:Record<string,OfficeWalkEvent>={};
-  people.forEach(pp=>{
-    const event=pp.userId===myId?walk.event:remoteWalks[pp.userId],station=stations.find(s=>s.collaborator.userId===pp.userId);
-    if(!event?.target||!station)return;
-    const sig={demands:station.queue.map(c=>({id:c.id,stage:`${c.functionKey}:${c.stageLabel}`})),presenceZone:`${station.presence.state}:${resolveOfficeZone({state:station.presence.state,current:station.current})}`};
-    if(event.signature===walkSignatureKey(sig))actions[pp.userId]=event;
-  });
+   const {remote:remoteWalks,received,status:syncStatus}=useOfficeWalkSync(tenantId,myId,walk.event,stations.length);
+   const actions:Record<string,OfficeWalkEvent>={};
+   people.forEach(pp=>{
+     const hasStation=stations.some(s=>s.collaborator.userId===pp.userId);
+     // Local walk is already cancelled by useMyManualWalk on real activity change; remote walks trust TTL/target validation only.
+     const event=pp.userId===myId?(walk.event&&hasStation?walk.event:null):acceptRemoteWalk(remoteWalks[pp.userId],hasStation);
+     if(event)actions[pp.userId]=event;
+   });
   const targets:Record<string,GridPoint>={};people.forEach(pp=>{targets[pp.userId]=actions[pp.userId]?.target||anchorGrid(pp.anchorKey,users);});
   const walkers=useOfficeWalkers(targets,stations.length);
   const [notice,setNotice]=useState('');
@@ -87,12 +87,14 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
     }
   },[walkers,actions,people]);
   useEffect(()=>{if(!notice)return;const t=window.setTimeout(()=>setNotice(''),3500);return()=>clearTimeout(t);},[notice]);
-  const visit=(zone:WalkZone)=>{
-    if(!canWalk||!myId)return;
-    const seat=Math.max(0,people.findIndex(p=>p.userId===myId));
-    walk.move(freeWalkPoint(interactionSpot(zone,seat),stations.length),zone);
-    setSelected(zone==='floor'?null:zone);
-  };
+   const startNotice=()=>{if(myPerson)setNotice(`${myPerson.name.split(' ')[0]} está explorando o escritório`);};
+   const visit=(zone:WalkZone)=>{
+     if(!canWalk||!myId)return;
+     const seat=Math.max(0,people.findIndex(p=>p.userId===myId));
+     walk.move(freeWalkPoint(interactionSpot(zone,seat),stations.length),zone);
+     startNotice();
+     setSelected(zone==='floor'?null:zone);
+   };
   const point=(x:number,y:number)=>{const s=svg.current,matrix=s?.getScreenCTM();if(!matrix)return {x:0,y:0};return new DOMPoint(x,y).matrixTransform(matrix.inverse());};
  const zoomAt=(factor:number,x:number,y:number)=>{const p=point(x,y);setCamera(old=>{const zoom=Math.max(.75,Math.min(1.9,old.zoom*factor));const ratio=old.zoom/zoom;return {zoom,x:p.x-base.x-(p.x-base.x-old.x)*ratio,y:p.y-base.y-(p.y-base.y-old.y)*ratio};});};
  const zoomRef=useRef(zoomAt); zoomRef.current=zoomAt;
@@ -157,6 +159,7 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  return <><svg ref={svg} className="office-iso-svg" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} aria-label="Escritório virtual isométrico" onPointerDown={e=>{if(e.button!==0||(e.target as Element).closest('[data-interactive]'))return;const p=point(e.clientX,e.clientY);pan.current={id:e.pointerId,x:e.clientX,y:e.clientY,px:p.x,py:p.y,cx:camera.x,cy:camera.y,moved:false};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{const p=pan.current;if(!p||p.id!==e.pointerId)return;if(Math.hypot(e.clientX-p.x,e.clientY-p.y)>=6)p.moved=true;if(p.moved){const q=point(e.clientX,e.clientY);setCamera(c=>({...c,x:c.x+p.px-q.x,y:c.y+p.py-q.y}));}}} onPointerUp={e=>{const p=pan.current;pan.current=null;if(!p)return;if(!p.moved&&canWalk){const q=point(e.clientX,e.clientY);const raw={x:(q.x/52+q.y/24)/2,y:(q.y/24-q.x/52)/2};if(raw.x>=0&&raw.x<=floor.width&&raw.y>=0&&raw.y<=floor.height)walk.move(freeWalkPoint(inverseIso(q,floor),stations.length));}e.currentTarget.releasePointerCapture(e.pointerId);}} onPointerCancel={()=>{pan.current=null;}}><RoomDefs/><MakeRoom args={[floor.height]}/><FloorDecors/><WallWindow args={[.65,0,'right']}/>{entities.sort((a,b)=>a.depth-b.depth).map(e=><g key={e.key}>{e.node}</g>)}<g className="iso-overlays">{overlays}</g></svg>
  {myId&&canSavePrefs&&<DeskCustomizeDialog open={customizing} onOpenChange={setCustomizing} value={prefs.byUser[myId]||[]} onSave={(o)=>prefs.save(myId,o)}/>}
  <div className="iso-controls absolute bottom-4 left-4 flex gap-2 rounded-2xl border bg-card p-2">{[['−',.85],['+',1.18]].map(([label,factor])=><button key={label} aria-label={label==='+'?'Ampliar':'Reduzir'} className="px-3 py-1" onClick={()=>{const r=svg.current?.getBoundingClientRect();if(!r)return;zoomAt(Number(factor),r.x+r.width/2,r.y+r.height/2);}}>{label}</button>)}<button onClick={()=>setCamera({x:0,y:0,zoom:1})}>Recentralizar</button></div>
- {notice&&<div role="status" aria-live="polite" className="pointer-events-none absolute bottom-4 right-4 max-w-[55%] rounded-md border bg-card px-3 py-2 text-sm text-foreground shadow-sm">{notice}</div>}
+  {notice&&<div role="status" aria-live="polite" className="pointer-events-none absolute bottom-20 left-1/2 z-30 max-w-[80%] -translate-x-1/2 rounded-full border bg-card/95 px-4 py-1.5 text-xs font-medium text-foreground shadow-md">{notice}</div>}
+  {canWalk&&syncStatus==='error'&&<div role="status" className="pointer-events-none absolute left-4 top-4 z-30 rounded-md border bg-card/95 px-2 py-1 text-[11px] text-muted-foreground">Caminhada visível só para você (conexão em tempo real indisponível)</div>}
  {selected&&<div className="absolute bottom-20 left-4 max-w-xs rounded-xl border bg-card p-4 text-sm shadow-lg"><button className="float-right ml-4" onClick={()=>setSelected(null)} aria-label="Fechar zona">×</button><strong>{zoneLabels[selected as keyof typeof zoneLabels]}</strong><p>{people.filter(p=>actions[p.userId]?.zone===selected||(!actions[p.userId]&&p.anchorKey.startsWith(`${selected}:`))).map(p=>p.name).join(', ')||'Ninguém aqui no momento'}</p></div>}</>;
 }
