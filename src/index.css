@@ -742,7 +742,9 @@ All colors MUST be HSL.
 .office-iso-svg:active { cursor: grabbing; }
 .office-iso-svg .iso-interactive { cursor: pointer; }
 .office-iso-svg .iso-interactive:hover { filter: brightness(1.06); }
-.office-iso-svg [role=button]:focus-visible { outline: 3px solid hsl(var(--iso-ink)); }
+.office-iso-svg [role="button"]:focus { outline: none; }
+.office-iso-svg [role="button"]:focus-visible { outline: none; filter: brightness(1.12); }
+.office-iso-svg .office-nudge, .office-iso-svg .office-bounce { outline: none; }
 
 .office-iso {
   --iso-c-31799b: 199.25 51.96% 40.00%;
