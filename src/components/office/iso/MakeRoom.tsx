@@ -12,7 +12,7 @@ out+=poly([{x:a.x,y:a.y-140},{x:d.x,y:d.y-140},{x:d.x,y:d.y-146},{x:a.x,y:a.y-14
 out+=poly([{x:a.x,y:a.y-140},{x:b.x,y:b.y-140},{x:b.x,y:b.y-146},{x:a.x,y:a.y-146}],'hsl(var(--iso-c-fff))');
 out+=`<path d="M${pp(d)} L${pp(a)} L${pp(b)}" stroke="hsl(var(--iso-c-8fb9d1))" stroke-width="9" fill="none"/><path d="M${pp(p(0,10,-4))} L${pp(p(0,0,-4))} L${pp(p(13,0,-4))}" stroke="hsl(var(--iso-c-fff))" stroke-width="5" fill="none"/>`;
 // Painéis da parede e janela panorâmica
-out+=wallLogo(0,3.1)+wallWindow(0,7.4,'left')+wallWindow(4.4,0,'right')+wallPoster(8.3,0,'right');
+out+=wallLogo(0,3.1)+wallWindow(0,8.75,'left')+wallWindow(4.4,0,'right')+wallPoster(8.3,0,'right');
 // Chão com rodapé espesso, mosaicos e bordas
 out+=poly([d,c,{x:c.x,y:c.y+26},{x:d.x,y:d.y+26}],'hsl(var(--iso-c-8ab6d1))','stroke="hsl(var(--iso-c-85abc6))" stroke-width="2"');
 out+=poly([b,c,{x:c.x,y:c.y+26},{x:b.x,y:b.y+26}],'hsl(var(--iso-c-a4c8de))','stroke="hsl(var(--iso-c-91b4c7))" stroke-width="2"');
