@@ -127,7 +127,7 @@ export function latestOfficeWalk(metas: unknown[], now:number, count:number): Of
     return Number.isFinite(e.timestamp)&&e.timestamp<=now+30000&&Number.isSafeInteger(e.sequence)&&e.sequence>=0
       &&Number.isFinite(e.expiresAt)&&e.expiresAt>now&&e.expiresAt<=e.timestamp+manualStayMs({idle:true})
       &&typeof e.instance==='string'&&typeof e.signature==='string'
-      &&(e.zone==='floor'||Object.hasOwn(ZONE_SPOTS,e.zone))
+      &&(e.zone==='floor'||Object.prototype.hasOwnProperty.call(ZONE_SPOTS,e.zone))
       &&(e.target===null||!!e.target&&Number.isFinite(e.target.x)&&Number.isFinite(e.target.y)&&e.target.x>=0&&e.target.x<=floor.width&&e.target.y>=0&&e.target.y<=floor.height);
   });
   valid.sort((a,b)=>b.timestamp-a.timestamp||b.sequence-a.sequence||b.instance.localeCompare(a.instance));
