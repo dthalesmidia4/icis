@@ -18,7 +18,7 @@ import { appearance } from './iso/appearance';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { OfficeStationData } from '@/hooks/useOfficeOverview';
 import type { OfficePerson } from './OfficePeopleLayer';
-import { anchorGrid, avoidFurniture, deskSeatGrid, deskGrid, paperSheets, type GridPoint, floorForDesks, furnitureRects, inverseIso, iso, ZONE_SPOTS, COFFEE_RUG } from '@/lib/officeIso';
+import { anchorGrid, deskSeatGrid, deskGrid, paperSheets, type GridPoint, floorForDesks, inverseIso, iso, ZONE_SPOTS, COFFEE_RUG, interactionSpot, freeWalkPoint, walkSignatureKey, officeWalkEventKey, type WalkZone, type OfficeWalkEvent } from '@/lib/officeIso';
 import { useOfficeWalkSync } from '@/hooks/useOfficeWalkSync';
 import DeskCustomizeDialog from './DeskCustomizeDialog';
 import { useOfficeDeskPreferences } from '@/hooks/useOfficeDeskPreferences';
@@ -54,11 +54,46 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  const me=stations.find(s=>s.collaborator.userId===myId); const myPerson=people.find(p=>p.userId===myId);
  const anchor=myPerson?anchorGrid(myPerson.anchorKey,users):null;
  const signature={demands:(me?.queue||[]).map(c=>({id:c.id,stage:`${c.functionKey}:${c.stageLabel}`})),presenceZone:me?`${me.presence.state}:${resolveOfficeZone({state:me.presence.state,current:me.current})}`:'absent'};
- const walk=useMyManualWalk(anchor,signature,!me?.current||signature.presenceZone.includes('coffee'));
- const remoteWalks=useOfficeWalkSync(tenantId,myId,walk.manual?walk.target:null);
- const targets:Record<string,GridPoint>={};people.forEach(pp=>{targets[pp.userId]=pp.userId===myId&&walk.target?walk.target:remoteWalks[pp.userId]||anchorGrid(pp.anchorKey,users);});
- const walkers=useOfficeWalkers(targets);
- const point=(x:number,y:number)=>{const s=svg.current!;const p=new DOMPoint(x,y);return p.matrixTransform(s.getScreenCTM()!.inverse());};
+  const canWalk=!!tenantId&&!!myId&&!!myPerson&&!!me&&me.presence.state!=='off_shift';
+  const walk=useMyManualWalk(anchor,signature,!me?.current||signature.presenceZone.includes('coffee'),canWalk);
+  const {remote:remoteWalks,received}=useOfficeWalkSync(tenantId,myId,walk.event,stations.length);
+  const actions:Record<string,OfficeWalkEvent>={};
+  people.forEach(pp=>{
+    const event=pp.userId===myId?walk.event:remoteWalks[pp.userId],station=stations.find(s=>s.collaborator.userId===pp.userId);
+    if(!event?.target||!station)return;
+    const sig={demands:station.queue.map(c=>({id:c.id,stage:`${c.functionKey}:${c.stageLabel}`})),presenceZone:`${station.presence.state}:${resolveOfficeZone({state:station.presence.state,current:station.current})}`};
+    if(event.signature===walkSignatureKey(sig))actions[pp.userId]=event;
+  });
+  const targets:Record<string,GridPoint>={};people.forEach(pp=>{targets[pp.userId]=actions[pp.userId]?.target||anchorGrid(pp.anchorKey,users);});
+  const walkers=useOfficeWalkers(targets,stations.length);
+  const [notice,setNotice]=useState('');
+  const noticed=useRef(new Set<string>());
+  const pendingNotices=useRef<Record<string,string>>({});
+  const announce=(uid:string,event:OfficeWalkEvent)=>{
+    const k=officeWalkEventKey(event);if(noticed.current.has(k)||!event.target)return;
+    noticed.current.add(k);pendingNotices.current[uid]=k;
+    const person=people.find(p=>p.userId===uid);if(person)setNotice(`${person.name.split(' ')[0]} está explorando o escritório`);
+  };
+  useEffect(()=>{if(myId&&walk.event)announce(myId,walk.event);},[myId,walk.event]);
+  useEffect(()=>{if(received)announce(received.userId,received.event);},[received]);
+  useEffect(()=>{
+    const labels:Partial<Record<WalkZone,string>>={coffee:'foi ao Cantinho do Café',waiting:'está descansando',meeting:'está em reunião',planning:'foi ao Planejamento',review:'foi à Revisão'};
+    for(const [uid,k] of Object.entries(pendingNotices.current)){
+      const event=actions[uid],w=walkers[uid];
+      if(!event||officeWalkEventKey(event)!==k){delete pendingNotices.current[uid];continue;}
+      if(!w||w.walking||!event.target||Math.hypot(w.pos.x-event.target.x,w.pos.y-event.target.y)>.1)continue;
+      delete pendingNotices.current[uid];const label=labels[event.zone],person=people.find(p=>p.userId===uid);
+      if(label&&person)setNotice(`${person.name.split(' ')[0]} ${label}`);
+    }
+  },[walkers,actions,people]);
+  useEffect(()=>{if(!notice)return;const t=window.setTimeout(()=>setNotice(''),3500);return()=>clearTimeout(t);},[notice]);
+  const visit=(zone:WalkZone)=>{
+    if(!canWalk||!myId)return;
+    const seat=Math.max(0,people.findIndex(p=>p.userId===myId));
+    walk.move(freeWalkPoint(interactionSpot(zone,seat),stations.length),zone);
+    setSelected(zone==='floor'?null:zone);
+  };
+  const point=(x:number,y:number)=>{const s=svg.current,matrix=s?.getScreenCTM();if(!matrix)return {x:0,y:0};return new DOMPoint(x,y).matrixTransform(matrix.inverse());};
  const zoomAt=(factor:number,x:number,y:number)=>{const p=point(x,y);setCamera(old=>{const zoom=Math.max(.75,Math.min(1.9,old.zoom*factor));const ratio=old.zoom/zoom;return {zoom,x:p.x-base.x-(p.x-base.x-old.x)*ratio,y:p.y-base.y-(p.y-base.y-old.y)*ratio};});};
  const zoomRef=useRef(zoomAt); zoomRef.current=zoomAt;
  useEffect(()=>{const el=svg.current;if(!el)return;const wheel=(e:WheelEvent)=>{e.preventDefault();zoomRef.current(Math.exp(-e.deltaY*(e.deltaMode===1?.025:.0015)),e.clientX,e.clientY);};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[]);
@@ -66,7 +101,6 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  const interactive=(action:()=>void,label:string)=>({role:'button',tabIndex:0,'aria-label':label,onClick:action,onKeyDown:(e:React.KeyboardEvent)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();action();}},'data-interactive':true});
  const entities:{depth:number;key:string;node:ReactNode}[]=[];
  const overlays:ReactNode[]=[];
- const rects=furnitureRects(stations.length);
  const deskPeople=new Set<string>();
  stations.forEach((s,i)=>{
  const loc=deskGrid(i),id=s.collaborator.userId,theme=appearance(id),seatG=deskSeatGrid(i);
@@ -74,7 +108,7 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  const seated=!!person&&!!w&&!w.walking&&person.anchorKey===`desk:${id}`&&Math.hypot(w.pos.x-seatG.x,w.pos.y-seatG.y)<.34;
  if(seated)deskPeople.add(id);
  const open=()=>{if(!consumeClickSuppression())onQueue(id);};
- const deskClick=()=>{if(consumeClickSuppression())return;if(id===myId&&canSavePrefs)setCustomizing(true);else onQueue(id);};
+  const deskClick=()=>{if(consumeClickSuppression())return;if(id===myId&&canSavePrefs){if(walk.manual&&canWalk)walk.move(seatG);else setCustomizing(true);}else onQueue(id);};
  const seat=iso(seatG.x,seatG.y),obj=isoZ(loc.x+1.83,loc.y+.45,58),st=isoZ(loc.x+1.7,loc.y+.72,51);
  const count=s.queueCount,sheets=paperSheets(count),late=s.queue.filter(c=>c.isLate).length;
  const objectKey=(prefs.byUser[id]||[])[0];
@@ -109,13 +143,16 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  const zoneObjects={planning:<CreativeShelf/>,review:<ReviewStation/>,coffee:<CoffeeStation/>,meeting:<MeetingRoom/>,waiting:<Sofa/>};
  Object.entries(ZONE_SPOTS).forEach(([key,p])=>{
  const label=zoneLabels[key as keyof typeof zoneLabels];
- entities.push({depth:p.x+p.y,key,node:<g {...interactive(()=>setSelected(selected===key?null:key),label)} className="iso-interactive">{zoneObjects[key as keyof typeof zoneObjects]}</g>});
+  entities.push({depth:p.x+p.y,key,node:<g {...interactive(()=>visit(key as WalkZone),label)} className="iso-interactive">{zoneObjects[key as keyof typeof zoneObjects]}</g>});
  });
- entities.push({depth:2.7,key:'planning-wall',node:<g {...interactive(()=>setSelected(selected==='planning'?null:'planning'),'Planejamento')} className="iso-interactive"><PlanningWall/></g>});
+  entities.push({depth:2.7,key:'planning-wall',node:<g {...interactive(()=>visit('planning'),'Planejamento')} className="iso-interactive"><PlanningWall/></g>});
  [{x:.7,y:3.4,s:.85},{x:4.6,y:1.6,s:1.05},{x:.42,y:7,s:.8},{x:11.45,y:floor.height-1.2,s:.9},{x:12.52,y:floor.height-1.2,s:.7}].forEach((p,i)=>entities.push({depth:p.x+p.y,key:`plant-${i}`,node:<g className="iso-plant"><Plant args={[p.x,p.y,p.s]}/></g>}));
  people.filter(person=>!deskPeople.has(person.userId)).forEach(person=>{const w=walkers[person.userId];if(!w)return;const p=w.pos,q=iso(p.x,p.y);
- const cup=p.x>=COFFEE_RUG.x0&&p.x<=COFFEE_RUG.x1&&p.y>=COFFEE_RUG.y0&&p.y<=COFFEE_RUG.y1+.3&&!w.walking;
- entities.push({depth:p.x+p.y+2.2,key:`person-${person.userId}`,node:<g data-user-id={person.userId} transform={`translate(${q.x} ${q.y+w.bob})`} {...interactive(()=>onQueue(person.userId),`Abrir fila de ${person.name}`)} className="iso-interactive"><AvatarSvg args={[person.userId,{...appearance(person.userId),name:person.name,team:''},person.userId===myId,{walking:w.walking,cup}]}/><NameTag x={0} y={0} name={person.name} working={person.working}/></g>});
+  const action=actions[person.userId],arrived=!!action?.target&&!w.walking&&Math.hypot(p.x-action.target.x,p.y-action.target.y)<.1;
+  const seated=arrived&&(action.zone==='waiting'||action.zone==='meeting');
+  const cup=p.x>=COFFEE_RUG.x0&&p.x<=COFFEE_RUG.x1&&p.y>=COFFEE_RUG.y0&&p.y<=COFFEE_RUG.y1+.3&&!w.walking;
+  const depth=seated&&action.zone==='meeting'?ZONE_SPOTS.meeting.x+ZONE_SPOTS.meeting.y+.01:p.x+p.y+2.2;
+  entities.push({depth,key:`person-${person.userId}`,node:<g data-user-id={person.userId} transform={`translate(${q.x} ${q.y+w.bob-(seated?19:0)})`} {...interactive(()=>onQueue(person.userId),`Abrir fila de ${person.name}`)} className="iso-interactive"><AvatarSvg args={[person.userId,{...appearance(person.userId),name:person.name,team:''},person.userId===myId,{walking:w.walking,cup,seated}]}/><NameTag x={0} y={0} name={person.name} working={person.working}/></g>});
  });
  return <><svg ref={svg} className="office-iso-svg" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} aria-label="Escritório virtual isométrico" onPointerDown={e=>{if(e.button!==0||(e.target as Element).closest('[data-interactive]'))return;const p=point(e.clientX,e.clientY);pan.current={id:e.pointerId,x:e.clientX,y:e.clientY,px:p.x,py:p.y,cx:camera.x,cy:camera.y,moved:false};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{const p=pan.current;if(!p||p.id!==e.pointerId)return;if(Math.hypot(e.clientX-p.x,e.clientY-p.y)>=6)p.moved=true;if(p.moved){const q=point(e.clientX,e.clientY);setCamera(c=>({...c,x:c.x+p.px-q.x,y:c.y+p.py-q.y}));}}} onPointerUp={e=>{const p=pan.current;pan.current=null;if(!p)return;if(!p.moved&&myPerson){const q=point(e.clientX,e.clientY);const raw={x:(q.x/52+q.y/24)/2,y:(q.y/24-q.x/52)/2};if(raw.x>=0&&raw.x<=floor.width&&raw.y>=0&&raw.y<=floor.height)walk.move(avoidFurniture(inverseIso(q,floor),rects));}e.currentTarget.releasePointerCapture(e.pointerId);}} onPointerCancel={()=>{pan.current=null;}}><RoomDefs/><MakeRoom args={[floor.height]}/><FloorDecors/><WallWindow args={[.65,0,'right']}/>{entities.sort((a,b)=>a.depth-b.depth).map(e=><g key={e.key}>{e.node}</g>)}<g className="iso-overlays">{overlays}</g></svg>
  {myId&&canSavePrefs&&<DeskCustomizeDialog open={customizing} onOpenChange={setCustomizing} value={prefs.byUser[myId]||[]} onSave={(o)=>prefs.save(myId,o)}/>}
