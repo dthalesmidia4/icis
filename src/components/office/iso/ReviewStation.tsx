@@ -3,7 +3,7 @@ import {p,pp,poly,tilePoly,isoBox,esc,W} from './geometry';
 import {rug} from './Rug';
 export function reviewStation(){
   const x=.8,y=7.1;
-  let out=`<g class="interactive station zone-landmark" data-zone="review" data-team="all" role="button" tabindex="0" aria-label="Abrir bancada de Revisão">
+  let out=`<g class="interactive station zone-landmark" data-zone="review" data-team="all" aria-label="Abrir bancada de Revisão">
    <title>Revisão — documentos, conferência e validação</title>
    ${rug(x,y,2.5,1.7,'hsl(var(--iso-c-d6c5ef))')}
    ${isoBox(x+.28,y+.16,1.95,1.02,29,'hsl(var(--iso-c-fcfcff))','hsl(var(--iso-c-d7c9ee))','hsl(var(--iso-c-bdacdf))')}`;

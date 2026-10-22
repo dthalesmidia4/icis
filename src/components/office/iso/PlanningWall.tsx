@@ -5,7 +5,7 @@ export function planningGlassWall(){
   // Painel de planejamento FIXADO NA PAREDE lateral, entre a janela e o logotipo.
   // Texto, post-its e divisorias existem no vidro; nao ha placa/balao flutuante.
   const a=p(0,6.0),bx=a.x,by=a.y-125;
-  let out=`<g class="interactive station zone-landmark" data-zone="planning" data-team="all" role="button" tabindex="0" aria-label="Abrir área Planejamento">
+  let out=`<g class="interactive station zone-landmark" data-zone="planning" data-team="all" aria-label="Abrir área Planejamento">
   <title>Planejamento — painel de vidro com post-its</title>
   <g transform="translate(${bx} ${by}) matrix(1 -.4615 0 1 0 0)">
    <rect x="-7" y="-2" width="150" height="106" rx="8" fill="hsl(var(--iso-c-4f9fc6))" opacity=".12"/>

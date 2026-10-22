@@ -3,7 +3,7 @@ import {p,pp,poly,tilePoly,isoBox,esc,W} from './geometry';
 import {rug} from './Rug';
 export function coffeeStation(){
   const x=11.18,y=.78;
-  let out=`<g class="interactive station zone-landmark" data-zone="coffee" data-team="all" role="button" tabindex="0" aria-label="Abrir Cantinho do Café">
+  let out=`<g class="interactive station zone-landmark" data-zone="coffee" data-team="all" aria-label="Abrir Cantinho do Café">
     <title>Cantinho do Café — espaço de descanso</title>
     ${rug(10.48,.65,2.25,2.0,'hsl(var(--iso-c-f8e1c6))')}
     ${isoBox(x,y,1.65,.88,61,'hsl(var(--iso-c-fff8ed))','hsl(var(--iso-c-dfa982))','hsl(var(--iso-c-c18d69))')}`;

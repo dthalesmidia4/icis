@@ -13,7 +13,7 @@ function meetingChair(x,y,accent){
 }
 export function meetingRoom(){
  const x=7.6,y=7.05;
- let out=`<g class="interactive station zone-landmark" data-zone="meeting" data-team="all" role="button" tabindex="0" aria-label="Abrir sala de reunião">
+ let out=`<g class="interactive station zone-landmark" data-zone="meeting" data-team="all" aria-label="Abrir sala de reunião">
   <title>Sala de reunião — mesa, assentos e materiais</title>
   ${rug(6.6,6.6,3.3,2.55,'hsl(var(--iso-c-badbe9))')}`;
  // Assentos atrás do tampo: apresentam escala coerente, sem blocos nas extremidades.
