@@ -10,10 +10,9 @@ import CoffeeStation from './iso/CoffeeStation';
 import MeetingRoom from './iso/MeetingRoom';
 import CreativeShelf from './iso/CreativeShelf';
 import Sofa from './iso/Sofa';
-import ServerRack from './iso/ServerRack';
+import PlanningWall from './iso/PlanningWall';
 import FloorDecors from './iso/FloorDecors';
 import AvatarSvg from './iso/AvatarSvg';
-import ZoneSign from './iso/ZoneSign';
 import NameTag from './iso/NameTag';
 import { appearance } from './iso/appearance';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -74,23 +73,20 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
  if(seated)deskPeople.add(id);
  const open=()=>{if(!consumeClickSuppression())onQueue(id);};
  const deskClick=()=>{if(consumeClickSuppression())return;if(id===myId&&canSavePrefs)setCustomizing(true);else onQueue(id);};
- const seat=iso(seatG.x,seatG.y),obj=isoZ(loc.x+1.83,loc.y+.45,58),st=isoZ(loc.x+1.7,loc.y+.72,51),lab=isoZ(loc.x+1.05,loc.y+1.56,45);
+ const seat=iso(seatG.x,seatG.y),obj=isoZ(loc.x+1.83,loc.y+.45,58),st=isoZ(loc.x+1.7,loc.y+.72,51);
  const count=s.queueCount,sheets=paperSheets(count),late=s.queue.filter(c=>c.isLate).length;
  const objectKey=(prefs.byUser[id]||[])[0];
- // Faixa de etapa no tampo (deskProgressWidget) — sem percentual: só o estado real.
- const px=loc.x+.22,py=loc.y+.93,P=(dx:number,dy:number,z:number)=>{const q=isoZ(px+dx,py+dy,z);return `${q.x},${q.y}`;};
- const tone=!s.current?'#c8dbe6':late?'#f17468':'#57b9e9';
- const stage=s.current?s.current.stageLabel.toUpperCase().slice(0,22):'LIVRE';
- const T=isoZ(px+.11,py+.11,54);
+ // Faixa de etapa no tampo (geometria do HTML v8) — sem percentual inventado: só o estado real.
+ const px=loc.x+.18,py=loc.y+1.24,bw=.70,bh=.17,P=(dx:number,dy:number,z:number)=>{const q=isoZ(px+dx,py+dy,z);return `${q.x},${q.y}`;};
+ const tone=!s.current?'c8dbe6':late?'f17468':'50b7ac';
  entities.push({depth:loc.x+loc.y+2,key:id,node:<g data-office-desk-user={id} data-user-id={id}>
  <ChairBehind x={seat.x} y={seat.y} color={theme.color} dark={theme.dark}/>
  {seated&&person&&<g transform={`translate(${seat.x} ${seat.y-19})`} data-user-id={id} {...interactive(()=>onQueue(id),`Abrir fila de ${person.name}`)} className="iso-interactive"><AvatarSvg args={[id,{...appearance(id),name:person.name,team:''},id===myId,{seated:true}]}/></g>}
  <g {...interactive(deskClick,id===myId?'Personalizar minha mesa':`Mesa de ${s.collaborator.fullName}`)} className="iso-interactive"><Desk x={loc.x} y={loc.y} spec={theme}/></g>
  {objectKey&&<g pointerEvents="none" transform={`translate(${obj.x} ${obj.y})`}><title>{objectKey}</title>{deskGlyph(objectKey,theme.paper)}</g>}
- <g pointerEvents="none"><title>{s.current?`Etapa atual: ${s.current.stageLabel}`:'Sem demanda ativa'}</title>
-  <polygon points={`${P(0,0,52)} ${P(1,0,52)} ${P(1,.32,52)} ${P(0,.32,52)}`} fill={hx('ffffff')} fillOpacity=".96" stroke={hx('a8c9da')} strokeWidth="1.5"/>
-  <polygon points={`${P(.08,.08,53)} ${P(.92,.08,53)} ${P(.92,.2,53)} ${P(.08,.2,53)}`} fill={tone.startsWith('#')?hx(tone.slice(1)):tone} opacity=".95"/>
-  <text x={T.x} y={T.y} fontSize="6.8" fontWeight="900" fill={hx('5c7d92')}>{stage}</text></g>
+ <g pointerEvents="none" className="desk-progress"><title>{s.current?`Etapa atual: ${s.current.stageLabel}`:'Sem demanda ativa'}</title>
+  <polygon points={`${P(0,0,52)} ${P(bw,0,52)} ${P(bw,bh,52)} ${P(0,bh,52)}`} fill={hx('eff7fb')} stroke={hx('8fb8cd')} strokeWidth="1.1"/>
+  {s.current&&<polygon points={`${P(.035,.04,53)} ${P(bw-.035,.04,53)} ${P(bw-.035,.13,53)} ${P(.035,.13,53)}`} fill={hx(tone)} opacity=".75"/>}</g>
  {sheets>0&&<g ref={el=>registerStack(id,el)} transform={`translate(${st.x} ${st.y})`}>
   <title>{`${count} demandas ativas de ${s.collaborator.fullName}`}</title>
   <ellipse cx="0" cy="7" rx="28" ry="10" fill={hx('2d7395')} opacity=".13"/>
@@ -104,17 +100,17 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
    <path d="M-21 1L-4 -7L21 0L4 8Z" fill={hx('e4f5fd')} opacity=".87"/><path d="M-12 0L8 6" stroke={hx('86bcd8')} strokeWidth="1.8" strokeLinecap="round"/>
    <text x="8" y="4.4" fontSize="9.1" fontWeight="900" fill={hx('265975')} textAnchor="middle" transform="rotate(-14 8 4)">{count}</text></g>;})()}
  </g>}
- <g transform={`translate(${lab.x} ${lab.y})`} {...interactive(open,`Fila de ${s.collaborator.fullName}, ${count} demandas`)} className="iso-interactive"><path d="M-30 -4L30 -4L27 7L-32 7Z" fill={hx('ffffff')} opacity=".95" stroke={targetUserId===id?hx('167fbf'):hx('c9dfed')} strokeWidth={targetUserId===id?2.5:1.3}/><text x="0" y="4" textAnchor="middle" fontSize="8" fontWeight="900" fill={hx('447b9c')}>{s.collaborator.fullName.split(' ')[0].slice(0,12)}</text></g>
+ {(()=>{const n=(dx:number,dy:number)=>{const q=isoZ(loc.x+dx,loc.y+dy,53);return `${q.x},${q.y}`;};const nt=isoZ(loc.x+1.69,loc.y+1.27,54);const hot=targetUserId===id;return <g className="desk-nameplate iso-interactive" {...interactive(open,`Fila de ${s.collaborator.fullName}, ${count} demandas`)}><polygon points={`${n(1.28,1.13)} ${n(2.13,1.13)} ${n(2.13,1.37)} ${n(1.28,1.37)}`} fill={hx('ffffff')} stroke={hot?hx('167fbf'):hx('bad6e7')} strokeWidth={hot?2.5:1.2}/><text x={nt.x} y={nt.y+2.5} transform={`rotate(25 ${nt.x} ${nt.y})`} textAnchor="middle" fontSize="9" fontWeight="900" fill={hx('3b7797')}>{s.collaborator.fullName.split(' ')[0].slice(0,12)}</text></g>;})()}
  </g>});
  });
- const zoneLabels={planning:'Planejamento',review:'Revisão',coffee:'Café',meeting:'Reunião',waiting:'Espera'};
+ const zoneLabels={planning:'Planejamento',review:'Revisão',coffee:'Cantinho do Café',meeting:'Reunião',waiting:'Espera'};
  const zoneObjects={planning:<CreativeShelf/>,review:<ReviewStation/>,coffee:<CoffeeStation/>,meeting:<MeetingRoom/>,waiting:<Sofa/>};
  Object.entries(ZONE_SPOTS).forEach(([key,p])=>{
- entities.push({depth:p.x+p.y,key,node:zoneObjects[key as keyof typeof zoneObjects]});
- overlays.unshift(<g key={`sign-${key}`} {...interactive(()=>setSelected(selected===key?null:key),zoneLabels[key as keyof typeof zoneLabels])} className="iso-interactive"><ZoneSign args={[p.x,p.y,zoneLabels[key as keyof typeof zoneLabels],{review:'✓',meeting:'◈',coffee:'☕',planning:'✎',waiting:'◷'}[key],key]}/></g>);
+ const label=zoneLabels[key as keyof typeof zoneLabels];
+ entities.push({depth:p.x+p.y,key,node:<g {...interactive(()=>setSelected(selected===key?null:key),label)} className="iso-interactive">{zoneObjects[key as keyof typeof zoneObjects]}</g>});
  });
+ entities.push({depth:2.7,key:'planning-wall',node:<g {...interactive(()=>setSelected(selected==='planning'?null:'planning'),'Planejamento')} className="iso-interactive"><PlanningWall/></g>});
  [{x:.7,y:3.4,s:.85},{x:4.6,y:1.6,s:1.05},{x:.42,y:7,s:.8},{x:11.45,y:floor.height-1.2,s:.9},{x:12.52,y:floor.height-1.2,s:.7}].forEach((p,i)=>entities.push({depth:p.x+p.y,key:`plant-${i}`,node:<g className="iso-plant"><Plant args={[p.x,p.y,p.s]}/></g>}));
- entities.push({depth:15,key:'server',node:<ServerRack/>});
  people.filter(person=>!deskPeople.has(person.userId)).forEach(person=>{const w=walkers[person.userId];if(!w)return;const p=w.pos,q=iso(p.x,p.y);
  const cup=Math.hypot(p.x-ZONE_SPOTS.coffee.x,p.y-ZONE_SPOTS.coffee.y-1.3)<1.4&&!w.walking;
  entities.push({depth:p.x+p.y+2.2,key:`person-${person.userId}`,node:<g data-user-id={person.userId} transform={`translate(${q.x} ${q.y+w.bob})`} {...interactive(()=>onQueue(person.userId),`Abrir fila de ${person.name}`)} className="iso-interactive"><AvatarSvg args={[person.userId,{...appearance(person.userId),name:person.name,team:''},person.userId===myId,{walking:w.walking,cup}]}/><NameTag x={0} y={0} name={person.name} working={person.working}/></g>});
