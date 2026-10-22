@@ -119,6 +119,12 @@ export interface OfficeWalkEvent {
   expiresAt: number; instance: string; signature: string;
 }
 export const officeWalkEventKey = (e:OfficeWalkEvent) => `${e.instance}:${e.timestamp}:${e.sequence}`;
+/** Shared payload never carries the local queue signature (demand ids stay local). */
+export const sharedOfficeWalk = (e:OfficeWalkEvent):OfficeWalkEvent => ({target:e.target?{x:e.target.x,y:e.target.y}:null,zone:e.zone,timestamp:e.timestamp,sequence:e.sequence,expiresAt:e.expiresAt,instance:e.instance,signature:''});
+/** Remote actions are accepted for any visible person with a desk; queue/filter state never rejects them. */
+export function acceptRemoteWalk(event:OfficeWalkEvent|undefined, hasStation:boolean):OfficeWalkEvent|null {
+  return event&&event.target&&hasStation?event:null;
+}
 export function latestOfficeWalk(metas: unknown[], now:number, count:number): OfficeWalkEvent | null {
   const floor=floorForDesks(count);
   const valid=metas.filter((value):value is OfficeWalkEvent=>{

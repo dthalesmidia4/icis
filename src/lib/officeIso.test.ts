@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { iso, inverseIso, manualStayMs, shouldCancelManualWalk } from './officeIso';
+import { sharedOfficeWalk, acceptRemoteWalk } from './officeIso';
 describe('office isometric geometry', () => {
   it('roundtrips floor points', () => { for (const [x,y] of [[0,0],[5,8],[18,16],[1.25,4.75]]) { const p = inverseIso(iso(x,y)); expect(p.x).toBeCloseTo(x); expect(p.y).toBeCloseTo(y); } });
   it('clamps to the floor', () => { expect(inverseIso(iso(-4,40))).toEqual({x:0,y:16}); });
@@ -74,4 +75,23 @@ describe('reference parity', () => {
   it('sheets: one per demand up to 5, compressed after', () => { expect([0,4,30,59].map(paperSheets)).toEqual([0,4,11,18]); });
   it('walk duration follows the reference', () => { expect(walkDurationMs({x:0,y:0},{x:0,y:0})).toBe(280); expect(walkDurationMs({x:0,y:0},{x:4,y:0})).toBe(1160); expect(walkDurationMs({x:0,y:0},{x:20,y:0})).toBe(2200); });
   it('seat matches reference station anchor offset', () => { const s = deskSeatGrid(1); expect(s.x).toBeCloseTo(5.925); expect(s.y).toBeCloseTo(1.69); });
+});
+
+describe('office walk multiplayer payload', () => {
+  const ev = { target:{x:11,y:2}, zone:'coffee' as const, timestamp:1000, sequence:1, expiresAt:2000, instance:'i', signature:'["working:desk",[["uuid-1","a:b"]]]' };
+  it('shared payload never carries the queue signature', () => {
+    expect(sharedOfficeWalk(ev).signature).toBe('');
+    expect(sharedOfficeWalk(ev).target).toEqual({x:11,y:2});
+  });
+  it('remote walk is accepted regardless of the receiver filter/queue', () => {
+    expect(acceptRemoteWalk({...ev,signature:''}, true)).not.toBeNull();
+    expect(acceptRemoteWalk({...ev,signature:'anything'}, true)).not.toBeNull();
+  });
+  it('remote walk needs a visible station and a target', () => {
+    expect(acceptRemoteWalk(ev, false)).toBeNull();
+    expect(acceptRemoteWalk({...ev,target:null}, true)).toBeNull();
+  });
+  it('shared payload passes presence validation', () => {
+    expect(latestOfficeWalk([sharedOfficeWalk(ev)], 1500, 6)?.zone).toBe('coffee');
+  });
 });
