@@ -12,8 +12,6 @@ export function deskFront(x:number,y:number,spec:Spec){
  out+=isoBox(x,y,2.25,1.58,7,spec.top,spec.side,spec.edge,43);
  const A=p(x,y,50),B=p(x+2.25,y,50),C=p(x+2.25,y+1.58,50),D=p(x,y+1.58,50);
  out+=`<path d="M${A.x} ${A.y}L${B.x} ${B.y}L${C.x} ${C.y}L${D.x} ${D.y}Z" fill="none" stroke="hsl(var(--iso-c-ffffff))" stroke-opacity=".95" stroke-width="2.3" stroke-linejoin="round"/>`;
- // Teclado e mouse do lado do personagem (atrás do monitor para o observador): desenhados antes, ficam ocultos atrás da tela.
- const kb=p(x+.42,y+.14,50);out+=`<g transform="translate(${kb.x} ${kb.y})"><path d="M-20 -2L-2 -10L22 -2L4 6Z" fill="hsl(var(--iso-c-edf5fa))" stroke="hsl(var(--iso-c-8baec3))" stroke-width="1.6" stroke-linejoin="round"/><path d="M-11 -2L2 -7M-6 0L8 -5" stroke="hsl(var(--iso-c-b8cfdd))" stroke-width="1.4" stroke-linecap="round"/><ellipse cx="30" cy="1" rx="4" ry="2.6" fill="hsl(var(--iso-c-dcecf5))" stroke="hsl(var(--iso-c-8baec3))" stroke-width="1.2"/></g>`;
  out+=monitorBack(x+.72,y+.60,spec.paper);
  const mug=p(x+.30,y+.73,55);
  out+=`<g><ellipse cx="${mug.x}" cy="${mug.y}" rx="11" ry="6" fill="${spec.paper}"/><path d="M${mug.x-8} ${mug.y-6}V${mug.y-17}Q${mug.x} ${mug.y-21} ${mug.x+8} ${mug.y-17}V${mug.y-6}" fill="hsl(var(--iso-c-ffffff))" stroke="${spec.paper}" stroke-width="2"/><path d="M${mug.x+8} ${mug.y-15}q13 0 2 10" fill="none" stroke="${spec.paper}" stroke-width="2"/></g>`;
