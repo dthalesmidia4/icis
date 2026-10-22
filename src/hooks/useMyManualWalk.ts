@@ -1,31 +1,22 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { manualStayMs, shouldCancelManualWalk, type GridPoint, type WalkSignature } from '@/lib/officeIso';
-export function useMyManualWalk(anchor: GridPoint | null, signature: WalkSignature, idle: boolean) {
-  const [walk, setWalk] = useState<{ target: GridPoint; signature: WalkSignature } | null>(null);
-  const [position, setPosition] = useState<GridPoint | null>(anchor);
-  const current = useRef(position);
-  const valid = walk && !shouldCancelManualWalk(walk.signature, signature);
-  const target = valid ? walk.target : anchor;
-  useEffect(() => {
-    if (walk && !valid) setWalk(null);
-  }, [walk, valid]);
+import { manualStayMs, walkSignatureKey, type GridPoint, type WalkSignature, type OfficeWalkEvent, type WalkZone } from '@/lib/officeIso';
+export function useMyManualWalk(anchor: GridPoint | null, signature: WalkSignature, idle: boolean, enabled = true) {
+  const [walk, setWalk] = useState<OfficeWalkEvent | null>(null);
+  const instance = useRef(crypto.randomUUID());
+  const sequence = useRef(0);
+  const key = walkSignatureKey(signature);
+  const valid = enabled && walk?.target && walk.signature === key && walk.expiresAt > Date.now();
+  const event = valid ? walk : null;
+  useEffect(() => { if (walk && !valid) setWalk(null); }, [walk, !!valid]);
   useEffect(() => {
     if (!walk) return;
-    const timer = window.setTimeout(() => setWalk(null), manualStayMs({ idle }));
+    const timer = window.setTimeout(() => setWalk(null), Math.max(0, walk.expiresAt - Date.now()));
     return () => clearTimeout(timer);
-  }, [walk, idle]);
-  useEffect(() => {
-    if (!target) { current.current = null; setPosition(null); return; }
-    const from = current.current || target;
-    let frame: number; const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / 950); const ease = t * t * (3 - 2 * t);
-      const p = { x: from.x + (target.x - from.x) * ease, y: from.y + (target.y - from.y) * ease };
-      current.current = p; setPosition(p);
-      if (t < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick); return () => cancelAnimationFrame(frame);
-  }, [target?.x, target?.y]);
-  const move = useCallback((target: GridPoint) => { if (anchor) setWalk({ target, signature }); }, [anchor, signature]);
-  return { position, move, manual: !!valid, target };
+  }, [walk]);
+  const move = useCallback((target: GridPoint, zone: WalkZone = 'floor') => {
+    if (!anchor || !enabled) return;
+    const timestamp = Date.now();
+    setWalk({ target, zone, timestamp, sequence: ++sequence.current, expiresAt: timestamp + manualStayMs({ idle }), instance: instance.current, signature: key });
+  }, [anchor?.x, anchor?.y, enabled, idle, key]);
+  return { move, manual: !!valid, target: event?.target || anchor, event };
 }
