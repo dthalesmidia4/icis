@@ -18,7 +18,7 @@ import { appearance } from './iso/appearance';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { OfficeStationData } from '@/hooks/useOfficeOverview';
 import type { OfficePerson } from './OfficePeopleLayer';
-import { anchorGrid, deskSeatGrid, deskGrid, paperSheets, type GridPoint, floorForDesks, inverseIso, iso, ZONE_SPOTS, COFFEE_RUG, interactionSpot, freeWalkPoint, officeWalkEventKey, acceptRemoteWalk, type WalkZone, type OfficeWalkEvent } from '@/lib/officeIso';
+import { anchorGrid, deskSeatGrid, deskGrid, paperSheets, type GridPoint, floorForDesks, inverseIso, iso, ZONE_SPOTS, COFFEE_RUG, interactionSpot, freeWalkPoint, officeWalkEventKey, acceptRemoteWalk, newestOwnWalk, type WalkZone, type OfficeWalkEvent } from '@/lib/officeIso';
 import { useOfficeWalkSync } from '@/hooks/useOfficeWalkSync';
 import DeskCustomizeDialog from './DeskCustomizeDialog';
 import { useOfficeDeskPreferences } from '@/hooks/useOfficeDeskPreferences';
@@ -60,8 +60,8 @@ export default function OfficeIsoScene({stations,people,myId,mobile,onQueue,onCa
    const actions:Record<string,OfficeWalkEvent>={};
    people.forEach(pp=>{
      const hasStation=stations.some(s=>s.collaborator.userId===pp.userId);
-     // Local walk is already cancelled by useMyManualWalk on real activity change; remote walks trust TTL/target validation only.
-     const event=pp.userId===myId?(walk.event&&hasStation?walk.event:null):acceptRemoteWalk(remoteWalks[pp.userId],hasStation);
+     // Own avatar reconciles this tab's walk with other tabs of the same account (newest wins); others trust TTL/target validation only.
+     const event=pp.userId===myId?(hasStation?newestOwnWalk(walk.event,remoteWalks[pp.userId]):null):acceptRemoteWalk(remoteWalks[pp.userId],hasStation);
      if(event)actions[pp.userId]=event;
    });
   const targets:Record<string,GridPoint>={};people.forEach(pp=>{targets[pp.userId]=actions[pp.userId]?.target||anchorGrid(pp.anchorKey,users);});
