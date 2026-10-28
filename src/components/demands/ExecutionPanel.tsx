@@ -51,6 +51,10 @@ export interface ExecutionPanelProps {
   stageLabels?: Record<string, string>;
   /** Aviso de contexto (ex.: checklist de rascunho ainda não salvo). */
   notice?: string;
+  /** Texto auxiliar fixo explicando o propósito da aba. */
+  helperText?: string;
+  /** Placeholder do campo de novo item. */
+  newItemPlaceholder?: string;
   onAddItem: (text: string) => void | Promise<void>;
   onToggleItem: (itemId: string, completed: boolean) => void | Promise<void>;
   onDeleteItem: (itemId: string) => void | Promise<void>;
@@ -91,6 +95,8 @@ export default function ExecutionPanel({
   userNames = {},
   stageLabels = {},
   notice,
+  helperText,
+  newItemPlaceholder,
   onAddItem,
   onToggleItem,
   onDeleteItem,
@@ -179,6 +185,7 @@ export default function ExecutionPanel({
 
   return (
     <div className="space-y-5">
+      {helperText && <p className="text-xs text-muted-foreground">{helperText}</p>}
       {notice && (
         <p className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
           {notice}
@@ -392,7 +399,7 @@ export default function ExecutionPanel({
           <div className="flex items-center gap-2">
             <Input
               value={draft}
-              placeholder="O que precisa ser feito nesta etapa?"
+              placeholder={newItemPlaceholder ?? "O que precisa ser feito nesta etapa?"}
               className="h-8 text-sm"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {

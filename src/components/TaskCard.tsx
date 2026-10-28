@@ -4556,10 +4556,15 @@ export default function TaskCard({
                                   <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                                     Conteúdo
                                   </p>
+                                  {(card as any)?.work_area === "sistemas" && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Detalhamento completo da demanda: contexto, regras, comportamento esperado, exceções, critérios e informações necessárias para execução.
+                                    </p>
+                                  )}
                                   {readOnly ? (
                                     <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
                                   ) : (
-                                    <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Texto do post, legenda, copy..." minHeight="160px" />
+                                    <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder={(card as any)?.work_area === "sistemas" ? "Descreva aqui todo o contexto e os requisitos da demanda..." : "Texto do post, legenda, copy..."} minHeight="160px" />
                                   )}
                                 </div>
                               );
@@ -4644,6 +4649,8 @@ export default function TaskCard({
 
                             {activeSection === 'execucao' && (
                               <ExecutionPanel
+                                helperText={(card as any)?.work_area === "sistemas" ? "Resumo objetivo do que deve ser feito. Preferencialmente 1 item; use mais apenas quando houver entregas independentes." : undefined}
+                                newItemPlaceholder={(card as any)?.work_area === "sistemas" ? "Ex.: Corrigir o fluxo de transferência de pets entre responsáveis." : undefined}
                                 active={isDraft ? draftExecutionRun : execution.active}
                                 history={isDraft ? [] : execution.history}
                                 loading={isDraft ? false : executionLoading}
