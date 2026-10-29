@@ -505,11 +505,26 @@ const Scheduled = () => {
 
   const handleDelete = async () => {
     if (!selectedCard) return;
-    setActiveCards(prev => prev.filter(c => c.id !== selectedCard.id));
-    setAllCards(prev => prev.filter(c => c.id !== selectedCard.id));
-    setIsTaskCardOpen(false);
-    setSelectedCard(null);
-    sonnerToast.success("Card excluído");
+    const id = selectedCard.id;
+    try {
+      const { data, error } = await supabase
+        .from('demands')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .single();
+      if (error) throw error;
+      if (!data || data.id !== id) throw new Error("Exclusão não confirmada");
+
+      setActiveCards(prev => prev.filter(c => c.id !== id));
+      setAllCards(prev => prev.filter(c => c.id !== id));
+      setIsTaskCardOpen(false);
+      setSelectedCard(null);
+      sonnerToast.success("Card excluído");
+    } catch (error) {
+      console.error("Error deleting card:", error);
+      sonnerToast.error("Erro ao excluir card");
+    }
   };
 
   const formatDate = (dateString: string) => {
