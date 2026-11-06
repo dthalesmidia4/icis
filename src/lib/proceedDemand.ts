@@ -1061,8 +1061,7 @@ export async function jumpToFunction({
     });
   }
   if (isReviewTarget && (!picked.success || !picked.userId)) {
-    // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
-    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, { workArea: jumpArea, clientId: jumpMeta.clientId });
+    return { success: false, message: "Não há revisor independente habilitado para esta etapa. Escolha outra etapa ou use Concluir demanda." };
   }
 
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };

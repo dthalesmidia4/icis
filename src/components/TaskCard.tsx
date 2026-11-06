@@ -3397,6 +3397,35 @@ export default function TaskCard({
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                        {!isLastFn && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                                disabled={delivering || proceeding || regressing || jumpingStep || deliveringPart}
+                              >
+                                {delivering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                <span>Concluir demanda</span>
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Concluir demanda agora?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Encerra diretamente como Feito, sem exigir agendar publicação ou revisar publicação. Agendamentos automáticos pendentes serão cancelados; o card não será marcado como publicado.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeliver} disabled={delivering || proceeding || regressing || jumpingStep || deliveringPart}>
+                                  Concluir demanda
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                         {isLastFn ? (
                           <Button
                             variant="ghost"
