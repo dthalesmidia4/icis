@@ -282,27 +282,27 @@ export default function StructuredContentBrief({
   // só entra como fallback em cards LEGADOS (sem briefing estruturado).
   const slides = useMemo(() => {
     const explicit = asList(brief.slides);
-    if (explicit.length) return explicit;
-    return isStructured ? [] : parseSlides(instructions);
-  }, [brief.slides, instructions, isStructured]);
+    // Legado: `instructions` é diretriz de produção, nunca vira slide.
+    return explicit;
+  }, [brief.slides]);
 
   const generalNotes = useMemo(() => {
-    if (kind === "carrossel" && slides.length) return instructionsWithoutSlides(instructions);
+    if (isStructured && kind === "carrossel" && slides.length) return instructionsWithoutSlides(instructions);
     return "";
-  }, [kind, slides.length, instructions]);
+  }, [kind, slides.length, instructions, isStructured]);
 
   const scriptText = useMemo(() => {
     const explicit = asList(brief.script);
     if (explicit.length) return explicit.join("\n\n");
-    return kind === "reel" && !isStructured ? stripHtml(instructions) : "";
-  }, [brief.script, kind, instructions, isStructured]);
+    return "";
+  }, [brief.script]);
 
   const artText = useMemo(() => {
     const explicit = asList(brief.art_text);
     // Estático = uma peça: fragmentos legados são unidos por parágrafo.
     if (explicit.length) return explicit.join("\n\n");
-    return kind === "estatico" && !isStructured ? stripHtml(instructions) : "";
-  }, [brief.art_text, kind, instructions, isStructured]);
+    return "";
+  }, [brief.art_text]);
 
   const visualDirection = useMemo(() => {
     const explicit = asList(brief.visual_direction);
@@ -316,8 +316,8 @@ export default function StructuredContentBrief({
   const composition = useMemo(() => {
     const explicit = asList(brief.composition);
     if (explicit.length) return explicit;
-    return kind === "grafica" && instructions && !isStructured ? [stripHtml(instructions)] : [];
-  }, [brief.composition, kind, instructions, isStructured]);
+    return [];
+  }, [brief.composition]);
 
 
   const amplification = asList(brief.amplification_stories);
@@ -548,7 +548,7 @@ export default function StructuredContentBrief({
       {/* 3. CONTEXTO E CONEXÃO (secundários) */}
       {(stripHtml(description) || brief.connection_to_paulo) && (
         <section className="space-y-2 border-l-2 border-border pl-3">
-          <SectionTitle muted>Contexto e conexão</SectionTitle>
+          <SectionTitle muted>{isStructured ? "Contexto e conexão" : "Conteúdo planejado"}</SectionTitle>
           {stripHtml(description) && (
             <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground">
               {stripHtml(description)}
@@ -615,9 +615,6 @@ export default function StructuredContentBrief({
           </div>
         )}
 
-        {kind === "carrossel" && slides.length === 0 && !isStructured && (
-          <TextBlock label="Estrutura dos slides" value={instructions} />
-        )}
         {kind === "carrossel" && slides.length === 0 && isStructured && (
           <MissingCanonical label="Slides do carrossel" />
         )}
@@ -626,7 +623,7 @@ export default function StructuredContentBrief({
           <>
             {scriptText ? (
               <TextBlock label="Roteiro" value={scriptText} />
-            ) : (
+            ) : !isStructured ? null : (
               <div className="space-y-1">
                 <SectionTitle>Roteiro</SectionTitle>
                 <p className="text-[13px] leading-relaxed text-muted-foreground">
@@ -644,7 +641,7 @@ export default function StructuredContentBrief({
 
         {kind === "estatico" && (
           <>
-            {artText ? <TextBlock label="Texto da arte" value={artText} /> : <MissingCanonical label="Texto da arte" />}
+            {artText ? <TextBlock label="Texto da arte" value={artText} /> : isStructured ? <MissingCanonical label="Texto da arte" /> : null}
             <ListBlock label="Direção visual" items={visualDirection} />
           </>
         )}
@@ -659,6 +656,12 @@ export default function StructuredContentBrief({
           </>
         )}
       </section>
+
+      {!isStructured && stripHtml(instructions) && (
+        <section className="space-y-2 rounded-lg border border-dashed border-border bg-muted/30 p-3">
+          <TextBlock label="Instruções de produção" value={instructions} />
+        </section>
+      )}
 
       {/* 6. LEGENDA PRONTA */}
       {(postCaption || "").trim() && (

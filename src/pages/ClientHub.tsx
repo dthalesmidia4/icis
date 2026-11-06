@@ -2095,6 +2095,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   stageNames={workspace.stageNames}
                   onOpenDemand={(id) => setDrawerDemandId(id)}
                   onReload={workspace.reload}
+                  clientId={selectedClient.id}
+                  currentPeriodId={workspace.period?.id ?? null}
                 />
               </Suspense>
             </TabsContent>

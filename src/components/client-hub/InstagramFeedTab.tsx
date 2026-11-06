@@ -25,6 +25,57 @@ import { SingleDateTimePopover } from "@/components/kanban/StartEndDatePopover";
 import { publicationNotice, saveDemandPublication } from "@/lib/demandPublication";
 import { toast } from "sonner";
 import ScrollEdgeButton from "@/components/client-hub/ScrollEdgeButton";
+import { supabase } from "@/integrations/supabase/client";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Pencil, Check, X, CalendarRange } from "lucide-react";
+
+interface FeedPeriod {
+  id: string;
+  period_title: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  status: string | null;
+  final_plan: any;
+  default_plan: any;
+  ultra_plan: any;
+}
+
+const DEMAND_SELECT =
+  "id, title, demand_type, demand_type_key, publish_date, publish_time, due_date, delivery_date, current_function_key, status_id, assigned_to, archived_at, released_at, classifications, ad_plan, channel, post_caption, attachments, reference_attachments, period_plan_id";
+
+// Espelho local de normalizePlanItem (useClientPeriodWorkspace) — mesmos campos.
+const normalizeFeedPlanItem = (raw: any, source: "normal" | "ultra"): WorkspacePlanItem => ({
+  demand_id: typeof raw?.demand_id === "string" && raw.demand_id ? raw.demand_id : null,
+  titulo: String(raw?.titulo ?? raw?.title ?? "").trim(),
+  tipo: raw?.tipo ?? raw?.type ?? null,
+  canal: raw?.canal ?? null,
+  objetivo: raw?.objetivo ?? null,
+  conteudo: raw?.conteudo ?? null,
+  instrucoes: raw?.instrucoes_de_producao ?? null,
+  cta: raw?.cta_recomendado ?? null,
+  data: raw?.data_sugerida ?? raw?.data ?? null,
+  typeKey: raw?.type_key ?? null,
+  source,
+});
+
+const periodSnapshot = (p: FeedPeriod): WorkspacePlanItem[] => {
+  const items = Array.isArray(p.final_plan)
+    ? p.final_plan.map((i: any) => normalizeFeedPlanItem(i, "normal"))
+    : [
+        ...(Array.isArray(p.default_plan) ? p.default_plan : []).map((i: any) => normalizeFeedPlanItem(i, "normal")),
+        ...(Array.isArray(p.ultra_plan) ? p.ultra_plan : []).map((i: any) => normalizeFeedPlanItem(i, "ultra")),
+      ];
+  return items.filter((i) => i.titulo);
+};
+
+const fmtShort = (iso: string | null) => {
+  if (!iso) return "?";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y.slice(2)}`;
+};
+const periodRange = (p: FeedPeriod) => `${fmtShort(p.period_start)} – ${fmtShort(p.period_end)}`;
+const periodName = (p: FeedPeriod) => (p.period_title || "").trim() || "Período sem título";
 
 const MONTHS_SHORT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
@@ -84,6 +135,8 @@ interface InstagramFeedTabProps {
   onOpenDemand?: (demandId: string) => void;
   /** Recarrega o workspace após uma alocação em massa. */
   onReload?: () => void;
+  clientId?: string | null;
+  currentPeriodId?: string | null;
 }
 
 export default function InstagramFeedTab({
@@ -93,6 +146,8 @@ export default function InstagramFeedTab({
   stageNames,
   onOpenDemand,
   onReload,
+  clientId = null,
+  currentPeriodId = null,
 }: InstagramFeedTabProps) {
   const [filter, setFilter] = useState<"all" | "media" | "producao">("all");
   // Filtros compartilhados com a aba Calendário (busca, tipo, classificação).
@@ -116,10 +171,192 @@ export default function InstagramFeedTab({
     setSelectedIds([]);
   }, []);
 
-  const entries = useMemo(
-    () => buildInstagramFeed({ demands, planItems, stageNames, statusNames }),
-    [demands, planItems, stageNames, statusNames]
+  // ---------- Períodos exibidos (estado local do feed) ----------
+  const [periods, setPeriods] = useState<FeedPeriod[] | null>(null);
+  const [periodsError, setPeriodsError] = useState(false);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [selectedPeriodIds, setSelectedPeriodIds] = useState<string[]>([]);
+  const [selectionReady, setSelectionReady] = useState(false);
+  const [periodDemands, setPeriodDemands] = useState<(WorkspaceDemand & { period_plan_id: string | null })[] | null>(null);
+  const [demandsLoading, setDemandsLoading] = useState(false);
+  const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [localReload, setLocalReload] = useState(0);
+
+  const storageKey =
+    tenantId && clientId && authUserId ? `icis:feed-periods:${tenantId}:${clientId}:${authUserId}` : null;
+
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (alive) setAuthUserId(data.user?.id ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Lista de períodos do cliente (todas as épocas).
+  useEffect(() => {
+    setPeriods(null);
+    setPeriodsError(false);
+    setSelectionReady(false);
+    setSelectedPeriodIds([]);
+    setPeriodDemands(null);
+    if (!tenantId || !clientId) return;
+    let alive = true;
+    supabase
+      .from("period_plans")
+      .select("id,period_title,period_start,period_end,status,final_plan,default_plan,ultra_plan,created_at")
+      .eq("tenant_id", tenantId)
+      .eq("company_id", clientId)
+      .order("period_start", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) {
+          setPeriodsError(true);
+          setPeriods([]);
+          return;
+        }
+        setPeriods((data as any[]) as FeedPeriod[]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId, clientId]);
+
+  // Seleção inicial: persistida (apenas IDs existentes) → período atual → mais recente gerado.
+  useEffect(() => {
+    if (selectionReady || !periods || !periods.length || !authUserId) return;
+    const valid = new Set(periods.map((p) => p.id));
+    let ids: string[] = [];
+    if (storageKey) {
+      try {
+        const raw = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        if (Array.isArray(raw)) ids = raw.filter((x) => typeof x === "string" && valid.has(x));
+      } catch {
+        ids = [];
+      }
+    }
+    if (!ids.length && currentPeriodId && valid.has(currentPeriodId)) ids = [currentPeriodId];
+    if (!ids.length) {
+      const generated = periods.find((p) => p.status && p.status !== "draft");
+      ids = [(generated ?? periods[0]).id];
+    }
+    setSelectedPeriodIds(ids);
+    setSelectionReady(true);
+  }, [periods, authUserId, storageKey, currentPeriodId, selectionReady]);
+
+  useEffect(() => {
+    if (!selectionReady || !storageKey || !selectedPeriodIds.length) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(selectedPeriodIds));
+    } catch {
+      /* armazenamento indisponível: seleção vale só nesta sessão */
+    }
+  }, [selectedPeriodIds, storageKey, selectionReady]);
+
+  // Demandas dos períodos selecionados — uma única consulta; resultados antigos descartados.
+  // `demands` (prop) entra na chave para refletir reload/realtime do workspace.
+  const selectedKey = selectedPeriodIds.join(",");
+  useEffect(() => {
+    if (!selectionReady || !tenantId || !clientId || !selectedPeriodIds.length) return;
+    let alive = true;
+    setDemandsLoading(true);
+    supabase
+      .from("demands")
+      .select(DEMAND_SELECT)
+      .eq("tenant_id", tenantId)
+      .eq("client_id", clientId)
+      .eq("is_draft", false)
+      .in("period_plan_id", selectedPeriodIds)
+      .then(({ data, error }) => {
+        if (!alive) return;
+        setDemandsLoading(false);
+        if (error) {
+          toast.error("Erro ao carregar demandas dos períodos");
+          return;
+        }
+        setPeriodDemands((data as any[]) ?? []);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey, selectionReady, tenantId, clientId, demands, localReload]);
+
+  const togglePeriod = useCallback((id: string) => {
+    setSelectedPeriodIds((prev) => {
+      if (prev.includes(id)) return prev.length > 1 ? prev.filter((x) => x !== id) : prev;
+      return [...prev, id];
+    });
+  }, []);
+
+  const savePeriodTitle = useCallback(
+    async (id: string) => {
+      const trimmed = titleDraft.trim();
+      if (!trimmed) {
+        toast.error("O nome do período não pode ficar vazio");
+        return;
+      }
+      if (!tenantId || !clientId) return;
+      setSavingTitle(true);
+      const { data, error } = await supabase
+        .from("period_plans")
+        .update({ period_title: trimmed })
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("company_id", clientId)
+        .select("id,period_title")
+        .single();
+      setSavingTitle(false);
+      if (error || !data) {
+        toast.error("Não foi possível renomear o período");
+        return;
+      }
+      setPeriods((prev) => prev?.map((p) => (p.id === id ? { ...p, period_title: (data as any).period_title } : p)) ?? prev);
+      setEditingPeriodId(null);
+      toast.success("Período renomeado");
+    },
+    [titleDraft, tenantId, clientId]
   );
+
+  const handleReload = useCallback(() => {
+    setLocalReload((k) => k + 1);
+    onReload?.();
+  }, [onReload]);
+
+  const ownDataReady = selectionReady && !!periods && periodDemands !== null;
+
+  const entries = useMemo(() => {
+    if (!ownDataReady) return buildInstagramFeed({ demands, planItems, stageNames, statusNames });
+    const byId = new Map(periods!.map((p) => [p.id, p]));
+    const seen = new Set<string>();
+    const all: FeedEntry[] = [];
+    for (const pid of selectedPeriodIds) {
+      const period = byId.get(pid);
+      if (!period) continue;
+      const pd = periodDemands!.filter((d) => d.period_plan_id === pid);
+      const built = buildInstagramFeed({ demands: pd, planItems: periodSnapshot(period), stageNames, statusNames });
+      for (const e of built) {
+        if (e.demandId) {
+          if (seen.has(e.demandId)) continue;
+          seen.add(e.demandId);
+        }
+        all.push({ ...e, key: `${pid}:${e.key}` });
+      }
+    }
+    const tv = (t: string | null) => (t ? t.slice(0, 5) : "");
+    return all.sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      const ta = tv(a.time);
+      const tb = tv(b.time);
+      if (ta !== tb) return ta < tb ? 1 : -1;
+      return a.key < b.key ? -1 : 1;
+    });
+  }, [ownDataReady, periods, periodDemands, selectedPeriodIds, demands, planItems, stageNames, statusNames]);
 
   const toFilterable = (e: FeedEntry) => ({
     title: e.title,
@@ -209,6 +446,100 @@ export default function InstagramFeedTab({
           <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
             {entries.length} publicações · {withMedia} com mídia · {inProduction} em produção
           </p>
+          {clientId && (
+            <div className="mt-1.5 flex items-center gap-2 text-[11px]">
+              <span className="font-bold uppercase tracking-[0.12em] text-muted-foreground">Períodos exibidos</span>
+              <Popover onOpenChange={(o) => !o && setEditingPeriodId(null)}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 gap-1.5 px-2 text-[11px]">
+                    <CalendarRange className="h-3.5 w-3.5" />
+                    {periods === null
+                      ? "Carregando…"
+                      : periodsError
+                        ? "Erro ao carregar"
+                        : selectedPeriodIds.length === 1
+                          ? periodName(periods.find((p) => p.id === selectedPeriodIds[0]) ?? ({} as FeedPeriod))
+                          : `${selectedPeriodIds.length} períodos`}
+                    {demandsLoading && <span className="opacity-60">…</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-80 p-2">
+                  {periods === null ? (
+                    <p className="p-2 text-xs text-muted-foreground">Carregando períodos…</p>
+                  ) : periodsError ? (
+                    <p className="p-2 text-xs text-destructive">Não foi possível carregar os períodos.</p>
+                  ) : periods.length === 0 ? (
+                    <p className="p-2 text-xs text-muted-foreground">Nenhum período para este cliente.</p>
+                  ) : (
+                    <>
+                      <div className="max-h-72 space-y-0.5 overflow-y-auto">
+                        {periods.map((p) => {
+                          const checked = selectedPeriodIds.includes(p.id);
+                          const editing = editingPeriodId === p.id;
+                          return (
+                            <div key={p.id} className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-muted/60">
+                              <Checkbox
+                                checked={checked}
+                                disabled={checked && selectedPeriodIds.length === 1}
+                                onCheckedChange={() => togglePeriod(p.id)}
+                              />
+                              {editing ? (
+                                <div className="flex flex-1 items-center gap-1">
+                                  <Input
+                                    autoFocus
+                                    value={titleDraft}
+                                    onChange={(e) => setTitleDraft(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") savePeriodTitle(p.id);
+                                      if (e.key === "Escape") setEditingPeriodId(null);
+                                    }}
+                                    className="h-7 text-xs"
+                                  />
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" disabled={savingTitle} onClick={() => savePeriodTitle(p.id)} aria-label="Salvar nome">
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingPeriodId(null)} aria-label="Cancelar">
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <button type="button" className="min-w-0 flex-1 text-left" onClick={() => togglePeriod(p.id)}>
+                                    <p className="truncate text-xs font-semibold text-foreground">{periodName(p)}</p>
+                                    <p className="text-[10px] text-muted-foreground">{periodRange(p)}</p>
+                                  </button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 shrink-0"
+                                    aria-label="Renomear período"
+                                    onClick={() => {
+                                      setEditingPeriodId(p.id);
+                                      setTitleDraft(p.period_title || "");
+                                    }}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="mt-1 h-7 w-full text-[11px]"
+                        onClick={() => setSelectedPeriodIds(periods.map((p) => p.id))}
+                      >
+                        Todos os períodos
+                      </Button>
+                    </>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           {canAllocate && (
@@ -329,7 +660,7 @@ export default function InstagramFeedTab({
               onSlideChange={(next) => setSlide(entry.key, next)}
               onActivateCarousel={() => setActiveCarouselKey(entry.key)}
               onOpenDemand={onOpenDemand}
-              onPublicationSaved={onReload}
+              onPublicationSaved={handleReload}
               canEditPublication={!selectionMode}
               selectable={selectionMode && isFeedEntrySelectable(entry)}
               selected={!!entry.demandId && selectedIds.includes(entry.demandId)}
@@ -373,7 +704,7 @@ export default function InstagramFeedTab({
           sourceScreen="feed"
           onApplied={() => {
             exitSelection();
-            onReload?.();
+            handleReload();
           }}
         />
       )}
