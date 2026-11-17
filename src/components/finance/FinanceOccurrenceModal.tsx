@@ -75,6 +75,13 @@ import {
 import { isCardCharge, resolveRowStatus, skipActionForRow, type RowStatusContext } from "@/lib/financeRowStatus";
 import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
 import { supplementalAction } from "@/lib/financeSupplementalEntry";
+import {
+  BOUNDARY_STATEMENT_HELP,
+  BOUNDARY_STATEMENT_QUESTION,
+  boundaryStatementChoice,
+  boundaryStatementPatch,
+} from "@/lib/financeStatementCycles";
+import { findSafeStatementStatus } from "@/lib/financeSafeStatement";
 import FinanceDateInput from "./FinanceDateInput";
 import {
   canSubmitOccurrence,
@@ -256,6 +263,8 @@ export default function FinanceOccurrenceModal({
    * (`row.item.currency` continua intacto).
    */
   const [currency, setCurrency] = useState<"BRL" | "USD">("BRL");
+  /** Fatura escolhida EXPLICITAMENTE na virada (`null` = sem escolha). */
+  const [statementPick, setStatementPick] = useState<string | null>(null);
 
   /**
    * Fato FECHADO (pago direto ou liquidado por fatura paga) NÃO trava a
@@ -374,6 +383,7 @@ export default function FinanceOccurrenceModal({
     else if (occ?.payment_method_snapshot) setOrigin(`method:${occ.payment_method_snapshot}`);
     else setOrigin(FOLLOW_ITEM);
     setCurrency(row.currency === "USD" ? "USD" : "BRL");
+    setStatementPick(null);
     // Nada de modo de correção: os campos factuais já abrem digitáveis.
     // A anulação é uma intenção nova: nunca reaproveita o motivo já digitado.
     setVoidOpen(false);
@@ -536,6 +546,43 @@ export default function FinanceOccurrenceModal({
   }, [origin]);
 
   /**
+   * COMPRA NA VIRADA: escolha opcional da fatura (cartão interno, regular,
+   * aberta, sem vínculo). Sem janelas conhecidas nada é oferecido.
+   */
+  const effectiveCardId = origin.startsWith("card:")
+    ? origin.slice(5)
+    : origin === FOLLOW_ITEM
+      ? row?.cardItemId ?? null
+      : null;
+  const statementChoice = useMemo(() => {
+    if (!row) return null;
+    const isStatementLocked = (cardId: string, competenceMonth: string) => {
+      const safe = findSafeStatementStatus(statusContext?.safeStatementStatuses, cardId, competenceMonth);
+      if (safe?.paid) return true;
+      const st = (statusContext?.statementRows ?? []).find(
+        (r) => r.item.id === cardId && r.occurrence?.competence_month.slice(0, 10) === competenceMonth,
+      );
+      if (!st?.occurrence) return false;
+      if (st.paid || st.occurrence.paid_at) return true;
+      const stId = st.occurrence.id;
+      return (statusContext?.rows ?? []).some((r) => r.occurrence?.statement_occurrence_id === stId);
+    };
+    return boundaryStatementChoice({
+      cycles: statusContext?.statementCycles,
+      cardId: effectiveCardId,
+      chargeDate: factDate,
+      cardCharge: cardRow,
+      externalCard: externalCardRow,
+      statementRow,
+      entryRole: row.entryRole,
+      supplemental: !!row.supplemental,
+      closed: rowClosed,
+      occurrence: row.occurrence,
+      isStatementLocked,
+    });
+  }, [row, statusContext, effectiveCardId, factDate, cardRow, externalCardRow, statementRow, rowClosed]);
+
+  /**
    * Correção auditada de um fato fechado: vai pela RPC segura e só dá sucesso
    * depois de o banco devolver a ocorrência com a mudança confirmada.
    * `convertFirst`: fato direto legado que passa a ser cobrança do cartão.
@@ -613,6 +660,8 @@ export default function FinanceOccurrenceModal({
       attachmentName,
       originPatch,
     });
+    // Só a escolha EXPLÍCITA grava snapshot; `charge_date` permanece a original.
+    Object.assign(patch, boundaryStatementPatch(statementChoice, statementPick));
     const saved = await onSave(row, patch);
 
     setSaving(false);
@@ -716,6 +765,37 @@ export default function FinanceOccurrenceModal({
                 )}
                 {cardRow && (
                   <p className="text-xs text-muted-foreground mt-1">{CARD_CHARGE_DATE_HELP}</p>
+                )}
+                {statementChoice && (
+                  <div className="mt-2 space-y-1">
+                    <Label className="text-xs text-muted-foreground">{BOUNDARY_STATEMENT_QUESTION}</Label>
+                    <Select
+                      value={statementPick ?? statementChoice.selected}
+                      onValueChange={setStatementPick}
+                      disabled={readOnlyFact}
+                    >
+                      <SelectTrigger className="w-full min-w-0 max-w-full h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statementChoice.options.map((option, index) => {
+                          const [y, m] = option.competenceMonth.split("-").map(Number);
+                          return (
+                            <SelectItem
+                              key={option.competenceMonth}
+                              value={option.competenceMonth}
+                              disabled={!option.selectable && option.competenceMonth !== statementChoice.selected}
+                            >
+                              {`Fatura de ${MONTH_NAMES[m - 1]}/${y}`}
+                              {index === 0 ? " (pela data)" : " (seguinte)"}
+                              {!option.selectable ? " · fechada" : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">{BOUNDARY_STATEMENT_HELP}</p>
+                  </div>
                 )}
                 {cardRow && row.occurrence && !row.chargeDate && row.dueDate && !legacyDirectOnCard && (
                   <p className="text-xs text-muted-foreground mt-1">
