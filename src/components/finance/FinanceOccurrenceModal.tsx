@@ -768,7 +768,7 @@ export default function FinanceOccurrenceModal({
                 )}
                 {statementChoice && (
                   <div className="mt-2 space-y-1">
-                    <Label className="text-xs text-muted-foreground">{BOUNDARY_STATEMENT_QUESTION}</Label>
+                    <Label className="block text-xs leading-snug text-muted-foreground">{BOUNDARY_STATEMENT_QUESTION}</Label>
                     <Select
                       value={statementPick ?? statementChoice.selected}
                       onValueChange={setStatementPick}
@@ -786,9 +786,8 @@ export default function FinanceOccurrenceModal({
                               value={option.competenceMonth}
                               disabled={!option.selectable && option.competenceMonth !== statementChoice.selected}
                             >
-                              {`Fatura de ${MONTH_NAMES[m - 1]}/${y}`}
-                              {index === 0 ? " (pela data)" : " (seguinte)"}
-                              {!option.selectable ? " · fechada" : ""}
+                              {`${MONTH_NAMES[m - 1].charAt(0).toUpperCase()}${MONTH_NAMES[m - 1].slice(1)}/${y}`}
+                              {!option.selectable ? " · fechada" : index === 0 ? " · pela data" : " · seguinte"}
                             </SelectItem>
                           );
                         })}
