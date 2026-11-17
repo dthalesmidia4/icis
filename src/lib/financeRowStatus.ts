@@ -155,6 +155,51 @@ export function isCardCharge(row: MonthRow): boolean {
 }
 
 /** A linha é obrigação direta (pode vencer sozinha)? */
+/**
+ * "PULAR ESTE MÊS" — quando a exceção do mês pode ser oferecida para a linha.
+ *
+ * - `scheduled`: data do cronograma (semanal/diária) ainda não paga.
+ * - `projected_card`: cobrança PREVISTA no cartão ("Não foi cobrado neste ciclo").
+ * - `card_fact`: cobrança REAL regular no cartão, já salva com data de cobrança,
+ *   ainda aberta e fora de fatura congelada/quitada (ex.: Adplane 24/10).
+ *
+ * Nunca para fato pago/fechado, fatura do cartão, recarga/extra ou cobrança
+ * já vinculada a uma fatura (snapshot/`statement_occurrence_id`).
+ */
+export type SkipAction = "scheduled" | "projected_card" | "card_fact";
+
+export function skipActionForRow(row: MonthRow, closed: boolean): SkipAction | null {
+  if (row.paid || closed || isStatementRow(row)) return null;
+  if (row.scheduledDate) return "scheduled";
+  const card = isCardCharge(row);
+  if (card && row.projected) return "projected_card";
+  const occ = row.occurrence;
+  if (
+    card &&
+    occ &&
+    !row.supplemental &&
+    row.entryRole === "regular" &&
+    !!row.chargeDate &&
+    !occ.paid_at &&
+    !occ.skipped_at &&
+    !occ.statement_occurrence_id &&
+    !occ.statement_competence_snapshot
+  ) {
+    return "card_fact";
+  }
+  return null;
+}
+
+/**
+ * Data que identifica a cobrança ao pular — a mesma ordem da identidade do
+ * status efetivo (agendada > cobrança > vencimento) em compras no cartão.
+ */
+export function skipDateForRow(row: MonthRow): string | null {
+  if (row.scheduledDate) return row.scheduledDate;
+  if (isCardCharge(row)) return row.chargeDate ?? row.dueDate ?? null;
+  return row.dueDate ?? row.chargeDate ?? null;
+}
+
 export function isDirectObligation(row: MonthRow): boolean {
   return !isStatementRow(row) && !isCardCharge(row);
 }

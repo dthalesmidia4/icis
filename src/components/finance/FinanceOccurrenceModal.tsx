@@ -72,7 +72,7 @@ import {
   
   occurrencePaidHelp,
 } from "@/lib/financeInstallmentPresentation";
-import { isCardCharge, resolveRowStatus, type RowStatusContext } from "@/lib/financeRowStatus";
+import { isCardCharge, resolveRowStatus, skipActionForRow, type RowStatusContext } from "@/lib/financeRowStatus";
 import { buildOccurrencePatch } from "@/lib/financeOccurrencePatch";
 import { supplementalAction } from "@/lib/financeSupplementalEntry";
 import FinanceDateInput from "./FinanceDateInput";
@@ -288,6 +288,8 @@ export default function FinanceOccurrenceModal({
   /** Transição incoerente: fato pago direto que hoje pertence a um cartão. */
   const legacyDirectOnCard = isLegacyDirectPaymentOnCard(row);
   const deleteAction = row ? occurrenceDeleteActionForRow(row, rowClosed) : "nothing_to_delete";
+  /** Exceção do mês: cronograma, cobrança prevista ou cobrança real aberta no cartão. */
+  const skipAction = row ? skipActionForRow(row, rowClosed) : null;
 
 
 
@@ -967,7 +969,7 @@ export default function FinanceOccurrenceModal({
               PREVISTA no cartão a mesma ação diz o que aconteceu de fato:
               a cobrança não veio neste ciclo.
             */}
-            {onSkip && (row.scheduledDate || (cardRow && row.projected)) && !row.paid && !readOnlyFact ? (
+            {onSkip && skipAction && !readOnlyFact ? (
               <Button
                 variant="ghost"
                 onClick={async () => {
@@ -981,9 +983,11 @@ export default function FinanceOccurrenceModal({
                 <CalendarOff className="w-4 h-4 mr-2 flex-shrink-0" />
                 {skipping
                   ? "Ignorando..."
-                  : cardRow && row.projected
+                  : skipAction === "projected_card"
                     ? "Não foi cobrado neste ciclo"
-                    : "Ignorar este lançamento"}
+                    : skipAction === "card_fact"
+                      ? "Pular este mês"
+                      : "Ignorar este lançamento"}
               </Button>
             ) : null}
             {/* Fato ADICIONAL do mesmo cadastro (recarga/extra) neste mês. */}

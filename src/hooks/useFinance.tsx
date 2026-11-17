@@ -34,6 +34,7 @@ import {
   skippedEntriesInMonth,
   skippedChargeFor,
 } from "@/lib/financeModel";
+import { skipDateForRow } from "@/lib/financeRowStatus";
 import type { FinanceRecurrenceRule } from "@/lib/financeRecurrenceSchedule";
 import {
   FinancePaymentBatch,
@@ -666,7 +667,7 @@ export function useFinance(competence: Competence) {
    */
   const skipOccurrence = useCallback(
     async (row: MonthRow, reason?: string | null) => {
-      const scheduled = row.scheduledDate ?? row.dueDate ?? row.chargeDate;
+      const scheduled = skipDateForRow(row);
       if (!scheduled) {
         toast.error("Este lançamento não tem data agendada para ignorar");
         return false;
