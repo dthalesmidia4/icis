@@ -71,4 +71,11 @@ describe("Fatura aberta — snapshot explícito da compra", () => {
     const skipped = { ...fb("2026-11-01"), skipped_at: "2026-11-17T12:00:00Z" } as FinanceOccurrence;
     expect(fbIn(NOV, [stmtOut, stmtNov, skipped])).toHaveLength(0);
   });
+
+  it("cadastro mensal: a previsão de 13/11 não duplica o fato real com snapshot NOV", () => {
+    const monthly = { ...facebook, recurrence_type: "monthly", charge_day: 13, default_amount_brl: 16.68 } as unknown as FinanceItem;
+    const rows = buildStatementGroups({ items: [itau, monthly], occurrences: [stmtOut, stmtNov, fb("2026-11-01")], competence: NOV, cycles })[0]
+      .components.filter((c) => c.item.id === "fb");
+    expect(rows.map((r) => [r.occurrence?.id ?? null, r.projected])).toEqual([["9bf9", false]]);
+  });
 });
