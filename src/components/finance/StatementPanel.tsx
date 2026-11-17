@@ -578,9 +578,9 @@ export default function StatementPanel({
                       <span className="text-muted-foreground">
                         {entry.scheduledDate ? formatDayMonth(entry.scheduledDate) : "—"}
                       </span>
-                      <span className="min-w-0 truncate text-muted-foreground">
-                        {financeItemDisplayName(entry.item)}
-                        <Badge variant="outline" className="ml-2">Pulado neste mês</Badge>
+                      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+                        <span className="break-words">{financeItemDisplayName(entry.item)}</span>
+                        <Badge variant="outline">Pulado neste mês</Badge>
                       </span>
                       {onRestoreSkipped ? (
                         <Button
