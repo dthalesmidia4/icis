@@ -74,6 +74,17 @@ export function statementSkippedEntries(params: {
 
 
 
+/** Pulados do mês da fatura agrupados pelo cartão da cobrança (detalhes do cartão). */
+export function skippedEntriesByCard(entries: SkippedEntry[]): Record<string, SkippedEntry[]> {
+  const result: Record<string, SkippedEntry[]> = {};
+  for (const entry of entries) {
+    const cardId = entry.occurrence.card_item_id_snapshot ?? entry.item.card_item_id ?? null;
+    if (!cardId) continue;
+    (result[cardId] ??= []).push(entry);
+  }
+  return result;
+}
+
 export type CompositionStatus = "all" | "paid" | "open";
 
 export const COMPOSITION_STATUSES: CompositionStatus[] = ["all", "paid", "open"];

@@ -32,6 +32,7 @@ import {
   computeTotals,
   detectPackageOverlaps,
   skippedEntriesInMonth,
+  skippedChargeFor,
 } from "@/lib/financeModel";
 import type { FinanceRecurrenceRule } from "@/lib/financeRecurrenceSchedule";
 import {
@@ -469,6 +470,33 @@ export function useFinance(competence: Competence) {
         await fetchAll();
         return data as any as FinanceOccurrence;
       }
+      /**
+       * COBRANÇA PULADA NÃO RENASCE: salvar uma previsão nunca recria a mesma
+       * cobrança (cadastro + data) que foi pulada — ela volta só por "Restaurar".
+       * Confere o estado local e o servidor (corrida pular → salvar).
+       */
+      if (!row.supplemental) {
+        const chargeDay = row.scheduledDate ?? row.chargeDate ?? row.dueDate ?? null;
+        let blocked = !!skippedChargeFor(occurrences, row.item.id, chargeDay);
+        if (!blocked && chargeDay) {
+          const day = chargeDay.slice(0, 10);
+          const { data: remoteSkip } = await supabase
+            .from("finance_occurrences")
+            .select("id")
+            .eq("tenant_id", agencyId)
+            .eq("item_id", row.item.id)
+            .eq("entry_role", "regular")
+            .not("skipped_at", "is", null)
+            .or(`scheduled_date.eq.${day},charge_date.eq.${day},due_date.eq.${day}`)
+            .limit(1);
+          blocked = (remoteSkip?.length ?? 0) > 0;
+        }
+        if (blocked) {
+          toast.error("Esta cobrança foi pulada neste mês. Use \"Restaurar\" para voltar a cobrá-la.");
+          await fetchAll();
+          return null;
+        }
+      }
       const { data, error } = await supabase
         .from("finance_occurrences")
         .insert({
@@ -494,7 +522,7 @@ export function useFinance(competence: Competence) {
       await fetchAll();
       return data as any as FinanceOccurrence;
     },
-    [agencyId, normalized, user?.id, fetchAll],
+    [agencyId, normalized, user?.id, fetchAll, occurrences],
   );
 
   /**

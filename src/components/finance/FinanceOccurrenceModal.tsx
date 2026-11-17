@@ -1039,7 +1039,7 @@ export default function FinanceOccurrenceModal({
             {factEditable && (
               <Button
                 onClick={handleSave}
-                disabled={saving || uploading || (!rowClosed && !canSubmit)}
+                disabled={saving || uploading || skipping || (!rowClosed && !canSubmit)}
               >
                 {saving
                   ? "Salvando..."

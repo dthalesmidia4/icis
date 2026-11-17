@@ -672,6 +672,105 @@ export function isSkippedOccurrence(occ: FinanceOccurrence | null | undefined): 
 }
 
 /**
+ * IDENTIDADE DA COBRANÇA de um lançamento regular: a data agendada manda (é a
+ * chave única no banco); sem ela, a data real da cobrança/vencimento.
+ */
+function chargeIdentityDate(occ: FinanceOccurrence): string | null {
+  const date = occ.scheduled_date ?? occ.charge_date ?? occ.due_date ?? null;
+  return date ? String(date).slice(0, 10) : null;
+}
+
+/** Fato fechado/histórico: pago ou já congelado numa fatura. Nunca é suprimido. */
+function isClosedFact(occ: FinanceOccurrence): boolean {
+  return !!occ.paid_at || !!occ.statement_occurrence_id;
+}
+
+/** Marcador de exceção restaurado que nunca recebeu dado próprio da cobrança. */
+function isEmptyRestoredMarker(occ: FinanceOccurrence): boolean {
+  return (
+    !!occ.restored_at &&
+    !occ.skipped_at &&
+    !occ.charge_date &&
+    !isClosedFact(occ) &&
+    occ.amount_brl == null &&
+    occ.amount_original == null
+  );
+}
+
+const effectiveCache = new WeakMap<FinanceOccurrence[], FinanceOccurrence[]>();
+
+/**
+ * STATUS EFETIVO das ocorrências — regra ÚNICA usada por linhas do mês, fatura,
+ * composição, contas a pagar e totais (todos passam por `buildMonthRows`).
+ *
+ * 1. Um pulo (`skipped_at`) vale para a COBRANÇA (cadastro + data), não só para
+ *    a linha que o recebeu: um lançamento regular ABERTO (sem pagamento e sem
+ *    fatura congelada) do mesmo cadastro com a mesma data de cobrança é sombra
+ *    da cobrança pulada e não cobra em competência nenhuma.
+ * 2. "Restaurar" volta a cobrança EXATAMENTE uma vez: o marcador restaurado sem
+ *    dado próprio some quando outro lançamento já representa a mesma cobrança.
+ *
+ * Fatos pagos/congelados, recargas/extras e cobranças de outras datas nunca
+ * são tocados. Nada é gravado no banco.
+ */
+export function effectiveOccurrences(occurrences: FinanceOccurrence[]): FinanceOccurrence[] {
+  const cached = effectiveCache.get(occurrences);
+  if (cached) return cached;
+  const skippedKeys = new Map<string, Set<string>>();
+  const activeKeys = new Map<string, Set<string>>();
+  const add = (map: Map<string, Set<string>>, key: string, id: string) => {
+    const set = map.get(key) ?? new Set<string>();
+    set.add(id);
+    map.set(key, set);
+  };
+  for (const occ of occurrences) {
+    if (occurrenceEntryRole(occ) !== "regular") continue;
+    const date = chargeIdentityDate(occ);
+    if (!date) continue;
+    const key = `${occ.item_id}|${date}`;
+    if (isSkippedOccurrence(occ)) add(skippedKeys, key, occ.id);
+    else if (!isEmptyRestoredMarker(occ)) add(activeKeys, key, occ.id);
+  }
+  const result = occurrences.filter((occ) => {
+    if (isSkippedOccurrence(occ) || occurrenceEntryRole(occ) !== "regular") return true;
+    const date = chargeIdentityDate(occ);
+    if (!date) return true;
+    const key = `${occ.item_id}|${date}`;
+    if (isEmptyRestoredMarker(occ)) {
+      const others = activeKeys.get(key);
+      return !others || others.size === 0;
+    }
+    if (isClosedFact(occ)) return true;
+    const skips = skippedKeys.get(key);
+    return !skips || skips.size === 0;
+  });
+  effectiveCache.set(occurrences, result);
+  return result;
+}
+
+/**
+ * Já existe um pulo para esta cobrança (cadastro + data)? Usado para impedir
+ * que salvar uma previsão recrie a cobrança pulada — volta só por "Restaurar".
+ */
+export function skippedChargeFor(
+  occurrences: FinanceOccurrence[],
+  itemId: string,
+  date: string | null | undefined,
+): FinanceOccurrence | null {
+  if (!date) return null;
+  const day = String(date).slice(0, 10);
+  return (
+    occurrences.find(
+      (occ) =>
+        occ.item_id === itemId &&
+        isSkippedOccurrence(occ) &&
+        occurrenceEntryRole(occ) === "regular" &&
+        chargeIdentityDate(occ) === day,
+    ) ?? null
+  );
+}
+
+/**
  * Constrói as linhas do mês combinando ocorrências reais e projeções.
  * Nunca cria nada no banco.
  *
@@ -687,7 +786,9 @@ export function buildMonthRows(params: {
   /** Versões de regra de recorrência (histórico). Opcional. */
   rules?: FinanceRecurrenceRule[];
 }): MonthRow[] {
-  const { items, occurrences, competence } = params;
+  const { items, competence } = params;
+  // Status efetivo: sombras de cobrança pulada e marcadores restaurados redundantes saem.
+  const occurrences = effectiveOccurrences(params.occurrences);
   const fallbackRate = params.fallbackRate ?? null;
   const rules = params.rules ?? [];
   const competenceISO = competenceToISO(competence);

@@ -117,6 +117,7 @@ import {
   compositionOriginOptions,
   compositionTotal,
   normalizeCompositionStatus,
+  skippedEntriesByCard,
 } from "@/lib/financeComposition";
 import {
   AttentionInsight,
@@ -290,6 +291,8 @@ function FinancialCockpit() {
   const occurrenceLabels = useMemo(() => buildOccurrenceLabels(rows), [rows]);
 
   const cardsById = useMemo(() => new Map(cards.map((c) => [c.id, c])), [cards]);
+  /** Pulados do mês da fatura, por cartão: seção própria nos detalhes do cartão. */
+  const skippedByCard = useMemo(() => skippedEntriesByCard(statementSkipped), [statementSkipped]);
   /** Assinaturas só precisam de rótulo/ciclo do cartão — nunca limite ou fatura. */
   const safeCards = useMemo(() => cards.map(toSafeCard), [cards]);
   /**
@@ -1467,6 +1470,8 @@ function FinancialCockpit() {
                 processing={statementBusy}
                 onSaveClosingDate={handleSaveClosingDate}
                 onCorrectPaidDate={correctPaidStatementDate}
+                skippedByCard={skippedByCard}
+                onRestoreSkipped={restoreOccurrence}
                 onEditCard={(card) => openItemModal(card)}
                 onEditItem={(item) => openItemModal(item)}
               />

@@ -14,7 +14,10 @@ import {
   CreditCard,
   CheckCircle2,
   Pencil,
+  CalendarOff,
+  RotateCcw,
 } from "lucide-react";
+import type { SkippedEntry } from "@/lib/financeModel";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,6 +87,12 @@ interface Props {
    * com auditoria; total/IOF/vínculos preservados). Ausente => sem botão.
    */
   onCorrectPaidDate?: (occurrenceId: string, paidDateISO: string) => Promise<boolean>;
+  /**
+   * Cobranças PULADAS deste cartão no mês da fatura (por cartão). Só exibição:
+   * ficam numa seção própria, fora da composição e do total.
+   */
+  skippedByCard?: Record<string, SkippedEntry[]>;
+  onRestoreSkipped?: (occurrenceId: string) => Promise<boolean>;
 }
 
 function Fact({ label, value, tone, hint }: { label: string; value: string; tone?: "muted" | "warning"; hint?: string }) {
@@ -118,6 +127,8 @@ export default function StatementPanel({
   processing,
   onSaveClosingDate,
   onCorrectPaidDate,
+  skippedByCard,
+  onRestoreSkipped,
 }: Props) {
   /** Mesma decisão global de visibilidade de valores do domínio Financeiro. */
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -129,6 +140,7 @@ export default function StatementPanel({
   const [paidDateEditing, setPaidDateEditing] = useState<string | null>(null);
   const [paidDateDraft, setPaidDateDraft] = useState<Record<string, string>>({});
   const [savingPaidDate, setSavingPaidDate] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   useEffect(() => {
     if (focusCardId) setExpanded((prev) => ({ ...prev, [focusCardId]: true }));
@@ -147,6 +159,7 @@ export default function StatementPanel({
         const gap = cycleGapLabel(card);
         const linked = linkedItems?.[card.id] ?? [];
         const linkedIsOpen = !!linkedOpen[card.id];
+        const skippedHere = skippedByCard?.[card.id] ?? [];
         const itemLabels = buildOccurrenceLabels(group.components);
         const needsFix = linked.filter((l) => l.needsChargeDateCorrection).length;
         const limit = card.card_limit_brl ?? null;
@@ -548,6 +561,47 @@ export default function StatementPanel({
                       );
                     })
                 )}
+              </div>
+            )}
+            {open && skippedHere.length > 0 && (
+              <div className="border-t bg-muted/30">
+                <p className="flex items-center gap-2 px-4 pt-3 text-sm text-muted-foreground">
+                  <CalendarOff className="w-4 h-4 flex-shrink-0" />
+                  Pulados neste mês ({skippedHere.length}) — fora desta fatura e dos totais
+                </p>
+                <div className="divide-y mt-2">
+                  {skippedHere.map((entry) => (
+                    <div
+                      key={entry.occurrence.id}
+                      className="grid grid-cols-[80px_1fr_auto] items-center gap-3 px-4 py-3 text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        {entry.scheduledDate ? formatDayMonth(entry.scheduledDate) : "—"}
+                      </span>
+                      <span className="min-w-0 truncate text-muted-foreground">
+                        {financeItemDisplayName(entry.item)}
+                        <Badge variant="outline" className="ml-2">Pulado neste mês</Badge>
+                      </span>
+                      {onRestoreSkipped ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={restoringId === entry.occurrence.id}
+                          onClick={async () => {
+                            setRestoringId(entry.occurrence.id);
+                            await onRestoreSkipped(entry.occurrence.id);
+                            setRestoringId(null);
+                          }}
+                        >
+                          <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                          {restoringId === entry.occurrence.id ? "Restaurando..." : "Restaurar"}
+                        </Button>
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {needsFix > 0 && (
