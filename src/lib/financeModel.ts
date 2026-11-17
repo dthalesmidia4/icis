@@ -1339,7 +1339,20 @@ export function buildStatementGroups(params: {
           if (row.cardItemId !== card.id) continue;
           // Competência REAL da cobrança (charge_date), não a do loop.
           const actualChargeCompetence = chargeDateCompetence(row.chargeDate, chargeCompetence);
-          if (effectiveCycle) {
+          /**
+           * ALOCAÇÃO EXPLÍCITA (fatura ABERTA): fato real com
+           * `statement_competence_snapshot` informado pertence à fatura do
+           * snapshot, mesmo com `charge_date` fora da janela (ex.: compra de
+           * 13/10 que o banco lançou na fatura seguinte). Sem snapshot, vale a
+           * janela inclusiva. `competence_month` nunca substitui o snapshot.
+           */
+          const snapshotMonth =
+            !statementFrozen && row.occurrence && !row.projected
+              ? (row.occurrence.statement_competence_snapshot ?? "").slice(0, 7) || null
+              : null;
+          if (snapshotMonth) {
+            if (snapshotMonth !== monthISOForCard) continue;
+          } else if (effectiveCycle) {
             /**
              * JANELA EFETIVA manda: a cobrança entra pela `charge_date` dentro
              * de [início, fim] (limites inclusivos), independentemente da
