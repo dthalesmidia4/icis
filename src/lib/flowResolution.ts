@@ -62,7 +62,10 @@ export function pickFunctionForAssignee(params: PickFunctionParams): string | nu
   const usable = (k: string) => {
     if (!allowedKeys.has(k)) return false;
     if (administrative && k !== currentFunctionKey && isClientFacingFunction(k)) return false;
-    if (completions && hasUserCompletedStage(completions, k, assigneeUserId)) return false;
+    // Administrativo: a etapa atual válida é preservada mesmo com entrega
+    // anterior do mesmo usuário (como o kernel faz).
+    const keepCurrent = !!administrative && k === currentFunctionKey;
+    if (!keepCurrent && completions && hasUserCompletedStage(completions, k, assigneeUserId)) return false;
     // Anti-autorrevisão: quem executou a etapa anterior não recebe a revisão.
     // `testar` fica fora: quem desenvolveu pode testar o próprio desenvolvimento.
     if (completions && requiresIndependentReviewer(k)) {

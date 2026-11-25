@@ -604,7 +604,7 @@ export default function TaskCard({
   const [regressing, setRegressing] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
   const [pipelineSequence, setPipelineSequence] = useState<{ function_key: string; name: string }[]>([]);
-  const [stepPickerOpen, setStepPickerOpen] = useState(false);
+  const [stepPickerOpen, setStepPickerOpen] = useState<false | "header" | "meta">(false);
   const [jumpingStep, setJumpingStep] = useState(false);
   const [pendingJump, setPendingJump] = useState<{ key: string; name: string; skippedKeys: string[]; skippedNames: string[] } | null>(null);
   const [delivering, setDelivering] = useState(false);
@@ -1204,6 +1204,111 @@ export default function TaskCard({
     }
     executionStep();
   };
+  // Troca manual de etapa — implementação única usada no header e na faixa de metadados.
+  const doJump = async (key: string, skippedKeys: string[] = []) => {
+    if (!card) return;
+    const curKey = card.current_function_key;
+if (!card.tenant_id || !card.demand_type_key || jumpingStep) return;
+                      setJumpingStep(true);
+                      try {
+                        const r = await jumpToFunction({
+                          demandId: card.id,
+                          tenantId: card.tenant_id,
+                          demandTypeKey: card.demand_type_key,
+                          targetFunctionKey: key,
+                          currentFunctionKey: curKey,
+                          skippedStages: skippedKeys,
+                        });
+                        if (r.success) {
+                          toast.success(r.message);
+                          if (r.flowState) {
+                            reconcileFlowResult(r);
+                          } else {
+                            onCardChange({ ...card, assigned_to: r.assignedTo || null, current_function_key: r.functionKey || null });
+                          }
+                          setStepPickerOpen(false);
+                        } else if (r.stale) {
+                          toast.warning(r.message);
+                          reconcileFlowResult(r);
+                          setStepPickerOpen(false);
+                        } else {
+                          toast.error(r.message);
+                        }
+                        return r;
+                      } finally {
+                        setJumpingStep(false);
+                      }
+                    };
+
+                    /** Salto que ignora 2+ etapas obrigatórias pede confirmação. */
+                    const requestJump = (target: { function_key: string; name: string }, targetIdx: number) => {
+                      const seq = pipelineSequence;
+                      const curKey = card?.current_function_key;
+                      const curIdx = curKey ? seq.findIndex((s) => s.function_key === curKey) : -1;
+                      const between = curIdx >= 0 && targetIdx > curIdx + 1 ? seq.slice(curIdx + 1, targetIdx) : [];
+                      // Mudança manual de etapa também passa pelo auxílio de pendências.
+                      runWithPendingChangesGuard("Mudar etapa", () => {
+                        if (between.length >= 2) {
+                          setPendingJump({
+                            key: target.function_key,
+                            name: target.name,
+                            skippedKeys: between.map((s) => s.function_key),
+                            skippedNames: between.map((s) => s.name),
+                          });
+                          return;
+                        }
+                        return doJump(target.function_key, between.map((s) => s.function_key));
+                      });
+                    };
+
+  const renderStepPicker = (curName: string, variant: "header" | "meta") => {
+    const seq = pipelineSequence;
+    const curKey = card?.current_function_key;
+    return (
+<Popover open={stepPickerOpen === variant} onOpenChange={(o) => setStepPickerOpen(o ? variant : false)}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={variant === "header" ? "h-8 gap-1 text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/70 border-x border-border/40 rounded-none px-2" : "h-7 gap-1 text-sm font-normal px-1.5 hover:bg-background/60"}
+                                disabled={seq.length === 0 || (variant === "meta" && readOnly)}
+                                title="Selecionar etapa manualmente"
+                                aria-label="Selecionar etapa do fluxo"
+                              >
+                                {variant === "meta" && <span className="text-muted-foreground">Etapa:</span>}
+<span className="max-w-[160px] truncate">{curName}</span>
+                                <ChevronDown className="h-3 w-3 opacity-70" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="center" className="w-56 p-1">
+                              <div className="max-h-72 overflow-y-auto">
+                                {seq.map((s, i) => {
+                                  const active = s.function_key === curKey;
+                                  return (
+                                    <button
+                                      key={s.function_key}
+                                      type="button"
+                                      disabled={active || jumpingStep}
+                                      onClick={() => requestJump(s, i)}
+                                      className={cn(
+                                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left transition-colors",
+                                        active ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted",
+                                        jumpingStep && "opacity-60 cursor-wait",
+                                      )}
+                                    >
+                                      <span className="w-4 shrink-0 text-muted-foreground">{i + 1}.</span>
+                                      <span className="truncate flex-1">{s.name}</span>
+                                      {active && <Check className="h-3.5 w-3.5" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+    );
+  };
+
+
 
   const executeProceed = async (forcedAssigneeId?: string | null) => {
     if (!card || proceeding) return;
@@ -3209,58 +3314,6 @@ export default function TaskCard({
                               ? `Enviar ${rp?.functionName || nextLabel} para ${directCandidate.fullName}${directCandidate.preferred ? " (preferencial para este cliente)" : ""}`
                               : `Enviar para ${nextLabel}`;
 
-                    const doJump = async (key: string, skippedKeys: string[] = []) => {
-                      if (!card.tenant_id || !card.demand_type_key || jumpingStep) return;
-                      setJumpingStep(true);
-                      try {
-                        const r = await jumpToFunction({
-                          demandId: card.id,
-                          tenantId: card.tenant_id,
-                          demandTypeKey: card.demand_type_key,
-                          targetFunctionKey: key,
-                          currentFunctionKey: curKey,
-                          skippedStages: skippedKeys,
-                        });
-                        if (r.success) {
-                          toast.success(r.message);
-                          if (r.flowState) {
-                            reconcileFlowResult(r);
-                          } else {
-                            onCardChange({ ...card, assigned_to: r.assignedTo || null, current_function_key: r.functionKey || null });
-                          }
-                          setStepPickerOpen(false);
-                        } else if (r.stale) {
-                          toast.warning(r.message);
-                          reconcileFlowResult(r);
-                          setStepPickerOpen(false);
-                        } else {
-                          toast.error(r.message);
-                        }
-                        return r;
-                      } finally {
-                        setJumpingStep(false);
-                      }
-                    };
-
-                    /** Salto que ignora 2+ etapas obrigatórias pede confirmação. */
-                    const requestJump = (target: { function_key: string; name: string }, targetIdx: number) => {
-                      const between = curIdx >= 0 && targetIdx > curIdx + 1 ? seq.slice(curIdx + 1, targetIdx) : [];
-                      // Mudança manual de etapa também passa pelo auxílio de pendências.
-                      runWithPendingChangesGuard("Mudar etapa", () => {
-                        if (between.length >= 2) {
-                          setPendingJump({
-                            key: target.function_key,
-                            name: target.name,
-                            skippedKeys: between.map((s) => s.function_key),
-                            skippedNames: between.map((s) => s.name),
-                          });
-                          return;
-                        }
-                        return doJump(target.function_key, between.map((s) => s.function_key));
-                      });
-                    };
-
-
                     return (
                       <div className="flex items-center gap-0 shrink-0 rounded-md bg-muted/30 px-0.5 py-0.5">
                         {prev && (() => {
@@ -3323,47 +3376,7 @@ export default function TaskCard({
                             </Popover>
                           );
                         })()}
-                        {curKey && (
-                          <Popover open={stepPickerOpen} onOpenChange={setStepPickerOpen}>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 gap-1 text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/70 border-x border-border/40 rounded-none px-2"
-                                disabled={seq.length === 0}
-                                title="Selecionar etapa manualmente"
-                                aria-label="Selecionar etapa do fluxo"
-                              >
-                                <span className="max-w-[160px] truncate">{curName}</span>
-                                <ChevronDown className="h-3 w-3 opacity-70" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="center" className="w-56 p-1">
-                              <div className="max-h-72 overflow-y-auto">
-                                {seq.map((s, i) => {
-                                  const active = s.function_key === curKey;
-                                  return (
-                                    <button
-                                      key={s.function_key}
-                                      type="button"
-                                      disabled={active || jumpingStep}
-                                      onClick={() => requestJump(s, i)}
-                                      className={cn(
-                                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left transition-colors",
-                                        active ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted",
-                                        jumpingStep && "opacity-60 cursor-wait",
-                                      )}
-                                    >
-                                      <span className="w-4 shrink-0 text-muted-foreground">{i + 1}.</span>
-                                      <span className="truncate flex-1">{s.name}</span>
-                                      {active && <Check className="h-3.5 w-3.5" />}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        )}
+                        {curKey && renderStepPicker(curName, "header")}
                         <AlertDialog open={!!pendingJump} onOpenChange={(open) => { if (!open) setPendingJump(null); }}>
                           <AlertDialogContent>
                             <AlertDialogHeader>
@@ -3835,6 +3848,7 @@ export default function TaskCard({
                           const resolvedKey = resolution?.functionKey ?? null;
                           const willRemap =
                             !isDraft &&
+                            c.id !== card.assigned_to &&
                             !!resolvedKey &&
                             !!card.current_function_key &&
                             resolvedKey !== card.current_function_key;
@@ -4083,6 +4097,19 @@ export default function TaskCard({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Etapa (separada do Tipo) — mesmo seletor/transição do header */}
+                  {card.current_function_key && pipelineSequence.length > 0 && (() => {
+                    const cur = pipelineSequence.find((f) => f.function_key === card.current_function_key);
+                    return (
+                      <>
+                        <span className="text-muted-foreground/40 select-none">·</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          {renderStepPicker(cur?.name || card.current_function_key, "meta")}
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   <span className="text-muted-foreground/40 select-none">·</span>
 

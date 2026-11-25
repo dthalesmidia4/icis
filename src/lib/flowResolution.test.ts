@@ -177,3 +177,22 @@ describe("pickFunctionForAssignee — etapa de Testar", () => {
     ).toBeNull();
   });
 });
+
+describe("pickFunctionForAssignee — administrativo preserva etapa atual", () => {
+  it("mantém testar atual mesmo com entrega anterior do mesmo usuário", async () => {
+    const { pickFunctionForAssignee } = await import("./flowResolution");
+    const completions = new Map<string, any>([
+      ["desenvolver", { userIds: new Set(["eric"]), userId: "eric" }],
+      ["testar", { userIds: new Set(["eric"]), userId: "eric" }],
+    ]);
+    const r = pickFunctionForAssignee({
+      sequence: ["especificar", "desenvolver", "testar", "revisar"],
+      allowedKeys: new Set(["desenvolver", "testar"]),
+      completions: completions as any,
+      assigneeUserId: "eric",
+      currentFunctionKey: "testar",
+      administrative: true,
+    });
+    expect(r).toBe("testar");
+  });
+});
