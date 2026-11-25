@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { deliverDemand, jumpToFunction } from "./proceedDemand";
+import { deliverDemand, jumpToFunction, proceedDemand } from "./proceedDemand";
 
 const mocks = vi.hoisted(() => ({
   candidates: vi.fn(),
@@ -70,5 +70,115 @@ describe("conclusão canônica", () => {
   it("propaga falha do kernel sem retornar conclusão bem-sucedida", async () => {
     mocks.transition.mockResolvedValue({ status: "blocked", message: "Falha de conclusão" });
     expect(await deliverDemand("d1", "p1")).toEqual({ success: false, message: "Falha de conclusão" });
+  });
+});
+
+const SISTEMAS_SEQ = [
+  { function_key: "desenvolver", name: "Desenvolver" },
+  { function_key: "testar", name: "Testar" },
+  { function_key: "revisar", name: "Revisar" },
+  { function_key: "publicar", name: "Publicar" },
+];
+const SISTEMAS_RULES = SISTEMAS_SEQ.map((f) => ({
+  function_key: f.function_key,
+  requirement: "required",
+}));
+
+/** Card de Sistemas em Desenvolver, responsável `eric` (tem a função Testar). */
+const mockSistemasFlow = (assignments: any[] | null = [{ id: "a1" }]) => {
+  mocks.from.mockImplementation((table: string) => {
+    const data =
+      table === "demands"
+        ? {
+            id: "d1",
+            tenant_id: "t1",
+            assigned_to: "eric",
+            current_function_key: "desenvolver",
+            additional_assignees: [],
+            work_area: "sistemas",
+            origin: "interno",
+            demand_type_key: "desenvolvimento",
+            due_date: null,
+            delivery_date: null,
+          }
+        : table === "flow_functions"
+          ? SISTEMAS_SEQ
+          : table === "demand_type_flow_rules"
+            ? SISTEMAS_RULES
+            : table === "collaborator_function_assignments"
+              ? assignments
+              : table === "profiles"
+                ? { id: "eric", full_name: "Eric" }
+                : table === "pipeline_statuses"
+                  ? [{ id: "published", name: "Publicado" }, { id: "done", name: "Feito" }]
+                  : [];
+    const result = { data, error: null };
+    const query = {
+      select: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      order: vi.fn(async () => result),
+      maybeSingle: vi.fn(async () => result),
+      then: (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve),
+    };
+    return query;
+  });
+};
+
+const jumpToSystemsStage = (targetFunctionKey: string) =>
+  jumpToFunction({
+    demandId: "d1",
+    tenantId: "t1",
+    demandTypeKey: "desenvolvimento",
+    targetFunctionKey,
+    currentFunctionKey: "desenvolver",
+  });
+
+describe("etapa de Testar: quem desenvolveu pode testar o próprio desenvolvimento", () => {
+  it("salto manual para Testar mantém quem desenvolveu, sem excluir ninguém", async () => {
+    mockSistemasFlow();
+    mocks.candidates.mockResolvedValue([]);
+    const res = await jumpToSystemsStage("testar");
+    expect(res).toMatchObject({ success: true, assignedTo: "eric", functionKey: "testar" });
+    expect(mocks.transition).toHaveBeenCalledWith(
+      expect.objectContaining({ targetUserId: "eric", targetFunctionKey: "testar" }),
+    );
+    expect(mocks.candidates).not.toHaveBeenCalled();
+  });
+
+  it("prosseguir de Desenvolver para Testar prefere quem desenvolveu", async () => {
+    mockSistemasFlow();
+    mocks.candidates.mockResolvedValue([{ userId: "eric", fullName: "Eric", preferred: false }]);
+    const res = await proceedDemand({
+      demandId: "d1",
+      tenantId: "t1",
+      demandTypeKey: "desenvolvimento",
+      currentFunctionKey: "desenvolver",
+    });
+    expect(res).toMatchObject({ success: true, assignedTo: "eric", functionKey: "testar" });
+    expect(mocks.candidates).toHaveBeenCalledWith(
+      expect.objectContaining({ functionKey: "testar", excludeUserIds: [] }),
+    );
+    expect(mocks.transition).toHaveBeenCalledWith(
+      expect.objectContaining({ targetFunctionKey: "testar", preferredUserId: "eric" }),
+    );
+  });
+
+  it("sem a função Testar habilitada, o salto não mantém o responsável", async () => {
+    mockSistemasFlow(null);
+    mocks.candidates.mockResolvedValue([]);
+    const res = await jumpToSystemsStage("testar");
+    expect(res.success).toBe(false);
+    expect(mocks.transition).not.toHaveBeenCalled();
+  });
+
+  it("revisão continua exigindo revisor diferente de quem desenvolveu", async () => {
+    mockSistemasFlow();
+    mocks.candidates.mockResolvedValue([]);
+    const res = await jumpToSystemsStage("revisar");
+    expect(res.success).toBe(false);
+    expect(mocks.candidates).toHaveBeenCalledWith(
+      expect.objectContaining({ functionKey: "revisar", excludeUserIds: ["eric"] }),
+    );
+    expect(mocks.transition).not.toHaveBeenCalled();
   });
 });

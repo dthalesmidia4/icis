@@ -3,7 +3,7 @@ import { recordStageTouchpoint } from "@/lib/recordTouchpoint";
 import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
-import { isReviewFunction } from "@/lib/flowFunctions";
+import { isReviewFunction, requiresIndependentReviewer } from "@/lib/flowFunctions";
 import { userHasFunction, fetchUserAllowedFunctionKeys } from "@/lib/clientStageAssignments";
 import {
   pickCompatibleReturnStage,
@@ -767,7 +767,9 @@ export interface ResolvedNextStage {
  * Resolve a próxima etapa + responsável a partir de `startIndex`, aplicando:
  *  - sticky nas etapas de produção (mantém quem já está no card);
  *  - revisão nunca é auto-revisão: se o único revisor possível for quem executou,
- *    a etapa de revisão é pulada e o fluxo avança (em cascata).
+ *    a etapa de revisão é pulada e o fluxo avança (em cascata);
+ *  - `testar` não é revisão independente: o responsável atual é preferido quando
+ *    tem a função habilitada.
  */
 async function resolveNextStage(
   tenantId: string,
@@ -785,8 +787,13 @@ async function resolveNextStage(
       return { fn, picked: null, skipped };
     }
     if (isReviewFunction(fn.function_key)) {
+      // Revisão independente: nunca quem executou a etapa anterior. `testar` fica
+      // fora dessa regra — quem desenvolveu pode testar o próprio desenvolvimento,
+      // então o responsável atual é preferido (como nas etapas de produção) e a
+      // etapa só é dispensada quando ninguém tem a função habilitada.
+      const independent = requiresIndependentReviewer(fn.function_key);
       const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
-        excludeUserIds: executors,
+        ...(independent ? { excludeUserIds: executors } : { preferUserIds: executors }),
         workArea: area,
         clientId: clientId ?? null,
       });
@@ -1005,13 +1012,15 @@ export async function jumpToFunction({
   const isBackward = curIdx >= 0 && targetIdx >= 0 && targetIdx < curIdx;
 
   // Salto manual: mantém quem já está no card quando a etapa é de produção;
-  // etapas de revisão nunca caem em quem executou a etapa anterior.
-  const isReviewTarget = isReviewFunction(target.function_key);
+  // etapas de revisão nunca caem em quem executou a etapa anterior — exceto
+  // `testar`, que quem desenvolveu pode executar no próprio desenvolvimento.
+  const isReviewTarget = requiresIndependentReviewer(target.function_key);
   let picked: PickAssigneeResult | null = null;
 
   // Aderência ao responsável atual: se ele tem a função da etapa de destino
   // habilitada na área do card, ele permanece — independente da etapa ser ou
-  // não "sticky". Revisão continua fora (ninguém revisa o que produziu).
+  // não "sticky". Revisão continua fora (ninguém revisa o que produziu);
+  // `testar` entra, porque testar o próprio desenvolvimento é válido.
   if (prevUser && !isReviewTarget) {
     const holds = await userHasFunction(tenantId, prevUser, target.function_key, jumpArea as any);
     if (holds) {
@@ -1212,7 +1221,7 @@ export async function previewNextStageRouting({
     clientId: meta.clientId,
     workArea: meta.workArea,
     functionKey: fn.function_key,
-    excludeUserIds: isReviewFunction(fn.function_key) ? executors : [],
+    excludeUserIds: requiresIndependentReviewer(fn.function_key) ? executors : [],
   });
   return {
     available: true,
@@ -1347,7 +1356,7 @@ export async function proceedDemand({
       clientId: flowMeta.clientId,
       workArea: flowArea,
       functionKey: nextFn.function_key,
-      excludeUserIds: isReviewFunction(nextFn.function_key) ? executors : [],
+      excludeUserIds: requiresIndependentReviewer(nextFn.function_key) ? executors : [],
     });
     const match = eligible.find((c) => c.userId === forcedAssigneeId);
     if (!match) {

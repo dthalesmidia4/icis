@@ -18,8 +18,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   isClientFacingFunction,
-  isReviewFunction,
   normalizeWorkArea,
+  requiresIndependentReviewer,
   type WorkArea,
 } from "@/lib/flowFunctions";
 import { loadFlowSequenceKeys } from "@/lib/demandTransition";
@@ -113,7 +113,10 @@ export function computeStageOptions(params: ComputeStageOptionsParams): StageOpt
 
     if (!allowed.has(key)) reason = "not_allowed";
     else if (!manual && completed.has(key) && key !== current) reason = "already_completed";
-    else if (isReviewFunction(key) && completed.has(params.sequence[index - 1]?.functionKey || ""))
+    else if (
+      requiresIndependentReviewer(key) &&
+      completed.has(params.sequence[index - 1]?.functionKey || "")
+    )
       reason = "self_review";
     else if (administrative && clientFacing && key !== current) reason = "client_facing";
     else if (administrative && outsideFlow) reason = "outside_flow";

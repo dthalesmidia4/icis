@@ -121,3 +121,59 @@ describe("resolveFunctionsFromContext", () => {
     ).toEqual({ u1: "criar_arte", u2: "revisar_arte", u3: null });
   });
 });
+
+describe("pickFunctionForAssignee — etapa de Testar", () => {
+  const sequence = ["desenvolver", "testar", "publicar"];
+
+  it("quem desenvolveu e tem Testar habilitada recebe Testar", () => {
+    expect(
+      pickFunctionForAssignee({
+        sequence,
+        allowedKeys: new Set(["desenvolver", "testar"]),
+        completions: completionsFor("desenvolver", "u1"),
+        assigneeUserId: "u1",
+        currentFunctionKey: "desenvolver",
+        administrative: false,
+      }),
+    ).toBe("testar");
+  });
+
+  it("mantém Testar quando ele é a etapa atual e o responsável tem a função", () => {
+    expect(
+      pickFunctionForAssignee({
+        sequence,
+        allowedKeys: new Set(["desenvolver", "testar"]),
+        completions: completionsFor("desenvolver", "u1"),
+        assigneeUserId: "u1",
+        currentFunctionKey: "testar",
+        administrative: false,
+      }),
+    ).toBe("testar");
+  });
+
+  it("sem a função Testar habilitada, não recebe a etapa", () => {
+    expect(
+      pickFunctionForAssignee({
+        sequence,
+        allowedKeys: new Set(["desenvolver"]),
+        completions: completionsFor("desenvolver", "u1"),
+        assigneeUserId: "u1",
+        currentFunctionKey: "desenvolver",
+        administrative: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("revisão independente continua bloqueada para quem desenvolveu", () => {
+    expect(
+      pickFunctionForAssignee({
+        sequence: ["desenvolver", "revisar", "publicar"],
+        allowedKeys: new Set(["desenvolver", "revisar"]),
+        completions: completionsFor("desenvolver", "u1"),
+        assigneeUserId: "u1",
+        currentFunctionKey: "desenvolver",
+        administrative: false,
+      }),
+    ).toBeNull();
+  });
+});

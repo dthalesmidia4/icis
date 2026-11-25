@@ -63,6 +63,20 @@ export function isReviewFunction(key?: string | null): boolean {
   return k.startsWith("revis");
 }
 
+/**
+ * Etapas que exigem revisor DIFERENTE de quem executou a etapa anterior.
+ *
+ * `isReviewFunction` continua sendo a referência visual/operacional (agrupamentos,
+ * filas, prioridades, segmentos) — a semântica global dela não muda. Esta função é
+ * usada SÓ nas decisões de independência: `testar` é verificação do próprio
+ * trabalho, então quem desenvolveu e tem a função habilitada pode testar o próprio
+ * desenvolvimento.
+ */
+export function requiresIndependentReviewer(key?: string | null): boolean {
+  if (!key) return false;
+  return isReviewFunction(key) && key.trim().toLowerCase() !== "testar";
+}
+
 
 export function isEvaluationFunction(key?: string | null): boolean {
   if (!key) return false;

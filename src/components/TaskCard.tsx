@@ -3332,6 +3332,7 @@ export default function TaskCard({
                                 className="h-8 gap-1 text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/70 border-x border-border/40 rounded-none px-2"
                                 disabled={seq.length === 0}
                                 title="Selecionar etapa manualmente"
+                                aria-label="Selecionar etapa do fluxo"
                               >
                                 <span className="max-w-[160px] truncate">{curName}</span>
                                 <ChevronDown className="h-3 w-3 opacity-70" />

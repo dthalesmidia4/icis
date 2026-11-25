@@ -10,7 +10,7 @@
  * Nada é gravado neste arquivo.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { isClientFacingFunction, isReviewFunction, type WorkArea } from "@/lib/flowFunctions";
+import { isClientFacingFunction, requiresIndependentReviewer, type WorkArea } from "@/lib/flowFunctions";
 import { pickAdministrativeStage } from "@/lib/flowSegments";
 import { getStageCompletions, hasUserCompletedStage, type StageCompletion } from "@/lib/stageCompletions";
 
@@ -63,7 +63,9 @@ export function pickFunctionForAssignee(params: PickFunctionParams): string | nu
     if (!allowedKeys.has(k)) return false;
     if (administrative && k !== currentFunctionKey && isClientFacingFunction(k)) return false;
     if (completions && hasUserCompletedStage(completions, k, assigneeUserId)) return false;
-    if (completions && isReviewFunction(k)) {
+    // Anti-autorrevisão: quem executou a etapa anterior não recebe a revisão.
+    // `testar` fica fora: quem desenvolveu pode testar o próprio desenvolvimento.
+    if (completions && requiresIndependentReviewer(k)) {
       const prev = sequence[sequence.indexOf(k) - 1];
       if (prev && hasUserCompletedStage(completions, prev, assigneeUserId)) return false;
     }
